@@ -1,18 +1,12 @@
 --[[
     Neverlose.cc Style UI Library for Severe
-    Version: 12.4 (Color Picker UI Implementation)
+    Version: 12.5 (Color Picker Crash Fix)
     Developer: Gemini AI & Dicky_Micky_
 
-    - [FIX] The footer text ("UI by...") in the About window now has a fixed position and is no longer
-            pushed down by new rows of theme circles.
-    - [REWORK] The color picker now appears at the mouse's position when a color is clicked, functioning
-            like a context menu.
-    - [ADD] The color picker UI has been built out:
-        - Main color square increased to 160x160px.
-        - Hue slider with a rotated rainbow image has been added.
-        - Opacity slider with a black gradient has been added.
-        - Indicators (nubs) have been added to both sliders.
-    - [ADJUST] The layout of the color picker has been refined to ensure even padding and a clean look.
+    - [FIX] Resolved a critical crash caused by attempting to use a non-existent 'Rotation' property on Image objects.
+            The API does not support this. The code now requires a pre-rotated image for the hue slider.
+    - [NOTE] A placeholder URL is used for the Hue Slider. It needs to be replaced with a URL to an
+            image that has been rotated 90 degrees.
 ]]
 
 local Library = {}
@@ -372,7 +366,8 @@ function Library:_InitializeColorPickerWindow()
     picker.ColorSquare = self:_CreateDrawingObject("Square"); if picker.ColorSquare then picker.ColorSquare.Filled = true; picker.ColorSquare.zIndex = z + 1; end
     picker.GradientOverlay = self:_CreateDrawingObject("Image"); if picker.GradientOverlay then picker.GradientOverlay.Url = "https://pixeldrain.com/api/filesystem/6mLiDUiK"; picker.GradientOverlay.zIndex = z + 2; end
     
-    picker.HueSlider = self:_CreateDrawingObject("Image"); if picker.HueSlider then picker.HueSlider.Url = "https://pixeldrain.com/api/filesystem/LukLUWPx"; picker.HueSlider.zIndex = z + 1; picker.HueSlider.Rotation = 90; end
+    -- TODO: Replace the URL below with a 90-degree rotated version of the Hue slider image
+    picker.HueSlider = self:_CreateDrawingObject("Image"); if picker.HueSlider then picker.HueSlider.Url = "https://pixeldrain.com/api/filesystem/LukLUWPx"; picker.HueSlider.zIndex = z + 1; end
     picker.HueNub = self:_CreateDrawingObject("Circle"); if picker.HueNub then picker.HueNub.Filled = true; picker.HueNub.Radius = 5; picker.HueNub.zIndex = z + 2; end
 
     picker.OpacitySlider = self:_CreateDrawingObject("Image"); if picker.OpacitySlider then picker.OpacitySlider.Url = "https://pixeldrain.com/api/filesystem/2py1vehq"; picker.OpacitySlider.zIndex = z + 1; picker.OpacitySlider.Color = {0,0,0}; end
@@ -1321,9 +1316,9 @@ function Library:_Internal_CreateMultidropdown(options)
     if multidropdown.OptionBackground then multidropdown.OptionBackground.Filled = true; multidropdown.OptionBackground.zIndex = z + 9; multidropdown.OptionBackground.Visible = false; multidropdown.OptionBackground.Rounding = self.ActiveTheme.Rounding.Element; end
     if multidropdown.ArrowLine1 then multidropdown.ArrowLine1.Thickness = 2; multidropdown.ArrowLine1.zIndex = z + 2; end
     if multidropdown.ArrowLine2 then multidropdown.ArrowLine2.Thickness = 2; multidropdown.ArrowLine2.zIndex = z + 2; end
-    if multidropdown.BorderLeft then multidropdown.BorderLeft.Thickness = 1; multidropdown.BorderLeft.zIndex = z + 10; multidropdown.BorderLeft.Visible = false; end
-    if multidropdown.BorderRight then multidropdown.BorderRight.Thickness = 1; multidropdown.BorderRight.zIndex = z + 10; multidropdown.BorderRight.Visible = false; end
-    if multidropdown.BorderBottom then multidropdown.BorderBottom.Thickness = 1; multidropdown.BorderBottom.zIndex = z + 10; multidropdown.BorderBottom.Visible = false; end
+    if dropdown.BorderLeft then dropdown.BorderLeft.Thickness = 1; dropdown.BorderLeft.zIndex = z + 10; dropdown.BorderLeft.Visible = false; end
+    if dropdown.BorderRight then dropdown.BorderRight.Thickness = 1; dropdown.BorderRight.zIndex = z + 10; dropdown.BorderRight.Visible = false; end
+    if dropdown.BorderBottom then dropdown.BorderBottom.Thickness = 1; dropdown.BorderBottom.zIndex = z + 10; dropdown.BorderBottom.Visible = false; end
     for i, option in ipairs(multidropdown.Options) do local optionText = self:_CreateDrawingObject("Text"); if optionText then optionText.Font = self.ActiveTheme.Fonts.Main; optionText.Size = self.ActiveTheme.Fonts.Size; optionText.Text = option; optionText.Center = false; optionText.Outline = false; optionText.zIndex = z + 10; optionText.Visible = false; end table.insert(multidropdown.OptionList, optionText) end
     return multidropdown
 end
@@ -1402,3 +1397,4 @@ function Library:Create()
 end
 
 return Library
+
