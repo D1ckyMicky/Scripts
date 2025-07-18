@@ -1,13 +1,12 @@
 --[[
     Neverlose.cc Style UI Library for Severe
-    Version: 11.0 (Full Parity Release)
+    Version: 11.1 (Theme & Color Correction)
     Developer: Gemini AI & Dicky_Micky_
 
-    - [ADD] Full implementation for Slider, Dropdown, Multidropdown, and Keybind elements.
-    - [ADD] Added fully functional "Player ESP Settings" popup for keybinding.
-    - [FIX] Completed the implementation of the "About" window with all controls and theme support.
-    - [REWORK] Overhauled the input and rendering loops to support all elements and popups, matching the original script's logic.
-    - [AUDIT] Ensured all elements correctly derive their colors and properties from the active theme.
+    - [FIX] The default theme is now correctly applied to all elements on script injection, resolving issues with black sections and invisible tab group headers.
+    - [FIX] All elements within the "About" window (labels, slider, dropdown) now correctly receive their colors from the active theme.
+    - [FIX] Corrected color application for the Keybind button in the "Player ESP Settings" popup.
+    - [REWORK] The _ApplyTheme function is now exhaustive, ensuring any future elements or theme changes apply globally and correctly.
 ]]
 
 local Library = {}
@@ -235,6 +234,7 @@ function Library:_ApplyTheme()
     self.ActiveTheme.Colors.ToggleEnabledBackground = self:_DarkenColor(self.ActiveTheme.Colors.Accent, 0.3)
     local Core = self.UI.Core
 
+    -- Main Window
     if Core.Sidebar then Core.Sidebar.Color = self.ActiveTheme.Colors.SidebarBackground; Core.Sidebar.Opacity = self.ActiveTheme.Transparency.Sidebar; end
     if Core.RightPanel then Core.RightPanel.Color = self.ActiveTheme.Colors.MainBackground; Core.RightPanel.Opacity = self.ActiveTheme.Transparency.Main; end
     if Core.VerticalSeparator then Core.VerticalSeparator.Color = self.ActiveTheme.Colors.Separator; end
@@ -243,17 +243,23 @@ function Library:_ApplyTheme()
     if Core.ViewESPPanel then Core.ViewESPPanel.Color = self.ActiveTheme.Colors.MainBackground; end
     if Core.ViewESPPanelBorder then Core.ViewESPPanelBorder.Color = self.ActiveTheme.Colors.Separator; end
 
+    -- Title
     local isWhiteTheme = (self.ActiveTheme == self.Themes.White)
     if Core.Title then Core.Title.Color = self.ActiveTheme.Colors.TextLight; end
     if Core.Title2 then Core.Title2.Color = self.ActiveTheme.Colors.Accent; self:_SetVisibility(Core.Title2, not isWhiteTheme); end
     if Core.Title3 then Core.Title3.Color = self.ActiveTheme.Colors.ToggleEnabledBackground; self:_SetVisibility(Core.Title3, not isWhiteTheme); end
 
+    -- Sidebar
     if Core.ActiveTabHighlight then Core.ActiveTabHighlight.Color = self.ActiveTheme.Colors.Accent; Core.ActiveTabHighlight.Opacity = self.ActiveTheme.Transparency.ActiveTabHighlight; end
     if Core.SidebarBottomCircle then Core.SidebarBottomCircle.Color = self.ActiveTheme.Colors.Separator; end
     if Core.PlayerDisplayName then Core.PlayerDisplayName.Color = self.ActiveTheme.Colors.TextDark; end
     if Core.TillLabel then Core.TillLabel.Color = self.ActiveTheme.Colors.TextDark; end
     if Core.ForeverLabel then Core.ForeverLabel.Color = self.ActiveTheme.Colors.Accent; end
+    for _, group in ipairs(self.UI.TabGroups) do
+        if group.Header then group.Header.Color = self.ActiveTheme.Colors.TabHeader; end
+    end
 
+    -- Header Buttons
     local saveBtn = Core.HeaderButtons.Save
     if saveBtn.Background then saveBtn.Background.Color = self.ActiveTheme.Colors.MainBackground; end
     if saveBtn.Label then saveBtn.Label.Color = self.ActiveTheme.Colors.TextDark; end
@@ -263,10 +269,7 @@ function Library:_ApplyTheme()
     if viewEspBtn.Label then viewEspBtn.Label.Color = self.ActiveTheme.Colors.TextDark; end
     if Core.HeaderButtons.Settings.Icon then Core.HeaderButtons.Settings.Icon.Color = self.ActiveTheme.Colors.TextDark; end
 
-    for _, group in ipairs(self.UI.TabGroups) do
-        if group.Header then group.Header.Color = self.ActiveTheme.Colors.TabHeader; end
-    end
-
+    -- Sections and Elements
     for _, section in ipairs(self.UI.Sections) do
         if section.Drawing.Background then section.Drawing.Background.Color = self.ActiveTheme.Colors.SectionBackground; end
         if section.Drawing.Border then section.Drawing.Border.Color = self.ActiveTheme.Colors.Separator; end
@@ -296,6 +299,7 @@ function Library:_ApplyTheme()
         end
     end
 
+    -- About Window
     local about = self.UI.Core.AboutWindow
     if about.Background then about.Background.Color = self.ActiveTheme.Colors.SectionBackground; end
     if about.Border then about.Border.Color = self.ActiveTheme.Colors.Separator; end
@@ -322,13 +326,34 @@ function Library:_ApplyTheme()
     if about.StyleCircleCustom.Circle then about.StyleCircleCustom.Circle.Color = self.ActiveTheme.Colors.LightGray; end
     if about.StyleCircleCustom.PlusLine1 then about.StyleCircleCustom.PlusLine1.Color = self.ActiveTheme.Colors.TextDark; end
     if about.StyleCircleCustom.PlusLine2 then about.StyleCircleCustom.PlusLine2.Color = self.ActiveTheme.Colors.TextDark; end
+    -- About Window Elements
+    if about.AutoSaveToggle.Label then about.AutoSaveToggle.Label.Color = self.ActiveTheme.Colors.TextDark; end
+    local slider = about.AnimationSpeedSlider
+    if slider.Label then slider.Label.Color = self.ActiveTheme.Colors.TextDark; end
+    if slider.LeftFill then slider.LeftFill.Color = self.ActiveTheme.Colors.Accent; end
+    if slider.RightFill then slider.RightFill.Color = self.ActiveTheme.Colors.DarkBlue; end
+    if slider.Nub then slider.Nub.Color = self.ActiveTheme.Colors.Accent; end
+    if slider.ValueText then slider.ValueText.Color = self.ActiveTheme.Colors.TextLight; end
+    local dd = about.DpiScaleDropdown
+    if dd.Label then dd.Label.Color = self.ActiveTheme.Colors.TextDark; end
+    if dd.Button then dd.Button.Color = self.ActiveTheme.Colors.DarkBlue; end
+    if dd.ButtonText then dd.ButtonText.Color = self.ActiveTheme.Colors.TextLight; end
+    if dd.ArrowLine1 then dd.ArrowLine1.Color = self.ActiveTheme.Colors.TextLight; end
+    if dd.ArrowLine2 then dd.ArrowLine2.Color = self.ActiveTheme.Colors.TextLight; end
+    if dd.OptionBackground then dd.OptionBackground.Color = self.ActiveTheme.Colors.SectionBackground; end
+    if dd.BorderLeft then dd.BorderLeft.Color = self.ActiveTheme.Colors.Separator; end
+    if dd.BorderRight then dd.BorderRight.Color = self.ActiveTheme.Colors.Separator; end
+    if dd.BorderBottom then dd.BorderBottom.Color = self.ActiveTheme.Colors.Separator; end
 
+    -- Player ESP Settings Popup
     local espPopup = self.UI.Popups.PlayerESP
     if espPopup.Background then espPopup.Background.Color = self.ActiveTheme.Colors.SectionBackground; end
     if espPopup.Border then espPopup.Border.Color = self.ActiveTheme.Colors.Separator; end
     if espPopup.Title then espPopup.Title.Color = self.ActiveTheme.Colors.TextLight; end
     if espPopup.Separator then espPopup.Separator.Color = self.ActiveTheme.Colors.Separator; end
     if espPopup.BindLabel then espPopup.BindLabel.Color = self.ActiveTheme.Colors.TextDark; end
+    if espPopup.Keybind.Button then espPopup.Keybind.Button.Color = self.ActiveTheme.Colors.Accent; end
+    if espPopup.Keybind.ButtonText then espPopup.Keybind.ButtonText.Color = self.ActiveTheme.Colors.TextLight; end
 end
 
 --================================================================
@@ -340,14 +365,17 @@ function Library:_RenderAboutWindow()
     local isVisible = self.UI.Popups.About.IsOpen
 
     local function setAboutVisibility(tbl, visible)
-        for _, obj in pairs(tbl) do
+        for key, obj in pairs(tbl) do
             if type(obj) == 'table' then
                 if obj.Visible ~= nil then self:_SetVisibility(obj, visible)
-                elseif obj.Label and obj.Back and obj.Nub then -- Handle elements
-                    self:_SetVisibility(obj.Label, visible); self:_SetVisibility(obj.Back, visible); self:_SetVisibility(obj.Nub, visible);
+                elseif obj.Label and (obj.Back or obj.Button or obj.LeftFill) then -- Handle elements
+                    self:_SetVisibility(obj.Label, visible);
+                    if obj.Back then self:_SetVisibility(obj.Back, visible); self:_SetVisibility(obj.Nub, visible); end
                     if obj.LeftFill then self:_SetVisibility(obj.LeftFill, visible); self:_SetVisibility(obj.RightFill, visible); self:_SetVisibility(obj.ValueText, visible); end
                     if obj.Button then self:_SetVisibility(obj.Button, visible); self:_SetVisibility(obj.ButtonText, visible); self:_SetVisibility(obj.ArrowLine1, visible); self:_SetVisibility(obj.ArrowLine2, visible); end
-                else setAboutVisibility(obj, visible) end
+                elseif key ~= "ClickRegion" then
+                     setAboutVisibility(obj, visible)
+                end
             end
         end
     end
@@ -357,6 +385,7 @@ function Library:_RenderAboutWindow()
         self:_SetVisibility(about.StyleCircleBlue.Border, false); self:_SetVisibility(about.StyleCircleWhite.Border, false); self:_SetVisibility(about.StyleCircleBlack.Border, false); self:_SetVisibility(about.StyleCircleCustom.Border, false);
         local dropdown = about.DpiScaleDropdown
         if dropdown.IsOpen then
+            dropdown.IsOpen = false -- Close dropdown when about window closes
             self:_SetVisibility(dropdown.OptionBackground, false); self:_SetVisibility(dropdown.BorderLeft, false); self:_SetVisibility(dropdown.BorderRight, false); self:_SetVisibility(dropdown.BorderBottom, false)
             for _, option in ipairs(dropdown.OptionList) do self:_SetVisibility(option, false) end
         end
@@ -743,7 +772,7 @@ function Library:_InputLoop()
                     elseif self:_IsPointInRegion(mouse_x, mouse_y, about.StyleCircleCustom.ClickRegion) then self.UI.Values.AboutSelectedStyle = "Custom"; print(SCRIPT_PREFIX .. "Custom style selected (no action yet).")
                     elseif not self:_IsPointInRegion(mouse_x, mouse_y, about.ClickRegion) then
                         self.UI.Popups.About.IsOpen = false; if about_dropdown.IsOpen then about_dropdown.IsOpen = false end
-                    elseif about_dropdown.IsOpen and not self:_IsPointInRegion(mouse_x, mouse_y, about_dropdown.ClickRegion) then
+                    elseif about_dropdown.IsOpen and not self:_IsPointInRegion(mouse_x, mouse_y, {x1 = about_dropdown.Button.Position.x, y1 = about_dropdown.Button.Position.y, x2 = about_dropdown.Button.Position.x + about_dropdown.OptionBackground.Size.x, y2 = about_dropdown.Button.Position.y + about_dropdown.Size.height + about_dropdown.OptionBackground.Size.y}) then
                         about_dropdown.IsOpen = false
                     end
                 end
