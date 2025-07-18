@@ -1,11 +1,12 @@
 --[[
     Neverlose.cc Style UI Library for Severe
-    Version: 11.2 (Initialization & Keybind Fixes)
+    Version: 11.3 (Custom Style Window Foundation)
     Developer: Gemini AI & Dicky_Micky_
 
-    - [FIX] Implemented a first-frame theme application to ensure the UI correctly displays with the default theme on injection, eliminating black sections.
-    - [FIX] Restored the functionality of the Player ESP keybind by correcting the input handling logic.
-    - [AUDIT] Confirmed that all theme colors are applied correctly on the initial load.
+    - [ADD] Added the foundational "Edit Style" window, which appears when clicking the custom style button.
+    - [ADD] The new window includes a header, title, close button, and a placeholder for a future icon.
+    - [CHANGE] The "About" window now only closes by clicking its close button or the main settings gear icon, not by clicking outside.
+    - [REWORK] Input loop now correctly prioritizes the topmost window (Edit Style > About > Main UI).
 ]]
 
 local Library = {}
@@ -137,6 +138,7 @@ function Library:_InitializeCoreUI()
 
     self:_InitializeAboutWindow()
     self:_InitializePlayerESPSettingsPopup()
+    self:_InitializeEditStyleWindow()
 
     local Players = game:FindService("Players")
     if Players and Players.localPlayer then
@@ -224,6 +226,21 @@ function Library:_InitializePlayerESPSettingsPopup()
     popup.Keybind = self:_Internal_CreateKeybind({ id = "PlayerESPBind", Name = "Bind", Default = "none", zIndex = z + 2 });
 
     popup.ClickRegion = {}
+end
+
+function Library:_InitializeEditStyleWindow()
+    local style_window = {}; self.UI.Popups.EditStyle = style_window; local z = 40
+    style_window.IsOpen = false
+
+    style_window.Background = self:_CreateDrawingObject("Square"); if style_window.Background then style_window.Background.Filled = true; style_window.Background.zIndex = z; style_window.Background.Rounding = self.ActiveTheme.Rounding.Section; end
+    style_window.Border = self:_CreateDrawingObject("Square"); if style_window.Border then style_window.Border.Filled = false; style_window.Border.Thickness = 1; style_window.Border.zIndex = z + 1; style_window.Border.Rounding = self.ActiveTheme.Rounding.Section; end
+    
+    -- Placeholder for the icon. You can replace this with an Image object later.
+    style_window.HeaderIcon = self:_CreateDrawingObject("Square"); if style_window.HeaderIcon then style_window.HeaderIcon.Filled = true; style_window.HeaderIcon.zIndex = z + 2; style_window.HeaderIcon.Size = {18, 18}; end
+    
+    style_window.HeaderTitle = self:_CreateDrawingObject("Text"); if style_window.HeaderTitle then style_window.HeaderTitle.Font = self.ActiveTheme.Fonts.Main; style_window.HeaderTitle.Size = self.ActiveTheme.Fonts.Size + 3; style_window.HeaderTitle.Text = "Edit Style"; style_window.HeaderTitle.Center = false; style_window.HeaderTitle.zIndex = z + 2; end
+    style_window.CloseButton = { Line1 = self:_CreateDrawingObject("Line"), Line2 = self:_CreateDrawingObject("Line"), ClickRegion = {} }; if style_window.CloseButton.Line1 then style_window.CloseButton.Line1.Thickness = 2; style_window.CloseButton.Line1.zIndex = z + 2; end; if style_window.CloseButton.Line2 then style_window.CloseButton.Line2.Thickness = 2; style_window.CloseButton.Line2.zIndex = z + 2; end
+    style_window.Separator = self:_CreateDrawingObject("Line"); if style_window.Separator then style_window.Separator.Thickness = 2; style_window.Separator.zIndex = z + 1; end
 end
 
 --================================================================
@@ -354,6 +371,16 @@ function Library:_ApplyTheme()
     if espPopup.BindLabel then espPopup.BindLabel.Color = self.ActiveTheme.Colors.TextDark; end
     if espPopup.Keybind.Button then espPopup.Keybind.Button.Color = self.ActiveTheme.Colors.Accent; end
     if espPopup.Keybind.ButtonText then espPopup.Keybind.ButtonText.Color = self.ActiveTheme.Colors.TextLight; end
+
+    -- Edit Style Window
+    local stylePopup = self.UI.Popups.EditStyle
+    if stylePopup.Background then stylePopup.Background.Color = self.ActiveTheme.Colors.SectionBackground; end
+    if stylePopup.Border then stylePopup.Border.Color = self.ActiveTheme.Colors.Separator; end
+    if stylePopup.HeaderIcon then stylePopup.HeaderIcon.Color = self.ActiveTheme.Colors.Accent; end -- Placeholder color
+    if stylePopup.HeaderTitle then stylePopup.HeaderTitle.Color = self.ActiveTheme.Colors.TextLight; end
+    if stylePopup.CloseButton.Line1 then stylePopup.CloseButton.Line1.Color = self.ActiveTheme.Colors.TextDark; end
+    if stylePopup.CloseButton.Line2 then stylePopup.CloseButton.Line2.Color = self.ActiveTheme.Colors.TextDark; end
+    if stylePopup.Separator then stylePopup.Separator.Color = self.ActiveTheme.Colors.Separator; end
 end
 
 --================================================================
@@ -501,6 +528,33 @@ function Library:_RenderPlayerESPSettingsPopup()
     end
 end
 
+function Library:_RenderEditStyleWindow()
+    local style_window = self.UI.Popups.EditStyle
+    local isVisible = style_window.IsOpen
+
+    self:_SetVisibility(style_window.Background, isVisible); self:_SetVisibility(style_window.Border, isVisible); self:_SetVisibility(style_window.HeaderIcon, isVisible); self:_SetVisibility(style_window.HeaderTitle, isVisible); self:_SetVisibility(style_window.CloseButton.Line1, isVisible); self:_SetVisibility(style_window.CloseButton.Line2, isVisible); self:_SetVisibility(style_window.Separator, isVisible);
+
+    if isVisible then
+        local winW, winH = 300, 450 -- Example size, can be adjusted
+        local winX, winY = self.Window.X + self.Window.Width + 15, self.Window.Y
+        
+        style_window.ClickRegion = {x1 = winX, y1 = winY, x2 = winX + winW, y2 = winY + winH}
+        style_window.Background.Position = {winX, winY}; style_window.Background.Size = {winW, winH}
+        style_window.Border.Position = {winX, winY}; style_window.Border.Size = {winW, winH}
+
+        local headerY = winY + 12
+        style_window.HeaderIcon.Position = {winX + 15, headerY}
+        style_window.HeaderTitle.Position = {winX + 15 + style_window.HeaderIcon.Size.x + 8, headerY + 1}
+        
+        style_window.CloseButton.Line1.From = {winX + winW - 25, headerY}; style_window.CloseButton.Line1.To = {winX + winW - 15, headerY + 10}
+        style_window.CloseButton.Line2.From = {winX + winW - 25, headerY + 10}; style_window.CloseButton.Line2.To = {winX + winW - 15, headerY}
+        style_window.CloseButton.ClickRegion = {x1 = winX + winW - 30, y1 = winY + 10, x2 = winX + winW - 10, y2 = winY + 25}
+
+        local separatorY = winY + 40
+        style_window.Separator.From = {winX + 10, separatorY}; style_window.Separator.To = {winX + winW - 10, separatorY}
+    end
+end
+
 function Library:_RenderLoop()
     if not self.Window.Visible then return end
 
@@ -550,6 +604,7 @@ function Library:_RenderLoop()
 
     self:_RenderPlayerESPSettingsPopup()
     self:_RenderAboutWindow()
+    self:_RenderEditStyleWindow()
 end
 
 function Library:_RenderTabs(x, y, width)
@@ -682,7 +737,7 @@ function Library:_InputLoop()
             local about_slider = self.UI.Core.AboutWindow.AnimationSpeedSlider
             if self.UI.Popups.About.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, about_slider.ClickRegion) then
                 about_slider.IsDragging = true
-            elseif not self.UI.Popups.About.IsOpen and not self.UI.Popups.PlayerESP.IsOpen then
+            elseif not self.UI.Popups.About.IsOpen and not self.UI.Popups.PlayerESP.IsOpen and not self.UI.Popups.EditStyle.IsOpen then
                  local started_slider_drag = false
                  for _, section in ipairs(self.UI.Sections) do
                     if section.ParentTab == self.Window.ActiveTab then
@@ -744,11 +799,17 @@ function Library:_InputLoop()
         else
             local click_was_handled = false
             local clicked_dropdown_button = nil
-            local about_dropdown = self.UI.Core.AboutWindow.DpiScaleDropdown
-
-            if self.UI.Popups.About.IsOpen then
+            
+            if self.UI.Popups.EditStyle.IsOpen then
+                click_was_handled = true
+                local style_window = self.UI.Popups.EditStyle
+                if self:_IsPointInRegion(mouse_x, mouse_y, style_window.CloseButton.ClickRegion) then
+                    style_window.IsOpen = false
+                end
+            elseif self.UI.Popups.About.IsOpen then
                 click_was_handled = true
                 local about = self.UI.Core.AboutWindow
+                local about_dropdown = about.DpiScaleDropdown
                 local dropdown_option_clicked = false
                 if about_dropdown.IsOpen then
                     local dropdownButtonX = about_dropdown.Button.Position.x
@@ -769,9 +830,7 @@ function Library:_InputLoop()
                     elseif self:_IsPointInRegion(mouse_x, mouse_y, about.StyleCircleBlue.ClickRegion) then self.UI.Values.AboutSelectedStyle = "Blue"; self.ActiveTheme = self.Themes.Blue; self:_ApplyTheme()
                     elseif self:_IsPointInRegion(mouse_x, mouse_y, about.StyleCircleWhite.ClickRegion) then self.UI.Values.AboutSelectedStyle = "White"; self.ActiveTheme = self.Themes.White; self:_ApplyTheme()
                     elseif self:_IsPointInRegion(mouse_x, mouse_y, about.StyleCircleBlack.ClickRegion) then self.UI.Values.AboutSelectedStyle = "Black"; self.ActiveTheme = self.Themes.Black; self:_ApplyTheme()
-                    elseif self:_IsPointInRegion(mouse_x, mouse_y, about.StyleCircleCustom.ClickRegion) then self.UI.Values.AboutSelectedStyle = "Custom"; print(SCRIPT_PREFIX .. "Custom style selected (no action yet).")
-                    elseif not self:_IsPointInRegion(mouse_x, mouse_y, about.ClickRegion) then
-                        self.UI.Popups.About.IsOpen = false; if about_dropdown.IsOpen then about_dropdown.IsOpen = false end
+                    elseif self:_IsPointInRegion(mouse_x, mouse_y, about.StyleCircleCustom.ClickRegion) then self.UI.Popups.EditStyle.IsOpen = true
                     elseif about_dropdown.IsOpen and not self:_IsPointInRegion(mouse_x, mouse_y, {x1 = about_dropdown.Button.Position.x, y1 = about_dropdown.Button.Position.y, x2 = about_dropdown.Button.Position.x + about_dropdown.OptionBackground.Size.x, y2 = about_dropdown.Button.Position.y + about_dropdown.Size.height + about_dropdown.OptionBackground.Size.y}) then
                         about_dropdown.IsOpen = false
                     end
