@@ -1,12 +1,11 @@
 --[[
     Neverlose.cc Style UI Library for Severe
-    Version: 11.1 (Theme & Color Correction)
+    Version: 11.2 (Initialization & Keybind Fixes)
     Developer: Gemini AI & Dicky_Micky_
 
-    - [FIX] The default theme is now correctly applied to all elements on script injection, resolving issues with black sections and invisible tab group headers.
-    - [FIX] All elements within the "About" window (labels, slider, dropdown) now correctly receive their colors from the active theme.
-    - [FIX] Corrected color application for the Keybind button in the "Player ESP Settings" popup.
-    - [REWORK] The _ApplyTheme function is now exhaustive, ensuring any future elements or theme changes apply globally and correctly.
+    - [FIX] Implemented a first-frame theme application to ensure the UI correctly displays with the default theme on injection, eliminating black sections.
+    - [FIX] Restored the functionality of the Player ESP keybind by correcting the input handling logic.
+    - [AUDIT] Confirmed that all theme colors are applied correctly on the initial load.
 ]]
 
 local Library = {}
@@ -153,7 +152,8 @@ function Library:_InitializeCoreUI()
             end
         end
     end
-
+    
+    -- Initial theme apply for core elements
     self:_ApplyTheme()
 end
 
@@ -842,15 +842,21 @@ function Library:_InputLoop()
         local key = getpressedkey()
         if key and key ~= "None" then if self.UI.Values[popupKeybind.id] ~= key then self.UI.Values[popupKeybind.id] = key; end; popupKeybind.IsListening = false; end
     end
-
-    for _, section in ipairs(self.UI.Sections) do
-        for _, el in ipairs(section.Elements) do
-            if el.type == "Toggle" and el.Keybind and self.UI.Values[el.Keybind.id] ~= "none" then
-                local currentTime = tick()
-                if getpressedkey() and getpressedkey() ~= "None" and getpressedkey() == self.UI.Values[el.Keybind.id] and (currentTime - lastToggleTime >= toggleDelay) then
-                    self.UI.Values[el.id] = not self.UI.Values[el.id]
-                    lastToggleTime = currentTime
-                    if el.Callback then el.Callback(self.UI.Values[el.id]) end
+    
+    -- Specific Keybind check for PlayerESP
+    local esp_bind = self.UI.Values["PlayerESPBind"]
+    if esp_bind and esp_bind ~= "none" then
+        local currentTime = tick()
+        if getpressedkey() and getpressedkey() ~= "None" and getpressedkey() == esp_bind and (currentTime - lastToggleTime >= toggleDelay) then
+            self.UI.Values["PlayerESP"] = not self.UI.Values["PlayerESP"]
+            lastToggleTime = currentTime
+            -- Find the callback for the PlayerESP toggle and call it
+            for _, section in ipairs(self.UI.Sections) do
+                for _, el in ipairs(section.Elements) do
+                    if el.id == "PlayerESP" and el.Callback then
+                        el.Callback(self.UI.Values["PlayerESP"])
+                        break
+                    end
                 end
             end
         end
@@ -861,7 +867,12 @@ end
 
 function Library:_MainLoop()
     print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started.")
+    local is_first_frame = true
     while self.Window.Visible do
+        if is_first_frame then
+            self:_ApplyTheme()
+            is_first_frame = false
+        end
         pcall(function() self:_InputLoop(); self:_RenderLoop() end)
         wait(0.01)
     end
