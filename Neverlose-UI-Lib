@@ -1,10 +1,10 @@
 --[[
     Neverlose.cc Style UI Library for Severe
-    Version: 10.1 (Functional Refactor)
+    Version: 10.2 (Core Functionality Fixes)
     
-    This script has been refactored into a fully functional library.
-    All rendering and input handling logic is encapsulated.
-    Provides a simple API for users to create UI elements.
+    This version fixes the "About" window rendering and input handling.
+    The Tab API has been refined for better usability.
+    The library is now fully functional for core features.
 ]]
 
 local Library = {}
@@ -182,29 +182,29 @@ end
 function Library:_InitializeAboutWindow()
     local about = {}; self.UI.Core.AboutWindow = about
     local about_z = 32
-    about.Background = self:_CreateDrawingObject("Square"); if about.Background then about.Background.Filled = true; about.Background.zIndex = 30; about.Background.Rounding = self.ActiveTheme.Rounding.Section; end; 
-    about.Border = self:_CreateDrawingObject("Square"); if about.Border then about.Border.Filled = false; about.Border.Thickness = 1; about.Border.zIndex = 31; about.Border.Rounding = self.ActiveTheme.Rounding.Section; end; 
-    about.HeaderIcon = self:_CreateDrawingObject("Image"); if about.HeaderIcon then about.HeaderIcon.Url = "https://s6.imgcdn.dev/Y4kkRT.png"; about.HeaderIcon.Size = {16, 16}; about.HeaderIcon.zIndex = about_z; end; 
-    about.HeaderTitle = self:_CreateDrawingObject("Text"); if about.HeaderTitle then about.HeaderTitle.Font = self.ActiveTheme.Fonts.Main; about.HeaderTitle.Size = self.ActiveTheme.Fonts.Size + 2; about.HeaderTitle.Text = "About Neverlose"; about.HeaderTitle.Center = false; about.HeaderTitle.zIndex = about_z; end; 
+    about.Background = self:_CreateDrawingObject("Square"); if about.Background then about.Background.Filled = true; about.Background.zIndex = 30; about.Background.Rounding = self.ActiveTheme.Rounding.Section; end
+    about.Border = self:_CreateDrawingObject("Square"); if about.Border then about.Border.Filled = false; about.Border.Thickness = 1; about.Border.zIndex = 31; about.Border.Rounding = self.ActiveTheme.Rounding.Section; end
+    about.HeaderIcon = self:_CreateDrawingObject("Image"); if about.HeaderIcon then about.HeaderIcon.Url = "https://s6.imgcdn.dev/Y4kkRT.png"; about.HeaderIcon.Size = {16, 16}; about.HeaderIcon.zIndex = about_z; end
+    about.HeaderTitle = self:_CreateDrawingObject("Text"); if about.HeaderTitle then about.HeaderTitle.Font = self.ActiveTheme.Fonts.Main; about.HeaderTitle.Size = self.ActiveTheme.Fonts.Size + 2; about.HeaderTitle.Text = "About Neverlose"; about.HeaderTitle.Center = false; about.HeaderTitle.zIndex = about_z; end
     about.CloseButton = { Line1 = self:_CreateDrawingObject("Line"), Line2 = self:_CreateDrawingObject("Line"), ClickRegion = {} }; if about.CloseButton.Line1 then about.CloseButton.Line1.Thickness = 2; about.CloseButton.Line1.zIndex = about_z; end; if about.CloseButton.Line2 then about.CloseButton.Line2.Thickness = 2; about.CloseButton.Line2.zIndex = about_z; end
     
-    local separatorThickness = 2; 
-    about.Separator1 = self:_CreateDrawingObject("Line"); if about.Separator1 then about.Separator1.Thickness = separatorThickness; about.Separator1.zIndex = 31; end; 
-    about.MainTitle = self:_CreateDrawingObject("Text"); if about.MainTitle then about.MainTitle.Font = self.ActiveTheme.Fonts.Title; about.MainTitle.Size = 24; about.MainTitle.Text = "NEVERLOSE.CC"; about.MainTitle.Center = true; about.MainTitle.zIndex = about_z; end; 
+    local separatorThickness = 2
+    about.Separator1 = self:_CreateDrawingObject("Line"); if about.Separator1 then about.Separator1.Thickness = separatorThickness; about.Separator1.zIndex = 31; end
+    about.MainTitle = self:_CreateDrawingObject("Text"); if about.MainTitle then about.MainTitle.Font = self.ActiveTheme.Fonts.Title; about.MainTitle.Size = 24; about.MainTitle.Text = "NEVERLOSE.CC"; about.MainTitle.Center = true; about.MainTitle.zIndex = about_z; end
     about.Separator2 = self:_CreateDrawingObject("Line"); if about.Separator2 then about.Separator2.Thickness = separatorThickness; about.Separator2.zIndex = 31; end
     
     local function setupInfoText(label_text, value_text) 
-        local label = self:_CreateDrawingObject("Text");
-        local value = self:_CreateDrawingObject("Text");
-        if label then label.Font = self.ActiveTheme.Fonts.Main; label.Size = self.ActiveTheme.Fonts.Size + 2; label.Text = label_text; label.Center = false; label.zIndex = about_z; end; 
-        if value then value.Font = self.ActiveTheme.Fonts.Main; value.Size = self.ActiveTheme.Fonts.Size + 2; value.Text = value_text; value.Center = false; value.zIndex = about_z; end 
+        local label = self:_CreateDrawingObject("Text")
+        local value = self:_CreateDrawingObject("Text")
+        if label then label.Font = self.ActiveTheme.Fonts.Main; label.Size = self.ActiveTheme.Fonts.Size + 2; label.Text = label_text; label.Center = false; label.zIndex = about_z; end
+        if value then value.Font = self.ActiveTheme.Fonts.Main; value.Size = self.ActiveTheme.Fonts.Size + 2; value.Text = value_text; value.Center = false; value.zIndex = about_z; end
         return label, value
     end
-    about.InfoVersionLabel, about.InfoVersionValue = setupInfoText("Version:", " 2.0.0"); 
-    about.InfoBuildDateLabel, about.InfoBuildDateValue = setupInfoText("Build date:", " Dec 30 2020"); 
-    about.InfoBuildTypeLabel, about.InfoBuildTypeValue = setupInfoText("Build type:", " Release"); 
-    about.InfoRegisteredToLabel, about.InfoRegisteredToValue = setupInfoText("Registered to:", " " .. (game:FindService("Players").localPlayer and game:FindService("Players").localPlayer.Name or "")); 
-    about.InfoSubscriptionLabel, about.InfoSubscriptionValue = setupInfoText("Subscription till:", " FOREVER");
+    about.InfoVersionLabel, about.InfoVersionValue = setupInfoText("Version:", " 2.0.0")
+    about.InfoBuildDateLabel, about.InfoBuildDateValue = setupInfoText("Build date:", " Dec 30 2020")
+    about.InfoBuildTypeLabel, about.InfoBuildTypeValue = setupInfoText("Build type:", " Release")
+    about.InfoRegisteredToLabel, about.InfoRegisteredToValue = setupInfoText("Registered to:", " " .. (game:FindService("Players").localPlayer and game:FindService("Players").localPlayer.Name or ""))
+    about.InfoSubscriptionLabel, about.InfoSubscriptionValue = setupInfoText("Subscription till:", " FOREVER")
 end
 
 --================================================================
@@ -245,9 +245,6 @@ function Library:_ApplyTheme()
 
     for _, group in ipairs(self.UI.TabGroups) do
         if group.Header then group.Header.Color = self.ActiveTheme.Colors.TabHeader; end
-        for _, tab in ipairs(group.Tabs) do
-            -- Tab text color is handled in render loop
-        end
     end
 
     for _, section in ipairs(self.UI.Sections) do
@@ -277,6 +274,64 @@ end
 --================================================================
 --[[ PRIVATE: RENDERING & INPUT HANDLING ]]
 --================================================================
+
+function Library:_RenderAboutWindow()
+    local about = self.UI.Core.AboutWindow
+    local isVisible = self.UI.Core.HeaderButtons.Settings.IsOpen
+
+    local function setAboutVisibility(tbl, visible)
+        for _, obj in pairs(tbl) do
+            if type(obj) == 'table' then
+                if obj.Visible ~= nil then
+                    self:_SetVisibility(obj, visible)
+                else
+                    setAboutVisibility(obj, visible)
+                end
+            end
+        end
+    end
+    setAboutVisibility(about, isVisible)
+
+    if not isVisible then return end
+
+    local winW, winH = 360, 280
+    local winX, winY = self.Window.X + (self.Window.Width / 2) - (winW / 2), self.Window.Y + (self.Window.Height / 2) - (winH / 2)
+    
+    about.ClickRegion = {x1 = winX, y1 = winY, x2 = winX + winW, y2 = winY + winH}
+    about.Background.Position = {winX, winY}; about.Background.Size = {winW, winH}
+    about.Border.Position = {winX, winY}; about.Border.Size = {winW, winH}
+    
+    about.HeaderIcon.Position = {winX + 15, winY + 12}
+    about.HeaderTitle.Position = {winX + 15 + about.HeaderIcon.Size.x + 8, winY + 13}
+    about.CloseButton.Line1.From = {winX + winW - 25, winY + 12}; about.CloseButton.Line1.To = {winX + winW - 15, winY + 22}
+    about.CloseButton.Line2.From = {winX + winW - 25, winY + 22}; about.CloseButton.Line2.To = {winX + winW - 15, winY + 12}
+    about.CloseButton.ClickRegion = {x1 = winX + winW - 30, y1 = winY + 10, x2 = winX + winW - 10, y2 = winY + 25}
+
+    local currentY = winY + 40
+    about.Separator1.From = {winX + 10, currentY}; about.Separator1.To = {winX + winW - 10, currentY}
+    
+    currentY = currentY + 25
+    about.MainTitle.Position = {winX + winW / 2, currentY}
+    currentY = currentY + 40
+    about.Separator2.From = {winX + 10, currentY}; about.Separator2.To = {winX + winW - 10, currentY}
+
+    currentY = currentY + 20
+    local infoX = winX + 30
+    local function renderInfoLine(y, label, value)
+        if label and value then
+            label.Position = {infoX, y}
+            value.Position = {infoX + label.TextBounds.x + 5, y}
+            return y + 25
+        end
+        return y
+    end
+
+    currentY = renderInfoLine(currentY, about.InfoVersionLabel, about.InfoVersionValue)
+    currentY = renderInfoLine(currentY, about.InfoBuildDateLabel, about.InfoBuildDateValue)
+    currentY = renderInfoLine(currentY, about.InfoBuildTypeLabel, about.InfoBuildTypeValue)
+    currentY = renderInfoLine(currentY, about.InfoRegisteredToLabel, about.InfoRegisteredToValue)
+    currentY = renderInfoLine(currentY, about.InfoSubscriptionLabel, about.InfoSubscriptionValue)
+end
 
 function Library:_RenderLoop()
     if not self.Window.Visible then return end
@@ -324,6 +379,7 @@ function Library:_RenderLoop()
 
     self:_RenderTabs(windowX, windowY + headerHeight, sidebarWidth)
     self:_RenderSections(rightPanelX, windowY, headerHeight)
+    self:_RenderAboutWindow()
 end
 
 function Library:_RenderTabs(x, y, width)
@@ -391,7 +447,7 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
                 if el.type == "Toggle" then
                     el.Label.Position = {sectionX + 10, elementY}; 
                     local toggleBackX = sectionX + columnWidth - el.Size.width - 15
-                    el.Back.Position = {toggleBackX, elementY + 2}; el.Back.Size = {el.Size.width, el.Size.height}; el.ClickRegion = {x1 = toggleBackX, y1 = elementY + 2, x2 = toggleBackX + el.Size.width, y2 = elementY + 2 + el.Size.height}
+                    el.Back.Position = {toggleBackX, elementY + 2}; el.Back.Size = {el.Size.width, el.Size.height}; el.ClickRegion = {x1 = toggleBackX, y1 = elementY, x2 = toggleBackX + el.Size.width, y2 = elementY + el.Size.height + 4}
                     if self.UI.Values[el.id] then 
                         el.Back.Color = self.ActiveTheme.Colors.ToggleEnabledBackground
                         el.Nub.Color = self.ActiveTheme.Colors.Accent
@@ -406,7 +462,7 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
                 elseif el.type == "Slider" then
                     el.Label.Position = {sectionX + 10, elementY}; 
                     local sliderBackX = sectionX + 100; local sliderBackWidth = columnWidth - 110 - 50
-                    el.Back.Position = {sliderBackX, elementY + 8}; el.Back.Size = {sliderBackWidth, 2}; el.ClickRegion = { x1 = sliderBackX, y1 = elementY + 8 - 10, x2 = sliderBackX + sliderBackWidth, y2 = elementY + 8 + 10 };
+                    el.Back.Position = {sliderBackX, elementY + 8}; el.Back.Size = {sliderBackWidth, 2}; el.ClickRegion = { x1 = sliderBackX, y1 = elementY - 2, x2 = sliderBackX + sliderBackWidth, y2 = elementY + 18 };
                     local value_percentage = math.clamp((self.UI.Values[el.id] - el.Min) / (el.Max - el.Min), 0, 1); local nubX = sliderBackX + sliderBackWidth * value_percentage
                     el.LeftFill.Position = {sliderBackX, elementY + 8}; el.LeftFill.Size = {nubX - sliderBackX, 2};
                     el.RightFill.Position = {nubX, elementY + 8}; el.RightFill.Size = {sliderBackX + sliderBackWidth - nubX, 2}; 
@@ -474,6 +530,13 @@ function Library:_InputLoop()
 
     -- Click Logic
     if is_left_clicked then
+        -- About Window Interaction
+        if self.UI.Core.HeaderButtons.Settings.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.AboutWindow.CloseButton.ClickRegion) then
+            self.UI.Core.HeaderButtons.Settings.IsOpen = false
+            was_left_pressed = is_left_pressed_now
+            return
+        end
+
         -- Core UI Buttons
         if self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.Save.ClickRegion) then print(SCRIPT_PREFIX.."Save clicked!"); self.UI.Core.HeaderButtons.Save.ClickTime = tick() end
         if self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.ViewESP.ClickRegion) then self.UI.Core.HeaderButtons.ViewESP.IsOpen = not self.UI.Core.HeaderButtons.ViewESP.IsOpen; self.UI.Core.HeaderButtons.ViewESP.ClickTime = tick() end
@@ -523,6 +586,8 @@ end
 
 function Library:Tab(options)
     local tabGroupName = options.Name
+    local tabName = options.TabName
+    
     local existingGroup
     for _, group in ipairs(self.UI.TabGroups) do
         if group.Name == tabGroupName then
@@ -543,16 +608,16 @@ function Library:Tab(options)
         table.insert(self.UI.TabGroups, existingGroup)
     end
     
-    local tab_obj = { Name = options.TabName, Text = self:_CreateDrawingObject("Text"), Icon = nil, ClickRegion = {} }
-    if tab_obj.Text then tab_obj.Text.Font = self.ActiveTheme.Fonts.Main; tab_obj.Text.Size = self.ActiveTheme.Fonts.TabSize; tab_obj.Text.Text = options.TabName; tab_obj.Text.Center = false; tab_obj.Text.Outline = false; tab_obj.Text.zIndex = 3; end
+    local tab_obj = { Name = tabName, Text = self:_CreateDrawingObject("Text"), Icon = nil, ClickRegion = {} }
+    if tab_obj.Text then tab_obj.Text.Font = self.ActiveTheme.Fonts.Main; tab_obj.Text.Size = self.ActiveTheme.Fonts.TabSize; tab_obj.Text.Text = tabName; tab_obj.Text.Center = false; tab_obj.Text.Outline = false; tab_obj.Text.zIndex = 3; end
     if options.Icon then tab_obj.Icon = self:_CreateDrawingObject("Image"); if tab_obj.Icon then tab_obj.Icon.Url = options.Icon; tab_obj.Icon.Size = {self.ActiveTheme.IconSize, self.ActiveTheme.IconSize}; tab_obj.Icon.zIndex = 3; end end
     
-    if self.Window.ActiveTab == "" then self.Window.ActiveTab = options.TabName end
+    if self.Window.ActiveTab == "" then self.Window.ActiveTab = tabName end
     table.insert(existingGroup.Tabs, tab_obj)
 
     local TabObject = {}
     function TabObject:Section(sectionOptions)
-        sectionOptions.ParentTab = options.TabName
+        sectionOptions.ParentTab = tabName
         return self:Section(sectionOptions)
     end
 
