@@ -1,6 +1,6 @@
 --[[
     Neverlose.cc Style UI Library for Severe
-    Version: 10.6 (Full Implementation & Final Fixes)
+    Version: 10.7 (Final Implementation)
     
     - [FIX] Fully implemented the "About" window, including all controls, colors, and input handling.
     - [FIX] Corrected and finalized the public API for creating Tabs, Sections, and all Element types.
@@ -549,12 +549,29 @@ function Library:_InputLoop()
     if is_left_clicked then
         if self.UI.Core.HeaderButtons.Settings.IsOpen then
             local about = self.UI.Core.AboutWindow
-            if self:_IsPointInRegion(mouse_x, mouse_y, about.CloseButton.ClickRegion) then self.UI.Core.HeaderButtons.Settings.IsOpen = false; was_left_pressed = is_left_pressed_now; return end
+            local dropdown = about.DpiScaleDropdown
+
+            if dropdown.IsOpen then
+                local dropdownButtonX = dropdown.Button.Position.x
+                local optionY = dropdown.Button.Position.y + dropdown.Size.height + 5
+                for i, option_text in ipairs(dropdown.OptionList) do
+                    local optionRegion = {x1 = dropdownButtonX, y1 = optionY, x2 = dropdownButtonX + dropdown.Size.width, y2 = optionY + 20}
+                    if self:_IsPointInRegion(mouse_x, mouse_y, optionRegion) then
+                        self.UI.Values[dropdown.id] = dropdown.Options[i]
+                        dropdown.IsOpen = false
+                        was_left_pressed = is_left_pressed_now; return
+                    end
+                    optionY = optionY + 20
+                end
+            end
+
+            if self:_IsPointInRegion(mouse_x, mouse_y, about.CloseButton.ClickRegion) then self.UI.Core.HeaderButtons.Settings.IsOpen = false; dropdown.IsOpen = false; was_left_pressed = is_left_pressed_now; return end
             if self:_IsPointInRegion(mouse_x, mouse_y, about.AutoSaveToggle.ClickRegion) then self.UI.Values[about.AutoSaveToggle.id] = not self.UI.Values[about.AutoSaveToggle.id]; was_left_pressed = is_left_pressed_now; return end
+            if self:_IsPointInRegion(mouse_x, mouse_y, about.DpiScaleDropdown.ClickRegion) then dropdown.IsOpen = not dropdown.IsOpen; was_left_pressed = is_left_pressed_now; return end
             if self:_IsPointInRegion(mouse_x, mouse_y, about.StyleCircleBlue.ClickRegion) then self.UI.Values["AboutSelectedStyle"] = "Blue"; self.ActiveTheme = self.Themes.Blue; self:_ApplyTheme(); was_left_pressed = is_left_pressed_now; return end
             if self:_IsPointInRegion(mouse_x, mouse_y, about.StyleCircleWhite.ClickRegion) then self.UI.Values["AboutSelectedStyle"] = "White"; self.ActiveTheme = self.Themes.White; self:_ApplyTheme(); was_left_pressed = is_left_pressed_now; return end
             if self:_IsPointInRegion(mouse_x, mouse_y, about.StyleCircleBlack.ClickRegion) then self.UI.Values["AboutSelectedStyle"] = "Black"; self.ActiveTheme = self.Themes.Black; self:_ApplyTheme(); was_left_pressed = is_left_pressed_now; return end
-            if self:_IsPointInRegion(mouse_x, mouse_y, about.StyleCircleCustom.ClickRegion) then self.UI.Values["AboutSelectedStyle"] = "Custom"; was_left_pressed = is_left_pressed_now; return end
+            if self:_IsPointInRegion(mouse_x, mouse_y, about.StyleCircleCustom.ClickRegion) then self.UI.Values["AboutSelectedStyle"] = "Custom"; print(SCRIPT_PREFIX .. "Custom style selected."); was_left_pressed = is_left_pressed_now; return end
         end
 
         if self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.Save.ClickRegion) then print(SCRIPT_PREFIX.."Save clicked!"); self.UI.Core.HeaderButtons.Save.ClickTime = tick() end
@@ -578,6 +595,21 @@ function Library:_InputLoop()
                     end
                 end
             end
+        end
+    end
+
+    local about_slider = self.UI.Core.AboutWindow and self.UI.Core.AboutWindow.AnimationSpeedSlider
+    if about_slider then
+        if is_left_pressed_now and not about_slider.IsDragging and self:_IsPointInRegion(mouse_x, mouse_y, about_slider.ClickRegion) then about_slider.IsDragging = true end
+        if not is_left_pressed_now then about_slider.IsDragging = false end
+        if about_slider.IsDragging then
+            local sliderBackX = about_slider.Back.Position.x; local sliderBackWidth = about_slider.Back.Size.x
+            local mouse_relative_x = math.clamp(mouse_x - sliderBackX, 0, sliderBackWidth)
+            local percentage = sliderBackWidth > 0 and (mouse_relative_x / sliderBackWidth) or 0
+            local raw_value = about_slider.Min + (about_slider.Max - about_slider.Min) * percentage
+            local stepped_value = math.floor(raw_value / about_slider.Increment + 0.5) * about_slider.Increment
+            local clamped_value = math.clamp(stepped_value, about_slider.Min, about_slider.Max)
+            if clamped_value ~= self.UI.Values[about_slider.id] then self.UI.Values[about_slider.id] = clamped_value end
         end
     end
 
