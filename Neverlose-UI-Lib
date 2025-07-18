@@ -1,12 +1,13 @@
 --[[
     Neverlose.cc Style UI Library for Severe
-    Version: 11.6 (Custom Theme Creation & Layout Rework)
+    Version: 11.7 (Layout & Theme System Overhaul)
     Developer: Gemini AI & Dicky_Micky_
 
-    - [ADD] Implemented the full layout for the "Edit Style" window, including a "Style Name" field and a redesigned footer with Save/Cancel buttons and a real-time toggle.
-    - [ADD] Implemented the initial logic for creating and saving a new custom theme. Clicking "Save" now adds a new theme circle to the "About" window.
-    - [REWORK] The "About" window's style selection was refactored to dynamically handle an expanding list of custom themes.
-    - [FIX] Resolved a bug causing the selection border on style circles to flicker or not apply correctly to the custom style button.
+    - [REWORK] Completely redesigned the "Edit Style" window layout to match user specifications, including a "Style Name" field and a properly structured footer.
+    - [REWORK] Overhauled the custom theme creation logic. Saving a theme now correctly adds a new, selectable theme circle and repositions the "add" button, allowing for multiple custom themes.
+    - [FIX] Restored the rendering of preset theme circles in the "About" window.
+    - [FIX] Added a text label to the "Cancel" button in the "Edit Style" window.
+    - [ADD] The "Save" button icon is now correctly colored based on the active theme's contrast color (white/black).
 ]]
 
 local Library = {}
@@ -299,13 +300,14 @@ function Library:_InitializeEditStyleWindow()
 
     -- Footer Elements
     style_window.RealTimeToggle = self:_Internal_CreateToggle({id = "EditStyleRealTime", Name = "real-time changes", Default = false, zIndex = z + 2})
-    style_window.CancelButton = { Background = self:_CreateDrawingObject("Square"), Border = self:_CreateDrawingObject("Square"), IconLine1 = self:_CreateDrawingObject("Line"), IconLine2 = self:_CreateDrawingObject("Line"), ClickRegion = {} }
+    style_window.CancelButton = { Background = self:_CreateDrawingObject("Square"), Border = self:_CreateDrawingObject("Square"), IconLine1 = self:_CreateDrawingObject("Line"), IconLine2 = self:_CreateDrawingObject("Line"), Label = self:_CreateDrawingObject("Text"), ClickRegion = {} }
     style_window.SaveButton = { Background = self:_CreateDrawingObject("Square"), Label = self:_CreateDrawingObject("Text"), Icon = self:_CreateDrawingObject("Image"), ClickRegion = {} }
 
     if style_window.CancelButton.Background then style_window.CancelButton.Background.Filled = true; style_window.CancelButton.Background.zIndex = z + 2; style_window.CancelButton.Background.Rounding = self.ActiveTheme.Rounding.Button; end
     if style_window.CancelButton.Border then style_window.CancelButton.Border.Filled = false; style_window.CancelButton.Border.Thickness = 1; style_window.CancelButton.Border.zIndex = z + 3; style_window.CancelButton.Border.Rounding = self.ActiveTheme.Rounding.Button; end
     if style_window.CancelButton.IconLine1 then style_window.CancelButton.IconLine1.Thickness = 2; style_window.CancelButton.IconLine1.zIndex = z + 4; end
     if style_window.CancelButton.IconLine2 then style_window.CancelButton.IconLine2.Thickness = 2; style_window.CancelButton.IconLine2.zIndex = z + 4; end
+    if style_window.CancelButton.Label then style_window.CancelButton.Label.Font = self.ActiveTheme.Fonts.Main; style_window.CancelButton.Label.Size = self.ActiveTheme.Fonts.Size; style_window.CancelButton.Label.Text = "Cancel"; style_window.CancelButton.Label.Center = false; style_window.CancelButton.Label.zIndex = z + 4; end
 
     if style_window.SaveButton.Background then style_window.SaveButton.Background.Filled = true; style_window.SaveButton.Background.zIndex = z + 2; style_window.SaveButton.Background.Rounding = self.ActiveTheme.Rounding.Button; end
     if style_window.SaveButton.Label then style_window.SaveButton.Label.Font = self.ActiveTheme.Fonts.Main; style_window.SaveButton.Label.Size = self.ActiveTheme.Fonts.Size; style_window.SaveButton.Label.Text = "Save"; style_window.SaveButton.Label.Center = false; style_window.SaveButton.Label.zIndex = z + 3; end
@@ -463,6 +465,7 @@ function Library:_ApplyTheme()
     if stylePopup.CancelButton.Border then stylePopup.CancelButton.Border.Color = self.ActiveTheme.Colors.Accent; end
     if stylePopup.CancelButton.IconLine1 then stylePopup.CancelButton.IconLine1.Color = self.ActiveTheme.Colors.TextLight; end
     if stylePopup.CancelButton.IconLine2 then stylePopup.CancelButton.IconLine2.Color = self.ActiveTheme.Colors.TextLight; end
+    if stylePopup.CancelButton.Label then stylePopup.CancelButton.Label.Color = self.ActiveTheme.Colors.TextLight; end
     if stylePopup.SaveButton.Background then stylePopup.SaveButton.Background.Color = self.ActiveTheme.Colors.Accent; end
     local saveButtonTextColor = isWhiteTheme and self.ActiveTheme.Colors.Black or self.ActiveTheme.Colors.White
     if stylePopup.SaveButton.Label then stylePopup.SaveButton.Label.Color = saveButtonTextColor; end
@@ -630,7 +633,7 @@ function Library:_RenderEditStyleWindow()
         self:_SetVisibility(item.Label, isVisible); self:_SetVisibility(item.ColorCircle, isVisible); self:_SetVisibility(item.ColorBorder, isVisible);
     end
     self:_SetVisibility(style_window.RealTimeToggle.Label, isVisible); self:_SetVisibility(style_window.RealTimeToggle.Back, isVisible); self:_SetVisibility(style_window.RealTimeToggle.Nub, isVisible);
-    self:_SetVisibility(style_window.CancelButton.Background, isVisible); self:_SetVisibility(style_window.CancelButton.Border, isVisible); self:_SetVisibility(style_window.CancelButton.IconLine1, isVisible); self:_SetVisibility(style_window.CancelButton.IconLine2, isVisible);
+    self:_SetVisibility(style_window.CancelButton.Background, isVisible); self:_SetVisibility(style_window.CancelButton.Border, isVisible); self:_SetVisibility(style_window.CancelButton.IconLine1, isVisible); self:_SetVisibility(style_window.CancelButton.IconLine2, isVisible); self:_SetVisibility(style_window.CancelButton.Label, isVisible);
     self:_SetVisibility(style_window.SaveButton.Background, isVisible); self:_SetVisibility(style_window.SaveButton.Label, isVisible); self:_SetVisibility(style_window.SaveButton.Icon, isVisible);
 
     if isVisible then
@@ -677,12 +680,6 @@ function Library:_RenderEditStyleWindow()
 
         -- Footer
         local footerY = currentY + 30
-        local toggle = style_window.RealTimeToggle
-        toggle.Label.Position = {winX + 15, footerY + 5}
-        local toggleBackX = winX + 15 + (toggle.Label.TextBounds and toggle.Label.TextBounds.x or 100) + 10
-        toggle.Back.Position = {toggleBackX, footerY + 7}; toggle.Back.Size = {toggle.Size.width, toggle.Size.height}; toggle.ClickRegion = {x1 = toggleBackX, y1 = footerY, x2 = toggleBackX + toggle.Size.width, y2 = footerY + toggle.Size.height + 14}
-        if self.UI.Values[toggle.id] then toggle.Back.Color = self.ActiveTheme.Colors.ToggleEnabledBackground; toggle.Nub.Color = self.ActiveTheme.Colors.Accent; toggle.Nub.Position = {toggleBackX + toggle.Size.width - 5, footerY + 7 + toggle.Size.height/2} else toggle.Back.Color = self.ActiveTheme.Colors.DarkGray; toggle.Nub.Color = self.ActiveTheme.Colors.LightGray; toggle.Nub.Position = {toggleBackX + 5, footerY + 7 + toggle.Size.height/2} end
-
         local saveBtn = style_window.SaveButton; local saveBtnW, saveBtnH = 80, 28
         local saveBtnX, saveBtnY = winX + winW - saveBtnW - 15, footerY
         saveBtn.Background.Position = {saveBtnX, saveBtnY}; saveBtn.Background.Size = {saveBtnW, saveBtnH}
@@ -691,14 +688,22 @@ function Library:_RenderEditStyleWindow()
         saveBtn.Label.Position = {saveIconX + saveBtn.Icon.Size.x + 8, saveBtnY + (saveBtnH / 2) - (saveBtn.Label.Size / 2)}
         saveBtn.ClickRegion = {x1 = saveBtnX, y1 = saveBtnY, x2 = saveBtnX + saveBtnW, y2 = saveBtnY + saveBtnH}
 
-        local cancelBtn = style_window.CancelButton; local cancelBtnW, cancelBtnH = 40, 28
+        local cancelBtn = style_window.CancelButton; local cancelBtnW, cancelBtnH = 90, 28
         local cancelBtnX = saveBtnX - cancelBtnW - 10; local cancelBtnY = footerY
         cancelBtn.Background.Position = {cancelBtnX, cancelBtnY}; cancelBtn.Background.Size = {cancelBtnW, cancelBtnH}
         cancelBtn.Border.Position = {cancelBtnX, cancelBtnY}; cancelBtn.Border.Size = {cancelBtnW, cancelBtnH}
-        local cancelIconCenterX, cancelIconCenterY = cancelBtnX + cancelBtnW / 2, cancelBtnY + cancelBtnH / 2
+        local cancelIconCenterX, cancelIconCenterY = cancelBtnX + 15, cancelBtnY + cancelBtnH / 2
         cancelBtn.IconLine1.From = {cancelIconCenterX - 4, cancelIconCenterY - 4}; cancelBtn.IconLine1.To = {cancelIconCenterX + 4, cancelIconCenterY + 4}
         cancelBtn.IconLine2.From = {cancelIconCenterX - 4, cancelIconCenterY + 4}; cancelBtn.IconLine2.To = {cancelIconCenterX + 4, cancelIconCenterY - 4}
+        cancelBtn.Label.Position = {cancelIconCenterX + 10, cancelBtnY + (cancelBtnH / 2) - (cancelBtn.Label.Size / 2)}
         cancelBtn.ClickRegion = {x1 = cancelBtnX, y1 = cancelBtnY, x2 = cancelBtnX + cancelBtnW, y2 = cancelBtnY + cancelBtnH}
+
+        local toggleY = footerY + cancelBtnH + 15
+        local toggle = style_window.RealTimeToggle
+        toggle.Label.Position = {winX + 15, toggleY + 5}
+        local toggleBackX = winX + 15 + (toggle.Label.TextBounds and toggle.Label.TextBounds.x or 100) + 10
+        toggle.Back.Position = {toggleBackX, toggleY + 7}; toggle.Back.Size = {toggle.Size.width, toggle.Size.height}; toggle.ClickRegion = {x1 = toggleBackX, y1 = toggleY, x2 = toggleBackX + toggle.Size.width, y2 = toggleY + toggle.Size.height + 14}
+        if self.UI.Values[toggle.id] then toggle.Back.Color = self.ActiveTheme.Colors.ToggleEnabledBackground; toggle.Nub.Color = self.ActiveTheme.Colors.Accent; toggle.Nub.Position = {toggleBackX + toggle.Size.width - 5, toggleY + 7 + toggle.Size.height/2} else toggle.Back.Color = self.ActiveTheme.Colors.DarkGray; toggle.Nub.Color = self.ActiveTheme.Colors.LightGray; toggle.Nub.Position = {toggleBackX + 5, toggleY + 7 + toggle.Size.height/2} end
     end
 end
 
@@ -1004,7 +1009,7 @@ function Library:_InputLoop()
                             if self:_IsPointInRegion(mouse_x, mouse_y, circle.ClickRegion) then
                                 if circle.IsAddButton then
                                     self.UI.Popups.EditStyle.IsOpen = true
-                                    self.UI.Values.AboutSelectedStyle = "Custom"
+                                    self.UI.Values.AboutSelectedStyle = "Add"
                                 else
                                     self.UI.Values.AboutSelectedStyle = circle.Name
                                     self.ActiveTheme = self.Themes[circle.Name]
