@@ -1,6 +1,6 @@
 --[[
     Neverlose.cc Style UI Library for Severe
-    Version: 10.5 (Full Implementation & Final Fixes)
+    Version: 10.6 (Full Implementation & Final Fixes)
     
     - [FIX] Fully implemented the "About" window, including all controls, colors, and input handling.
     - [FIX] Corrected and finalized the public API for creating Tabs, Sections, and all Element types.
@@ -288,6 +288,9 @@ function Library:_ApplyTheme()
     if about.StyleCircleCustom.Circle then about.StyleCircleCustom.Circle.Color = self.ActiveTheme.Colors.LightGray; end
     if about.StyleCircleCustom.PlusLine1 then about.StyleCircleCustom.PlusLine1.Color = self.ActiveTheme.Colors.TextDark; end
     if about.StyleCircleCustom.PlusLine2 then about.StyleCircleCustom.PlusLine2.Color = self.ActiveTheme.Colors.TextDark; end
+    if about.AutoSaveToggle.Label then about.AutoSaveToggle.Label.Color = self.ActiveTheme.Colors.TextDark; end
+    if about.AnimationSpeedSlider.Label then about.AnimationSpeedSlider.Label.Color = self.ActiveTheme.Colors.TextDark; end
+    if about.DpiScaleDropdown.Label then about.DpiScaleDropdown.Label.Color = self.ActiveTheme.Colors.TextDark; end
 end
 
 --================================================================
@@ -551,6 +554,7 @@ function Library:_InputLoop()
             if self:_IsPointInRegion(mouse_x, mouse_y, about.StyleCircleBlue.ClickRegion) then self.UI.Values["AboutSelectedStyle"] = "Blue"; self.ActiveTheme = self.Themes.Blue; self:_ApplyTheme(); was_left_pressed = is_left_pressed_now; return end
             if self:_IsPointInRegion(mouse_x, mouse_y, about.StyleCircleWhite.ClickRegion) then self.UI.Values["AboutSelectedStyle"] = "White"; self.ActiveTheme = self.Themes.White; self:_ApplyTheme(); was_left_pressed = is_left_pressed_now; return end
             if self:_IsPointInRegion(mouse_x, mouse_y, about.StyleCircleBlack.ClickRegion) then self.UI.Values["AboutSelectedStyle"] = "Black"; self.ActiveTheme = self.Themes.Black; self:_ApplyTheme(); was_left_pressed = is_left_pressed_now; return end
+            if self:_IsPointInRegion(mouse_x, mouse_y, about.StyleCircleCustom.ClickRegion) then self.UI.Values["AboutSelectedStyle"] = "Custom"; was_left_pressed = is_left_pressed_now; return end
         end
 
         if self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.Save.ClickRegion) then print(SCRIPT_PREFIX.."Save clicked!"); self.UI.Core.HeaderButtons.Save.ClickTime = tick() end
