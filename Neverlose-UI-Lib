@@ -1,6 +1,6 @@
 --[[
     Neverlose.cc Style UI Library for Severe
-    Version: 10.3 (Full Functionality & Bug Fixes)
+    Version: 10.4 (Full Functionality & Bug Fixes)
     
     - [FIX] Fully implemented the "About" window, including all controls and input handling.
     - [FIX] Corrected and finalized the public API for creating Tabs, Sections, and all Element types.
@@ -163,6 +163,33 @@ function Library:_InitializeAboutWindow()
     about.InfoBuildTypeLabel, about.InfoBuildTypeValue = setupInfoText("Build type:", " Release")
     about.InfoRegisteredToLabel, about.InfoRegisteredToValue = setupInfoText("Registered to:", " " .. (game:FindService("Players").localPlayer and game:FindService("Players").localPlayer.Name or ""))
     about.InfoSubscriptionLabel, about.InfoSubscriptionValue = setupInfoText("Subscription till:", " FOREVER")
+    
+    about.FooterText = self:_CreateDrawingObject("Text"); if about.FooterText then about.FooterText.Font = self.ActiveTheme.Fonts.Main; about.FooterText.Size = self.ActiveTheme.Fonts.Size - 1; about.FooterText.Text = "neverlose.cc © 2025"; about.FooterText.Center = true; about.FooterText.zIndex = about_z; end
+    about.Separator3 = self:_CreateDrawingObject("Line"); if about.Separator3 then about.Separator3.Thickness = separatorThickness; about.Separator3.zIndex = 31; end
+    about.CreditText = self:_CreateDrawingObject("Text"); if about.CreditText then about.CreditText.Font = self.ActiveTheme.Fonts.Main; about.CreditText.Size = self.ActiveTheme.Fonts.Size; about.CreditText.Text = "UI by Dicky_Micky_"; about.CreditText.Center = true; about.CreditText.zIndex = about_z; end
+    
+    about.AutoSaveToggle = self:_Internal_CreateToggle({ id = "AboutAutoSave", Name = "Auto Save", Default = false });
+    about.DpiScaleDropdown = self:_Internal_CreateDropdown({ id = "AboutDpiScale", Name = "Dpi Scale", Options = {"100%", "125%", "150%"}, Default = "100%", Size = {width = 100, height = 25} });
+    about.AnimationSpeedSlider = self:_Internal_CreateSlider({ id = "AboutAnimationSpeed", Name = "Animation Speed", Min = 0, Max = 5, Default = 1.6, Increment = 0.1 });
+    
+    about.StyleLabel = self:_CreateDrawingObject("Text"); if about.StyleLabel then setupInfoText(about.StyleLabel, nil, "Style", "", nil); end
+    
+    local function setupStyleCircle(color) 
+        local circleObj = { Circle = self:_CreateDrawingObject("Circle"), Inner = self:_CreateDrawingObject("Circle"), Border = self:_CreateDrawingObject("Circle"), ClickRegion = {} }
+        if circleObj.Circle then circleObj.Circle.Filled = true; circleObj.Circle.zIndex = about_z; circleObj.Circle.Radius = 9; circleObj.Circle.Color = color; end;
+        if circleObj.Inner then circleObj.Inner.Filled = true; circleObj.Inner.zIndex = about_z + 1; circleObj.Inner.Radius = 4; end;
+        if circleObj.Border then circleObj.Border.Filled = false; circleObj.Border.Thickness = 2; circleObj.Border.zIndex = about_z + 1; circleObj.Border.Radius = 11; circleObj.Border.Visible = false; end
+        return circleObj
+    end
+    about.StyleCircleBlue = setupStyleCircle(self.Themes.Blue.Colors.MainBackground); if about.StyleCircleBlue.Inner then about.StyleCircleBlue.Inner.Color = self.Themes.Blue.Colors.Accent end
+    about.StyleCircleWhite = setupStyleCircle(self.Themes.White.Colors.White); if about.StyleCircleWhite.Inner then about.StyleCircleWhite.Inner.Color = self.Themes.White.Colors.Accent end
+    about.StyleCircleBlack = setupStyleCircle(self.Themes.Black.Colors.Black); if about.StyleCircleBlack.Inner then about.StyleCircleBlack.Inner.Color = self.Themes.Black.Colors.Accent end
+    
+    about.StyleCircleCustom = { Circle = self:_CreateDrawingObject("Circle"), Border = self:_CreateDrawingObject("Circle"), PlusLine1 = self:_CreateDrawingObject("Line"), PlusLine2 = self:_CreateDrawingObject("Line"), ClickRegion = {} }
+    if about.StyleCircleCustom.Circle then about.StyleCircleCustom.Circle.Filled = true; about.StyleCircleCustom.Circle.zIndex = about_z; about.StyleCircleCustom.Circle.Radius = 9; end
+    if about.StyleCircleCustom.Border then about.StyleCircleCustom.Border.Filled = false; about.StyleCircleCustom.Border.Thickness = 2; about.StyleCircleCustom.Border.zIndex = about_z + 1; about.StyleCircleCustom.Border.Radius = 11; about.StyleCircleCustom.Border.Visible = false; end
+    if about.StyleCircleCustom.PlusLine1 then about.StyleCircleCustom.PlusLine1.Thickness = 2; about.StyleCircleCustom.PlusLine1.zIndex = about_z + 1; end
+    if about.StyleCircleCustom.PlusLine2 then about.StyleCircleCustom.PlusLine2.Thickness = 2; about.StyleCircleCustom.PlusLine2.zIndex = about_z + 1; end
 end
 
 --================================================================
@@ -249,7 +276,7 @@ function Library:_RenderAboutWindow()
 
     if not isVisible then return end
 
-    local winW, winH = 360, 280
+    local winW, winH = 360, 500
     local winX, winY = self.Window.X + (self.Window.Width / 2) - (winW / 2), self.Window.Y + (self.Window.Height / 2) - (winH / 2)
     
     about.ClickRegion = {x1 = winX, y1 = winY, x2 = winX + winW, y2 = winY + winH}
@@ -286,6 +313,43 @@ function Library:_RenderAboutWindow()
     currentY = renderInfoLine(currentY, about.InfoBuildTypeLabel, about.InfoBuildTypeValue)
     currentY = renderInfoLine(currentY, about.InfoRegisteredToLabel, about.InfoRegisteredToValue)
     currentY = renderInfoLine(currentY, about.InfoSubscriptionLabel, about.InfoSubscriptionValue)
+
+    about.FooterText.Position = {winX + winW / 2, currentY}
+    currentY = currentY + 50; about.Separator3.From = {winX + 10, currentY}; about.Separator3.To = {winX + winW - 10, currentY}; currentY = currentY + 15
+    local controlX = winX + 20; local controlW = winW - 40; local controlSpacing = 35
+    
+    local toggle = about.AutoSaveToggle
+    toggle.Label.Position = {controlX, currentY}; local toggleBackX = controlX + controlW - toggle.Size.width; toggle.Back.Position = {toggleBackX, currentY + 4}; toggle.Back.Size = {toggle.Size.width, toggle.Size.height}; toggle.ClickRegion = {x1 = toggleBackX, y1 = currentY, x2 = toggleBackX + toggle.Size.width, y2 = currentY + toggle.Size.height + 8}; if self.UI.Values[toggle.id] then toggle.Back.Color = self.ActiveTheme.Colors.ToggleEnabledBackground; toggle.Nub.Color = self.ActiveTheme.Colors.Accent; toggle.Nub.Position = {toggleBackX + toggle.Size.width - 5, currentY + 4 + toggle.Size.height/2} else toggle.Back.Color = self.ActiveTheme.Colors.DarkGray; toggle.Nub.Color = self.ActiveTheme.Colors.LightGray; toggle.Nub.Position = {toggleBackX + 5, currentY + 4 + toggle.Size.height/2} end; currentY = currentY + controlSpacing
+    
+    local slider = about.AnimationSpeedSlider
+    slider.Label.Position = {controlX, currentY}; local sliderBackX = controlX + 140; local sliderBackWidth = controlW - 140 - 50; slider.Back.Position = {sliderBackX, currentY + 8}; slider.Back.Size = {sliderBackWidth, 2}; slider.ClickRegion = { x1 = sliderBackX, y1 = currentY - 2, x2 = sliderBackX + sliderBackWidth, y2 = currentY + 18 }; local value_percentage = math.clamp((self.UI.Values[slider.id] - slider.Min) / (slider.Max - slider.Min), 0, 1); local nubX = sliderBackX + sliderBackWidth * value_percentage; slider.LeftFill.Position = {sliderBackX, currentY + 8}; slider.LeftFill.Size = {nubX - sliderBackX, 2}; slider.RightFill.Position = {nubX, currentY + 8}; slider.RightFill.Size = {sliderBackX + sliderBackWidth - nubX, 2}; slider.Nub.Position = {nubX, currentY + 9}; local valueText = string.format("%.1f", self.UI.Values[slider.id]); local valueTextX = controlX + controlW - 40; slider.ValueText.Text = valueText; slider.ValueText.Position = {valueTextX, currentY}; currentY = currentY + controlSpacing
+    
+    local dropdown = about.DpiScaleDropdown
+    dropdown.Label.Position = {controlX, currentY + 5}; local dropdownButtonX = controlX + controlW - dropdown.Size.width; dropdown.Button.Position = {dropdownButtonX, currentY}; dropdown.Button.Size = {dropdown.Size.width, dropdown.Size.height}; dropdown.ButtonText.Position = {dropdownButtonX + 5, currentY + dropdown.Size.height / 2 - dropdown.ButtonText.Size / 2}; dropdown.ButtonText.Text = self.UI.Values[dropdown.id]; local arrowX, arrowY = dropdownButtonX + dropdown.Size.width - 15, currentY + dropdown.Size.height / 2; dropdown.ArrowLine1.From = {arrowX, arrowY - 2}; dropdown.ArrowLine1.To = {arrowX + 5, arrowY + 3}; dropdown.ArrowLine2.From = {arrowX + 5, arrowY + 3}; dropdown.ArrowLine2.To = {arrowX + 10, arrowY - 2}; dropdown.ClickRegion = { x1 = dropdownButtonX, y1 = currentY, x2 = dropdownButtonX + dropdown.Size.width, y2 = currentY + dropdown.Size.height }
+    if dropdown.IsOpen then
+        local optionListHeight = #dropdown.Options * 20 + 5; local bgX, bgY, bgW, bgH = dropdownButtonX, currentY + dropdown.Size.height, dropdown.Size.width, optionListHeight
+        self:_SetVisibility(dropdown.OptionBackground, true); dropdown.OptionBackground.Position = {bgX, bgY}; dropdown.OptionBackground.Size = {bgW, bgH};
+        local optionY = currentY + dropdown.Size.height + 5
+        for i, option in ipairs(dropdown.OptionList) do self:_SetVisibility(option, true); option.Position = {dropdownButtonX + 5, optionY}; option.Text = dropdown.Options[i]; option.Color = (self.UI.Values[dropdown.id] == dropdown.Options[i]) and self.ActiveTheme.Colors.Accent or self.ActiveTheme.Colors.TextLight; optionY = optionY + 20 end
+    else
+        self:_SetVisibility(dropdown.OptionBackground, false); for _, option in ipairs(dropdown.OptionList) do self:_SetVisibility(option, false) end
+    end
+    currentY = currentY + controlSpacing
+
+    about.StyleLabel.Position = {controlX, currentY}; local circleStartX = controlX + controlW - 120; 
+    about.StyleCircleBlue.Circle.Position = {circleStartX, currentY + 5}; about.StyleCircleBlue.Border.Position = {circleStartX, currentY + 5}; about.StyleCircleBlue.Inner.Position = {circleStartX, currentY + 5};
+    about.StyleCircleWhite.Circle.Position = {circleStartX + 30, currentY + 5}; about.StyleCircleWhite.Border.Position = {circleStartX + 30, currentY + 5}; about.StyleCircleWhite.Inner.Position = {circleStartX + 30, currentY + 5};
+    about.StyleCircleBlack.Circle.Position = {circleStartX + 60, currentY + 5}; about.StyleCircleBlack.Border.Position = {circleStartX + 60, currentY + 5}; about.StyleCircleBlack.Inner.Position = {circleStartX + 60, currentY + 5};
+    about.StyleCircleCustom.Circle.Position = {circleStartX + 90, currentY + 5}; about.StyleCircleCustom.Border.Position = {circleStartX + 90, currentY + 5};
+    local plusCenterX, plusCenterY = circleStartX + 90, currentY + 5;
+    about.StyleCircleCustom.PlusLine1.From = {plusCenterX - 4, plusCenterY}; about.StyleCircleCustom.PlusLine1.To = {plusCenterX + 4, plusCenterY};
+    about.StyleCircleCustom.PlusLine2.From = {plusCenterX, plusCenterY - 4}; about.StyleCircleCustom.PlusLine2.To = {plusCenterX, plusCenterY + 4};
+    about.StyleCircleBlue.ClickRegion = {x1 = circleStartX - 10, y1 = currentY - 5, x2 = circleStartX + 10, y2 = currentY + 15}; 
+    about.StyleCircleWhite.ClickRegion = {x1 = circleStartX + 20, y1 = currentY - 5, x2 = circleStartX + 40, y2 = currentY + 15}; 
+    about.StyleCircleBlack.ClickRegion = {x1 = circleStartX + 50, y1 = currentY - 5, x2 = circleStartX + 70, y2 = currentY + 15};
+    about.StyleCircleCustom.ClickRegion = {x1 = circleStartX + 80, y1 = currentY - 5, x2 = circleStartX + 100, y2 = currentY + 15};
+    self:_SetVisibility(about.StyleCircleBlue.Border, self.UI.Values["AboutSelectedStyle"] == "Blue"); self:_SetVisibility(about.StyleCircleWhite.Border, self.UI.Values["AboutSelectedStyle"] == "White"); self:_SetVisibility(about.StyleCircleBlack.Border, self.UI.Values["AboutSelectedStyle"] == "Black"); self:_SetVisibility(about.StyleCircleCustom.Border, self.UI.Values["AboutSelectedStyle"] == "Custom"); currentY = currentY + controlSpacing
+    about.CreditText.Position = {winX + winW / 2, currentY}
 end
 
 function Library:_RenderLoop()
@@ -484,6 +548,44 @@ function Library:_MainLoop()
         pcall(function() self:_InputLoop(); self:_RenderLoop() end)
         wait(0.01)
     end
+end
+
+--================================================================
+--[[ PRIVATE: INTERNAL ELEMENT CREATORS ]]
+--================================================================
+
+function Library:_Internal_CreateToggle(options)
+    self.UI.Values[options.id] = options.Default or false
+    local toggle = { id = options.id, type = "Toggle", Name = options.Name, Size = {width = 35, height = 12}, Label = self:_CreateDrawingObject("Text"), Back = self:_CreateDrawingObject("Square"), Nub = self:_CreateDrawingObject("Circle"), ClickRegion = {} }
+    if toggle.Label then toggle.Label.Font = self.ActiveTheme.Fonts.Main; toggle.Label.Size = self.ActiveTheme.Fonts.Size + 2; toggle.Label.Text = toggle.Name; toggle.Label.Center = false; toggle.Label.Outline = false; toggle.Label.zIndex = 40; end
+    if toggle.Back then toggle.Back.Filled = true; toggle.Back.zIndex = 40; toggle.Back.Rounding = 6; end
+    if toggle.Nub then toggle.Nub.Filled = true; toggle.Nub.zIndex = 41; toggle.Nub.Radius = 9; end
+    return toggle
+end
+
+function Library:_Internal_CreateSlider(options)
+    self.UI.Values[options.id] = options.Default or options.Min or 0
+    local slider = { id = options.id, type = "Slider", Name = options.Name, Min = options.Min or 0, Max = options.Max or 100, Increment = options.Increment or 1, IsDragging = false, Label = self:_CreateDrawingObject("Text"), Back = self:_CreateDrawingObject("Square"), LeftFill = self:_CreateDrawingObject("Square"), RightFill = self:_CreateDrawingObject("Square"), Nub = self:_CreateDrawingObject("Circle"), ValueText = self:_CreateDrawingObject("Text"), ClickRegion = {} }
+    if slider.Label then slider.Label.Font = self.ActiveTheme.Fonts.Main; slider.Label.Size = self.ActiveTheme.Fonts.Size + 2; slider.Label.Text = slider.Name; slider.Label.Center = false; slider.Label.Outline = false; slider.Label.zIndex = 40; end
+    if slider.Back then slider.Back.Filled = true; slider.Back.zIndex = 40; slider.Back.Rounding = 1; end
+    if slider.LeftFill then slider.LeftFill.Filled = true; slider.LeftFill.zIndex = 41; slider.LeftFill.Rounding = 1; end
+    if slider.RightFill then slider.RightFill.Filled = true; slider.RightFill.zIndex = 41; slider.RightFill.Rounding = 1; end
+    if slider.Nub then slider.Nub.Filled = true; slider.Nub.zIndex = 42; slider.Nub.Radius = 8; end
+    if slider.ValueText then slider.ValueText.Font = self.ActiveTheme.Fonts.Main; slider.ValueText.Size = self.ActiveTheme.Fonts.Size; slider.ValueText.Center = false; slider.ValueText.Outline = false; slider.ValueText.zIndex = 40; end
+    return slider
+end
+
+function Library:_Internal_CreateDropdown(options)
+    self.UI.Values[options.id] = options.Default or options.Options[1]
+    local dropdown = { id = options.id, type = "Dropdown", Name = options.Name, Options = options.Options, IsOpen = false, Size = options.Size or {width = 120, height = 25}, Label = self:_CreateDrawingObject("Text"), Button = self:_CreateDrawingObject("Square"), ButtonText = self:_CreateDrawingObject("Text"), OptionList = {}, OptionBackground = self:_CreateDrawingObject("Square"), ArrowLine1 = self:_CreateDrawingObject("Line"), ArrowLine2 = self:_CreateDrawingObject("Line"), ClickRegion = {} }
+    if dropdown.Label then dropdown.Label.Font = self.ActiveTheme.Fonts.Main; dropdown.Label.Size = self.ActiveTheme.Fonts.Size + 2; dropdown.Label.Text = dropdown.Name; dropdown.Label.Center = false; dropdown.Label.Outline = false; dropdown.Label.zIndex = 40; end
+    if dropdown.Button then dropdown.Button.Filled = true; dropdown.Button.zIndex = 40; dropdown.Button.Rounding = self.ActiveTheme.Rounding.Element; end
+    if dropdown.ButtonText then dropdown.ButtonText.Font = self.ActiveTheme.Fonts.Main; dropdown.ButtonText.Size = self.ActiveTheme.Fonts.Size + 3; dropdown.ButtonText.Text = self.UI.Values[dropdown.id]; dropdown.ButtonText.Center = false; dropdown.ButtonText.Outline = false; dropdown.ButtonText.zIndex = 41; end
+    if dropdown.OptionBackground then dropdown.OptionBackground.Filled = true; dropdown.OptionBackground.zIndex = 50; dropdown.OptionBackground.Visible = false; dropdown.OptionBackground.Rounding = self.ActiveTheme.Rounding.Element; end
+    if dropdown.ArrowLine1 then dropdown.ArrowLine1.Thickness = 2; dropdown.ArrowLine1.zIndex = 42; end
+    if dropdown.ArrowLine2 then dropdown.ArrowLine2.Thickness = 2; dropdown.ArrowLine2.zIndex = 42; end
+    for i, option in ipairs(dropdown.Options) do local optionText = self:_CreateDrawingObject("Text"); if optionText then optionText.Font = self.ActiveTheme.Fonts.Main; optionText.Size = self.ActiveTheme.Fonts.Size; optionText.Text = option; optionText.Center = false; optionText.Outline = false; optionText.zIndex = 51; optionText.Visible = false; end table.insert(dropdown.OptionList, optionText) end
+    return dropdown
 end
 
 --================================================================
