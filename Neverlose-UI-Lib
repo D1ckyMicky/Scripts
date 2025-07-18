@@ -1,15 +1,14 @@
 --[[
     Neverlose.cc Style UI Library for Severe
-    Version: 12.2 (Layout Rework & Multi-row Themes)
+    Version: 12.3 (Color Picker Foundation)
     Developer: Gemini AI & Dicky_Micky_
 
-    - [FIX] The 'Dpi Scale' dropdown in the About window is now reliably clickable. The input handler logic was
-            restructured to correctly prioritize element clicks within the popup.
-    - [REWORK] Completely reworked the element positioning logic in the About window to be more robust and clear.
-            Removed "magic numbers" in favor of calculations based on the window's right edge, as requested.
-    - [ADD] Implemented theme circle wrapping with a right-to-left slot system. A new row is created
-            after 8 themes, preventing overflow and keeping the layout clean.
-    - [ADJUST] Finalized layout adjustments for all elements in the About window to match user specifications.
+    - [FIX] The footer text ("UI by...") in the About window now has a fixed position and is no longer
+            pushed down by new rows of theme circles.
+    - [ADD] Implemented the foundational structure for the color picker popup.
+    - [ADD] Clicking a color in the "Edit Style" window now opens the color picker popup next to it.
+    - [ADD] The color picker displays a square filled with the selected color, overlaid with the
+            saturation/value gradient image provided by the user.
 ]]
 
 local Library = {}
@@ -165,6 +164,7 @@ function Library:_InitializeCoreUI()
     self:_InitializeAboutWindow()
     self:_InitializePlayerESPSettingsPopup()
     self:_InitializeEditStyleWindow()
+    self:_InitializeColorPickerWindow() -- New
 
     local Players = game:FindService("Players")
     if Players and Players.localPlayer then
@@ -356,6 +356,16 @@ function Library:_InitializeEditStyleWindow()
     if style_window.SaveButton.Background then style_window.SaveButton.Background.Filled = true; style_window.SaveButton.Background.zIndex = z + 2; style_window.SaveButton.Background.Rounding = self.ActiveTheme.Rounding.Button; end
     if style_window.SaveButton.Label then style_window.SaveButton.Label.Font = self.ActiveTheme.Fonts.Main; style_window.SaveButton.Label.Size = self.ActiveTheme.Fonts.Size; style_window.SaveButton.Label.Text = "Save"; style_window.SaveButton.Label.Center = false; style_window.SaveButton.Label.zIndex = z + 3; end
     if style_window.SaveButton.Icon then style_window.SaveButton.Icon.Url = "https://s6.imgcdn.dev/Y4wbgw.png"; style_window.SaveButton.Icon.Size = {13.33, 13.33}; style_window.SaveButton.Icon.zIndex = z + 3; end
+end
+
+function Library:_InitializeColorPickerWindow()
+    local picker = {}; self.UI.Popups.ColorPicker = picker; local z = 50
+    picker.IsOpen = false
+    picker.EditingColorName = nil
+    
+    picker.Background = self:_CreateDrawingObject("Square"); if picker.Background then picker.Background.Filled = true; picker.Background.zIndex = z; picker.Background.Rounding = self.ActiveTheme.Rounding.Element; end
+    picker.ColorSquare = self:_CreateDrawingObject("Square"); if picker.ColorSquare then picker.ColorSquare.Filled = true; picker.ColorSquare.zIndex = z + 1; end
+    picker.GradientOverlay = self:_CreateDrawingObject("Image"); if picker.GradientOverlay then picker.GradientOverlay.Url = "https://pixeldrain.com/api/filesystem/6mLiDUiK"; picker.GradientOverlay.zIndex = z + 2; end
 end
 
 --================================================================
@@ -636,9 +646,7 @@ function Library:_RenderAboutWindow()
         circle.ClickRegion = {x1 = circleX - 10, y1 = circleY - 5, x2 = circleX + 10, y2 = circleY + 15}
     end
     
-    local numRows = math.ceil(#about.StyleCircles / maxPerRow)
-    currentY = currentY + (numRows * circleSpacing)
-    about.CreditText.Position = {winX + winW / 2, currentY + 15}
+    about.CreditText.Position = {winX + winW / 2, winY + winH - 25}
 end
 
 function Library:_RenderPlayerESPSettingsPopup()
@@ -757,6 +765,37 @@ function Library:_RenderEditStyleWindow()
     end
 end
 
+function Library:_RenderColorPickerWindow()
+    local picker = self.UI.Popups.ColorPicker
+    local isVisible = picker.IsOpen
+
+    self:_SetVisibility(picker.Background, isVisible)
+    self:_SetVisibility(picker.ColorSquare, isVisible)
+    self:_SetVisibility(picker.GradientOverlay, isVisible)
+    
+    if isVisible then
+        local stylePopup = self.UI.Popups.EditStyle
+        local pickerW, pickerH = 200, 250
+        local pickerX = self.Window.X + self.Window.Width + 15 + 300 + 10
+        local pickerY = self.Window.Y
+        
+        picker.Background.Position = {pickerX, pickerY}
+        picker.Background.Size = {pickerW, pickerH}
+        picker.Background.Color = self.ActiveTheme.Colors.SectionBackground
+
+        local squareSize = 150
+        local squareX = pickerX + (pickerW - squareSize) / 2
+        local squareY = pickerY + 15
+        
+        picker.ColorSquare.Position = {squareX, squareY}
+        picker.ColorSquare.Size = {squareSize, squareSize}
+        picker.ColorSquare.Color = stylePopup.EditingTheme.Colors[picker.EditingColorName] or {255, 0, 255}
+
+        picker.GradientOverlay.Position = {squareX, squareY}
+        picker.GradientOverlay.Size = {squareSize, squareSize}
+    end
+end
+
 function Library:_RenderLoop()
     if not self.Window.Visible then return end
 
@@ -807,6 +846,7 @@ function Library:_RenderLoop()
     self:_RenderPlayerESPSettingsPopup()
     self:_RenderAboutWindow()
     self:_RenderEditStyleWindow()
+    self:_RenderColorPickerWindow() -- New
 end
 
 function Library:_RenderTabs(x, y, width)
@@ -938,7 +978,7 @@ function Library:_InputLoop()
             local about_slider = self.UI.Core.AboutWindow.AnimationSpeedSlider
             if self.UI.Popups.About.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, about_slider.ClickRegion) then
                 about_slider.IsDragging = true
-            elseif not self.UI.Popups.About.IsOpen and not self.UI.Popups.PlayerESP.IsOpen and not self.UI.Popups.EditStyle.IsOpen then
+            elseif not self.UI.Popups.About.IsOpen and not self.UI.Popups.PlayerESP.IsOpen and not self.UI.Popups.EditStyle.IsOpen and not self.UI.Popups.ColorPicker.IsOpen then
                  local started_slider_drag = false
                  for _, section in ipairs(self.UI.Sections) do
                     if section.ParentTab == self.Window.ActiveTab then
@@ -1001,7 +1041,10 @@ function Library:_InputLoop()
             local click_was_handled = false
             local clicked_dropdown_button = nil
             
-            if self.UI.Popups.EditStyle.IsOpen then
+            if self.UI.Popups.ColorPicker.IsOpen then
+                click_was_handled = true
+                -- Logic for color picker clicks will go here in the future
+            elseif self.UI.Popups.EditStyle.IsOpen then
                 click_was_handled = true
                 local style_window = self.UI.Popups.EditStyle
                 if self:_IsPointInRegion(mouse_x, mouse_y, style_window.CloseButton.ClickRegion) then
@@ -1012,7 +1055,7 @@ function Library:_InputLoop()
                     local newTheme = self:_DeepCopy(style_window.EditingTheme)
                     local themeName = style_window.EditingThemeName
                     
-                    newTheme.IsPreset = false -- CRITICAL FIX: Ensure new/edited themes are marked as custom
+                    newTheme.IsPreset = false
                     
                     if not self.Themes[themeName] or self.Themes[themeName].IsPreset then 
                          self.CustomThemeCounter = self.CustomThemeCounter + 1
@@ -1030,13 +1073,21 @@ function Library:_InputLoop()
                     style_window.IsOpen = false
                 elseif self:_IsPointInRegion(mouse_x, mouse_y, style_window.RealTimeToggle.ClickRegion) then
                     self.UI.Values.EditStyleRealTime = not self.UI.Values.EditStyleRealTime
+                else
+                    for _, item in ipairs(style_window.ColorItems) do
+                        if self:_IsPointInRegion(mouse_x, mouse_y, item.ClickRegion) then
+                            local picker = self.UI.Popups.ColorPicker
+                            picker.IsOpen = true
+                            picker.EditingColorName = item.Name
+                            break
+                        end
+                    end
                 end
             elseif self.UI.Popups.About.IsOpen then
-                click_was_handled = true -- Assume click is handled unless it's outside
+                click_was_handled = true
                 local about = self.UI.Core.AboutWindow
                 local about_dropdown = about.DpiScaleDropdown
 
-                -- Check for clicks on specific elements first
                 if self:_IsPointInRegion(mouse_x, mouse_y, about.CloseButton.ClickRegion) then 
                     self.UI.Popups.About.IsOpen = false
                     if about_dropdown.IsOpen then about_dropdown.IsOpen = false end
@@ -1045,7 +1096,6 @@ function Library:_InputLoop()
                 elseif self:_IsPointInRegion(mouse_x, mouse_y, about_dropdown.ClickRegion) then 
                     about_dropdown.IsOpen = not about_dropdown.IsOpen
                 elseif about_dropdown.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, {x1 = about_dropdown.Button.Position.x, y1 = about_dropdown.Button.Position.y + about_dropdown.Size.height, x2 = about_dropdown.Button.Position.x + about_dropdown.OptionBackground.Size.x, y2 = about_dropdown.Button.Position.y + about_dropdown.Size.height + about_dropdown.OptionBackground.Size.y}) then
-                    -- Click was inside the open dropdown list
                     local optionY = about_dropdown.Button.Position.y + about_dropdown.Size.height + 5
                     for i, option_text in ipairs(about_dropdown.OptionList) do
                         local optionRegion = {x1 = about_dropdown.Button.Position.x, y1 = optionY, x2 = about_dropdown.Button.Position.x + about_dropdown.Size.width, y2 = optionY + 20}
@@ -1077,9 +1127,7 @@ function Library:_InputLoop()
                     end
 
                     if not circle_clicked then
-                        -- If no specific element was clicked, and the dropdown is open, close it
                         if about_dropdown.IsOpen then about_dropdown.IsOpen = false
-                        -- If click was outside the main About window region, close it
                         elseif not self:_IsPointInRegion(mouse_x, mouse_y, about.ClickRegion) then
                              self.UI.Popups.About.IsOpen = false
                         end
@@ -1322,4 +1370,3 @@ function Library:Create()
 end
 
 return Library
-
