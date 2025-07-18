@@ -1,15 +1,13 @@
 --[[
     Neverlose.cc Style UI Library for Severe
-    Version: 11.8 (Theme System & Editor Rework)
+    Version: 11.9 (Theme System Simplification & Bugfix)
     Developer: Gemini AI & Dicky_Micky_
 
-    - [REWORK] Completely overhauled the custom theme saving logic. The library now rebuilds the theme circle list
-      from scratch upon saving a new theme, which is more robust and fixes positioning/rendering bugs.
-    - [REWORK] The "Edit Style" window now correctly tracks color changes in a temporary table and saves them
-      properly into a new or existing custom theme.
-    - [FIX] Restored the rendering of all preset and custom theme circles in the "About" window.
-    - [ADD] Implemented the ability to edit existing custom themes by clicking their respective circles.
-    - [ADD] The "Style name" input now correctly updates when editing an existing theme.
+    - [FIX] Fixed a critical crash ('attempt to index nil with MainBackground') that occurred when rendering theme circles.
+            The function now safely handles the 'Add' button which has no color data.
+    - [REWORK] Simplified the theme circle layout logic based on user feedback. Custom themes are now added to the
+            beginning of the list, before presets, eliminating complex repositioning logic and improving stability.
+    - [NOTE] The color editor currently copies the active theme's colors. A visual color picker is not yet implemented.
 ]]
 
 local Library = {}
@@ -221,7 +219,6 @@ function Library:_RebuildStyleCircles()
     local about = self.UI.Core.AboutWindow
     local about_z = 32
 
-    -- Clear old drawing objects to prevent memory leaks
     for _, circle in ipairs(about.StyleCircles) do
         if circle.Circle then circle.Circle:Remove() end
         if circle.Border then circle.Border:Remove() end
@@ -240,7 +237,12 @@ function Library:_RebuildStyleCircles()
             ClickRegion = {}
         }
 
-        if circleObj.Circle then circleObj.Circle.Filled = true; circleObj.Circle.zIndex = about_z; circleObj.Circle.Radius = 9; circleObj.Circle.Color = theme.Colors.MainBackground or {40,40,40}; end
+        if circleObj.Circle then 
+            circleObj.Circle.Filled = true; 
+            circleObj.Circle.zIndex = about_z; 
+            circleObj.Circle.Radius = 9; 
+            circleObj.Circle.Color = (theme.Colors and theme.Colors.MainBackground) or {40,40,40}; 
+        end
         if circleObj.Border then circleObj.Border.Filled = false; circleObj.Border.Thickness = 2; circleObj.Border.zIndex = about_z + 1; circleObj.Border.Radius = 11; circleObj.Border.Visible = false; end
 
         if isAddButton then
@@ -252,19 +254,22 @@ function Library:_RebuildStyleCircles()
         table.insert(about.StyleCircles, circleObj)
     end
 
-    -- Add presets first
+    local customThemeNames = {}
+    for themeName, themeData in pairs(self.Themes) do
+        if not themeData.IsPreset then
+            table.insert(customThemeNames, themeName)
+        end
+    end
+    table.sort(customThemeNames)
+
+    for _, themeName in ipairs(customThemeNames) do
+        addCircle(self.Themes[themeName])
+    end
+
     addCircle(self.Themes.Blue)
     addCircle(self.Themes.White)
     addCircle(self.Themes.Black)
 
-    -- Add custom themes
-    for themeName, themeData in pairs(self.Themes) do
-        if not themeData.IsPreset then
-            addCircle(themeData)
-        end
-    end
-
-    -- Add the "Add" button last
     addCircle({Name = "Add"}, true)
 end
 
@@ -977,11 +982,11 @@ function Library:_InputLoop()
                     local newTheme = self:_DeepCopy(style_window.EditingTheme)
                     local themeName = style_window.EditingThemeName
                     
-                    if not self.Themes[themeName] then -- It's a new theme
+                    if not self.Themes[themeName] then 
                          self.CustomThemeCounter = self.CustomThemeCounter + 1
                          newTheme.Name = "Custom "..self.CustomThemeCounter
                          self.Themes[newTheme.Name] = newTheme
-                    else -- It's an existing theme
+                    else 
                         self.Themes[themeName] = newTheme
                     end
                     
