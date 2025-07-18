@@ -1,14 +1,12 @@
 --[[
     Neverlose.cc Style UI Library for Severe
-    Version: 12.0 (Theme System Finalization)
+    Version: 12.1 (About Window Layout Adjustments)
     Developer: Gemini AI & Dicky_Micky_
 
-    - [FIX] Corrected the core issue where newly created themes were not displayed. New themes are now correctly
-            flagged as non-preset, allowing the rendering logic to detect and display them.
-    - [FIX] The visual glitch where title accents would appear on custom light-colored themes has been resolved.
-            The library now checks the background color's brightness instead of the theme's name to determine visibility.
-    - [REWORK] Clicking any theme circle (preset or custom) now selects it. The 'Add' button is now the sole entry
-            point for creating/editing themes, providing a more consistent user experience.
+    - [FIX] The 'Dpi Scale' dropdown in the About window is now clickable. The input handler logic was
+            updated to correctly process clicks within the About window popup.
+    - [ADJUST] Repositioned elements within the About window to match user's visual specifications for a
+            cleaner layout. This includes the animation slider, DPI dropdown, style circles, and footer text.
 ]]
 
 local Library = {}
@@ -587,26 +585,28 @@ function Library:_RenderAboutWindow()
     toggle.Label.Position = {controlX, currentY}; local toggleBackX = controlX + controlW - toggle.Size.width; toggle.Back.Position = {toggleBackX, currentY + 4}; toggle.Back.Size = {toggle.Size.width, toggle.Size.height}; toggle.ClickRegion = {x1 = toggleBackX, y1 = currentY, x2 = toggleBackX + toggle.Size.width, y2 = currentY + toggle.Size.height + 8}; if self.UI.Values[toggle.id] then toggle.Back.Color = self.ActiveTheme.Colors.ToggleEnabledBackground; toggle.Nub.Color = self.ActiveTheme.Colors.Accent; toggle.Nub.Position = {toggleBackX + toggle.Size.width - 5, currentY + 4 + toggle.Size.height/2} else toggle.Back.Color = self.ActiveTheme.Colors.DarkGray; toggle.Nub.Color = self.ActiveTheme.Colors.LightGray; toggle.Nub.Position = {toggleBackX + 5, currentY + 4 + toggle.Size.height/2} end; currentY = currentY + controlSpacing
 
     local slider = about.AnimationSpeedSlider
-    slider.Label.Position = {controlX, currentY}; local sliderBackX = controlX + 140; local sliderBackWidth = controlW - 140 - 50; slider.Back.Position = {sliderBackX, currentY + 8}; slider.Back.Size = {sliderBackWidth, 2}; slider.ClickRegion = { x1 = sliderBackX, y1 = currentY - 2, x2 = sliderBackX + sliderBackWidth, y2 = currentY + 18 }; local value_percentage = math.clamp((self.UI.Values[slider.id] - slider.Min) / (slider.Max - slider.Min), 0, 1); local nubX = sliderBackX + sliderBackWidth * value_percentage; slider.LeftFill.Position = {sliderBackX, currentY + 8}; slider.LeftFill.Size = {nubX - sliderBackX, 2}; slider.RightFill.Position = {nubX, currentY + 8}; slider.RightFill.Size = {sliderBackX + sliderBackWidth - nubX, 2}; slider.Nub.Position = {nubX, currentY + 9}; local valueText = string.format("%.1f", self.UI.Values[slider.id]); local valueTextX = controlX + controlW - 40; slider.ValueText.Text = valueText; slider.ValueText.Position = {valueTextX, currentY}; currentY = currentY + controlSpacing
+    slider.Label.Position = {controlX, currentY}; local sliderBackX = controlX + 140 + 21; local sliderBackWidth = controlW - 140 - 50 - 21; slider.Back.Position = {sliderBackX, currentY + 8}; slider.Back.Size = {sliderBackWidth, 2}; slider.ClickRegion = { x1 = sliderBackX, y1 = currentY - 2, x2 = sliderBackX + sliderBackWidth, y2 = currentY + 18 }; local value_percentage = math.clamp((self.UI.Values[slider.id] - slider.Min) / (slider.Max - slider.Min), 0, 1); local nubX = sliderBackX + sliderBackWidth * value_percentage; slider.LeftFill.Position = {sliderBackX, currentY + 8}; slider.LeftFill.Size = {nubX - sliderBackX, 2}; slider.RightFill.Position = {nubX, currentY + 8}; slider.RightFill.Size = {sliderBackX + sliderBackWidth - nubX, 2}; slider.Nub.Position = {nubX, currentY + 9}; local valueText = string.format("%.1f", self.UI.Values[slider.id]); local valueTextX = controlX + controlW - 40; slider.ValueText.Text = valueText; slider.ValueText.Position = {valueTextX, currentY}; currentY = currentY + controlSpacing
 
     local dropdown = about.DpiScaleDropdown
-    dropdown.Label.Position = {controlX, currentY + 5}; local dropdownButtonX = controlX + controlW - dropdown.Size.width; dropdown.Button.Position = {dropdownButtonX, currentY}; dropdown.Button.Size = {dropdown.Size.width, dropdown.Size.height}; dropdown.ButtonText.Position = {dropdownButtonX + 5, currentY + dropdown.Size.height / 2 - dropdown.ButtonText.Size / 2}; dropdown.ButtonText.Text = self.UI.Values[dropdown.id]; local arrowX, arrowY = dropdownButtonX + dropdown.Size.width - 15, currentY + dropdown.Size.height / 2; dropdown.ArrowLine1.From = {arrowX, arrowY - 2}; dropdown.ArrowLine1.To = {arrowX + 5, arrowY + 3}; dropdown.ArrowLine2.From = {arrowX + 5, arrowY + 3}; dropdown.ArrowLine2.To = {arrowX + 10, arrowY - 2}; dropdown.ClickRegion = { x1 = dropdownButtonX, y1 = currentY, x2 = dropdownButtonX + dropdown.Size.width, y2 = currentY + dropdown.Size.height }
+    local dropdownY = currentY - 4
+    dropdown.Label.Position = {controlX, dropdownY + 5}; local dropdownButtonX = controlX + controlW - dropdown.Size.width; dropdown.Button.Position = {dropdownButtonX, dropdownY}; dropdown.Button.Size = {dropdown.Size.width, dropdown.Size.height}; dropdown.ButtonText.Position = {dropdownButtonX + 5, dropdownY + dropdown.Size.height / 2 - dropdown.ButtonText.Size / 2}; dropdown.ButtonText.Text = self.UI.Values[dropdown.id]; local arrowX, arrowY = dropdownButtonX + dropdown.Size.width - 15, dropdownY + dropdown.Size.height / 2; dropdown.ArrowLine1.From = {arrowX, arrowY - 2}; dropdown.ArrowLine1.To = {arrowX + 5, arrowY + 3}; dropdown.ArrowLine2.From = {arrowX + 5, arrowY + 3}; dropdown.ArrowLine2.To = {arrowX + 10, arrowY - 2}; dropdown.ClickRegion = { x1 = dropdownButtonX, y1 = dropdownY, x2 = dropdownButtonX + dropdown.Size.width, y2 = dropdownY + dropdown.Size.height }
     self:_SetVisibility(dropdown.BorderLeft, dropdown.IsOpen); self:_SetVisibility(dropdown.BorderRight, dropdown.IsOpen); self:_SetVisibility(dropdown.BorderBottom, dropdown.IsOpen)
     if dropdown.IsOpen then
-        local optionListHeight = #dropdown.Options * 20 + 5; local bgX, bgY, bgW, bgH = dropdownButtonX, currentY + dropdown.Size.height, dropdown.Size.width, optionListHeight
+        local optionListHeight = #dropdown.Options * 20 + 5; local bgX, bgY, bgW, bgH = dropdownButtonX, dropdownY + dropdown.Size.height, dropdown.Size.width, optionListHeight
         self:_SetVisibility(dropdown.OptionBackground, true); dropdown.OptionBackground.Position = {bgX, bgY}; dropdown.OptionBackground.Size = {bgW, bgH}; local borderColor = self.ActiveTheme.Colors.Separator; dropdown.BorderLeft.From = {bgX, bgY}; dropdown.BorderLeft.To = {bgX, bgY + bgH}; dropdown.BorderRight.From = {bgX + bgW, bgY}; dropdown.BorderRight.To = {bgX + bgW, bgY + bgH}; dropdown.BorderBottom.From = {bgX, bgY + bgH}; dropdown.BorderBottom.To = {bgX + bgW, bgY + bgH};
-        local optionY = currentY + dropdown.Size.height + 5
+        local optionY = dropdownY + dropdown.Size.height + 5
         for i, option in ipairs(dropdown.OptionList) do self:_SetVisibility(option, true); option.Position = {dropdownButtonX + 5, optionY}; option.Text = dropdown.Options[i]; option.Color = (self.UI.Values[dropdown.id] == dropdown.Options[i]) and self.ActiveTheme.Colors.Accent or self.ActiveTheme.Colors.TextLight; optionY = optionY + 20 end
     else
         self:_SetVisibility(dropdown.OptionBackground, false); for _, option in ipairs(dropdown.OptionList) do self:_SetVisibility(option, false) end
     end
     currentY = currentY + controlSpacing
 
-    about.StyleLabel.Position = {controlX, currentY}; 
-    local circleStartX = controlX + controlW - (#about.StyleCircles * 30) + 10
+    local styleY = currentY + 4
+    about.StyleLabel.Position = {controlX, styleY}; 
+    local circleStartX = controlX + controlW - (#about.StyleCircles * 30) + 10 + 22
     for i, circle in ipairs(about.StyleCircles) do
         local circleX = circleStartX + (i - 1) * 30
-        local circleY = currentY + 5
+        local circleY = styleY + 5
         circle.Circle.Position = {circleX, circleY}
         circle.Border.Position = {circleX, circleY}
         if circle.Inner then circle.Inner.Position = {circleX, circleY} end
@@ -617,7 +617,7 @@ function Library:_RenderAboutWindow()
         circle.ClickRegion = {x1 = circleX - 10, y1 = circleY - 5, x2 = circleX + 10, y2 = circleY + 15}
     end
     currentY = currentY + controlSpacing
-    about.CreditText.Position = {winX + winW / 2, currentY}
+    about.CreditText.Position = {winX + winW / 2, currentY + 15}
 end
 
 function Library:_RenderPlayerESPSettingsPopup()
@@ -1289,4 +1289,3 @@ function Library:Create()
 end
 
 return Library
-
