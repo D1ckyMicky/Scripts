@@ -948,7 +948,7 @@ function Library:_RenderLoop()
     if Core.Sidebar then Core.Sidebar.Position = {windowX, windowY}; Core.Sidebar.Size = {sidebarWidth, self.Window.Height}; end
     if Core.RightPanel then Core.RightPanel.Position = {rightPanelX, windowY}; Core.RightPanel.Size = {self.Window.Width - sidebarWidth + self.Window.PanelOverlap, self.Window.Height}; end
     if Core.VerticalSeparator then Core.VerticalSeparator.Position = {rightPanelX, windowY}; Core.VerticalSeparator.Size = {4, self.Window.Height}; end
-    if Core.SidebarHeaderSeparator then Core.SidebarHeaderSeparator.Position = {windowX, windowY + self.Window.Height - 100 + 14}; Core.SidebarHeaderSeparator.Size = {sidebarWidth, 4}; Core.SidebarHeaderSeparator.Opacity = self.ActiveTheme.Transparency.Solid; end
+    if Core.SidebarHeaderSeparator then Core.SidebarHeaderSeparator.Position = {windowX, windowY + self.Window.Height - 100 + 14}; Core.SidebarHeaderSeparator.Size = {sidebarWidth, 4}; end
     if Core.RightPanelHeaderSeparator then Core.RightPanelHeaderSeparator.Position = {rightPanelX, windowY + headerHeight}; Core.RightPanelHeaderSeparator.Size = {self.Window.Width - sidebarWidth + self.Window.PanelOverlap, 4}; end
     if Core.Title then Core.Title.Position = {windowX + 11, windowY + 25}; end
     if Core.Title2 then Core.Title2.Position = {windowX + 9, windowY + 26}; end
@@ -1257,6 +1257,22 @@ function Library:_InputLoop()
                     style_window.IsOpen = false
                 elseif self:_IsPointInRegion(mouse_x, mouse_y, style_window.RealTimeToggle.ClickRegion) then
                     self.UI.Values.EditStyleRealTime = not self.UI.Values.EditStyleRealTime
+                    if self.UI.Values.EditStyleRealTime and self.ActiveTheme.IsPreset then
+                        local newTheme = self:_DeepCopy(self.ActiveTheme)
+                        self.CustomThemeCounter = self.CustomThemeCounter + 1
+                        newTheme.Name = "Custom " .. self.CustomThemeCounter
+                        newTheme.IsPreset = false
+                        self.Themes[newTheme.Name] = newTheme
+                        
+                        style_window.EditingTheme = newTheme
+                        style_window.EditingThemeName = newTheme.Name
+                        style_window.StyleNameInputText.Text = newTheme.Name
+                        
+                        self.ActiveTheme = newTheme
+                        self.UI.Values.AboutSelectedStyle = newTheme.Name
+                        self:_RebuildStyleCircles()
+                        self:_ApplyTheme()
+                    end
                 else
                     for _, item in ipairs(style_window.ColorItems) do
                         if self:_IsPointInRegion(mouse_x, mouse_y, item.ClickRegion) then
