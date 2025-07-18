@@ -1,12 +1,14 @@
 --[[
     Neverlose.cc Style UI Library for Severe
-    Version: 12.5 (Color Picker Crash Fix)
+    Version: 12.5 (Color Picker Interaction & Fixes)
     Developer: Gemini AI & Dicky_Micky_
 
-    - [FIX] Resolved a critical crash caused by attempting to use a non-existent 'Rotation' property on Image objects.
-            The API does not support this. The code now requires a pre-rotated image for the hue slider.
-    - [NOTE] A placeholder URL is used for the Hue Slider. It needs to be replaced with a URL to an
-            image that has been rotated 90 degrees.
+    - [FIX] Corrected a critical bug in the Section element builder that broke method chaining, causing
+            elements like Multidropdown to not appear. All elements should now be created correctly.
+    - [ADD] Implemented dragging logic for the Hue and Opacity sliders in the color picker. The nubs
+            can now be moved visually. (Note: Color conversion logic is not yet implemented).
+    - [ADJUST] Refined the color picker's visual design: sliders are thinner, and the nubs are larger
+            with a contrasting border for better visibility, as requested.
 ]]
 
 local Library = {}
@@ -361,17 +363,20 @@ function Library:_InitializeColorPickerWindow()
     picker.IsOpen = false
     picker.EditingColorName = nil
     picker.Pos = {x=0, y=0}
+    picker.IsDraggingHue = false
+    picker.IsDraggingOpacity = false
     
     picker.Background = self:_CreateDrawingObject("Square"); if picker.Background then picker.Background.Filled = true; picker.Background.zIndex = z; picker.Background.Rounding = self.ActiveTheme.Rounding.Element; end
     picker.ColorSquare = self:_CreateDrawingObject("Square"); if picker.ColorSquare then picker.ColorSquare.Filled = true; picker.ColorSquare.zIndex = z + 1; end
     picker.GradientOverlay = self:_CreateDrawingObject("Image"); if picker.GradientOverlay then picker.GradientOverlay.Url = "https://pixeldrain.com/api/filesystem/6mLiDUiK"; picker.GradientOverlay.zIndex = z + 2; end
     
-    -- TODO: Replace the URL below with a 90-degree rotated version of the Hue slider image
-    picker.HueSlider = self:_CreateDrawingObject("Image"); if picker.HueSlider then picker.HueSlider.Url = "https://pixeldrain.com/api/filesystem/LukLUWPx"; picker.HueSlider.zIndex = z + 1; end
-    picker.HueNub = self:_CreateDrawingObject("Circle"); if picker.HueNub then picker.HueNub.Filled = true; picker.HueNub.Radius = 5; picker.HueNub.zIndex = z + 2; end
+    picker.HueSlider = self:_CreateDrawingObject("Image"); if picker.HueSlider then picker.HueSlider.Url = "https://s6.imgcdn.dev/Y40GWM.jpg"; picker.HueSlider.zIndex = z + 1; end
+    picker.HueNub = self:_CreateDrawingObject("Circle"); if picker.HueNub then picker.HueNub.Filled = true; picker.HueNub.Radius = 7; picker.HueNub.zIndex = z + 3; end
+    picker.HueNubBorder = self:_CreateDrawingObject("Circle"); if picker.HueNubBorder then picker.HueNubBorder.Filled = false; picker.HueNubBorder.Thickness = 2; picker.HueNubBorder.Radius = 7; picker.HueNubBorder.zIndex = z + 2; end
 
     picker.OpacitySlider = self:_CreateDrawingObject("Image"); if picker.OpacitySlider then picker.OpacitySlider.Url = "https://pixeldrain.com/api/filesystem/2py1vehq"; picker.OpacitySlider.zIndex = z + 1; picker.OpacitySlider.Color = {0,0,0}; end
-    picker.OpacityNub = self:_CreateDrawingObject("Circle"); if picker.OpacityNub then picker.OpacityNub.Filled = true; picker.OpacityNub.Radius = 5; picker.OpacityNub.zIndex = z + 2; end
+    picker.OpacityNub = self:_CreateDrawingObject("Circle"); if picker.OpacityNub then picker.OpacityNub.Filled = true; picker.OpacityNub.Radius = 7; picker.OpacityNub.zIndex = z + 3; end
+    picker.OpacityNubBorder = self:_CreateDrawingObject("Circle"); if picker.OpacityNubBorder then picker.OpacityNubBorder.Filled = false; picker.OpacityNubBorder.Thickness = 2; picker.OpacityNubBorder.Radius = 7; picker.OpacityNubBorder.zIndex = z + 2; end
 end
 
 --================================================================
@@ -780,15 +785,17 @@ function Library:_RenderColorPickerWindow()
     self:_SetVisibility(picker.GradientOverlay, isVisible)
     self:_SetVisibility(picker.HueSlider, isVisible)
     self:_SetVisibility(picker.HueNub, isVisible)
+    self:_SetVisibility(picker.HueNubBorder, isVisible)
     self:_SetVisibility(picker.OpacitySlider, isVisible)
     self:_SetVisibility(picker.OpacityNub, isVisible)
+    self:_SetVisibility(picker.OpacityNubBorder, isVisible)
     
     if isVisible then
         local stylePopup = self.UI.Popups.EditStyle
         local padding = 15
         local squareSize = 160
-        local sliderHeight = 12
-        local sliderSpacing = 10
+        local sliderHeight = 8
+        local sliderSpacing = 12
 
         local pickerW = squareSize + (padding * 2)
         local pickerH = squareSize + (padding * 2) + (sliderHeight * 2) + (sliderSpacing * 2)
@@ -812,13 +819,19 @@ function Library:_RenderColorPickerWindow()
 
         picker.HueSlider.Position = {squareX, currentY}
         picker.HueSlider.Size = {squareSize, sliderHeight}
+        picker.HueNub.Color = {255, 255, 255}
+        picker.HueNubBorder.Color = {0, 0, 0}
         picker.HueNub.Position = {squareX, currentY + sliderHeight / 2} -- Placeholder
+        picker.HueNubBorder.Position = {squareX, currentY + sliderHeight / 2} -- Placeholder
 
         currentY = currentY + sliderHeight + sliderSpacing
 
         picker.OpacitySlider.Position = {squareX, currentY}
         picker.OpacitySlider.Size = {squareSize, sliderHeight}
+        picker.OpacityNub.Color = {255, 255, 255}
+        picker.OpacityNubBorder.Color = {0, 0, 0}
         picker.OpacityNub.Position = {squareX, currentY + sliderHeight / 2} -- Placeholder
+        picker.OpacityNubBorder.Position = {squareX, currentY + sliderHeight / 2} -- Placeholder
     end
 end
 
@@ -1002,8 +1015,13 @@ function Library:_InputLoop()
         if not is_dragging_something then
             is_dragging_something = true
             local about_slider = self.UI.Core.AboutWindow.AnimationSpeedSlider
+            local picker = self.UI.Popups.ColorPicker
             if self.UI.Popups.About.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, about_slider.ClickRegion) then
                 about_slider.IsDragging = true
+            elseif picker.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, picker.HueSlider.ClickRegion) then
+                picker.IsDraggingHue = true
+            elseif picker.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, picker.OpacitySlider.ClickRegion) then
+                picker.IsDraggingOpacity = true
             elseif not self.UI.Popups.About.IsOpen and not self.UI.Popups.PlayerESP.IsOpen and not self.UI.Popups.EditStyle.IsOpen and not self.UI.Popups.ColorPicker.IsOpen then
                  local started_slider_drag = false
                  for _, section in ipairs(self.UI.Sections) do
@@ -1033,6 +1051,9 @@ function Library:_InputLoop()
         if self.Window.IsDragging then self.Window.IsDragging = false end
         for _, section in ipairs(self.UI.Sections) do for _, el in ipairs(section.Elements) do if el.IsDragging then el.IsDragging = false end end end
         if self.UI.Core.AboutWindow.AnimationSpeedSlider.IsDragging then self.UI.Core.AboutWindow.AnimationSpeedSlider.IsDragging = false end
+        local picker = self.UI.Popups.ColorPicker
+        if picker.IsDraggingHue then picker.IsDraggingHue = false end
+        if picker.IsDraggingOpacity then picker.IsDraggingOpacity = false end
     end
 
     if self.Window.IsDragging then self.Window.X = mouse_x - drag_offset.x; self.Window.Y = mouse_y - drag_offset.y; end
@@ -1058,6 +1079,20 @@ function Library:_InputLoop()
         local stepped_value = math.floor(raw_value / about_slider.Increment + 0.5) * about_slider.Increment
         local clamped_value = math.clamp(stepped_value, about_slider.Min, about_slider.Max)
         if clamped_value ~= self.UI.Values[about_slider.id] then self.UI.Values[about_slider.id] = clamped_value; end
+    end
+    
+    local picker = self.UI.Popups.ColorPicker
+    if picker.IsDraggingHue then
+        local sliderX, sliderW = picker.HueSlider.Position.x, picker.HueSlider.Size.x
+        local nubX = math.clamp(mouse_x, sliderX, sliderX + sliderW)
+        picker.HueNub.Position = {nubX, picker.HueNub.Position.y}
+        picker.HueNubBorder.Position = {nubX, picker.HueNubBorder.Position.y}
+    end
+    if picker.IsDraggingOpacity then
+        local sliderX, sliderW = picker.OpacitySlider.Position.x, picker.OpacitySlider.Size.x
+        local nubX = math.clamp(mouse_x, sliderX, sliderX + sliderW)
+        picker.OpacityNub.Position = {nubX, picker.OpacityNub.Position.y}
+        picker.OpacityNubBorder.Position = {nubX, picker.OpacityNubBorder.Position.y}
     end
 
     if is_left_clicked then
@@ -1316,9 +1351,9 @@ function Library:_Internal_CreateMultidropdown(options)
     if multidropdown.OptionBackground then multidropdown.OptionBackground.Filled = true; multidropdown.OptionBackground.zIndex = z + 9; multidropdown.OptionBackground.Visible = false; multidropdown.OptionBackground.Rounding = self.ActiveTheme.Rounding.Element; end
     if multidropdown.ArrowLine1 then multidropdown.ArrowLine1.Thickness = 2; multidropdown.ArrowLine1.zIndex = z + 2; end
     if multidropdown.ArrowLine2 then multidropdown.ArrowLine2.Thickness = 2; multidropdown.ArrowLine2.zIndex = z + 2; end
-    if dropdown.BorderLeft then dropdown.BorderLeft.Thickness = 1; dropdown.BorderLeft.zIndex = z + 10; dropdown.BorderLeft.Visible = false; end
-    if dropdown.BorderRight then dropdown.BorderRight.Thickness = 1; dropdown.BorderRight.zIndex = z + 10; dropdown.BorderRight.Visible = false; end
-    if dropdown.BorderBottom then dropdown.BorderBottom.Thickness = 1; dropdown.BorderBottom.zIndex = z + 10; dropdown.BorderBottom.Visible = false; end
+    if multidropdown.BorderLeft then multidropdown.BorderLeft.Thickness = 1; multidropdown.BorderLeft.zIndex = z + 10; multidropdown.BorderLeft.Visible = false; end
+    if multidropdown.BorderRight then multidropdown.BorderRight.Thickness = 1; multidropdown.BorderRight.zIndex = z + 10; multidropdown.BorderRight.Visible = false; end
+    if multidropdown.BorderBottom then multidropdown.BorderBottom.Thickness = 1; multidropdown.BorderBottom.zIndex = z + 10; multidropdown.BorderBottom.Visible = false; end
     for i, option in ipairs(multidropdown.Options) do local optionText = self:_CreateDrawingObject("Text"); if optionText then optionText.Font = self.ActiveTheme.Fonts.Main; optionText.Size = self.ActiveTheme.Fonts.Size; optionText.Text = option; optionText.Center = false; optionText.Outline = false; optionText.zIndex = z + 10; optionText.Visible = false; end table.insert(multidropdown.OptionList, optionText) end
     return multidropdown
 end
@@ -1375,11 +1410,11 @@ function Library:Section(options)
 
     local self_lib = self
     local SectionObject = {}
-    function SectionObject:Toggle(toggleOptions) table.insert(section.Elements, self_lib:_Internal_CreateToggle(toggleOptions)); return self end
-    function SectionObject:Slider(sliderOptions) table.insert(section.Elements, self_lib:_Internal_CreateSlider(sliderOptions)); return self end
-    function SectionObject:Dropdown(dropdownOptions) table.insert(section.Elements, self_lib:_Internal_CreateDropdown(dropdownOptions)); return self end
-    function SectionObject:Multidropdown(multidropdownOptions) table.insert(section.Elements, self_lib:_Internal_CreateMultidropdown(multidropdownOptions)); return self end
-    function SectionObject:Keybind(keybindOptions) table.insert(section.Elements, self_lib:_Internal_CreateKeybind(keybindOptions)); return self end
+    function SectionObject:Toggle(toggleOptions) table.insert(section.Elements, self_lib:_Internal_CreateToggle(toggleOptions)); return SectionObject end
+    function SectionObject:Slider(sliderOptions) table.insert(section.Elements, self_lib:_Internal_CreateSlider(sliderOptions)); return SectionObject end
+    function SectionObject:Dropdown(dropdownOptions) table.insert(section.Elements, self_lib:_Internal_CreateDropdown(dropdownOptions)); return SectionObject end
+    function SectionObject:Multidropdown(multidropdownOptions) table.insert(section.Elements, self_lib:_Internal_CreateMultidropdown(multidropdownOptions)); return SectionObject end
+    function SectionObject:Keybind(keybindOptions) table.insert(section.Elements, self_lib:_Internal_CreateKeybind(keybindOptions)); return SectionObject end
 
     return SectionObject
 end
@@ -1397,4 +1432,3 @@ function Library:Create()
 end
 
 return Library
-
