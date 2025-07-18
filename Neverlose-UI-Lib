@@ -1,12 +1,12 @@
 --[[
     Neverlose.cc Style UI Library for Severe
-    Version: 11.3 (Custom Style Window Foundation)
+    Version: 11.4 (Edit Style Content Population)
     Developer: Gemini AI & Dicky_Micky_
 
-    - [ADD] Added the foundational "Edit Style" window, which appears when clicking the custom style button.
-    - [ADD] The new window includes a header, title, close button, and a placeholder for a future icon.
-    - [CHANGE] The "About" window now only closes by clicking its close button or the main settings gear icon, not by clicking outside.
-    - [REWORK] Input loop now correctly prioritizes the topmost window (Edit Style > About > Main UI).
+    - [ADD] Populated the "Edit Style" window with a full list of theme color elements.
+    - [ADD] Each color element has a corresponding color preview circle.
+    - [ADD] The color preview circles are correctly updated when the main theme is changed.
+    - [REWORK] The rendering and initialization logic for "Edit Style" now manages the dynamic list of colors.
 ]]
 
 local Library = {}
@@ -231,16 +231,47 @@ end
 function Library:_InitializeEditStyleWindow()
     local style_window = {}; self.UI.Popups.EditStyle = style_window; local z = 40
     style_window.IsOpen = false
+    style_window.ColorItems = {}
 
     style_window.Background = self:_CreateDrawingObject("Square"); if style_window.Background then style_window.Background.Filled = true; style_window.Background.zIndex = z; style_window.Background.Rounding = self.ActiveTheme.Rounding.Section; end
     style_window.Border = self:_CreateDrawingObject("Square"); if style_window.Border then style_window.Border.Filled = false; style_window.Border.Thickness = 1; style_window.Border.zIndex = z + 1; style_window.Border.Rounding = self.ActiveTheme.Rounding.Section; end
     
-    -- Placeholder for the icon. You can replace this with an Image object later.
     style_window.HeaderIcon = self:_CreateDrawingObject("Square"); if style_window.HeaderIcon then style_window.HeaderIcon.Filled = true; style_window.HeaderIcon.zIndex = z + 2; style_window.HeaderIcon.Size = {18, 18}; end
     
     style_window.HeaderTitle = self:_CreateDrawingObject("Text"); if style_window.HeaderTitle then style_window.HeaderTitle.Font = self.ActiveTheme.Fonts.Main; style_window.HeaderTitle.Size = self.ActiveTheme.Fonts.Size + 3; style_window.HeaderTitle.Text = "Edit Style"; style_window.HeaderTitle.Center = false; style_window.HeaderTitle.zIndex = z + 2; end
     style_window.CloseButton = { Line1 = self:_CreateDrawingObject("Line"), Line2 = self:_CreateDrawingObject("Line"), ClickRegion = {} }; if style_window.CloseButton.Line1 then style_window.CloseButton.Line1.Thickness = 2; style_window.CloseButton.Line1.zIndex = z + 2; end; if style_window.CloseButton.Line2 then style_window.CloseButton.Line2.Thickness = 2; style_window.CloseButton.Line2.zIndex = z + 2; end
     style_window.Separator = self:_CreateDrawingObject("Line"); if style_window.Separator then style_window.Separator.Thickness = 2; style_window.Separator.zIndex = z + 1; end
+    
+    -- Populate color items
+    local color_order = {
+        "Accent",
+        "Black",
+        "DarkBlue",
+        "DarkGray",
+        "LightGray",
+        "MainBackground",
+        "SectionBackground",
+        "Separator",
+        "SidebarBackground",
+        "TabHeader",
+        "TextDark",
+        "TextLight",
+        "White"
+    }
+
+    for _, colorName in ipairs(color_order) do
+        local item = {
+            Name = colorName,
+            Label = self:_CreateDrawingObject("Text"),
+            ColorCircle = self:_CreateDrawingObject("Circle"),
+            ColorBorder = self:_CreateDrawingObject("Circle"),
+            ClickRegion = {}
+        }
+        if item.Label then item.Label.Font = self.ActiveTheme.Fonts.Main; item.Label.Size = self.ActiveTheme.Fonts.Size + 1; item.Label.Text = colorName; item.Label.Center = false; item.Label.zIndex = z + 2; end
+        if item.ColorCircle then item.ColorCircle.Filled = true; item.ColorCircle.zIndex = z + 2; item.ColorCircle.Radius = 8; end
+        if item.ColorBorder then item.ColorBorder.Filled = false; item.ColorBorder.Thickness = 1; item.ColorBorder.zIndex = z + 3; item.ColorBorder.Radius = 9; end
+        table.insert(style_window.ColorItems, item)
+    end
 end
 
 --================================================================
@@ -381,6 +412,11 @@ function Library:_ApplyTheme()
     if stylePopup.CloseButton.Line1 then stylePopup.CloseButton.Line1.Color = self.ActiveTheme.Colors.TextDark; end
     if stylePopup.CloseButton.Line2 then stylePopup.CloseButton.Line2.Color = self.ActiveTheme.Colors.TextDark; end
     if stylePopup.Separator then stylePopup.Separator.Color = self.ActiveTheme.Colors.Separator; end
+    for _, item in ipairs(stylePopup.ColorItems) do
+        if item.Label then item.Label.Color = self.ActiveTheme.Colors.TextLight; end
+        if item.ColorCircle then item.ColorCircle.Color = self.ActiveTheme.Colors[item.Name] or {255,0,255}; end
+        if item.ColorBorder then item.ColorBorder.Color = self.ActiveTheme.Colors.Separator; end
+    end
 end
 
 --================================================================
@@ -533,9 +569,12 @@ function Library:_RenderEditStyleWindow()
     local isVisible = style_window.IsOpen
 
     self:_SetVisibility(style_window.Background, isVisible); self:_SetVisibility(style_window.Border, isVisible); self:_SetVisibility(style_window.HeaderIcon, isVisible); self:_SetVisibility(style_window.HeaderTitle, isVisible); self:_SetVisibility(style_window.CloseButton.Line1, isVisible); self:_SetVisibility(style_window.CloseButton.Line2, isVisible); self:_SetVisibility(style_window.Separator, isVisible);
+    for _, item in ipairs(style_window.ColorItems) do
+        self:_SetVisibility(item.Label, isVisible); self:_SetVisibility(item.ColorCircle, isVisible); self:_SetVisibility(item.ColorBorder, isVisible);
+    end
 
     if isVisible then
-        local winW, winH = 300, 450 -- Example size, can be adjusted
+        local winW, winH = 300, 450
         local winX, winY = self.Window.X + self.Window.Width + 15, self.Window.Y
         
         style_window.ClickRegion = {x1 = winX, y1 = winY, x2 = winX + winW, y2 = winY + winH}
@@ -552,6 +591,16 @@ function Library:_RenderEditStyleWindow()
 
         local separatorY = winY + 40
         style_window.Separator.From = {winX + 10, separatorY}; style_window.Separator.To = {winX + winW - 10, separatorY}
+
+        local currentY = separatorY + 20
+        for _, item in ipairs(style_window.ColorItems) do
+            item.Label.Position = {winX + 15, currentY}
+            local circleX = winX + winW - 30
+            item.ColorCircle.Position = {circleX, currentY + 7}
+            item.ColorBorder.Position = {circleX, currentY + 7}
+            item.ClickRegion = {x1 = winX + 15, y1 = currentY, x2 = winX + winW - 15, y2 = currentY + 20}
+            currentY = currentY + 25
+        end
     end
 end
 
