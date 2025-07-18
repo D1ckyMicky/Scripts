@@ -1,13 +1,14 @@
 --[[
     Neverlose.cc Style UI Library for Severe
-    Version: 11.9 (Theme System Simplification & Bugfix)
+    Version: 12.0 (Theme System Finalization)
     Developer: Gemini AI & Dicky_Micky_
 
-    - [FIX] Fixed a critical crash ('attempt to index nil with MainBackground') that occurred when rendering theme circles.
-            The function now safely handles the 'Add' button which has no color data.
-    - [REWORK] Simplified the theme circle layout logic based on user feedback. Custom themes are now added to the
-            beginning of the list, before presets, eliminating complex repositioning logic and improving stability.
-    - [NOTE] The color editor currently copies the active theme's colors. A visual color picker is not yet implemented.
+    - [FIX] Corrected the core issue where newly created themes were not displayed. New themes are now correctly
+            flagged as non-preset, allowing the rendering logic to detect and display them.
+    - [FIX] The visual glitch where title accents would appear on custom light-colored themes has been resolved.
+            The library now checks the background color's brightness instead of the theme's name to determine visibility.
+    - [REWORK] Clicking any theme circle (preset or custom) now selects it. The 'Add' button is now the sole entry
+            point for creating/editing themes, providing a more consistent user experience.
 ]]
 
 local Library = {}
@@ -82,6 +83,14 @@ end
 function Library:_DarkenColor(color, factor)
     factor = factor or 0.3
     return { math.max(0, math.floor(color[1] * factor)), math.max(0, math.floor(color[2] * factor)), math.max(0, math.floor(color[3] * factor)) }
+end
+
+function Library:_IsThemeLight(theme)
+    local bg = theme.Colors.MainBackground
+    if not bg then return false end
+    -- Using luminance formula to determine brightness
+    local brightness = (bg[1] * 0.299 + bg[2] * 0.587 + bg[3] * 0.114)
+    return brightness > 150 -- Threshold for what is considered a "light" background
 end
 
 function Library:_getAvatarThumbnail(userId)
@@ -360,10 +369,10 @@ function Library:_ApplyTheme()
     if Core.ViewESPPanel then Core.ViewESPPanel.Color = self.ActiveTheme.Colors.MainBackground; end
     if Core.ViewESPPanelBorder then Core.ViewESPPanelBorder.Color = self.ActiveTheme.Colors.Separator; end
 
-    local isWhiteTheme = (self.ActiveTheme.Name == "White")
+    local isThemeLight = self:_IsThemeLight(self.ActiveTheme)
     if Core.Title then Core.Title.Color = self.ActiveTheme.Colors.TextLight; end
-    if Core.Title2 then Core.Title2.Color = self.ActiveTheme.Colors.Accent; self:_SetVisibility(Core.Title2, not isWhiteTheme); end
-    if Core.Title3 then Core.Title3.Color = self.ActiveTheme.Colors.ToggleEnabledBackground; self:_SetVisibility(Core.Title3, not isWhiteTheme); end
+    if Core.Title2 then Core.Title2.Color = self.ActiveTheme.Colors.Accent; self:_SetVisibility(Core.Title2, not isThemeLight); end
+    if Core.Title3 then Core.Title3.Color = self.ActiveTheme.Colors.ToggleEnabledBackground; self:_SetVisibility(Core.Title3, not isThemeLight); end
 
     if Core.ActiveTabHighlight then Core.ActiveTabHighlight.Color = self.ActiveTheme.Colors.Accent; Core.ActiveTabHighlight.Opacity = self.ActiveTheme.Transparency.ActiveTabHighlight; end
     if Core.SidebarBottomCircle then Core.SidebarBottomCircle.Color = self.ActiveTheme.Colors.Separator; end
@@ -487,7 +496,7 @@ function Library:_ApplyTheme()
     if stylePopup.CancelButton.IconLine2 then stylePopup.CancelButton.IconLine2.Color = self.ActiveTheme.Colors.TextLight; end
     if stylePopup.CancelButton.Label then stylePopup.CancelButton.Label.Color = self.ActiveTheme.Colors.TextLight; end
     if stylePopup.SaveButton.Background then stylePopup.SaveButton.Background.Color = self.ActiveTheme.Colors.Accent; end
-    local saveButtonTextColor = isWhiteTheme and self.ActiveTheme.Colors.Black or self.ActiveTheme.Colors.White
+    local saveButtonTextColor = isThemeLight and self.ActiveTheme.Colors.Black or self.ActiveTheme.Colors.White
     if stylePopup.SaveButton.Label then stylePopup.SaveButton.Label.Color = saveButtonTextColor; end
     if stylePopup.SaveButton.Icon then stylePopup.SaveButton.Icon.Color = saveButtonTextColor; end
 end
@@ -736,7 +745,7 @@ function Library:_RenderLoop()
     local rightPanelX = windowX + sidebarWidth - self.Window.PanelOverlap
 
     self:_SetVisibility(Core.Sidebar, true); self:_SetVisibility(Core.RightPanel, true); self:_SetVisibility(Core.VerticalSeparator, true); self:_SetVisibility(Core.SidebarHeaderSeparator, true); self:_SetVisibility(Core.RightPanelHeaderSeparator, true); self:_SetVisibility(Core.Title, true); self:_SetVisibility(Core.SidebarBottomCircle, true); if Core.SidebarAvatar then self:_SetVisibility(Core.SidebarAvatar, true) end; self:_SetVisibility(Core.PlayerDisplayName, true); self:_SetVisibility(Core.TillLabel, true); self:_SetVisibility(Core.ForeverLabel, true)
-    self:_SetVisibility(Core.Title2, not (self.ActiveTheme.Name == "White")); self:_SetVisibility(Core.Title3, not (self.ActiveTheme.Name == "White"))
+    self:_SetVisibility(Core.Title2, not self:_IsThemeLight(self.ActiveTheme)); self:_SetVisibility(Core.Title3, not self:_IsThemeLight(self.ActiveTheme))
 
     if Core.Sidebar then Core.Sidebar.Position = {windowX, windowY}; Core.Sidebar.Size = {sidebarWidth, self.Window.Height}; end
     if Core.RightPanel then Core.RightPanel.Position = {rightPanelX, windowY}; Core.RightPanel.Size = {self.Window.Width - sidebarWidth + self.Window.PanelOverlap, self.Window.Height}; end
@@ -982,7 +991,9 @@ function Library:_InputLoop()
                     local newTheme = self:_DeepCopy(style_window.EditingTheme)
                     local themeName = style_window.EditingThemeName
                     
-                    if not self.Themes[themeName] then 
+                    newTheme.IsPreset = false -- CRITICAL FIX: Ensure new/edited themes are marked as custom
+                    
+                    if not self.Themes[themeName] or self.Themes[themeName].IsPreset then 
                          self.CustomThemeCounter = self.CustomThemeCounter + 1
                          newTheme.Name = "Custom "..self.CustomThemeCounter
                          self.Themes[newTheme.Name] = newTheme
@@ -1023,24 +1034,16 @@ function Library:_InputLoop()
                     else
                         for _, circle in ipairs(about.StyleCircles) do
                             if self:_IsPointInRegion(mouse_x, mouse_y, circle.ClickRegion) then
-                                local style_window = self.UI.Popups.EditStyle
                                 if circle.IsAddButton then
+                                    local style_window = self.UI.Popups.EditStyle
                                     style_window.EditingTheme = self:_DeepCopy(self.ActiveTheme)
                                     style_window.EditingThemeName = "Custom " .. (self.CustomThemeCounter + 1)
                                     style_window.StyleNameInputText.Text = style_window.EditingThemeName
                                     style_window.IsOpen = true
                                 else
-                                    local theme_to_edit = self.Themes[circle.Name]
-                                    if not theme_to_edit.IsPreset then
-                                        style_window.EditingTheme = self:_DeepCopy(theme_to_edit)
-                                        style_window.EditingThemeName = circle.Name
-                                        style_window.StyleNameInputText.Text = circle.Name
-                                        style_window.IsOpen = true
-                                    else
-                                        self.UI.Values.AboutSelectedStyle = circle.Name
-                                        self.ActiveTheme = self.Themes[circle.Name]
-                                        self:_ApplyTheme()
-                                    end
+                                    self.UI.Values.AboutSelectedStyle = circle.Name
+                                    self.ActiveTheme = self.Themes[circle.Name]
+                                    self:_ApplyTheme()
                                 end
                                 break
                             end
@@ -1286,3 +1289,4 @@ function Library:Create()
 end
 
 return Library
+
