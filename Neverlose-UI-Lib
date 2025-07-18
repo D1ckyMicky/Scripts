@@ -1,14 +1,18 @@
 --[[
     Neverlose.cc Style UI Library for Severe
-    Version: 12.3 (Color Picker Foundation)
+    Version: 12.4 (Color Picker UI Implementation)
     Developer: Gemini AI & Dicky_Micky_
 
     - [FIX] The footer text ("UI by...") in the About window now has a fixed position and is no longer
             pushed down by new rows of theme circles.
-    - [ADD] Implemented the foundational structure for the color picker popup.
-    - [ADD] Clicking a color in the "Edit Style" window now opens the color picker popup next to it.
-    - [ADD] The color picker displays a square filled with the selected color, overlaid with the
-            saturation/value gradient image provided by the user.
+    - [REWORK] The color picker now appears at the mouse's position when a color is clicked, functioning
+            like a context menu.
+    - [ADD] The color picker UI has been built out:
+        - Main color square increased to 160x160px.
+        - Hue slider with a rotated rainbow image has been added.
+        - Opacity slider with a black gradient has been added.
+        - Indicators (nubs) have been added to both sliders.
+    - [ADJUST] The layout of the color picker has been refined to ensure even padding and a clean look.
 ]]
 
 local Library = {}
@@ -164,7 +168,7 @@ function Library:_InitializeCoreUI()
     self:_InitializeAboutWindow()
     self:_InitializePlayerESPSettingsPopup()
     self:_InitializeEditStyleWindow()
-    self:_InitializeColorPickerWindow() -- New
+    self:_InitializeColorPickerWindow()
 
     local Players = game:FindService("Players")
     if Players and Players.localPlayer then
@@ -362,10 +366,17 @@ function Library:_InitializeColorPickerWindow()
     local picker = {}; self.UI.Popups.ColorPicker = picker; local z = 50
     picker.IsOpen = false
     picker.EditingColorName = nil
+    picker.Pos = {x=0, y=0}
     
     picker.Background = self:_CreateDrawingObject("Square"); if picker.Background then picker.Background.Filled = true; picker.Background.zIndex = z; picker.Background.Rounding = self.ActiveTheme.Rounding.Element; end
     picker.ColorSquare = self:_CreateDrawingObject("Square"); if picker.ColorSquare then picker.ColorSquare.Filled = true; picker.ColorSquare.zIndex = z + 1; end
     picker.GradientOverlay = self:_CreateDrawingObject("Image"); if picker.GradientOverlay then picker.GradientOverlay.Url = "https://pixeldrain.com/api/filesystem/6mLiDUiK"; picker.GradientOverlay.zIndex = z + 2; end
+    
+    picker.HueSlider = self:_CreateDrawingObject("Image"); if picker.HueSlider then picker.HueSlider.Url = "https://pixeldrain.com/api/filesystem/LukLUWPx"; picker.HueSlider.zIndex = z + 1; picker.HueSlider.Rotation = 90; end
+    picker.HueNub = self:_CreateDrawingObject("Circle"); if picker.HueNub then picker.HueNub.Filled = true; picker.HueNub.Radius = 5; picker.HueNub.zIndex = z + 2; end
+
+    picker.OpacitySlider = self:_CreateDrawingObject("Image"); if picker.OpacitySlider then picker.OpacitySlider.Url = "https://pixeldrain.com/api/filesystem/2py1vehq"; picker.OpacitySlider.zIndex = z + 1; picker.OpacitySlider.Color = {0,0,0}; end
+    picker.OpacityNub = self:_CreateDrawingObject("Circle"); if picker.OpacityNub then picker.OpacityNub.Filled = true; picker.OpacityNub.Radius = 5; picker.OpacityNub.zIndex = z + 2; end
 end
 
 --================================================================
@@ -772,20 +783,28 @@ function Library:_RenderColorPickerWindow()
     self:_SetVisibility(picker.Background, isVisible)
     self:_SetVisibility(picker.ColorSquare, isVisible)
     self:_SetVisibility(picker.GradientOverlay, isVisible)
+    self:_SetVisibility(picker.HueSlider, isVisible)
+    self:_SetVisibility(picker.HueNub, isVisible)
+    self:_SetVisibility(picker.OpacitySlider, isVisible)
+    self:_SetVisibility(picker.OpacityNub, isVisible)
     
     if isVisible then
         local stylePopup = self.UI.Popups.EditStyle
-        local pickerW, pickerH = 200, 250
-        local pickerX = self.Window.X + self.Window.Width + 15 + 300 + 10
-        local pickerY = self.Window.Y
+        local padding = 15
+        local squareSize = 160
+        local sliderHeight = 12
+        local sliderSpacing = 10
+
+        local pickerW = squareSize + (padding * 2)
+        local pickerH = squareSize + (padding * 2) + (sliderHeight * 2) + (sliderSpacing * 2)
+        local pickerX, pickerY = picker.Pos.x, picker.Pos.y
         
         picker.Background.Position = {pickerX, pickerY}
         picker.Background.Size = {pickerW, pickerH}
         picker.Background.Color = self.ActiveTheme.Colors.SectionBackground
 
-        local squareSize = 150
-        local squareX = pickerX + (pickerW - squareSize) / 2
-        local squareY = pickerY + 15
+        local squareX = pickerX + padding
+        local squareY = pickerY + padding
         
         picker.ColorSquare.Position = {squareX, squareY}
         picker.ColorSquare.Size = {squareSize, squareSize}
@@ -793,6 +812,18 @@ function Library:_RenderColorPickerWindow()
 
         picker.GradientOverlay.Position = {squareX, squareY}
         picker.GradientOverlay.Size = {squareSize, squareSize}
+
+        local currentY = squareY + squareSize + sliderSpacing
+
+        picker.HueSlider.Position = {squareX, currentY}
+        picker.HueSlider.Size = {squareSize, sliderHeight}
+        picker.HueNub.Position = {squareX, currentY + sliderHeight / 2} -- Placeholder
+
+        currentY = currentY + sliderHeight + sliderSpacing
+
+        picker.OpacitySlider.Position = {squareX, currentY}
+        picker.OpacitySlider.Size = {squareSize, sliderHeight}
+        picker.OpacityNub.Position = {squareX, currentY + sliderHeight / 2} -- Placeholder
     end
 end
 
@@ -1079,6 +1110,7 @@ function Library:_InputLoop()
                             local picker = self.UI.Popups.ColorPicker
                             picker.IsOpen = true
                             picker.EditingColorName = item.Name
+                            picker.Pos = {x = mouse_x, y = mouse_y}
                             break
                         end
                     end
