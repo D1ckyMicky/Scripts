@@ -1,12 +1,15 @@
 --[[
     Neverlose.cc Style UI Library for Severe
-    Version: 12.1 (About Window Layout Adjustments)
+    Version: 12.2 (Layout Rework & Multi-row Themes)
     Developer: Gemini AI & Dicky_Micky_
 
-    - [FIX] The 'Dpi Scale' dropdown in the About window is now clickable. The input handler logic was
-            updated to correctly process clicks within the About window popup.
-    - [ADJUST] Repositioned elements within the About window to match user's visual specifications for a
-            cleaner layout. This includes the animation slider, DPI dropdown, style circles, and footer text.
+    - [FIX] The 'Dpi Scale' dropdown in the About window is now reliably clickable. The input handler logic was
+            restructured to correctly prioritize element clicks within the popup.
+    - [REWORK] Completely reworked the element positioning logic in the About window to be more robust and clear.
+            Removed "magic numbers" in favor of calculations based on the window's right edge, as requested.
+    - [ADD] Implemented theme circle wrapping. A new row of theme circles will now be created automatically
+            after 7 themes, preventing overflow and keeping the layout clean.
+    - [ADJUST] Finalized layout adjustments for all elements in the About window to match user specifications.
 ]]
 
 local Library = {}
@@ -580,16 +583,22 @@ function Library:_RenderAboutWindow()
     about.FooterText.Position = {winX + winW / 2, currentY}
     currentY = currentY + 50; about.Separator3.From = {winX + 10, currentY}; about.Separator3.To = {winX + winW - 10, currentY}; currentY = currentY + 15
     local controlX = winX + 20; local controlW = winW - 40; local controlSpacing = 35
+    local rightEdge = winX + winW - 25
 
     local toggle = about.AutoSaveToggle
-    toggle.Label.Position = {controlX, currentY}; local toggleBackX = controlX + controlW - toggle.Size.width; toggle.Back.Position = {toggleBackX, currentY + 4}; toggle.Back.Size = {toggle.Size.width, toggle.Size.height}; toggle.ClickRegion = {x1 = toggleBackX, y1 = currentY, x2 = toggleBackX + toggle.Size.width, y2 = currentY + toggle.Size.height + 8}; if self.UI.Values[toggle.id] then toggle.Back.Color = self.ActiveTheme.Colors.ToggleEnabledBackground; toggle.Nub.Color = self.ActiveTheme.Colors.Accent; toggle.Nub.Position = {toggleBackX + toggle.Size.width - 5, currentY + 4 + toggle.Size.height/2} else toggle.Back.Color = self.ActiveTheme.Colors.DarkGray; toggle.Nub.Color = self.ActiveTheme.Colors.LightGray; toggle.Nub.Position = {toggleBackX + 5, currentY + 4 + toggle.Size.height/2} end; currentY = currentY + controlSpacing
+    toggle.Label.Position = {controlX, currentY}; local toggleBackX = rightEdge - toggle.Size.width; toggle.Back.Position = {toggleBackX, currentY + 4}; toggle.Back.Size = {toggle.Size.width, toggle.Size.height}; toggle.ClickRegion = {x1 = toggleBackX, y1 = currentY, x2 = toggleBackX + toggle.Size.width, y2 = currentY + toggle.Size.height + 8}; if self.UI.Values[toggle.id] then toggle.Back.Color = self.ActiveTheme.Colors.ToggleEnabledBackground; toggle.Nub.Color = self.ActiveTheme.Colors.Accent; toggle.Nub.Position = {toggleBackX + toggle.Size.width - 5, currentY + 4 + toggle.Size.height/2} else toggle.Back.Color = self.ActiveTheme.Colors.DarkGray; toggle.Nub.Color = self.ActiveTheme.Colors.LightGray; toggle.Nub.Position = {toggleBackX + 5, currentY + 4 + toggle.Size.height/2} end; currentY = currentY + controlSpacing
 
     local slider = about.AnimationSpeedSlider
-    slider.Label.Position = {controlX, currentY}; local sliderBackX = controlX + 140 + 21; local sliderBackWidth = controlW - 140 - 50 - 21; slider.Back.Position = {sliderBackX, currentY + 8}; slider.Back.Size = {sliderBackWidth, 2}; slider.ClickRegion = { x1 = sliderBackX, y1 = currentY - 2, x2 = sliderBackX + sliderBackWidth, y2 = currentY + 18 }; local value_percentage = math.clamp((self.UI.Values[slider.id] - slider.Min) / (slider.Max - slider.Min), 0, 1); local nubX = sliderBackX + sliderBackWidth * value_percentage; slider.LeftFill.Position = {sliderBackX, currentY + 8}; slider.LeftFill.Size = {nubX - sliderBackX, 2}; slider.RightFill.Position = {nubX, currentY + 8}; slider.RightFill.Size = {sliderBackX + sliderBackWidth - nubX, 2}; slider.Nub.Position = {nubX, currentY + 9}; local valueText = string.format("%.1f", self.UI.Values[slider.id]); local valueTextX = controlX + controlW - 40; slider.ValueText.Text = valueText; slider.ValueText.Position = {valueTextX, currentY}; currentY = currentY + controlSpacing
+    slider.Label.Position = {controlX, currentY}; 
+    local valueTextWidth = 40
+    local sliderRightEdge = rightEdge - valueTextWidth
+    local sliderBackX = controlX + 140
+    local sliderBackWidth = sliderRightEdge - sliderBackX
+    slider.Back.Position = {sliderBackX, currentY + 8}; slider.Back.Size = {sliderBackWidth, 2}; slider.ClickRegion = { x1 = sliderBackX, y1 = currentY - 2, x2 = sliderBackX + sliderBackWidth, y2 = currentY + 18 }; local value_percentage = math.clamp((self.UI.Values[slider.id] - slider.Min) / (slider.Max - slider.Min), 0, 1); local nubX = sliderBackX + sliderBackWidth * value_percentage; slider.LeftFill.Position = {sliderBackX, currentY + 8}; slider.LeftFill.Size = {nubX - sliderBackX, 2}; slider.RightFill.Position = {nubX, currentY + 8}; slider.RightFill.Size = {sliderBackX + sliderBackWidth - nubX, 2}; slider.Nub.Position = {nubX, currentY + 9}; local valueText = string.format("%.1f", self.UI.Values[slider.id]); local valueTextX = rightEdge - valueTextWidth + 10; slider.ValueText.Text = valueText; slider.ValueText.Position = {valueTextX, currentY}; currentY = currentY + controlSpacing
 
     local dropdown = about.DpiScaleDropdown
     local dropdownY = currentY - 4
-    dropdown.Label.Position = {controlX, dropdownY + 5}; local dropdownButtonX = controlX + controlW - dropdown.Size.width; dropdown.Button.Position = {dropdownButtonX, dropdownY}; dropdown.Button.Size = {dropdown.Size.width, dropdown.Size.height}; dropdown.ButtonText.Position = {dropdownButtonX + 5, dropdownY + dropdown.Size.height / 2 - dropdown.ButtonText.Size / 2}; dropdown.ButtonText.Text = self.UI.Values[dropdown.id]; local arrowX, arrowY = dropdownButtonX + dropdown.Size.width - 15, dropdownY + dropdown.Size.height / 2; dropdown.ArrowLine1.From = {arrowX, arrowY - 2}; dropdown.ArrowLine1.To = {arrowX + 5, arrowY + 3}; dropdown.ArrowLine2.From = {arrowX + 5, arrowY + 3}; dropdown.ArrowLine2.To = {arrowX + 10, arrowY - 2}; dropdown.ClickRegion = { x1 = dropdownButtonX, y1 = dropdownY, x2 = dropdownButtonX + dropdown.Size.width, y2 = dropdownY + dropdown.Size.height }
+    dropdown.Label.Position = {controlX, dropdownY + 5}; local dropdownButtonX = rightEdge - dropdown.Size.width; dropdown.Button.Position = {dropdownButtonX, dropdownY}; dropdown.Button.Size = {dropdown.Size.width, dropdown.Size.height}; dropdown.ButtonText.Position = {dropdownButtonX + 5, dropdownY + dropdown.Size.height / 2 - dropdown.ButtonText.Size / 2}; dropdown.ButtonText.Text = self.UI.Values[dropdown.id]; local arrowX, arrowY = dropdownButtonX + dropdown.Size.width - 15, dropdownY + dropdown.Size.height / 2; dropdown.ArrowLine1.From = {arrowX, arrowY - 2}; dropdown.ArrowLine1.To = {arrowX + 5, arrowY + 3}; dropdown.ArrowLine2.From = {arrowX + 5, arrowY + 3}; dropdown.ArrowLine2.To = {arrowX + 10, arrowY - 2}; dropdown.ClickRegion = { x1 = dropdownButtonX, y1 = dropdownY, x2 = dropdownButtonX + dropdown.Size.width, y2 = dropdownY + dropdown.Size.height }
     self:_SetVisibility(dropdown.BorderLeft, dropdown.IsOpen); self:_SetVisibility(dropdown.BorderRight, dropdown.IsOpen); self:_SetVisibility(dropdown.BorderBottom, dropdown.IsOpen)
     if dropdown.IsOpen then
         local optionListHeight = #dropdown.Options * 20 + 5; local bgX, bgY, bgW, bgH = dropdownButtonX, dropdownY + dropdown.Size.height, dropdown.Size.width, optionListHeight
@@ -603,10 +612,16 @@ function Library:_RenderAboutWindow()
 
     local styleY = currentY + 4
     about.StyleLabel.Position = {controlX, styleY}; 
-    local circleStartX = controlX + controlW - (#about.StyleCircles * 30) + 10 + 22
+    local maxPerRow = 7
+    local circleSpacing = 30
+    local totalCircleWidth = maxPerRow * circleSpacing
+    local circleStartX = rightEdge - totalCircleWidth + 11
+    
     for i, circle in ipairs(about.StyleCircles) do
-        local circleX = circleStartX + (i - 1) * 30
-        local circleY = styleY + 5
+        local col = (i - 1) % maxPerRow
+        local row = math.floor((i - 1) / maxPerRow)
+        local circleX = circleStartX + (col * circleSpacing)
+        local circleY = styleY + 5 + (row * circleSpacing)
         circle.Circle.Position = {circleX, circleY}
         circle.Border.Position = {circleX, circleY}
         if circle.Inner then circle.Inner.Position = {circleX, circleY} end
@@ -616,7 +631,9 @@ function Library:_RenderAboutWindow()
         end
         circle.ClickRegion = {x1 = circleX - 10, y1 = circleY - 5, x2 = circleX + 10, y2 = circleY + 15}
     end
-    currentY = currentY + controlSpacing
+    
+    local numRows = math.ceil(#about.StyleCircles / maxPerRow)
+    currentY = currentY + (numRows * circleSpacing)
     about.CreditText.Position = {winX + winW / 2, currentY + 15}
 end
 
@@ -1011,48 +1028,60 @@ function Library:_InputLoop()
                     self.UI.Values.EditStyleRealTime = not self.UI.Values.EditStyleRealTime
                 end
             elseif self.UI.Popups.About.IsOpen then
-                click_was_handled = true
+                click_was_handled = true -- Assume click is handled unless it's outside
                 local about = self.UI.Core.AboutWindow
                 local about_dropdown = about.DpiScaleDropdown
-                local dropdown_option_clicked = false
-                if about_dropdown.IsOpen then
-                    local dropdownButtonX = about_dropdown.Button.Position.x
+
+                -- Check for clicks on specific elements first
+                if self:_IsPointInRegion(mouse_x, mouse_y, about.CloseButton.ClickRegion) then 
+                    self.UI.Popups.About.IsOpen = false
+                    if about_dropdown.IsOpen then about_dropdown.IsOpen = false end
+                elseif self:_IsPointInRegion(mouse_x, mouse_y, about.AutoSaveToggle.ClickRegion) then 
+                    self.UI.Values.AboutAutoSave = not self.UI.Values.AboutAutoSave
+                elseif self:_IsPointInRegion(mouse_x, mouse_y, about_dropdown.ClickRegion) then 
+                    about_dropdown.IsOpen = not about_dropdown.IsOpen
+                elseif about_dropdown.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, {x1 = about_dropdown.Button.Position.x, y1 = about_dropdown.Button.Position.y + about_dropdown.Size.height, x2 = about_dropdown.Button.Position.x + about_dropdown.OptionBackground.Size.x, y2 = about_dropdown.Button.Position.y + about_dropdown.Size.height + about_dropdown.OptionBackground.Size.y}) then
+                    -- Click was inside the open dropdown list
                     local optionY = about_dropdown.Button.Position.y + about_dropdown.Size.height + 5
                     for i, option_text in ipairs(about_dropdown.OptionList) do
-                        local optionRegion = {x1 = dropdownButtonX, y1 = optionY, x2 = dropdownButtonX + about_dropdown.Size.width, y2 = optionY + 20}
+                        local optionRegion = {x1 = about_dropdown.Button.Position.x, y1 = optionY, x2 = about_dropdown.Button.Position.x + about_dropdown.Size.width, y2 = optionY + 20}
                         if self:_IsPointInRegion(mouse_x, mouse_y, optionRegion) then
-                            self.UI.Values[about_dropdown.id] = about_dropdown.Options[i]; about_dropdown.IsOpen = false; dropdown_option_clicked = true; break
+                            self.UI.Values[about_dropdown.id] = about_dropdown.Options[i]
+                            about_dropdown.IsOpen = false
+                            break
                         end
                         optionY = optionY + 20
                     end
-                end
-
-                if not dropdown_option_clicked then
-                    if self:_IsPointInRegion(mouse_x, mouse_y, about.CloseButton.ClickRegion) then self.UI.Popups.About.IsOpen = false; if about_dropdown.IsOpen then about_dropdown.IsOpen = false end
-                    elseif self:_IsPointInRegion(mouse_x, mouse_y, about.AutoSaveToggle.ClickRegion) then self.UI.Values.AboutAutoSave = not self.UI.Values.AboutAutoSave
-                    elseif self:_IsPointInRegion(mouse_x, mouse_y, about_dropdown.ClickRegion) then about_dropdown.IsOpen = not about_dropdown.IsOpen
-                    else
-                        for _, circle in ipairs(about.StyleCircles) do
-                            if self:_IsPointInRegion(mouse_x, mouse_y, circle.ClickRegion) then
-                                if circle.IsAddButton then
-                                    local style_window = self.UI.Popups.EditStyle
-                                    style_window.EditingTheme = self:_DeepCopy(self.ActiveTheme)
-                                    style_window.EditingThemeName = "Custom " .. (self.CustomThemeCounter + 1)
-                                    style_window.StyleNameInputText.Text = style_window.EditingThemeName
-                                    style_window.IsOpen = true
-                                else
-                                    self.UI.Values.AboutSelectedStyle = circle.Name
-                                    self.ActiveTheme = self.Themes[circle.Name]
-                                    self:_ApplyTheme()
-                                end
-                                break
+                else
+                    local circle_clicked = false
+                    for _, circle in ipairs(about.StyleCircles) do
+                        if self:_IsPointInRegion(mouse_x, mouse_y, circle.ClickRegion) then
+                            circle_clicked = true
+                            if circle.IsAddButton then
+                                local style_window = self.UI.Popups.EditStyle
+                                style_window.EditingTheme = self:_DeepCopy(self.ActiveTheme)
+                                style_window.EditingThemeName = "Custom " .. (self.CustomThemeCounter + 1)
+                                style_window.StyleNameInputText.Text = style_window.EditingThemeName
+                                style_window.IsOpen = true
+                            else
+                                self.UI.Values.AboutSelectedStyle = circle.Name
+                                self.ActiveTheme = self.Themes[circle.Name]
+                                self:_ApplyTheme()
                             end
+                            break
                         end
                     end
-                    if about_dropdown.IsOpen and not self:_IsPointInRegion(mouse_x, mouse_y, {x1 = about_dropdown.Button.Position.x, y1 = about_dropdown.Button.Position.y, x2 = about_dropdown.Button.Position.x + about_dropdown.OptionBackground.Size.x, y2 = about_dropdown.Button.Position.y + about_dropdown.Size.height + about_dropdown.OptionBackground.Size.y}) then
-                        about_dropdown.IsOpen = false
+
+                    if not circle_clicked then
+                        -- If no specific element was clicked, and the dropdown is open, close it
+                        if about_dropdown.IsOpen then about_dropdown.IsOpen = false
+                        -- If click was outside the main About window region, close it
+                        elseif not self:_IsPointInRegion(mouse_x, mouse_y, about.ClickRegion) then
+                             self.UI.Popups.About.IsOpen = false
+                        end
                     end
                 end
+
             elseif self.UI.Popups.PlayerESP.IsOpen then
                  click_was_handled = true
                  local esppopup = self.UI.Popups.PlayerESP
@@ -1289,3 +1318,4 @@ function Library:Create()
 end
 
 return Library
+
