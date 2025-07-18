@@ -1,13 +1,15 @@
 --[[
     Neverlose.cc Style UI Library for Severe
-    Version: 11.7 (Layout & Theme System Overhaul)
+    Version: 11.8 (Theme System & Editor Rework)
     Developer: Gemini AI & Dicky_Micky_
 
-    - [REWORK] Completely redesigned the "Edit Style" window layout to match user specifications, including a "Style Name" field and a properly structured footer.
-    - [REWORK] Overhauled the custom theme creation logic. Saving a theme now correctly adds a new, selectable theme circle and repositions the "add" button, allowing for multiple custom themes.
-    - [FIX] Restored the rendering of preset theme circles in the "About" window.
-    - [FIX] Added a text label to the "Cancel" button in the "Edit Style" window.
-    - [ADD] The "Save" button icon is now correctly colored based on the active theme's contrast color (white/black).
+    - [REWORK] Completely overhauled the custom theme saving logic. The library now rebuilds the theme circle list
+      from scratch upon saving a new theme, which is more robust and fixes positioning/rendering bugs.
+    - [REWORK] The "Edit Style" window now correctly tracks color changes in a temporary table and saves them
+      properly into a new or existing custom theme.
+    - [FIX] Restored the rendering of all preset and custom theme circles in the "About" window.
+    - [ADD] Implemented the ability to edit existing custom themes by clicking their respective circles.
+    - [ADD] The "Style name" input now correctly updates when editing an existing theme.
 ]]
 
 local Library = {}
@@ -24,18 +26,21 @@ Library.Window = {
 
 Library.Themes = {
     Blue = {
+        Name = "Blue", IsPreset = true,
         Fonts = { Title = 2, Main = 1, Size = 14, TitleSize = 27, TabSize = 18, TabHeaderSize = 12 },
         Colors = { MainBackground = {6, 9, 17}, SectionBackground = {3, 11, 23}, SidebarBackground = {11, 20, 33}, Separator = {0, 18, 32}, Accent = {24, 165, 232}, DarkBlue = {3, 23, 51}, DarkGray = {24, 24, 24}, LightGray = {77, 77, 76}, TextDark = {160, 181, 197}, TextLight = {234, 239, 245}, TabHeader = {100, 120, 140}, White = {255, 255, 255}, Black = {0, 0, 0} },
         Transparency = { Solid = 0.9, ActiveTabHighlight = 0.28, Main = 0.96, Sidebar = 0.8 },
         Rounding = { Window = 8, Section = 6, Element = 4, Button = 5 }, IconSize = 16
     },
     Black = {
+        Name = "Black", IsPreset = true,
         Fonts = { Title = 2, Main = 1, Size = 14, TitleSize = 27, TabSize = 18, TabHeaderSize = 12 },
         Colors = { MainBackground = {6, 6, 9}, SectionBackground = {0, 3, 5}, SidebarBackground = {14, 16, 19}, Separator = {11, 11, 11}, Accent = {72, 130, 255}, DarkBlue = {10, 11, 19}, DarkGray = {24, 24, 24}, LightGray = {77, 77, 76}, TextDark = {181, 181, 194}, TextLight = {234, 239, 245}, TabHeader = {111, 120, 130}, White = {255, 255, 255}, Black = {0, 0, 0} },
         Transparency = { Solid = 0.9, ActiveTabHighlight = 0.28, Main = 0.967, Sidebar = 0.9 },
         Rounding = { Window = 8, Section = 6, Element = 4, Button = 5 }, IconSize = 16
     },
     White = {
+        Name = "White", IsPreset = true,
         Fonts = { Title = 2, Main = 1, Size = 14, TitleSize = 27, TabSize = 18, TabHeaderSize = 12 },
         Colors = { MainBackground = {250, 250, 255}, SectionBackground = {244, 244, 244}, SidebarBackground = {240, 240, 240}, Separator = {200, 200, 200}, Accent = {24, 165, 232}, DarkBlue = {220, 220, 220}, DarkGray = {165, 165, 165}, LightGray = {120, 120, 120}, TextDark = {60, 60, 60}, TextLight = {10, 10, 10}, TabHeader = {100, 100, 100}, White = {255, 255, 255}, Black = {0, 0, 0} },
         Transparency = { Solid = 0.9, ActiveTabHighlight = 0.28, Main = 0.967, Sidebar = 0.9 },
@@ -168,7 +173,6 @@ function Library:_InitializeCoreUI()
         end
     end
     
-    -- Initial theme apply for core elements
     self:_ApplyTheme()
 end
 
@@ -208,40 +212,60 @@ function Library:_InitializeAboutWindow()
 
     about.StyleLabel, _ = setupInfoText("Style", "");
 
-    self:_AddStyleCircle("Blue", self.Themes.Blue.Colors.MainBackground, self.Themes.Blue.Colors.Accent)
-    self:_AddStyleCircle("White", self.Themes.White.Colors.White, self.Themes.White.Colors.Accent)
-    self:_AddStyleCircle("Black", self.Themes.Black.Colors.Black, self.Themes.Black.Colors.Accent)
-    self:_AddStyleCircle("Add", {40,40,40}, nil, true)
+    self:_RebuildStyleCircles()
 
     self.UI.Values["AboutSelectedStyle"] = "Blue"
 end
 
-function Library:_AddStyleCircle(name, bgColor, innerColor, isAddButton)
+function Library:_RebuildStyleCircles()
     local about = self.UI.Core.AboutWindow
     local about_z = 32
-    local circleObj = {
-        Name = name,
-        IsAddButton = isAddButton or false,
-        Circle = self:_CreateDrawingObject("Circle"),
-        Border = self:_CreateDrawingObject("Circle"),
-        ClickRegion = {}
-    }
 
-    if circleObj.Circle then circleObj.Circle.Filled = true; circleObj.Circle.zIndex = about_z; circleObj.Circle.Radius = 9; circleObj.Circle.Color = bgColor; end
-    if circleObj.Border then circleObj.Border.Filled = false; circleObj.Border.Thickness = 2; circleObj.Border.zIndex = about_z + 1; circleObj.Border.Radius = 11; circleObj.Border.Visible = false; end
-
-    if isAddButton then
-        circleObj.PlusLine1 = self:_CreateDrawingObject("Line"); if circleObj.PlusLine1 then circleObj.PlusLine1.Thickness = 2; circleObj.PlusLine1.zIndex = about_z + 1; end
-        circleObj.PlusLine2 = self:_CreateDrawingObject("Line"); if circleObj.PlusLine2 then circleObj.PlusLine2.Thickness = 2; circleObj.PlusLine2.zIndex = about_z + 1; end
-    else
-        circleObj.Inner = self:_CreateDrawingObject("Circle"); if circleObj.Inner then circleObj.Inner.Filled = true; circleObj.Inner.zIndex = about_z + 1; circleObj.Inner.Radius = 4; circleObj.Inner.Color = innerColor; end
+    -- Clear old drawing objects to prevent memory leaks
+    for _, circle in ipairs(about.StyleCircles) do
+        if circle.Circle then circle.Circle:Remove() end
+        if circle.Border then circle.Border:Remove() end
+        if circle.Inner then circle.Inner:Remove() end
+        if circle.PlusLine1 then circle.PlusLine1:Remove() end
+        if circle.PlusLine2 then circle.PlusLine2:Remove() end
     end
-    
-    if isAddButton then
+    about.StyleCircles = {}
+
+    local function addCircle(theme, isAddButton)
+        local circleObj = {
+            Name = theme.Name,
+            IsAddButton = isAddButton or false,
+            Circle = self:_CreateDrawingObject("Circle"),
+            Border = self:_CreateDrawingObject("Circle"),
+            ClickRegion = {}
+        }
+
+        if circleObj.Circle then circleObj.Circle.Filled = true; circleObj.Circle.zIndex = about_z; circleObj.Circle.Radius = 9; circleObj.Circle.Color = theme.Colors.MainBackground or {40,40,40}; end
+        if circleObj.Border then circleObj.Border.Filled = false; circleObj.Border.Thickness = 2; circleObj.Border.zIndex = about_z + 1; circleObj.Border.Radius = 11; circleObj.Border.Visible = false; end
+
+        if isAddButton then
+            circleObj.PlusLine1 = self:_CreateDrawingObject("Line"); if circleObj.PlusLine1 then circleObj.PlusLine1.Thickness = 2; circleObj.PlusLine1.zIndex = about_z + 1; end
+            circleObj.PlusLine2 = self:_CreateDrawingObject("Line"); if circleObj.PlusLine2 then circleObj.PlusLine2.Thickness = 2; circleObj.PlusLine2.zIndex = about_z + 1; end
+        else
+            circleObj.Inner = self:_CreateDrawingObject("Circle"); if circleObj.Inner then circleObj.Inner.Filled = true; circleObj.Inner.zIndex = about_z + 1; circleObj.Inner.Radius = 4; circleObj.Inner.Color = theme.Colors.Accent; end
+        end
         table.insert(about.StyleCircles, circleObj)
-    else
-        table.insert(about.StyleCircles, #about.StyleCircles, circleObj)
     end
+
+    -- Add presets first
+    addCircle(self.Themes.Blue)
+    addCircle(self.Themes.White)
+    addCircle(self.Themes.Black)
+
+    -- Add custom themes
+    for themeName, themeData in pairs(self.Themes) do
+        if not themeData.IsPreset then
+            addCircle(themeData)
+        end
+    end
+
+    -- Add the "Add" button last
+    addCircle({Name = "Add"}, true)
 end
 
 function Library:_InitializePlayerESPSettingsPopup()
@@ -262,6 +286,8 @@ function Library:_InitializeEditStyleWindow()
     local style_window = {}; self.UI.Popups.EditStyle = style_window; local z = 40
     style_window.IsOpen = false
     style_window.ColorItems = {}
+    style_window.EditingTheme = {}
+    style_window.EditingThemeName = ""
 
     style_window.Background = self:_CreateDrawingObject("Square"); if style_window.Background then style_window.Background.Filled = true; style_window.Background.zIndex = z; style_window.Background.Rounding = self.ActiveTheme.Rounding.Section; end
     style_window.Border = self:_CreateDrawingObject("Square"); if style_window.Border then style_window.Border.Filled = false; style_window.Border.Thickness = 1; style_window.Border.zIndex = z + 1; style_window.Border.Rounding = self.ActiveTheme.Rounding.Section; end
@@ -298,7 +324,6 @@ function Library:_InitializeEditStyleWindow()
 
     style_window.Separator3 = self:_CreateDrawingObject("Line"); if style_window.Separator3 then style_window.Separator3.Thickness = 2; style_window.Separator3.zIndex = z + 1; end
 
-    -- Footer Elements
     style_window.RealTimeToggle = self:_Internal_CreateToggle({id = "EditStyleRealTime", Name = "real-time changes", Default = false, zIndex = z + 2})
     style_window.CancelButton = { Background = self:_CreateDrawingObject("Square"), Border = self:_CreateDrawingObject("Square"), IconLine1 = self:_CreateDrawingObject("Line"), IconLine2 = self:_CreateDrawingObject("Line"), Label = self:_CreateDrawingObject("Text"), ClickRegion = {} }
     style_window.SaveButton = { Background = self:_CreateDrawingObject("Square"), Label = self:_CreateDrawingObject("Text"), Icon = self:_CreateDrawingObject("Image"), ClickRegion = {} }
@@ -322,7 +347,6 @@ function Library:_ApplyTheme()
     self.ActiveTheme.Colors.ToggleEnabledBackground = self:_DarkenColor(self.ActiveTheme.Colors.Accent, 0.3)
     local Core = self.UI.Core
 
-    -- Main Window
     if Core.Sidebar then Core.Sidebar.Color = self.ActiveTheme.Colors.SidebarBackground; Core.Sidebar.Opacity = self.ActiveTheme.Transparency.Sidebar; end
     if Core.RightPanel then Core.RightPanel.Color = self.ActiveTheme.Colors.MainBackground; Core.RightPanel.Opacity = self.ActiveTheme.Transparency.Main; end
     if Core.VerticalSeparator then Core.VerticalSeparator.Color = self.ActiveTheme.Colors.Separator; end
@@ -331,13 +355,11 @@ function Library:_ApplyTheme()
     if Core.ViewESPPanel then Core.ViewESPPanel.Color = self.ActiveTheme.Colors.MainBackground; end
     if Core.ViewESPPanelBorder then Core.ViewESPPanelBorder.Color = self.ActiveTheme.Colors.Separator; end
 
-    -- Title
-    local isWhiteTheme = (self.ActiveTheme == self.Themes.White)
+    local isWhiteTheme = (self.ActiveTheme.Name == "White")
     if Core.Title then Core.Title.Color = self.ActiveTheme.Colors.TextLight; end
     if Core.Title2 then Core.Title2.Color = self.ActiveTheme.Colors.Accent; self:_SetVisibility(Core.Title2, not isWhiteTheme); end
     if Core.Title3 then Core.Title3.Color = self.ActiveTheme.Colors.ToggleEnabledBackground; self:_SetVisibility(Core.Title3, not isWhiteTheme); end
 
-    -- Sidebar
     if Core.ActiveTabHighlight then Core.ActiveTabHighlight.Color = self.ActiveTheme.Colors.Accent; Core.ActiveTabHighlight.Opacity = self.ActiveTheme.Transparency.ActiveTabHighlight; end
     if Core.SidebarBottomCircle then Core.SidebarBottomCircle.Color = self.ActiveTheme.Colors.Separator; end
     if Core.PlayerDisplayName then Core.PlayerDisplayName.Color = self.ActiveTheme.Colors.TextDark; end
@@ -347,7 +369,6 @@ function Library:_ApplyTheme()
         if group.Header then group.Header.Color = self.ActiveTheme.Colors.TabHeader; end
     end
 
-    -- Header Buttons
     local saveBtn = Core.HeaderButtons.Save
     if saveBtn.Background then saveBtn.Background.Color = self.ActiveTheme.Colors.MainBackground; end
     if saveBtn.Label then saveBtn.Label.Color = self.ActiveTheme.Colors.TextDark; end
@@ -357,7 +378,6 @@ function Library:_ApplyTheme()
     if viewEspBtn.Label then viewEspBtn.Label.Color = self.ActiveTheme.Colors.TextDark; end
     if Core.HeaderButtons.Settings.Icon then Core.HeaderButtons.Settings.Icon.Color = self.ActiveTheme.Colors.TextDark; end
 
-    -- Sections and Elements
     for _, section in ipairs(self.UI.Sections) do
         if section.Drawing.Background then section.Drawing.Background.Color = self.ActiveTheme.Colors.SectionBackground; end
         if section.Drawing.Border then section.Drawing.Border.Color = self.ActiveTheme.Colors.Separator; end
@@ -387,7 +407,6 @@ function Library:_ApplyTheme()
         end
     end
 
-    -- About Window
     local about = self.UI.Core.AboutWindow
     if about.Background then about.Background.Color = self.ActiveTheme.Colors.SectionBackground; end
     if about.Border then about.Border.Color = self.ActiveTheme.Colors.Separator; end
@@ -412,7 +431,6 @@ function Library:_ApplyTheme()
         if circle.PlusLine1 then circle.PlusLine1.Color = self.ActiveTheme.Colors.TextDark; end
         if circle.PlusLine2 then circle.PlusLine2.Color = self.ActiveTheme.Colors.TextDark; end
     end
-    -- About Window Elements
     if about.AutoSaveToggle.Label then about.AutoSaveToggle.Label.Color = self.ActiveTheme.Colors.TextDark; end
     local slider = about.AnimationSpeedSlider
     if slider.Label then slider.Label.Color = self.ActiveTheme.Colors.TextDark; end
@@ -431,7 +449,6 @@ function Library:_ApplyTheme()
     if dd.BorderRight then dd.BorderRight.Color = self.ActiveTheme.Colors.Separator; end
     if dd.BorderBottom then dd.BorderBottom.Color = self.ActiveTheme.Colors.Separator; end
 
-    -- Player ESP Settings Popup
     local espPopup = self.UI.Popups.PlayerESP
     if espPopup.Background then espPopup.Background.Color = self.ActiveTheme.Colors.SectionBackground; end
     if espPopup.Border then espPopup.Border.Color = self.ActiveTheme.Colors.Separator; end
@@ -441,11 +458,10 @@ function Library:_ApplyTheme()
     if espPopup.Keybind.Button then espPopup.Keybind.Button.Color = self.ActiveTheme.Colors.Accent; end
     if espPopup.Keybind.ButtonText then espPopup.Keybind.ButtonText.Color = self.ActiveTheme.Colors.TextLight; end
 
-    -- Edit Style Window
     local stylePopup = self.UI.Popups.EditStyle
     if stylePopup.Background then stylePopup.Background.Color = self.ActiveTheme.Colors.SectionBackground; end
     if stylePopup.Border then stylePopup.Border.Color = self.ActiveTheme.Colors.Separator; end
-    if stylePopup.HeaderIcon then stylePopup.HeaderIcon.Color = self.ActiveTheme.Colors.Accent; end -- Placeholder color
+    if stylePopup.HeaderIcon then stylePopup.HeaderIcon.Color = self.ActiveTheme.Colors.Accent; end
     if stylePopup.HeaderTitle then stylePopup.HeaderTitle.Color = self.ActiveTheme.Colors.TextLight; end
     if stylePopup.CloseButton.Line1 then stylePopup.CloseButton.Line1.Color = self.ActiveTheme.Colors.TextDark; end
     if stylePopup.CloseButton.Line2 then stylePopup.CloseButton.Line2.Color = self.ActiveTheme.Colors.TextDark; end
@@ -457,7 +473,6 @@ function Library:_ApplyTheme()
     if stylePopup.Separator3 then stylePopup.Separator3.Color = self.ActiveTheme.Colors.Separator; end
     for _, item in ipairs(stylePopup.ColorItems) do
         if item.Label then item.Label.Color = self.ActiveTheme.Colors.TextLight; end
-        if item.ColorCircle then item.ColorCircle.Color = self.ActiveTheme.Colors[item.Name] or {255,0,255}; end
         if item.ColorBorder then item.ColorBorder.Color = self.ActiveTheme.Colors.Separator; end
     end
     if stylePopup.RealTimeToggle.Label then stylePopup.RealTimeToggle.Label.Color = self.ActiveTheme.Colors.TextDark; end
@@ -484,10 +499,10 @@ function Library:_RenderAboutWindow()
         for key, obj in pairs(tbl) do
             if type(obj) == 'table' then
                 if obj.Visible ~= nil then self:_SetVisibility(obj, visible)
-                elseif obj.Label and (obj.Back or obj.Button or obj.LeftFill) then -- Handle elements
+                elseif obj.Label and (obj.Back or obj.Button or obj.LeftFill) then
                     self:_SetVisibility(obj.Label, visible);
                     if obj.Back then self:_SetVisibility(obj.Back, visible); self:_SetVisibility(obj.Nub, visible); end
-                    if obj.LeftFill then self:_SetVisibility(obj.LeftFill, visible); self:_SetVisibility(obj.RightFill, visible); self:_SetVisibility(obj.ValueText, visible); end
+                    if obj.LeftFill then self:_SetVisibility(obj.LeftFill, visible); self:_SetVisibility(obj.RightFill, visible); self:_SetVisibility(obj.Nub, visible); self:_SetVisibility(obj.ValueText, visible); end
                     if obj.Button then self:_SetVisibility(obj.Button, visible); self:_SetVisibility(obj.ButtonText, visible); self:_SetVisibility(obj.ArrowLine1, visible); self:_SetVisibility(obj.ArrowLine2, visible); end
                 elseif key ~= "ClickRegion" and key ~= "StyleCircles" then
                      setAboutVisibility(obj, visible)
@@ -505,7 +520,7 @@ function Library:_RenderAboutWindow()
     if not isVisible then
         local dropdown = about.DpiScaleDropdown
         if dropdown.IsOpen then
-            dropdown.IsOpen = false -- Close dropdown when about window closes
+            dropdown.IsOpen = false
             self:_SetVisibility(dropdown.OptionBackground, false); self:_SetVisibility(dropdown.BorderLeft, false); self:_SetVisibility(dropdown.BorderRight, false); self:_SetVisibility(dropdown.BorderBottom, false)
             for _, option in ipairs(dropdown.OptionList) do self:_SetVisibility(option, false) end
         end
@@ -637,7 +652,7 @@ function Library:_RenderEditStyleWindow()
     self:_SetVisibility(style_window.SaveButton.Background, isVisible); self:_SetVisibility(style_window.SaveButton.Label, isVisible); self:_SetVisibility(style_window.SaveButton.Icon, isVisible);
 
     if isVisible then
-        local winW, winH = 300, 540 -- Increased height
+        local winW, winH = 300, 540
         local winX, winY = self.Window.X + self.Window.Width + 15, self.Window.Y
         
         style_window.ClickRegion = {x1 = winX, y1 = winY, x2 = winX + winW, y2 = winY + winH}
@@ -670,6 +685,7 @@ function Library:_RenderEditStyleWindow()
             item.Label.Position = {winX + 15, currentY}
             local circleX = winX + winW - 30
             item.ColorCircle.Position = {circleX, currentY + 7}
+            item.ColorCircle.Color = style_window.EditingTheme.Colors[item.Name] or {255,0,255}
             item.ColorBorder.Position = {circleX, currentY + 7}
             item.ClickRegion = {x1 = winX + 15, y1 = currentY, x2 = winX + winW - 15, y2 = currentY + 20}
             currentY = currentY + 25
@@ -678,7 +694,6 @@ function Library:_RenderEditStyleWindow()
         currentY = currentY + 20
         style_window.Separator3.From = {winX + 10, currentY}; style_window.Separator3.To = {winX + winW - 10, currentY}
 
-        -- Footer
         local footerY = currentY + 30
         local saveBtn = style_window.SaveButton; local saveBtnW, saveBtnH = 80, 28
         local saveBtnX, saveBtnY = winX + winW - saveBtnW - 15, footerY
@@ -716,7 +731,7 @@ function Library:_RenderLoop()
     local rightPanelX = windowX + sidebarWidth - self.Window.PanelOverlap
 
     self:_SetVisibility(Core.Sidebar, true); self:_SetVisibility(Core.RightPanel, true); self:_SetVisibility(Core.VerticalSeparator, true); self:_SetVisibility(Core.SidebarHeaderSeparator, true); self:_SetVisibility(Core.RightPanelHeaderSeparator, true); self:_SetVisibility(Core.Title, true); self:_SetVisibility(Core.SidebarBottomCircle, true); if Core.SidebarAvatar then self:_SetVisibility(Core.SidebarAvatar, true) end; self:_SetVisibility(Core.PlayerDisplayName, true); self:_SetVisibility(Core.TillLabel, true); self:_SetVisibility(Core.ForeverLabel, true)
-    self:_SetVisibility(Core.Title2, not (self.ActiveTheme == self.Themes.White)); self:_SetVisibility(Core.Title3, not (self.ActiveTheme == self.Themes.White))
+    self:_SetVisibility(Core.Title2, not (self.ActiveTheme.Name == "White")); self:_SetVisibility(Core.Title3, not (self.ActiveTheme.Name == "White"))
 
     if Core.Sidebar then Core.Sidebar.Position = {windowX, windowY}; Core.Sidebar.Size = {sidebarWidth, self.Window.Height}; end
     if Core.RightPanel then Core.RightPanel.Position = {rightPanelX, windowY}; Core.RightPanel.Size = {self.Window.Width - sidebarWidth + self.Window.PanelOverlap, self.Window.Height}; end
@@ -874,7 +889,6 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
     end
 end
 
-
 function Library:_InputLoop()
     local mouse_pos = getmouseposition()
     if not mouse_pos then return end
@@ -960,22 +974,19 @@ function Library:_InputLoop()
                 elseif self:_IsPointInRegion(mouse_x, mouse_y, style_window.CancelButton.ClickRegion) then
                     style_window.IsOpen = false
                 elseif self:_IsPointInRegion(mouse_x, mouse_y, style_window.SaveButton.ClickRegion) then
-                    self.CustomThemeCounter = self.CustomThemeCounter + 1
-                    local newThemeName = "Custom "..self.CustomThemeCounter
-                    local newTheme = self:_DeepCopy(self.ActiveTheme)
-                    self.Themes[newThemeName] = newTheme
+                    local newTheme = self:_DeepCopy(style_window.EditingTheme)
+                    local themeName = style_window.EditingThemeName
                     
-                    for i, circle in ipairs(self.UI.Core.AboutWindow.StyleCircles) do
-                        if circle.IsAddButton then
-                            table.remove(self.UI.Core.AboutWindow.StyleCircles, i)
-                            break
-                        end
+                    if not self.Themes[themeName] then -- It's a new theme
+                         self.CustomThemeCounter = self.CustomThemeCounter + 1
+                         newTheme.Name = "Custom "..self.CustomThemeCounter
+                         self.Themes[newTheme.Name] = newTheme
+                    else -- It's an existing theme
+                        self.Themes[themeName] = newTheme
                     end
                     
-                    self:_AddStyleCircle(newThemeName, newTheme.Colors.MainBackground, newTheme.Colors.Accent)
-                    self:_AddStyleCircle("Add", {40,40,40}, nil, true)
-                    
-                    self.UI.Values.AboutSelectedStyle = newThemeName
+                    self:_RebuildStyleCircles()
+                    self.UI.Values.AboutSelectedStyle = newTheme.Name
                     self.ActiveTheme = newTheme
                     self:_ApplyTheme()
                     
@@ -1007,13 +1018,24 @@ function Library:_InputLoop()
                     else
                         for _, circle in ipairs(about.StyleCircles) do
                             if self:_IsPointInRegion(mouse_x, mouse_y, circle.ClickRegion) then
+                                local style_window = self.UI.Popups.EditStyle
                                 if circle.IsAddButton then
-                                    self.UI.Popups.EditStyle.IsOpen = true
-                                    self.UI.Values.AboutSelectedStyle = "Add"
+                                    style_window.EditingTheme = self:_DeepCopy(self.ActiveTheme)
+                                    style_window.EditingThemeName = "Custom " .. (self.CustomThemeCounter + 1)
+                                    style_window.StyleNameInputText.Text = style_window.EditingThemeName
+                                    style_window.IsOpen = true
                                 else
-                                    self.UI.Values.AboutSelectedStyle = circle.Name
-                                    self.ActiveTheme = self.Themes[circle.Name]
-                                    self:_ApplyTheme()
+                                    local theme_to_edit = self.Themes[circle.Name]
+                                    if not theme_to_edit.IsPreset then
+                                        style_window.EditingTheme = self:_DeepCopy(theme_to_edit)
+                                        style_window.EditingThemeName = circle.Name
+                                        style_window.StyleNameInputText.Text = circle.Name
+                                        style_window.IsOpen = true
+                                    else
+                                        self.UI.Values.AboutSelectedStyle = circle.Name
+                                        self.ActiveTheme = self.Themes[circle.Name]
+                                        self:_ApplyTheme()
+                                    end
                                 end
                                 break
                             end
@@ -1090,14 +1112,12 @@ function Library:_InputLoop()
         if key and key ~= "None" then if self.UI.Values[popupKeybind.id] ~= key then self.UI.Values[popupKeybind.id] = key; end; popupKeybind.IsListening = false; end
     end
     
-    -- Specific Keybind check for PlayerESP
     local esp_bind = self.UI.Values["PlayerESPBind"]
     if esp_bind and esp_bind ~= "none" then
         local currentTime = tick()
         if getpressedkey() and getpressedkey() ~= "None" and getpressedkey() == esp_bind and (currentTime - lastToggleTime >= toggleDelay) then
             self.UI.Values["PlayerESP"] = not self.UI.Values["PlayerESP"]
             lastToggleTime = currentTime
-            -- Find the callback for the PlayerESP toggle and call it
             for _, section in ipairs(self.UI.Sections) do
                 for _, el in ipairs(section.Elements) do
                     if el.id == "PlayerESP" and el.Callback then
