@@ -1,14 +1,15 @@
 --[[
     Neverlose.cc Style UI Library for Severe
-    Version: 12.5 (Color Picker Interaction & Fixes)
+    Version: 13.0 (Full Color Picker Implementation)
     Developer: Gemini AI & Dicky_Micky_
 
-    - [FIX] Corrected a critical bug in the Section element builder that broke method chaining, causing
-            elements like Multidropdown to not appear. All elements should now be created correctly.
-    - [ADD] Implemented dragging logic for the Hue and Opacity sliders in the color picker. The nubs
-            can now be moved visually. (Note: Color conversion logic is not yet implemented).
-    - [ADJUST] Refined the color picker's visual design: sliders are thinner, and the nubs are larger
-            with a contrasting border for better visibility, as requested.
+    - [NEW] Implemented full HSV color model logic for the color picker.
+    - [NEW] Added a saturation/value nub to the main color palette square.
+    - [NEW] All sliders and the palette square now correctly update the selected color in real-time
+            by converting HSV values to RGB.
+    - [ADD] Added placeholder functions for HSV/RGB color conversion. The user must insert the
+            provided functions for the color picker to work.
+    - [FIX] Dragging logic now correctly handles all picker elements (hue, opacity, saturation/value).
 ]]
 
 local Library = {}
@@ -27,21 +28,21 @@ Library.Themes = {
     Blue = {
         Name = "Blue", IsPreset = true,
         Fonts = { Title = 2, Main = 1, Size = 14, TitleSize = 27, TabSize = 18, TabHeaderSize = 12 },
-        Colors = { MainBackground = {6, 9, 17}, SectionBackground = {3, 11, 23}, SidebarBackground = {11, 20, 33}, Separator = {0, 18, 32}, Accent = {24, 165, 232}, DarkBlue = {3, 23, 51}, DarkGray = {24, 24, 24}, LightGray = {77, 77, 76}, TextDark = {160, 181, 197}, TextLight = {234, 239, 245}, TabHeader = {100, 120, 140}, White = {255, 255, 255}, Black = {0, 0, 0} },
+        Colors = { MainBackground = {6, 9, 17, 255}, SectionBackground = {3, 11, 23, 255}, SidebarBackground = {11, 20, 33, 255}, Separator = {0, 18, 32, 255}, Accent = {24, 165, 232, 255}, DarkBlue = {3, 23, 51, 255}, DarkGray = {24, 24, 24, 255}, LightGray = {77, 77, 76, 255}, TextDark = {160, 181, 197, 255}, TextLight = {234, 239, 245, 255}, TabHeader = {100, 120, 140, 255}, White = {255, 255, 255, 255}, Black = {0, 0, 0, 255} },
         Transparency = { Solid = 0.9, ActiveTabHighlight = 0.28, Main = 0.96, Sidebar = 0.8 },
         Rounding = { Window = 8, Section = 6, Element = 4, Button = 5 }, IconSize = 16
     },
     Black = {
         Name = "Black", IsPreset = true,
         Fonts = { Title = 2, Main = 1, Size = 14, TitleSize = 27, TabSize = 18, TabHeaderSize = 12 },
-        Colors = { MainBackground = {6, 6, 9}, SectionBackground = {0, 3, 5}, SidebarBackground = {14, 16, 19}, Separator = {11, 11, 11}, Accent = {72, 130, 255}, DarkBlue = {10, 11, 19}, DarkGray = {24, 24, 24}, LightGray = {77, 77, 76}, TextDark = {181, 181, 194}, TextLight = {234, 239, 245}, TabHeader = {111, 120, 130}, White = {255, 255, 255}, Black = {0, 0, 0} },
+        Colors = { MainBackground = {6, 6, 9, 255}, SectionBackground = {0, 3, 5, 255}, SidebarBackground = {14, 16, 19, 255}, Separator = {11, 11, 11, 255}, Accent = {72, 130, 255, 255}, DarkBlue = {10, 11, 19, 255}, DarkGray = {24, 24, 24, 255}, LightGray = {77, 77, 76, 255}, TextDark = {181, 181, 194, 255}, TextLight = {234, 239, 245, 255}, TabHeader = {111, 120, 130, 255}, White = {255, 255, 255, 255}, Black = {0, 0, 0, 255} },
         Transparency = { Solid = 0.9, ActiveTabHighlight = 0.28, Main = 0.967, Sidebar = 0.9 },
         Rounding = { Window = 8, Section = 6, Element = 4, Button = 5 }, IconSize = 16
     },
     White = {
         Name = "White", IsPreset = true,
         Fonts = { Title = 2, Main = 1, Size = 14, TitleSize = 27, TabSize = 18, TabHeaderSize = 12 },
-        Colors = { MainBackground = {250, 250, 255}, SectionBackground = {244, 244, 244}, SidebarBackground = {240, 240, 240}, Separator = {200, 200, 200}, Accent = {24, 165, 232}, DarkBlue = {220, 220, 220}, DarkGray = {165, 165, 165}, LightGray = {120, 120, 120}, TextDark = {60, 60, 60}, TextLight = {10, 10, 10}, TabHeader = {100, 100, 100}, White = {255, 255, 255}, Black = {0, 0, 0} },
+        Colors = { MainBackground = {250, 250, 255, 255}, SectionBackground = {244, 244, 244, 255}, SidebarBackground = {240, 240, 240, 255}, Separator = {200, 200, 200, 255}, Accent = {24, 165, 232, 255}, DarkBlue = {220, 220, 220, 255}, DarkGray = {165, 165, 165, 255}, LightGray = {120, 120, 120, 255}, TextDark = {60, 60, 60, 255}, TextLight = {10, 10, 10, 255}, TabHeader = {100, 100, 100, 255}, White = {255, 255, 255, 255}, Black = {0, 0, 0, 255} },
         Transparency = { Solid = 0.9, ActiveTabHighlight = 0.28, Main = 0.967, Sidebar = 0.9 },
         Rounding = { Window = 8, Section = 6, Element = 4, Button = 5 }, IconSize = 16
     }
@@ -57,6 +58,73 @@ local is_dragging_something = false
 local lastToggleTime = 0
 local toggleDelay = 0.5
 local SCRIPT_PREFIX = "[NL UI Lib] "
+
+--================================================================
+--[[ PRIVATE: COLOR CONVERSION FUNCTIONS (PLACEHOLDERS) ]]
+--================================================================
+
+-- ВСТАВЬТЕ СЮДА ФУНКЦИЮ _HSVtoRGB
+function Library:_HSVtoRGB(h, s, v)
+    local r, g, b
+
+    local i = math.floor(h * 6)
+    local f = h * 6 - i
+    local p = v * (1 - s)
+    local q = v * (1 - f * s)
+    local t = v * (1 - (1 - f) * s)
+
+    i = i % 6
+
+    if i == 0 then r, g, b = v, t, p
+    elseif i == 1 then r, g, b = q, v, p
+    elseif i == 2 then r, g, b = p, v, t
+    elseif i == 3 then r, g, b = p, q, v
+    elseif i == 4 then r, g, b = t, p, v
+    elseif i == 5 then r, g, b = v, p, q
+    end
+    -- Эта функция должна принимать H, S, V (0-1) и возвращать {R, G, B} (0-255).
+    local r, g, b
+    local i = math.floor(h * 6); local f = h * 6 - i; local p = v * (1 - s); local q = v * (1 - f * s); local t = v * (1 - (1 - f) * s)
+    i = i % 6
+    if i == 0 then r, g, b = v, t, p elseif i == 1 then r, g, b = q, v, p elseif i == 2 then r, g, b = p, v, t elseif i == 3 then r, g, b = p, q, v elseif i == 4 then r, g, b = t, p, v elseif i == 5 then r, g, b = v, p, q end
+    return { r * 255, g * 255, b * 255 }
+end
+
+-- ВСТАВЬТЕ СЮДА ФУНКЦИЮ _RGBtoHSV
+function Library:_RGBtoHSV(r, g, b, a)
+    local r, g, b
+
+    local i = math.floor(h * 6)
+    local f = h * 6 - i
+    local p = v * (1 - s)
+    local q = v * (1 - f * s)
+    local t = v * (1 - (1 - f) * s)
+
+    i = i % 6
+
+    if i == 0 then r, g, b = v, t, p
+    elseif i == 1 then r, g, b = q, v, p
+    elseif i == 2 then r, g, b = p, v, t
+    elseif i == 3 then r, g, b = p, q, v
+    elseif i == 4 then r, g, b = t, p, v
+    elseif i == 5 then r, g, b = v, p, q
+    end
+    -- Эта функция должна принимать R, G, B (0-255) и возвращать H, S, V (0-1).
+    r, g, b = r / 255, g / 255, b / 255
+    local max, min = math.max(r, g, b), math.min(r, g, b)
+    local h, s, v = max, max, max
+    local d = max - min
+    s = max == 0 and 0 or d / max
+    if max == min then h = 0 else
+        if max == r then h = (g - b) / d + (g < b and 6 or 0)
+        elseif max == g then h = (b - r) / d + 2
+        elseif max == b then h = (r - g) / d + 4
+        end
+        h = h / 6
+    end
+    return h, s, v, (a or 255) / 255
+end
+
 
 --================================================================
 --[[ PRIVATE: HELPER FUNCTIONS ]]
@@ -82,7 +150,7 @@ end
 
 function Library:_DarkenColor(color, factor)
     factor = factor or 0.3
-    return { math.max(0, math.floor(color[1] * factor)), math.max(0, math.floor(color[2] * factor)), math.max(0, math.floor(color[3] * factor)) }
+    return { math.max(0, math.floor(color[1] * factor)), math.max(0, math.floor(color[2] * factor)), math.max(0, math.floor(color[3] * factor)), color[4] or 255 }
 end
 
 function Library:_IsThemeLight(theme)
@@ -363,20 +431,32 @@ function Library:_InitializeColorPickerWindow()
     picker.IsOpen = false
     picker.EditingColorName = nil
     picker.Pos = {x=0, y=0}
-    picker.IsDraggingHue = false
-    picker.IsDraggingOpacity = false
     
+    -- State
+    picker.h, picker.s, picker.v, picker.a = 0, 1, 1, 1
+    picker.isDraggingHue = false
+    picker.isDraggingOpacity = false
+    picker.isDraggingSaturationValue = false
+    
+    -- Drawing Objects
     picker.Background = self:_CreateDrawingObject("Square"); if picker.Background then picker.Background.Filled = true; picker.Background.zIndex = z; picker.Background.Rounding = self.ActiveTheme.Rounding.Element; end
     picker.ColorSquare = self:_CreateDrawingObject("Square"); if picker.ColorSquare then picker.ColorSquare.Filled = true; picker.ColorSquare.zIndex = z + 1; end
     picker.GradientOverlay = self:_CreateDrawingObject("Image"); if picker.GradientOverlay then picker.GradientOverlay.Url = "https://pixeldrain.com/api/filesystem/6mLiDUiK"; picker.GradientOverlay.zIndex = z + 2; end
+    picker.SaturationValueNub = self:_CreateDrawingObject("Circle"); if picker.SaturationValueNub then picker.SaturationValueNub.Filled = false; picker.SaturationValueNub.Thickness = 2; picker.SaturationValueNub.Radius = 5; picker.SaturationValueNub.zIndex = z + 3; end
     
     picker.HueSlider = self:_CreateDrawingObject("Image"); if picker.HueSlider then picker.HueSlider.Url = "https://s6.imgcdn.dev/Y40GWM.jpg"; picker.HueSlider.zIndex = z + 1; end
     picker.HueNub = self:_CreateDrawingObject("Circle"); if picker.HueNub then picker.HueNub.Filled = true; picker.HueNub.Radius = 7; picker.HueNub.zIndex = z + 3; end
     picker.HueNubBorder = self:_CreateDrawingObject("Circle"); if picker.HueNubBorder then picker.HueNubBorder.Filled = false; picker.HueNubBorder.Thickness = 2; picker.HueNubBorder.Radius = 7; picker.HueNubBorder.zIndex = z + 2; end
 
-    picker.OpacitySlider = self:_CreateDrawingObject("Image"); if picker.OpacitySlider then picker.OpacitySlider.Url = "https://pixeldrain.com/api/filesystem/2py1vehq"; picker.OpacitySlider.zIndex = z + 1; picker.OpacitySlider.Color = {0,0,0}; end
+    picker.OpacitySliderBackground = self:_CreateDrawingObject("Square"); if picker.OpacitySliderBackground then picker.OpacitySliderBackground.Filled = true; picker.OpacitySliderBackground.zIndex = z + 1; end
+    picker.OpacitySliderGradient = self:_CreateDrawingObject("Image"); if picker.OpacitySliderGradient then picker.OpacitySliderGradient.Url = "https://pixeldrain.com/api/filesystem/2py1vehq"; picker.OpacitySliderGradient.zIndex = z + 2; end
     picker.OpacityNub = self:_CreateDrawingObject("Circle"); if picker.OpacityNub then picker.OpacityNub.Filled = true; picker.OpacityNub.Radius = 7; picker.OpacityNub.zIndex = z + 3; end
     picker.OpacityNubBorder = self:_CreateDrawingObject("Circle"); if picker.OpacityNubBorder then picker.OpacityNubBorder.Filled = false; picker.OpacityNubBorder.Thickness = 2; picker.OpacityNubBorder.Radius = 7; picker.OpacityNubBorder.zIndex = z + 2; end
+    
+    -- Click Regions
+    picker.SaturationValueRegion = {}
+    picker.HueSliderRegion = {}
+    picker.OpacitySliderRegion = {}
 end
 
 --================================================================
@@ -783,15 +863,16 @@ function Library:_RenderColorPickerWindow()
     self:_SetVisibility(picker.Background, isVisible)
     self:_SetVisibility(picker.ColorSquare, isVisible)
     self:_SetVisibility(picker.GradientOverlay, isVisible)
+    self:_SetVisibility(picker.SaturationValueNub, isVisible)
     self:_SetVisibility(picker.HueSlider, isVisible)
     self:_SetVisibility(picker.HueNub, isVisible)
     self:_SetVisibility(picker.HueNubBorder, isVisible)
-    self:_SetVisibility(picker.OpacitySlider, isVisible)
+    self:_SetVisibility(picker.OpacitySliderBackground, isVisible)
+    self:_SetVisibility(picker.OpacitySliderGradient, isVisible)
     self:_SetVisibility(picker.OpacityNub, isVisible)
     self:_SetVisibility(picker.OpacityNubBorder, isVisible)
     
     if isVisible then
-        local stylePopup = self.UI.Popups.EditStyle
         local padding = 15
         local squareSize = 160
         local sliderHeight = 8
@@ -808,30 +889,50 @@ function Library:_RenderColorPickerWindow()
         local squareX = pickerX + padding
         local squareY = pickerY + padding
         
+        -- Main saturation/value square
         picker.ColorSquare.Position = {squareX, squareY}
         picker.ColorSquare.Size = {squareSize, squareSize}
-        picker.ColorSquare.Color = stylePopup.EditingTheme.Colors[picker.EditingColorName] or {255, 0, 255}
+        picker.ColorSquare.Color = self:_HSVtoRGB(picker.h, 1, 1) -- Pure Hue
 
         picker.GradientOverlay.Position = {squareX, squareY}
         picker.GradientOverlay.Size = {squareSize, squareSize}
 
+        local svNubX = squareX + (picker.s * squareSize)
+        local svNubY = squareY + ((1 - picker.v) * squareSize)
+        picker.SaturationValueNub.Position = {svNubX, svNubY}
+        picker.SaturationValueNub.Color = picker.v > 0.5 and {0,0,0} or {255,255,255}
+        picker.SaturationValueRegion = {x1 = squareX, y1 = squareY, x2 = squareX + squareSize, y2 = squareY + squareSize}
+
         local currentY = squareY + squareSize + sliderSpacing
 
+        -- Hue Slider
         picker.HueSlider.Position = {squareX, currentY}
         picker.HueSlider.Size = {squareSize, sliderHeight}
+        local hueNubX = squareX + (picker.h * squareSize)
+        local hueNubY = currentY + sliderHeight / 2
+        picker.HueNub.Position = {hueNubX, hueNubY}
+        picker.HueNubBorder.Position = {hueNubX, hueNubY}
         picker.HueNub.Color = {255, 255, 255}
         picker.HueNubBorder.Color = {0, 0, 0}
-        picker.HueNub.Position = {squareX, currentY + sliderHeight / 2} -- Placeholder
-        picker.HueNubBorder.Position = {squareX, currentY + sliderHeight / 2} -- Placeholder
+        picker.HueSliderRegion = {x1 = squareX, y1 = currentY, x2 = squareX + squareSize, y2 = currentY + sliderHeight}
 
         currentY = currentY + sliderHeight + sliderSpacing
 
-        picker.OpacitySlider.Position = {squareX, currentY}
-        picker.OpacitySlider.Size = {squareSize, sliderHeight}
+        -- Opacity Slider
+        picker.OpacitySliderBackground.Position = {squareX, currentY}
+        picker.OpacitySliderBackground.Size = {squareSize, sliderHeight}
+        picker.OpacitySliderBackground.Color = self:_HSVtoRGB(picker.h, picker.s, picker.v)
+        
+        picker.OpacitySliderGradient.Position = {squareX, currentY}
+        picker.OpacitySliderGradient.Size = {squareSize, sliderHeight}
+
+        local opacityNubX = squareX + (picker.a * squareSize)
+        local opacityNubY = currentY + sliderHeight / 2
+        picker.OpacityNub.Position = {opacityNubX, opacityNubY}
+        picker.OpacityNubBorder.Position = {opacityNubX, opacityNubY}
         picker.OpacityNub.Color = {255, 255, 255}
         picker.OpacityNubBorder.Color = {0, 0, 0}
-        picker.OpacityNub.Position = {squareX, currentY + sliderHeight / 2} -- Placeholder
-        picker.OpacityNubBorder.Position = {squareX, currentY + sliderHeight / 2} -- Placeholder
+        picker.OpacitySliderRegion = {x1 = squareX, y1 = currentY, x2 = squareX + squareSize, y2 = currentY + sliderHeight}
     end
 end
 
@@ -885,7 +986,7 @@ function Library:_RenderLoop()
     self:_RenderPlayerESPSettingsPopup()
     self:_RenderAboutWindow()
     self:_RenderEditStyleWindow()
-    self:_RenderColorPickerWindow() -- New
+    self:_RenderColorPickerWindow()
 end
 
 function Library:_RenderTabs(x, y, width)
@@ -1011,17 +1112,22 @@ function Library:_InputLoop()
     local is_left_pressed_now = isleftpressed()
     local is_left_clicked = was_left_pressed and not is_left_pressed_now
 
+    local picker = self.UI.Popups.ColorPicker
+    local style_window = self.UI.Popups.EditStyle
+
     if is_left_pressed_now then
         if not is_dragging_something then
             is_dragging_something = true
             local about_slider = self.UI.Core.AboutWindow.AnimationSpeedSlider
-            local picker = self.UI.Popups.ColorPicker
+            
             if self.UI.Popups.About.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, about_slider.ClickRegion) then
                 about_slider.IsDragging = true
-            elseif picker.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, picker.HueSlider.ClickRegion) then
-                picker.IsDraggingHue = true
-            elseif picker.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, picker.OpacitySlider.ClickRegion) then
-                picker.IsDraggingOpacity = true
+            elseif picker.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, picker.HueSliderRegion) then
+                picker.isDraggingHue = true
+            elseif picker.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, picker.OpacitySliderRegion) then
+                picker.isDraggingOpacity = true
+            elseif picker.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, picker.SaturationValueRegion) then
+                picker.isDraggingSaturationValue = true
             elseif not self.UI.Popups.About.IsOpen and not self.UI.Popups.PlayerESP.IsOpen and not self.UI.Popups.EditStyle.IsOpen and not self.UI.Popups.ColorPicker.IsOpen then
                  local started_slider_drag = false
                  for _, section in ipairs(self.UI.Sections) do
@@ -1051,9 +1157,9 @@ function Library:_InputLoop()
         if self.Window.IsDragging then self.Window.IsDragging = false end
         for _, section in ipairs(self.UI.Sections) do for _, el in ipairs(section.Elements) do if el.IsDragging then el.IsDragging = false end end end
         if self.UI.Core.AboutWindow.AnimationSpeedSlider.IsDragging then self.UI.Core.AboutWindow.AnimationSpeedSlider.IsDragging = false end
-        local picker = self.UI.Popups.ColorPicker
-        if picker.IsDraggingHue then picker.IsDraggingHue = false end
-        if picker.IsDraggingOpacity then picker.IsDraggingOpacity = false end
+        if picker.isDraggingHue then picker.isDraggingHue = false end
+        if picker.isDraggingOpacity then picker.isDraggingOpacity = false end
+        if picker.isDraggingSaturationValue then picker.isDraggingSaturationValue = false end
     end
 
     if self.Window.IsDragging then self.Window.X = mouse_x - drag_offset.x; self.Window.Y = mouse_y - drag_offset.y; end
@@ -1081,18 +1187,28 @@ function Library:_InputLoop()
         if clamped_value ~= self.UI.Values[about_slider.id] then self.UI.Values[about_slider.id] = clamped_value; end
     end
     
-    local picker = self.UI.Popups.ColorPicker
-    if picker.IsDraggingHue then
-        local sliderX, sliderW = picker.HueSlider.Position.x, picker.HueSlider.Size.x
-        local nubX = math.clamp(mouse_x, sliderX, sliderX + sliderW)
-        picker.HueNub.Position = {nubX, picker.HueNub.Position.y}
-        picker.HueNubBorder.Position = {nubX, picker.HueNubBorder.Position.y}
+    local function update_color_picker()
+        local new_rgb = self:_HSVtoRGB(picker.h, picker.s, picker.v)
+        style_window.EditingTheme.Colors[picker.EditingColorName] = {new_rgb[1], new_rgb[2], new_rgb[3], picker.a * 255}
     end
-    if picker.IsDraggingOpacity then
-        local sliderX, sliderW = picker.OpacitySlider.Position.x, picker.OpacitySlider.Size.x
-        local nubX = math.clamp(mouse_x, sliderX, sliderX + sliderW)
-        picker.OpacityNub.Position = {nubX, picker.OpacityNub.Position.y}
-        picker.OpacityNubBorder.Position = {nubX, picker.OpacityNubBorder.Position.y}
+
+    if picker.isDraggingHue then
+        local region = picker.HueSliderRegion
+        local percentage = math.clamp((mouse_x - region.x1) / (region.x2 - region.x1), 0, 1)
+        picker.h = percentage
+        update_color_picker()
+    end
+    if picker.isDraggingOpacity then
+        local region = picker.OpacitySliderRegion
+        local percentage = math.clamp((mouse_x - region.x1) / (region.x2 - region.x1), 0, 1)
+        picker.a = percentage
+        update_color_picker()
+    end
+    if picker.isDraggingSaturationValue then
+        local region = picker.SaturationValueRegion
+        picker.s = math.clamp((mouse_x - region.x1) / (region.x2 - region.x1), 0, 1)
+        picker.v = 1 - math.clamp((mouse_y - region.y1) / (region.y2 - region.y1), 0, 1)
+        update_color_picker()
     end
 
     if is_left_clicked then
@@ -1102,12 +1218,14 @@ function Library:_InputLoop()
             local click_was_handled = false
             local clicked_dropdown_button = nil
             
-            if self.UI.Popups.ColorPicker.IsOpen then
+            if picker.IsOpen then
                 click_was_handled = true
-                -- Logic for color picker clicks will go here in the future
-            elseif self.UI.Popups.EditStyle.IsOpen then
+                local picker_region = {x1=picker.Background.Position.x, y1=picker.Background.Position.y, x2=picker.Background.Position.x+picker.Background.Size.x, y2=picker.Background.Position.y+picker.Background.Size.y}
+                if not self:_IsPointInRegion(mouse_x, mouse_y, picker_region) then
+                    picker.IsOpen = false
+                end
+            elseif style_window.IsOpen then
                 click_was_handled = true
-                local style_window = self.UI.Popups.EditStyle
                 if self:_IsPointInRegion(mouse_x, mouse_y, style_window.CloseButton.ClickRegion) then
                     style_window.IsOpen = false
                 elseif self:_IsPointInRegion(mouse_x, mouse_y, style_window.CancelButton.ClickRegion) then
@@ -1137,10 +1255,11 @@ function Library:_InputLoop()
                 else
                     for _, item in ipairs(style_window.ColorItems) do
                         if self:_IsPointInRegion(mouse_x, mouse_y, item.ClickRegion) then
-                            local picker = self.UI.Popups.ColorPicker
                             picker.IsOpen = true
                             picker.EditingColorName = item.Name
                             picker.Pos = {x = mouse_x, y = mouse_y}
+                            local color_to_edit = style_window.EditingTheme.Colors[item.Name]
+                            picker.h, picker.s, picker.v, picker.a = self:_RGBtoHSV(color_to_edit[1], color_to_edit[2], color_to_edit[3], color_to_edit[4])
                             break
                         end
                     end
@@ -1174,7 +1293,6 @@ function Library:_InputLoop()
                         if self:_IsPointInRegion(mouse_x, mouse_y, circle.ClickRegion) then
                             circle_clicked = true
                             if circle.IsAddButton then
-                                local style_window = self.UI.Popups.EditStyle
                                 style_window.EditingTheme = self:_DeepCopy(self.ActiveTheme)
                                 style_window.EditingThemeName = "Custom " .. (self.CustomThemeCounter + 1)
                                 style_window.StyleNameInputText.Text = style_window.EditingThemeName
