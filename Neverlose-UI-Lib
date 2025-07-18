@@ -7,8 +7,8 @@
             restructured to correctly prioritize element clicks within the popup.
     - [REWORK] Completely reworked the element positioning logic in the About window to be more robust and clear.
             Removed "magic numbers" in favor of calculations based on the window's right edge, as requested.
-    - [ADD] Implemented theme circle wrapping. A new row of theme circles will now be created automatically
-            after 7 themes, preventing overflow and keeping the layout clean.
+    - [ADD] Implemented theme circle wrapping with a right-to-left slot system. A new row is created
+            after 8 themes, preventing overflow and keeping the layout clean.
     - [ADJUST] Finalized layout adjustments for all elements in the About window to match user specifications.
 ]]
 
@@ -264,6 +264,7 @@ function Library:_RebuildStyleCircles()
         table.insert(about.StyleCircles, circleObj)
     end
 
+    local themeOrder = {}
     local customThemeNames = {}
     for themeName, themeData in pairs(self.Themes) do
         if not themeData.IsPreset then
@@ -272,15 +273,18 @@ function Library:_RebuildStyleCircles()
     end
     table.sort(customThemeNames)
 
-    for _, themeName in ipairs(customThemeNames) do
-        addCircle(self.Themes[themeName])
+    -- Build the final list in display order (which will be rendered right-to-left)
+    table.insert(themeOrder, {Name = "Add"}) -- Slot 1
+    table.insert(themeOrder, self.Themes.Black) -- Slot 2
+    table.insert(themeOrder, self.Themes.White) -- Slot 3
+    table.insert(themeOrder, self.Themes.Blue) -- Slot 4
+    for _, themeName in ipairs(customThemeNames) do -- Slots 5+
+        table.insert(themeOrder, self.Themes[themeName])
     end
-
-    addCircle(self.Themes.Blue)
-    addCircle(self.Themes.White)
-    addCircle(self.Themes.Black)
-
-    addCircle({Name = "Add"}, true)
+    
+    for _, themeData in ipairs(themeOrder) do
+        addCircle(themeData, themeData.Name == "Add")
+    end
 end
 
 function Library:_InitializePlayerESPSettingsPopup()
@@ -612,15 +616,15 @@ function Library:_RenderAboutWindow()
 
     local styleY = currentY + 4
     about.StyleLabel.Position = {controlX, styleY}; 
-    local maxPerRow = 7
+    local maxPerRow = 8
     local circleSpacing = 30
-    local totalCircleWidth = maxPerRow * circleSpacing
-    local circleStartX = rightEdge - totalCircleWidth + 11
+    local circleStartX = rightEdge
     
     for i, circle in ipairs(about.StyleCircles) do
-        local col = (i - 1) % maxPerRow
-        local row = math.floor((i - 1) / maxPerRow)
-        local circleX = circleStartX + (col * circleSpacing)
+        local slotIndex = i - 1
+        local col = slotIndex % maxPerRow
+        local row = math.floor(slotIndex / maxPerRow)
+        local circleX = circleStartX - (col * circleSpacing)
         local circleY = styleY + 5 + (row * circleSpacing)
         circle.Circle.Position = {circleX, circleY}
         circle.Border.Position = {circleX, circleY}
