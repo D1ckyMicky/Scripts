@@ -1,12 +1,14 @@
 --[[
     Neverlose.cc Style UI Library for Severe
-    Version: 13.1 (Color Picker Fix)
+    Version: 13.2 (Aesthetic & Real-Time Update)
     Developer: Gemini AI & Dicky_Micky_
 
-    - [FIX] Corrected placeholder functions for color conversion to prevent script errors. The color picker
-            will now open correctly after the user inserts the required HSV/RGB functions.
-    - [NEW] Placeholders now return a bright pink color and a console warning if the real functions
-            are not inserted, providing clear feedback.
+    - [ADJUST] Redesigned the color picker with less padding and more rounding to match the main UI theme.
+    - [ADJUST] The hue slider's nub now dynamically changes its color.
+    - [ADJUST] Relocated the "real-time changes" toggle in the "Edit Style" window to be below the action buttons.
+    - [NEW] Implemented the functionality for the "real-time changes" toggle. When active, color modifications
+            are applied instantly to the current theme.
+    - [FIX] The opacity/alpha channel now correctly applies to color previews in the "Edit Style" window.
 ]]
 
 local Library = {}
@@ -424,17 +426,17 @@ function Library:_InitializeColorPickerWindow()
     picker.isDraggingSaturationValue = false
     
     -- Drawing Objects
-    picker.Background = self:_CreateDrawingObject("Square"); if picker.Background then picker.Background.Filled = true; picker.Background.zIndex = z; picker.Background.Rounding = self.ActiveTheme.Rounding.Element; end
-    picker.ColorSquare = self:_CreateDrawingObject("Square"); if picker.ColorSquare then picker.ColorSquare.Filled = true; picker.ColorSquare.zIndex = z + 1; end
-    picker.GradientOverlay = self:_CreateDrawingObject("Image"); if picker.GradientOverlay then picker.GradientOverlay.Url = "https://pixeldrain.com/api/filesystem/6mLiDUiK"; picker.GradientOverlay.zIndex = z + 2; end
+    picker.Background = self:_CreateDrawingObject("Square"); if picker.Background then picker.Background.Filled = true; picker.Background.zIndex = z; picker.Background.Rounding = self.ActiveTheme.Rounding.Window; end
+    picker.ColorSquare = self:_CreateDrawingObject("Square"); if picker.ColorSquare then picker.ColorSquare.Filled = true; picker.ColorSquare.zIndex = z + 1; picker.ColorSquare.Rounding = self.ActiveTheme.Rounding.Element; end
+    picker.GradientOverlay = self:_CreateDrawingObject("Image"); if picker.GradientOverlay then picker.GradientOverlay.Url = "https://pixeldrain.com/api/filesystem/6mLiDUiK"; picker.GradientOverlay.zIndex = z + 2; picker.GradientOverlay.Rounding = self.ActiveTheme.Rounding.Element; end
     picker.SaturationValueNub = self:_CreateDrawingObject("Circle"); if picker.SaturationValueNub then picker.SaturationValueNub.Filled = false; picker.SaturationValueNub.Thickness = 2; picker.SaturationValueNub.Radius = 5; picker.SaturationValueNub.zIndex = z + 3; end
     
-    picker.HueSlider = self:_CreateDrawingObject("Image"); if picker.HueSlider then picker.HueSlider.Url = "https://s6.imgcdn.dev/Y40GWM.jpg"; picker.HueSlider.zIndex = z + 1; end
+    picker.HueSlider = self:_CreateDrawingObject("Image"); if picker.HueSlider then picker.HueSlider.Url = "https://s6.imgcdn.dev/Y40GWM.jpg"; picker.HueSlider.zIndex = z + 1; picker.HueSlider.Rounding = 4; end
     picker.HueNub = self:_CreateDrawingObject("Circle"); if picker.HueNub then picker.HueNub.Filled = true; picker.HueNub.Radius = 7; picker.HueNub.zIndex = z + 3; end
     picker.HueNubBorder = self:_CreateDrawingObject("Circle"); if picker.HueNubBorder then picker.HueNubBorder.Filled = false; picker.HueNubBorder.Thickness = 2; picker.HueNubBorder.Radius = 7; picker.HueNubBorder.zIndex = z + 2; end
 
-    picker.OpacitySliderBackground = self:_CreateDrawingObject("Square"); if picker.OpacitySliderBackground then picker.OpacitySliderBackground.Filled = true; picker.OpacitySliderBackground.zIndex = z + 1; end
-    picker.OpacitySliderGradient = self:_CreateDrawingObject("Image"); if picker.OpacitySliderGradient then picker.OpacitySliderGradient.Url = "https://pixeldrain.com/api/filesystem/2py1vehq"; picker.OpacitySliderGradient.zIndex = z + 2; end
+    picker.OpacitySliderBackground = self:_CreateDrawingObject("Square"); if picker.OpacitySliderBackground then picker.OpacitySliderBackground.Filled = true; picker.OpacitySliderBackground.zIndex = z + 1; picker.OpacitySliderBackground.Rounding = 4; end
+    picker.OpacitySliderGradient = self:_CreateDrawingObject("Image"); if picker.OpacitySliderGradient then picker.OpacitySliderGradient.Url = "https://pixeldrain.com/api/filesystem/2py1vehq"; picker.OpacitySliderGradient.zIndex = z + 2; picker.OpacitySliderGradient.Rounding = 4; end
     picker.OpacityNub = self:_CreateDrawingObject("Circle"); if picker.OpacityNub then picker.OpacityNub.Filled = true; picker.OpacityNub.Radius = 7; picker.OpacityNub.zIndex = z + 3; end
     picker.OpacityNubBorder = self:_CreateDrawingObject("Circle"); if picker.OpacityNubBorder then picker.OpacityNubBorder.Filled = false; picker.OpacityNubBorder.Thickness = 2; picker.OpacityNubBorder.Radius = 7; picker.OpacityNubBorder.zIndex = z + 2; end
     
@@ -803,8 +805,12 @@ function Library:_RenderEditStyleWindow()
         for _, item in ipairs(style_window.ColorItems) do
             item.Label.Position = {winX + 15, currentY}
             local circleX = winX + winW - 30
+            
+            local c = style_window.EditingTheme.Colors[item.Name] or {255,0,255,255}
+            item.ColorCircle.Color = {c[1], c[2], c[3]}
+            item.ColorCircle.Opacity = (c[4] or 255) / 255
+
             item.ColorCircle.Position = {circleX, currentY + 7}
-            item.ColorCircle.Color = style_window.EditingTheme.Colors[item.Name] or {255,0,255}
             item.ColorBorder.Position = {circleX, currentY + 7}
             item.ClickRegion = {x1 = winX + 15, y1 = currentY, x2 = winX + winW - 15, y2 = currentY + 20}
             currentY = currentY + 25
@@ -813,7 +819,7 @@ function Library:_RenderEditStyleWindow()
         currentY = currentY + 20
         style_window.Separator3.From = {winX + 10, currentY}; style_window.Separator3.To = {winX + winW - 10, currentY}
 
-        local footerY = currentY + 30
+        local footerY = currentY + 15
         local saveBtn = style_window.SaveButton; local saveBtnW, saveBtnH = 80, 28
         local saveBtnX, saveBtnY = winX + winW - saveBtnW - 15, footerY
         saveBtn.Background.Position = {saveBtnX, saveBtnY}; saveBtn.Background.Size = {saveBtnW, saveBtnH}
@@ -858,7 +864,7 @@ function Library:_RenderColorPickerWindow()
     self:_SetVisibility(picker.OpacityNubBorder, isVisible)
     
     if isVisible then
-        local padding = 15
+        local padding = 10
         local squareSize = 160
         local sliderHeight = 8
         local sliderSpacing = 12
@@ -897,7 +903,7 @@ function Library:_RenderColorPickerWindow()
         local hueNubY = currentY + sliderHeight / 2
         picker.HueNub.Position = {hueNubX, hueNubY}
         picker.HueNubBorder.Position = {hueNubX, hueNubY}
-        picker.HueNub.Color = {255, 255, 255}
+        picker.HueNub.Color = self:_HSVtoRGB(picker.h, 1, 1) -- Dynamic color
         picker.HueNubBorder.Color = {0, 0, 0}
         picker.HueSliderRegion = {x1 = squareX, y1 = currentY, x2 = squareX + squareSize, y2 = currentY + sliderHeight}
 
@@ -1174,7 +1180,14 @@ function Library:_InputLoop()
     
     local function update_color_picker()
         local new_rgb = self:_HSVtoRGB(picker.h, picker.s, picker.v)
-        style_window.EditingTheme.Colors[picker.EditingColorName] = {new_rgb[1], new_rgb[2], new_rgb[3], picker.a * 255}
+        local new_color = {new_rgb[1], new_rgb[2], new_rgb[3], picker.a * 255}
+        
+        style_window.EditingTheme.Colors[picker.EditingColorName] = new_color
+
+        if self.UI.Values.EditStyleRealTime and self.ActiveTheme.Name == style_window.EditingThemeName then
+             self.ActiveTheme.Colors[picker.EditingColorName] = new_color
+             self:_ApplyTheme()
+        end
     end
 
     if picker.isDraggingHue then
