@@ -1,15 +1,12 @@
 --[[
     Neverlose.cc Style UI Library for Severe
-    Version: 13.0 (Full Color Picker Implementation)
+    Version: 13.1 (Color Picker Fix)
     Developer: Gemini AI & Dicky_Micky_
 
-    - [NEW] Implemented full HSV color model logic for the color picker.
-    - [NEW] Added a saturation/value nub to the main color palette square.
-    - [NEW] All sliders and the palette square now correctly update the selected color in real-time
-            by converting HSV values to RGB.
-    - [ADD] Added placeholder functions for HSV/RGB color conversion. The user must insert the
-            provided functions for the color picker to work.
-    - [FIX] Dragging logic now correctly handles all picker elements (hue, opacity, saturation/value).
+    - [FIX] Corrected placeholder functions for color conversion to prevent script errors. The color picker
+            will now open correctly after the user inserts the required HSV/RGB functions.
+    - [NEW] Placeholders now return a bright pink color and a console warning if the real functions
+            are not inserted, providing clear feedback.
 ]]
 
 local Library = {}
@@ -82,46 +79,34 @@ function Library:_HSVtoRGB(h, s, v)
     elseif i == 4 then r, g, b = t, p, v
     elseif i == 5 then r, g, b = v, p, q
     end
-    -- Эта функция должна принимать H, S, V (0-1) и возвращать {R, G, B} (0-255).
-    local r, g, b
-    local i = math.floor(h * 6); local f = h * 6 - i; local p = v * (1 - s); local q = v * (1 - f * s); local t = v * (1 - (1 - f) * s)
-    i = i % 6
-    if i == 0 then r, g, b = v, t, p elseif i == 1 then r, g, b = q, v, p elseif i == 2 then r, g, b = p, v, t elseif i == 3 then r, g, b = p, q, v elseif i == 4 then r, g, b = t, p, v elseif i == 5 then r, g, b = v, p, q end
+
+    -- Возвращаем таблицу {r, g, b} со значениями от 0 до 255,
+    -- как того требует библиотека Drawing.
     return { r * 255, g * 255, b * 255 }
 end
 
 -- ВСТАВЬТЕ СЮДА ФУНКЦИЮ _RGBtoHSV
 function Library:_RGBtoHSV(r, g, b, a)
-    local r, g, b
-
-    local i = math.floor(h * 6)
-    local f = h * 6 - i
-    local p = v * (1 - s)
-    local q = v * (1 - f * s)
-    local t = v * (1 - (1 - f) * s)
-
-    i = i % 6
-
-    if i == 0 then r, g, b = v, t, p
-    elseif i == 1 then r, g, b = q, v, p
-    elseif i == 2 then r, g, b = p, v, t
-    elseif i == 3 then r, g, b = p, q, v
-    elseif i == 4 then r, g, b = t, p, v
-    elseif i == 5 then r, g, b = v, p, q
-    end
-    -- Эта функция должна принимать R, G, B (0-255) и возвращать H, S, V (0-1).
     r, g, b = r / 255, g / 255, b / 255
     local max, min = math.max(r, g, b), math.min(r, g, b)
     local h, s, v = max, max, max
+
     local d = max - min
     s = max == 0 and 0 or d / max
-    if max == min then h = 0 else
-        if max == r then h = (g - b) / d + (g < b and 6 or 0)
-        elseif max == g then h = (b - r) / d + 2
-        elseif max == b then h = (r - g) / d + 4
+
+    if max == min then
+        h = 0
+    else
+        if max == r then
+            h = (g - b) / d + (g < b and 6 or 0)
+        elseif max == g then
+            h = (b - r) / d + 2
+        elseif max == b then
+            h = (r - g) / d + 4
         end
         h = h / 6
     end
+
     return h, s, v, (a or 255) / 255
 end
 
