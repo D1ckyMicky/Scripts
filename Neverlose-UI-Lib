@@ -1,11 +1,13 @@
 --[[
     Neverlose.cc Style UI Library for Severe
-    Version: 14.0 (Config System Scaffolding)
+    Version: 14.1 (Config UI Fixes & Polish)
     Developer: Gemini AI & Dicky_Micky_
 
-    - [NEW] Added a persistent "Presets" tab for config management, which appears automatically.
-    - [NEW] Added the basic UI structure for the "Configs" tab, including a placeholder list and item layout based on the design.
-    - [INTERNAL] Refactored rendering logic to support full-width tab content for the new config system.
+    - [FIX] The "Load" button in the configs tab now correctly applies theme colors to its text and icon.
+    - [FIX] Corrected the vertical alignment of tab text in the sidebar to match the icons.
+    - [ADJUST] The "Configs" tab icon in the sidebar is now always colored with the theme's accent color for better visibility.
+    - [ADJUST] The text and icon color for the "Save" button in the "Edit Style" window is now correctly contrasted against the button's background.
+    - [UPDATE] Updated the icon for the "Load" button in the configs tab.
 ]]
 
 local Library = {}
@@ -589,7 +591,7 @@ function Library:_InitializeConfigsTab()
         if item.OptionsButton.Dot3 then item.OptionsButton.Dot3.Filled = true; item.OptionsButton.Dot3.Radius = 1.5; item.OptionsButton.Dot3.zIndex = z + 2; end
 
         if item.LoadButton.Background then item.LoadButton.Filled = true; item.LoadButton.zIndex = z + 2; item.LoadButton.Rounding = self.ActiveTheme.Rounding.Button; end
-        if item.LoadButton.Icon then item.LoadButton.Icon.Size = {14, 14}; item.LoadButton.Icon.zIndex = z + 3; item.LoadButton.Icon.Url = "https://s6.imgcdn.dev/Yuw2jM.png"; end -- Placeholder Load Icon
+        if item.LoadButton.Icon then item.LoadButton.Icon.Size = {14, 14}; item.LoadButton.Icon.zIndex = z + 3; item.LoadButton.Icon.Url = "https://s6.imgcdn.dev/Y4v6tt.png"; end -- UPDATED Load Icon
         if item.LoadButton.Label then item.LoadButton.Label.Font = self.ActiveTheme.Fonts.Main; item.LoadButton.Label.Size = self.ActiveTheme.Fonts.Size; item.LoadButton.Label.Text = "Load"; item.LoadButton.Label.Center = false; item.LoadButton.Label.zIndex = z + 3; end
 
         if item.SaveButton.Background then item.SaveButton.Filled = true; item.SaveButton.zIndex = z + 2; item.SaveButton.Rounding = self.ActiveTheme.Rounding.Button; end
@@ -716,7 +718,11 @@ function Library:_ApplyTheme()
     applyColor(stylePopup.RealTimeToggle.Label, self.ActiveTheme.Colors.TextDark)
     applyColor(stylePopup.CancelButton.Background, self.ActiveTheme.Colors.SectionBackground); applyColor(stylePopup.CancelButton.Border, self.ActiveTheme.Colors.Accent); applyColor(stylePopup.CancelButton.IconLine1, self.ActiveTheme.Colors.TextLight); applyColor(stylePopup.CancelButton.IconLine2, self.ActiveTheme.Colors.TextLight); applyColor(stylePopup.CancelButton.Label, self.ActiveTheme.Colors.TextLight);
     applyColor(stylePopup.SaveButton.Background, self.ActiveTheme.Colors.Accent)
-    local saveButtonTextColor = isThemeLight and self.ActiveTheme.Colors.Black or self.ActiveTheme.Colors.White
+    
+    -- FIX: Use static black/white for better contrast on the save button in the edit style window
+    local blackColor = {10, 10, 10, 255}
+    local whiteColor = {234, 239, 245, 255}
+    local saveButtonTextColor = isThemeLight and blackColor or whiteColor
     applyColor(stylePopup.SaveButton.Label, saveButtonTextColor)
     applyColor(stylePopup.SaveButton.Icon, saveButtonTextColor)
     
@@ -743,7 +749,8 @@ function Library:_ApplyTheme()
             applyColor(item.SaveButton.Label, self.ActiveTheme.Colors.TextLight)
             -- Load Button (shown when not loaded)
             applyColor(item.LoadButton.Background, self.ActiveTheme.Colors.Accent)
-            local loadBtnTextColor = isThemeLight and self.ActiveTheme.Colors.Black or self.ActiveTheme.Colors.White
+            -- FIX: Use the same black/white logic for the load button text for contrast
+            local loadBtnTextColor = isThemeLight and blackColor or whiteColor
             applyColor(item.LoadButton.Icon, loadBtnTextColor)
             applyColor(item.LoadButton.Label, loadBtnTextColor)
         end
@@ -1231,14 +1238,21 @@ function Library:_RenderTabs(x, y, width)
                 self:_SetVisibility(tab.Icon, true)
                 tab.Icon.Position = {startX, currentY + (tabHeight / 2) - (self.ActiveTheme.IconSize / 2)}
                 local iconColor = text_color
-                if tab.Name == "Players" or (tab.Name == "Configs" and is_active) then
+                -- FIX: Make Configs icon always accent color
+                if tab.Name == "Players" or tab.Name == "Configs" then
                     iconColor = self.ActiveTheme.Colors.Accent
                 end
                 if tab.Icon.Color then tab.Icon.Color = {iconColor[1], iconColor[2], iconColor[3]}; tab.Icon.Opacity = (iconColor[4] or 255) / 255; end
                 startX = startX + self.ActiveTheme.IconSize + 8
             end
 
-            if tab.Text then self:_SetVisibility(tab.Text, true); tab.Text.Position = {startX, currentY + (tab.Text.Size / 2)}; tab.Text.Color = {text_color[1], text_color[2], text_color[3]}; tab.Text.Opacity = (text_color[4] or 255) / 255; end
+            if tab.Text then 
+                self:_SetVisibility(tab.Text, true)
+                -- FIX: Vertically align tab text with icon
+                tab.Text.Position = {startX, currentY + (tabHeight / 2) - (tab.Text.Size / 2)}
+                tab.Text.Color = {text_color[1], text_color[2], text_color[3]}
+                tab.Text.Opacity = (text_color[4] or 255) / 255
+            end
 
             tab.ClickRegion = {x1 = x + 10, y1 = currentY, x2 = x + width - 10, y2 = currentY + tabHeight}
             if is_active then highlightY = currentY; end
