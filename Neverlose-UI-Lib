@@ -1,12 +1,13 @@
 --[[
     Neverlose.cc Style UI Library for Severe
-    Version: 14.0 (Config System Foundation)
+    Version: 14.1 (Glow System Re-integration & Fix)
     Developer: Gemini AI & Dicky_Micky_
 
-    - [REVERT] Reverted library state to v13.4, removing the glow system to start a new feature path.
-    - [NEW] Added a permanent, non-removable "Presets" tab group with a "Configs" tab.
-    - [NEW] This "Presets" group will always render at the bottom of the sidebar, after any user-defined tabs.
-    - [ADJUST] The core UI initialization logic was updated to create and manage this new static tab.
+    - [FIX] Resolved a crash ("attempt to call missing method") by re-integrating the glow effect system
+            into the latest library version.
+    - [NEW] Glow effect has been re-applied to all relevant components: main panels, popups, sliders, and dropdowns.
+    - [INTERNAL] The storage for core UI components has been refactored to correctly
+            associate glow effects without modifying the underlying drawing userdata, preventing potential crashes.
 ]]
 
 local Library = {}
@@ -168,15 +169,83 @@ function Library:_SetVisibility(object, visible) if object and object.Visible ~=
 function table.find(tbl, value) for i, v in ipairs(tbl) do if v == value then return i end end; return nil end
 
 --================================================================
+--[[ PRIVATE: GLOW EFFECT HELPERS ]]
+--================================================================
+
+function Library:_Internal_CreateGlowSet(zIndex, count)
+    local glowSet = {}
+    count = count or 20
+    for i = 1, count do
+        local glowSquare = self:_CreateDrawingObject("Square")
+        if glowSquare then
+            glowSquare.Filled = true
+            glowSquare.zIndex = zIndex - i
+            table.insert(glowSet, glowSquare)
+        end
+    end
+    return glowSet
+end
+
+function Library:_RenderGlowEffect(glowSet, x, y, width, height, rounding, color, sides)
+    if not glowSet or not color then return end
+    sides = sides or {top=true, bottom=true, left=true, right=true}
+    
+    local glowColorRGB = {color[1], color[2], color[3]}
+    local glowOpacity = (color[4] or 255) / 255
+
+    for i, glowSquare in ipairs(glowSet) do
+        local alpha_factor = 0.24 * math.exp(-0.24 * i)
+        local spread = i * 0.6
+
+        local glowX, glowY = x, y
+        local glowW, glowH = width, height
+
+        if sides.left then
+            glowX = x - spread
+            glowW = glowW + spread
+        end
+        if sides.right then
+            glowW = glowW + spread
+        end
+        if sides.top then
+            glowY = y - spread
+            glowH = glowH + spread
+        end
+        if sides.bottom then
+            glowH = glowH + spread
+        end
+        
+        glowSquare.Position = {glowX, glowY}
+        glowSquare.Size = {glowW, glowH}
+        glowSquare.Rounding = rounding + spread
+        glowSquare.Color = glowColorRGB
+        glowSquare.Opacity = glowOpacity * alpha_factor
+        self:_SetVisibility(glowSquare, true)
+    end
+end
+
+function Library:_HideGlowEffect(glowSet)
+    if not glowSet then return end
+    for _, glowSquare in ipairs(glowSet) do
+        self:_SetVisibility(glowSquare, false)
+    end
+end
+
+--================================================================
 --[[ PRIVATE: INITIALIZATION & CORE UI ]]
 --================================================================
 
 function Library:_InitializeCoreUI()
     local UI = self.UI; UI.Core = {}
 
-    UI.Core.Sidebar = self:_CreateDrawingObject("Square"); UI.Core.RightPanel = self:_CreateDrawingObject("Square"); UI.Core.VerticalSeparator = self:_CreateDrawingObject("Square"); UI.Core.SidebarHeaderSeparator = self:_CreateDrawingObject("Square"); UI.Core.RightPanelHeaderSeparator = self:_CreateDrawingObject("Square")
-    if UI.Core.Sidebar then UI.Core.Sidebar.Filled = true; UI.Core.Sidebar.zIndex = 1; UI.Core.Sidebar.Rounding = self.ActiveTheme.Rounding.Window; end
-    if UI.Core.RightPanel then UI.Core.RightPanel.Filled = true; UI.Core.RightPanel.zIndex = 1; UI.Core.RightPanel.Rounding = self.ActiveTheme.Rounding.Window; end
+    UI.Core.Sidebar = { Drawing = self:_CreateDrawingObject("Square"), Glow = self:_Internal_CreateGlowSet(0) }
+    UI.Core.RightPanel = { Drawing = self:_CreateDrawingObject("Square"), Glow = self:_Internal_CreateGlowSet(0) }
+    UI.Core.VerticalSeparator = self:_CreateDrawingObject("Square")
+    UI.Core.SidebarHeaderSeparator = self:_CreateDrawingObject("Square")
+    UI.Core.RightPanelHeaderSeparator = self:_CreateDrawingObject("Square")
+    
+    if UI.Core.Sidebar.Drawing then UI.Core.Sidebar.Drawing.Filled = true; UI.Core.Sidebar.Drawing.zIndex = 1; UI.Core.Sidebar.Drawing.Rounding = self.ActiveTheme.Rounding.Window; end
+    if UI.Core.RightPanel.Drawing then UI.Core.RightPanel.Drawing.Filled = true; UI.Core.RightPanel.Drawing.zIndex = 1; UI.Core.RightPanel.Drawing.Rounding = self.ActiveTheme.Rounding.Window; end
     if UI.Core.VerticalSeparator then UI.Core.VerticalSeparator.Filled = true; UI.Core.VerticalSeparator.zIndex = 3; end
     if UI.Core.SidebarHeaderSeparator then UI.Core.SidebarHeaderSeparator.Filled = true; UI.Core.SidebarHeaderSeparator.zIndex = 2; end
     if UI.Core.RightPanelHeaderSeparator then UI.Core.RightPanelHeaderSeparator.Filled = true; UI.Core.RightPanelHeaderSeparator.zIndex = 2; end
@@ -284,6 +353,7 @@ function Library:_InitializeAboutWindow()
     about.StyleCircles = {}
     about.Background = self:_CreateDrawingObject("Square"); if about.Background then about.Background.Filled = true; about.Background.zIndex = 30; about.Background.Rounding = self.ActiveTheme.Rounding.Section; end
     about.Border = self:_CreateDrawingObject("Square"); if about.Border then about.Border.Filled = false; about.Border.Thickness = 1; about.Border.zIndex = 31; about.Border.Rounding = self.ActiveTheme.Rounding.Section; end
+    about.Glow = self:_Internal_CreateGlowSet(29)
     about.HeaderIcon = self:_CreateDrawingObject("Image"); if about.HeaderIcon then about.HeaderIcon.Url = "https://s6.imgcdn.dev/Y4SCjT.png"; about.HeaderIcon.Size = {16, 16}; about.HeaderIcon.zIndex = about_z; end
     about.HeaderTitle = self:_CreateDrawingObject("Text"); if about.HeaderTitle then about.HeaderTitle.Font = self.ActiveTheme.Fonts.Main; about.HeaderTitle.Size = self.ActiveTheme.Fonts.Size + 2; about.HeaderTitle.Text = "About Neverlose"; about.HeaderTitle.Center = false; about.HeaderTitle.zIndex = about_z; end
     about.CloseButton = { Line1 = self:_CreateDrawingObject("Line"), Line2 = self:_CreateDrawingObject("Line"), ClickRegion = {} }; if about.CloseButton.Line1 then about.CloseButton.Line1.Thickness = 2; about.CloseButton.Line1.zIndex = about_z; end; if about.CloseButton.Line2 then about.CloseButton.Line2.Thickness = 2; about.CloseButton.Line2.zIndex = about_z; end
@@ -397,6 +467,7 @@ function Library:_InitializePlayerESPSettingsPopup()
 
     popup.Background = self:_CreateDrawingObject("Square"); if popup.Background then popup.Background.Filled = true; popup.Background.zIndex = z; popup.Background.Rounding = self.ActiveTheme.Rounding.Section; end
     popup.Border = self:_CreateDrawingObject("Square"); if popup.Border then popup.Border.Filled = false; popup.Border.Thickness = 1; popup.Border.zIndex = z + 1; popup.Border.Rounding = self.ActiveTheme.Rounding.Section; end
+    popup.Glow = self:_Internal_CreateGlowSet(z - 1)
     popup.Title = self:_CreateDrawingObject("Text"); if popup.Title then popup.Title.Font = self.ActiveTheme.Fonts.Main; popup.Title.Size = self.ActiveTheme.Fonts.Size + 4; popup.Title.Text = "Player ESP Settings"; popup.Title.Center = false; popup.Title.Outline = false; popup.Title.zIndex = z + 2; end
     popup.Separator = self:_CreateDrawingObject("Line"); if popup.Separator then popup.Separator.Thickness = 2; popup.Separator.zIndex = z + 1; end
     popup.BindLabel = self:_CreateDrawingObject("Text"); if popup.BindLabel then popup.BindLabel.Font = self.ActiveTheme.Fonts.Main; popup.BindLabel.Size = self.ActiveTheme.Fonts.Size + 2; popup.BindLabel.Text = "Keybind"; popup.BindLabel.Center = false; popup.BindLabel.Outline = false; popup.BindLabel.zIndex = z + 2; end
@@ -414,6 +485,7 @@ function Library:_InitializeEditStyleWindow()
 
     style_window.Background = self:_CreateDrawingObject("Square"); if style_window.Background then style_window.Background.Filled = true; style_window.Background.zIndex = z; style_window.Background.Rounding = self.ActiveTheme.Rounding.Section; end
     style_window.Border = self:_CreateDrawingObject("Square"); if style_window.Border then style_window.Border.Filled = false; style_window.Border.Thickness = 1; style_window.Border.zIndex = z + 1; style_window.Border.Rounding = self.ActiveTheme.Rounding.Section; end
+    style_window.Glow = self:_Internal_CreateGlowSet(z - 1)
     
     style_window.HeaderIcon = self:_CreateDrawingObject("Square"); if style_window.HeaderIcon then style_window.HeaderIcon.Filled = true; style_window.HeaderIcon.zIndex = z + 2; style_window.HeaderIcon.Size = {18, 18}; end
     
@@ -428,8 +500,8 @@ function Library:_InitializeEditStyleWindow()
     style_window.Separator2 = self:_CreateDrawingObject("Line"); if style_window.Separator2 then style_window.Separator2.Thickness = 2; style_window.Separator2.zIndex = z + 1; end
     
     local color_order = {
-        "Accent", "DarkBlue", "DarkGray", "LightGray", "MainBackground", "SectionBackground",
-        "Separator", "SidebarBackground", "TabHeader", "TextDark", "TextLight", "White", "Black"
+        "Accent", "GlowColor", "GlowAccent", "DarkBlue", "DarkGray", "LightGray", "MainBackground", "SectionBackground",
+        "Separator", "SidebarBackground", "TabHeader", "TextDark", "TextLight"
     }
     for _, colorName in ipairs(color_order) do
         local item = {
@@ -477,6 +549,7 @@ function Library:_InitializeColorPickerWindow()
     -- Drawing Objects
     picker.Background = self:_CreateDrawingObject("Square"); if picker.Background then picker.Background.Filled = true; picker.Background.zIndex = z; picker.Background.Rounding = self.ActiveTheme.Rounding.Window; end
     picker.Border = self:_CreateDrawingObject("Square"); if picker.Border then picker.Border.Filled = false; picker.Border.Thickness = 1; picker.Border.zIndex = z; picker.Border.Rounding = self.ActiveTheme.Rounding.Window; end
+    picker.Glow = self:_Internal_CreateGlowSet(z - 1)
     picker.ColorSquare = self:_CreateDrawingObject("Square"); if picker.ColorSquare then picker.ColorSquare.Filled = true; picker.ColorSquare.zIndex = z + 1; picker.ColorSquare.Rounding = self.ActiveTheme.Rounding.Element; end
     picker.GradientOverlay = self:_CreateDrawingObject("Image"); if picker.GradientOverlay then picker.GradientOverlay.Url = "https://pixeldrain.com/api/filesystem/6mLiDUiK"; picker.GradientOverlay.zIndex = z + 2; picker.GradientOverlay.Rounding = self.ActiveTheme.Rounding.Element; end
     picker.SaturationValueNub = self:_CreateDrawingObject("Circle"); if picker.SaturationValueNub then picker.SaturationValueNub.Filled = false; picker.SaturationValueNub.Thickness = 2; picker.SaturationValueNub.Radius = 5; picker.SaturationValueNub.zIndex = z + 3; end
@@ -518,10 +591,10 @@ function Library:_ApplyTheme()
         end
     end
 
-    applyColor(Core.Sidebar, self.ActiveTheme.Colors.SidebarBackground)
-    applyColor(Core.RightPanel, self.ActiveTheme.Colors.MainBackground)
+    applyColor(Core.Sidebar.Drawing, self.ActiveTheme.Colors.SidebarBackground)
+    applyColor(Core.RightPanel.Drawing, self.ActiveTheme.Colors.MainBackground)
     applyColor(Core.VerticalSeparator, self.ActiveTheme.Colors.Separator)
-    applyColorWithStaticOpacity(Core.SidebarHeaderSeparator, self.ActiveTheme.Colors.Separator, self.ActiveTheme.Transparency.Solid)
+    applyColor(Core.SidebarHeaderSeparator, self.ActiveTheme.Colors.Separator)
     applyColor(Core.RightPanelHeaderSeparator, self.ActiveTheme.Colors.Separator)
     applyColor(Core.ViewESPPanel, self.ActiveTheme.Colors.MainBackground)
     applyColor(Core.ViewESPPanelBorder, self.ActiveTheme.Colors.Separator)
@@ -633,7 +706,7 @@ function Library:_RenderAboutWindow()
                     if obj.Back then self:_SetVisibility(obj.Back, visible); self:_SetVisibility(obj.Nub, visible); end
                     if obj.LeftFill then self:_SetVisibility(obj.LeftFill, visible); self:_SetVisibility(obj.RightFill, visible); self:_SetVisibility(obj.Nub, visible); self:_SetVisibility(obj.ValueText, visible); end
                     if obj.Button then self:_SetVisibility(obj.Button, visible); self:_SetVisibility(obj.ButtonText, visible); self:_SetVisibility(obj.ArrowLine1, visible); self:_SetVisibility(obj.ArrowLine2, visible); end
-                elseif key ~= "ClickRegion" and key ~= "StyleCircles" then
+                elseif key ~= "ClickRegion" and key ~= "StyleCircles" and key ~= "Glow" then
                      setAboutVisibility(obj, visible)
                 end
             end
@@ -647,6 +720,8 @@ function Library:_RenderAboutWindow()
     end
 
     if not isVisible then
+        self:_HideGlowEffect(about.Glow)
+        self:_HideGlowEffect(about.AnimationSpeedSlider.Glow)
         local dropdown = about.ConfigsDropdown
         if dropdown.IsOpen then
             dropdown.IsOpen = false
@@ -662,6 +737,7 @@ function Library:_RenderAboutWindow()
     about.ClickRegion = {x1 = winX, y1 = winY, x2 = winX + winW, y2 = winY + winH}
     about.Background.Position = {winX, winY}; about.Background.Size = {winW, winH}
     about.Border.Position = {winX, winY}; about.Border.Size = {winW, winH}
+    self:_RenderGlowEffect(about.Glow, winX, winY, winW, winH, about.Background.Rounding, self.ActiveTheme.Colors.GlowColor)
 
     about.HeaderIcon.Position = {winX + 15, winY + 12}
     about.HeaderTitle.Position = {winX + 15 + about.HeaderIcon.Size.x + 8, winY + 13}
@@ -713,7 +789,17 @@ function Library:_RenderAboutWindow()
     local sliderRightEdge = rightEdge - valueTextWidth
     local sliderBackX = controlX + 140
     local sliderBackWidth = sliderRightEdge - sliderBackX
-    slider.Back.Position = {sliderBackX, currentY + 8}; slider.Back.Size = {sliderBackWidth, 2}; slider.ClickRegion = { x1 = sliderBackX, y1 = currentY - 2, x2 = sliderBackX + sliderBackWidth, y2 = currentY + 18 }; local value_percentage = math.clamp((self.UI.Values[slider.id] - slider.Min) / (slider.Max - slider.Min), 0, 1); local nubX = sliderBackX + sliderBackWidth * value_percentage; slider.LeftFill.Position = {sliderBackX, currentY + 8}; slider.LeftFill.Size = {nubX - sliderBackX, 2}; slider.RightFill.Position = {nubX, currentY + 8}; slider.RightFill.Size = {sliderBackX + sliderBackWidth - nubX, 2}; slider.Nub.Position = {nubX, currentY + 9}; local valueText = string.format("%.1f", self.UI.Values[slider.id]); local valueTextX = rightEdge - valueTextWidth + 10; slider.ValueText.Text = valueText; slider.ValueText.Position = {valueTextX, currentY}; currentY = currentY + controlSpacing
+    slider.Back.Position = {sliderBackX, currentY + 8}; slider.Back.Size = {sliderBackWidth, 2}; slider.ClickRegion = { x1 = sliderBackX, y1 = currentY - 2, x2 = sliderBackX + sliderBackWidth, y2 = currentY + 18 }; local value_percentage = math.clamp((self.UI.Values[slider.id] - slider.Min) / (slider.Max - slider.Min), 0, 1); local nubX = sliderBackX + sliderBackWidth * value_percentage; slider.LeftFill.Position = {sliderBackX, currentY + 8}; slider.LeftFill.Size = {nubX - sliderBackX, 2}; slider.RightFill.Position = {nubX, currentY + 8}; slider.RightFill.Size = {sliderBackX + sliderBackWidth - nubX, 2}; slider.Nub.Position = {nubX, currentY + 9}; 
+    
+    local glowWidth = nubX - sliderBackX
+    local glowHeight = 8
+    if glowWidth > 0 then
+        self:_RenderGlowEffect(slider.Glow, sliderBackX, currentY + 9 - (glowHeight / 2), glowWidth, glowHeight, slider.LeftFill.Rounding, self.ActiveTheme.Colors.GlowAccent, {top=true, bottom=true, left=true, right=false})
+    else
+        self:_HideGlowEffect(slider.Glow)
+    end
+
+    local valueText = string.format("%.1f", self.UI.Values[slider.id]); local valueTextX = rightEdge - valueTextWidth + 10; slider.ValueText.Text = valueText; slider.ValueText.Position = {valueTextX, currentY}; currentY = currentY + controlSpacing
 
     local dropdown = about.ConfigsDropdown
     local dropdownY = currentY - 4
@@ -1688,3 +1774,8 @@ function Library:Create()
 end
 
 return Library
+" in the Canvas.
+I have a few questions for you.
+1. What changes did you make to the slider glow effect?
+2. How did you implement the glow color customization?
+3. Did you add the glow effect to the slider in the "About" me
