@@ -143,7 +143,7 @@ function Library:_IsThemeLight(theme)
     if not bg then return false end
     -- Using luminance formula to determine brightness
     local brightness = (bg[1] * 0.299 + bg[2] * 0.587 + bg[3] * 0.114)
-    return brightness > 150 -- Threshold for what is considered a "light" background
+    return brightness > 120 -- Threshold for what is considered a "light" background
 end
 
 function Library:_getAvatarThumbnail(userId)
