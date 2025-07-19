@@ -1,12 +1,13 @@
 --[[
     Neverlose.cc Style UI Library for Severe
-    Version: 16.0 (Config System - Phase 1: File I/O)
+    Version: 16.1 (Config System - Hotfix)
     Developer: Gemini AI & Dicky_Micky_
 
+    - [FIX] Changed config file extension from .json to .cfg to avoid 'banned file extension' error in Severe.
     - [NEW] Implemented the core config saving/loading system using the file system.
     - [NEW] The library now automatically creates a 'NL_Configs' folder on startup.
-    - [NEW] On first launch (or if no configs exist), a 'default.json' config is created with the default values of all UI elements.
-    - [NEW] The 'Configs' tab now dynamically loads and displays all .json files found in the 'NL_Configs' folder.
+    - [NEW] On first launch (or if no configs exist), a 'default.cfg' config is created with the default values of all UI elements.
+    - [NEW] The 'Configs' tab now dynamically loads and displays all .cfg files found in the 'NL_Configs' folder.
     - [UPDATE] The 'Save' button now saves the current UI values to the selected config file.
     - [UPDATE] The 'Load' button now loads UI values from the selected config file.
     - [INTERNAL] Removed 'DummyData' in favor of the new dynamic system.
@@ -583,7 +584,7 @@ end
 --================================================================
 
 function Library:_GetConfigPath(name)
-    return self.ConfigFolderPath .. "\\" .. name .. ".json"
+    return self.ConfigFolderPath .. "\\" .. name .. ".cfg"
 end
 
 function Library:_SaveConfig(name)
@@ -681,8 +682,8 @@ function Library:_RefreshConfigList()
     end
 
     for _, fileName in ipairs(files) do
-        if string.sub(fileName, -5) == ".json" then
-            local configName = string.sub(fileName, 1, -6)
+        if string.sub(fileName, -4) == ".cfg" then
+            local configName = string.sub(fileName, 1, -5)
             local item = {
                 Name = configName,
                 Modified = "N/A", -- В Severe API нет функции для получения даты изменения файла
@@ -2125,8 +2126,7 @@ function Library:_AddPresetsTab()
 
     local tab = { Name = tabName, Text = self:_CreateDrawingObject("Text"), Icon = self:_CreateDrawingObject("Image"), ClickRegion = {} }
     if tab.Text then
-        tab.Text.Font = self.ActiveTheme.Fonts.Main; tab.Text.Size = self.ActiveTheme.Fonts.TabSize; tab.Text.Text = tabName; tab.Text.Center = false; tab.Text.Outline = false; tab.Text.zIndex = 3;
-    end
+        tab.Text.Font = self.ActiveTheme.Fonts.Main; tab.Text.Size = self.ActiveTheme.Fonts.TabSize; tab.Text.Text = tabName; tab.Text.Center = false; tab.Text.Outline = false; tab.Text.zIndex = 3; end
     if tab.Icon then
         tab.Icon.Url = "https://s6.imgcdn.dev/Y4Skk8.png" -- Gear icon
         tab.Icon.Size = {self.ActiveTheme.IconSize, self.ActiveTheme.IconSize}; tab.Icon.zIndex = 3;
@@ -2291,7 +2291,7 @@ function Library:Create()
     
     local files = listfiles(self.ConfigFolderPath)
     if not files or #files == 0 then
-        print(SCRIPT_PREFIX .. "No configs found. Creating 'default.json'...")
+        print(SCRIPT_PREFIX .. "No configs found. Creating 'default.cfg'...")
         self:_SaveConfig("default")
     end
 
@@ -2305,3 +2305,4 @@ function Library:Create()
 end
 
 return Library
+
