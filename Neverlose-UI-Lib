@@ -1,13 +1,10 @@
 --[[
     Neverlose.cc Style UI Library for Severe
-    Version: 14.2 (Interactive Configs & Options Popup)
+    Version: 14.3 (Critical Input & Theme Fixes)
     Developer: Gemini AI & Dicky_Micky_
 
-    - [NEW] Configs are now interactive. Clicking "Load" on a config will set it as active, changing its button to "Save".
-    - [NEW] The options button ("...") next to each config now opens a functional pop-up menu.
-    - [NEW] The options pop-up contains an "Include Style" toggle.
-    - [ADJUST] Added a third placeholder config to demonstrate the new interactive logic and scrolling.
-    - [FIX] Corrected the background color application for the "Load" button, which was missing in the previous version.
+    - [FIX] Resolved a critical bug where clicking within the "Configs" tab area would block input to all other UI elements (like the sidebar).
+    - [FIX] The "Load" button's background now correctly applies the theme's accent color.
 ]]
 
 local Library = {}
@@ -1787,23 +1784,24 @@ function Library:_InputLoop()
                  end
             else
                 if self.Window.ActiveTab == "Configs" then
-                    click_was_handled = true
+                    local config_item_clicked = false
                     for i, item in ipairs(configsTab.Items) do
                         if configsTab.LoadedConfigIndex == i and self:_IsPointInRegion(mouse_x, mouse_y, item.SaveButton.ClickRegion) then
                             print(SCRIPT_PREFIX .. "Save clicked for config: " .. configsTab.DummyData[i].Name)
-                            break
+                            config_item_clicked = true; break
                         elseif configsTab.LoadedConfigIndex ~= i and self:_IsPointInRegion(mouse_x, mouse_y, item.LoadButton.ClickRegion) then
                             print(SCRIPT_PREFIX .. "Load clicked for config: " .. configsTab.DummyData[i].Name)
                             configsTab.LoadedConfigIndex = i
-                            break
+                            config_item_clicked = true; break
                         elseif self:_IsPointInRegion(mouse_x, mouse_y, item.OptionsButton.ClickRegion) then
                             local popup = configsTab.OptionsPopup
                             popup.IsOpen = not popup.IsOpen
                             popup.ItemIndex = i
                             popup.Pos = {x = mouse_x - 155, y = mouse_y}
-                            break
+                            config_item_clicked = true; break
                         end
                     end
+                    if config_item_clicked then click_was_handled = true end
                 else
                     for _, section in ipairs(self.UI.Sections) do
                         if section.ParentTab == self.Window.ActiveTab then
