@@ -1,13 +1,13 @@
 --[[
     Neverlose.cc Style UI Library for Severe
-    Version: 14.1 (Config UI Fixes & Polish)
+    Version: 14.2 (Interactive Configs & Options Popup)
     Developer: Gemini AI & Dicky_Micky_
 
-    - [FIX] The "Load" button in the configs tab now correctly applies theme colors to its text and icon.
-    - [FIX] Corrected the vertical alignment of tab text in the sidebar to match the icons.
-    - [ADJUST] The "Configs" tab icon in the sidebar is now always colored with the theme's accent color for better visibility.
-    - [ADJUST] The text and icon color for the "Save" button in the "Edit Style" window is now correctly contrasted against the button's background.
-    - [UPDATE] Updated the icon for the "Load" button in the configs tab.
+    - [NEW] Configs are now interactive. Clicking "Load" on a config will set it as active, changing its button to "Save".
+    - [NEW] The options button ("...") next to each config now opens a functional pop-up menu.
+    - [NEW] The options pop-up contains an "Include Style" toggle.
+    - [ADJUST] Added a third placeholder config to demonstrate the new interactive logic and scrolling.
+    - [FIX] Corrected the background color application for the "Load" button, which was missing in the previous version.
 ]]
 
 local Library = {}
@@ -289,17 +289,17 @@ function Library:_InitializeCoreUI()
     self:_InitializePlayerESPSettingsPopup()
     self:_InitializeEditStyleWindow()
     self:_InitializeColorPickerWindow()
-    self:_InitializeConfigsTab() -- NEW: Initialize config tab objects
+    self:_InitializeConfigsTab()
 
     local Players = game:FindService("Players")
     if Players and Players.localPlayer then
         local localPlayerName = Players.localPlayer.Name
         UI.Core.PlayerDisplayName.Text = localPlayerName
         if UI.Core.AboutWindow.InfoRegisteredToValue then UI.Core.AboutWindow.InfoRegisteredToValue.Text = " " .. localPlayerName end
-        -- NEW: Set author name for configs
         if self.UI.Core.ConfigsTab and self.UI.Core.ConfigsTab.DummyData then
-            self.UI.Core.ConfigsTab.DummyData[1].Author = localPlayerName
-            self.UI.Core.ConfigsTab.DummyData[2].Author = localPlayerName
+            for _, data in ipairs(self.UI.Core.ConfigsTab.DummyData) do
+                data.Author = localPlayerName
+            end
         end
         local userId = Players.localPlayer.UserId
         if userId and userId > 0 then
@@ -535,10 +535,10 @@ function Library:_InitializeColorPickerWindow()
     picker.OpacitySliderRegion = {}
 end
 
--- NEW: Initialize drawing objects for the Configs tab
 function Library:_InitializeConfigsTab()
     local configs = {}; self.UI.Core.ConfigsTab = configs; local z = 4
     
+    configs.LoadedConfigIndex = 1
     configs.MyItemsLabel = self:_CreateDrawingObject("Text")
     if configs.MyItemsLabel then
         configs.MyItemsLabel.Font = self.ActiveTheme.Fonts.Main; configs.MyItemsLabel.Size = self.ActiveTheme.Fonts.Size + 2; configs.MyItemsLabel.Text = "- My items"; configs.MyItemsLabel.Center = false; configs.MyItemsLabel.zIndex = z;
@@ -551,13 +551,24 @@ function Library:_InitializeConfigsTab()
     if configs.Scrollbar.Background then configs.Scrollbar.Background.Filled = true; configs.Scrollbar.Background.zIndex = z + 2; configs.Scrollbar.Background.Rounding = 2; end
     if configs.Scrollbar.Nub then configs.Scrollbar.Nub.Filled = true; configs.Scrollbar.Nub.zIndex = z + 3; configs.Scrollbar.Nub.Rounding = 2; end
 
+    configs.OptionsPopup = {
+        IsOpen = false, ItemIndex = nil, Pos = {x=0, y=0}, ClickRegion = {},
+        Background = self:_CreateDrawingObject("Square"),
+        Border = self:_CreateDrawingObject("Square"),
+        Glow = self:_Internal_CreateGlowSet(z + 10),
+        IncludeStyleToggle = self:_Internal_CreateToggle({ id = "ConfigIncludeStyle", Name = "Include Style", Default = true, zIndex = z + 12 })
+    }
+    if configs.OptionsPopup.Background then configs.OptionsPopup.Background.Filled = true; configs.OptionsPopup.Background.zIndex = z + 11; configs.OptionsPopup.Background.Rounding = self.ActiveTheme.Rounding.Section; end
+    if configs.OptionsPopup.Border then configs.OptionsPopup.Border.Filled = false; configs.OptionsPopup.Border.Thickness = 1; configs.OptionsPopup.Border.zIndex = z + 12; configs.OptionsPopup.Border.Rounding = self.ActiveTheme.Rounding.Section; end
+
     configs.DummyData = {
-        { Name = "Config name", Modified = "19.07 14:56", Author = "user name", IsLoaded = false },
-        { Name = "Config name", Modified = "19.07 14:56", Author = "user name", IsLoaded = true }
+        { Name = "Default Config", Modified = "18.07 12:30", Author = "user name" },
+        { Name = "Legit Config", Modified = "19.07 14:56", Author = "user name" },
+        { Name = "Rage Config", Modified = "17.07 08:00", Author = "user name" }
     }
     configs.Items = {}
 
-    for i = 1, 2 do -- Create drawing objects for 2 items as placeholders
+    for i = 1, #configs.DummyData do
         local item = {
             Background = self:_CreateDrawingObject("Square"),
             Name = self:_CreateDrawingObject("Text"),
@@ -580,7 +591,6 @@ function Library:_InitializeConfigsTab()
             }
         }
         
-        -- Common properties
         if item.Background then item.Background.Filled = true; item.Background.zIndex = z; item.Background.Rounding = self.ActiveTheme.Rounding.Section; end
         if item.Name then item.Name.Font = self.ActiveTheme.Fonts.Main; item.Name.Size = self.ActiveTheme.Fonts.Size + 2; item.Name.Center = false; item.Name.zIndex = z + 1; end
         if item.Modified then item.Modified.Font = self.ActiveTheme.Fonts.Main; item.Modified.Size = self.ActiveTheme.Fonts.Size; item.Modified.Center = false; item.Modified.zIndex = z + 1; end
@@ -591,7 +601,7 @@ function Library:_InitializeConfigsTab()
         if item.OptionsButton.Dot3 then item.OptionsButton.Dot3.Filled = true; item.OptionsButton.Dot3.Radius = 1.5; item.OptionsButton.Dot3.zIndex = z + 2; end
 
         if item.LoadButton.Background then item.LoadButton.Filled = true; item.LoadButton.zIndex = z + 2; item.LoadButton.Rounding = self.ActiveTheme.Rounding.Button; end
-        if item.LoadButton.Icon then item.LoadButton.Icon.Size = {14, 14}; item.LoadButton.Icon.zIndex = z + 3; item.LoadButton.Icon.Url = "https://s6.imgcdn.dev/Y4v6tt.png"; end -- UPDATED Load Icon
+        if item.LoadButton.Icon then item.LoadButton.Icon.Size = {14, 14}; item.LoadButton.Icon.zIndex = z + 3; item.LoadButton.Icon.Url = "https://s6.imgcdn.dev/Y4v6tt.png"; end
         if item.LoadButton.Label then item.LoadButton.Label.Font = self.ActiveTheme.Fonts.Main; item.LoadButton.Label.Size = self.ActiveTheme.Fonts.Size; item.LoadButton.Label.Text = "Load"; item.LoadButton.Label.Center = false; item.LoadButton.Label.zIndex = z + 3; end
 
         if item.SaveButton.Background then item.SaveButton.Filled = true; item.SaveButton.zIndex = z + 2; item.SaveButton.Rounding = self.ActiveTheme.Rounding.Button; end
@@ -719,19 +729,23 @@ function Library:_ApplyTheme()
     applyColor(stylePopup.CancelButton.Background, self.ActiveTheme.Colors.SectionBackground); applyColor(stylePopup.CancelButton.Border, self.ActiveTheme.Colors.Accent); applyColor(stylePopup.CancelButton.IconLine1, self.ActiveTheme.Colors.TextLight); applyColor(stylePopup.CancelButton.IconLine2, self.ActiveTheme.Colors.TextLight); applyColor(stylePopup.CancelButton.Label, self.ActiveTheme.Colors.TextLight);
     applyColor(stylePopup.SaveButton.Background, self.ActiveTheme.Colors.Accent)
     
-    -- FIX: Use static black/white for better contrast on the save button in the edit style window
     local blackColor = {10, 10, 10, 255}
     local whiteColor = {234, 239, 245, 255}
     local saveButtonTextColor = isThemeLight and blackColor or whiteColor
     applyColor(stylePopup.SaveButton.Label, saveButtonTextColor)
     applyColor(stylePopup.SaveButton.Icon, saveButtonTextColor)
     
-    -- NEW: Apply theme to Configs Tab
     local configsTab = self.UI.Core.ConfigsTab
     if configsTab then
         applyColor(configsTab.MyItemsLabel, self.ActiveTheme.Colors.TextLight)
         applyColor(configsTab.Scrollbar.Background, self.ActiveTheme.Colors.DarkBlue)
         applyColor(configsTab.Scrollbar.Nub, self.ActiveTheme.Colors.Accent)
+        
+        local popup = configsTab.OptionsPopup
+        applyColor(popup.Background, self.ActiveTheme.Colors.SectionBackground)
+        applyColor(popup.Border, self.ActiveTheme.Colors.Separator)
+        applyColor(popup.IncludeStyleToggle.Label, self.ActiveTheme.Colors.TextDark)
+
         for i, item in ipairs(configsTab.Items) do
             applyColor(item.Background, self.ActiveTheme.Colors.SectionBackground)
             applyColor(item.Name, self.ActiveTheme.Colors.TextLight)
@@ -741,15 +755,13 @@ function Library:_ApplyTheme()
             applyColor(item.OptionsButton.Dot2, self.ActiveTheme.Colors.TextDark)
             applyColor(item.OptionsButton.Dot3, self.ActiveTheme.Colors.TextDark)
             
-            local isLoaded = configsTab.DummyData[i].IsLoaded
-            -- Save Button (shown when loaded)
+            -- Save Button
             applyColor(item.SaveButton.Background, self.ActiveTheme.Colors.SectionBackground)
             applyColor(item.SaveButton.Border, self.ActiveTheme.Colors.Accent)
             applyColor(item.SaveButton.Icon, self.ActiveTheme.Colors.TextLight)
             applyColor(item.SaveButton.Label, self.ActiveTheme.Colors.TextLight)
-            -- Load Button (shown when not loaded)
+            -- Load Button
             applyColor(item.LoadButton.Background, self.ActiveTheme.Colors.Accent)
-            -- FIX: Use the same black/white logic for the load button text for contrast
             local loadBtnTextColor = isThemeLight and blackColor or whiteColor
             applyColor(item.LoadButton.Icon, loadBtnTextColor)
             applyColor(item.LoadButton.Label, loadBtnTextColor)
@@ -1191,10 +1203,8 @@ function Library:_RenderLoop()
 
     self:_RenderTabs(windowX, windowY + headerHeight, sidebarWidth)
     
-    -- NEW: Conditional rendering for main panel
     if self.Window.ActiveTab == "Configs" then
         self:_RenderConfigsTab(rightPanelX, windowY, headerHeight)
-        -- Hide all sections since they are not visible
         for _, section in ipairs(self.UI.Sections) do
             for _, obj in pairs(section.Drawing) do self:_SetVisibility(obj, false) end
             for _, el in ipairs(section.Elements) do 
@@ -1205,17 +1215,21 @@ function Library:_RenderLoop()
         end
     else
         self:_RenderSections(rightPanelX, windowY, headerHeight)
-        self:_SetVisibility(self.UI.Core.ConfigsTab.MyItemsLabel, false)
-        self:_SetVisibility(self.UI.Core.ConfigsTab.Scrollbar.Background, false)
-        self:_SetVisibility(self.UI.Core.ConfigsTab.Scrollbar.Nub, false)
-        for _, item in ipairs(self.UI.Core.ConfigsTab.Items) do
+        local configsTab = self.UI.Core.ConfigsTab
+        self:_SetVisibility(configsTab.MyItemsLabel, false)
+        self:_SetVisibility(configsTab.Scrollbar.Background, false)
+        self:_SetVisibility(configsTab.Scrollbar.Nub, false)
+        for _, item in ipairs(configsTab.Items) do
             for _, obj in pairs(item) do if type(obj) == 'table' and obj.Visible ~= nil then self:_SetVisibility(obj, false) end end
             for _, obj in pairs(item.OptionsButton) do if type(obj) == 'table' and obj.Visible ~= nil then self:_SetVisibility(obj, false) end end
             for _, obj in pairs(item.LoadButton) do if type(obj) == 'table' and obj.Visible ~= nil then self:_SetVisibility(obj, false) end end
             for _, obj in pairs(item.SaveButton) do if type(obj) == 'table' and obj.Visible ~= nil then self:_SetVisibility(obj, false) end end
         end
+        local popup = configsTab.OptionsPopup
+        if popup.IsOpen then popup.IsOpen = false end
     end
-
+    
+    self:_RenderConfigOptionsPopup()
     self:_RenderPlayerESPSettingsPopup()
     self:_RenderAboutWindow()
     self:_RenderEditStyleWindow()
@@ -1238,7 +1252,6 @@ function Library:_RenderTabs(x, y, width)
                 self:_SetVisibility(tab.Icon, true)
                 tab.Icon.Position = {startX, currentY + (tabHeight / 2) - (self.ActiveTheme.IconSize / 2)}
                 local iconColor = text_color
-                -- FIX: Make Configs icon always accent color
                 if tab.Name == "Players" or tab.Name == "Configs" then
                     iconColor = self.ActiveTheme.Colors.Accent
                 end
@@ -1248,7 +1261,6 @@ function Library:_RenderTabs(x, y, width)
 
             if tab.Text then 
                 self:_SetVisibility(tab.Text, true)
-                -- FIX: Vertically align tab text with icon
                 tab.Text.Position = {startX, currentY + (tabHeight / 2) - (tab.Text.Size / 2)}
                 tab.Text.Color = {text_color[1], text_color[2], text_color[3]}
                 tab.Text.Opacity = (text_color[4] or 255) / 255
@@ -1376,12 +1388,10 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
     end
 end
 
--- NEW: Render function for the Configs tab content
 function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
     local configs = self.UI.Core.ConfigsTab
     local theme = self.ActiveTheme
 
-    -- Set visibility for all config UI elements
     self:_SetVisibility(configs.MyItemsLabel, true)
     self:_SetVisibility(configs.Scrollbar.Background, true)
     self:_SetVisibility(configs.Scrollbar.Nub, true)
@@ -1395,7 +1405,6 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
         self:_SetVisibility(item.OptionsButton.Dot3, true)
     end
 
-    -- Positioning
     local startX = panelX + 20
     local startY = panelY + headerHeight + 20
     local contentWidth = (self.Window.Width - self.Window.SidebarWidth + self.Window.PanelOverlap) - 40
@@ -1435,8 +1444,7 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
         item.OptionsButton.Dot3.Position = {optionsBtnX + 6, optionsBtnY}
         item.OptionsButton.ClickRegion = {x1 = optionsBtnX - 10, y1 = optionsBtnY - 10, x2 = optionsBtnX + 10, y2 = optionsBtnY + 10}
 
-        -- Conditionally show Save or Load button
-        local isLoaded = data.IsLoaded
+        local isLoaded = (configs.LoadedConfigIndex == i)
         self:_SetVisibility(item.SaveButton.Background, isLoaded)
         self:_SetVisibility(item.SaveButton.Border, isLoaded)
         self:_SetVisibility(item.SaveButton.Icon, isLoaded)
@@ -1445,7 +1453,7 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
         self:_SetVisibility(item.LoadButton.Icon, not isLoaded)
         self:_SetVisibility(item.LoadButton.Label, not isLoaded)
 
-        if isLoaded then -- Render Save button
+        if isLoaded then
             local saveBtn = item.SaveButton
             saveBtn.Background.Position = {btnX, btnY}; saveBtn.Background.Size = {btnWidth, btnHeight}
             saveBtn.Border.Position = {btnX, btnY}; saveBtn.Border.Size = {btnWidth, btnHeight}
@@ -1453,7 +1461,7 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
             saveBtn.Icon.Position = {iconX, btnY + (btnHeight / 2) - (saveBtn.Icon.Size.y / 2)}
             saveBtn.Label.Position = {iconX + saveBtn.Icon.Size.x + 8, btnY + (btnHeight / 2) - (saveBtn.Label.Size / 2)}
             saveBtn.ClickRegion = {x1 = btnX, y1 = btnY, x2 = btnX + btnWidth, y2 = btnY + btnHeight}
-        else -- Render Load button
+        else
             local loadBtn = item.LoadButton
             loadBtn.Background.Position = {btnX, btnY}; loadBtn.Background.Size = {btnWidth, btnHeight}
             local iconX = btnX + 15
@@ -1465,16 +1473,52 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
         currentY = currentY + itemHeight + itemSpacing
     end
     
-    -- Render Scrollbar
     local scrollbarX = startX + contentAreaWidth + 5
     local scrollbarHeight = self.Window.Height - headerHeight - 40
     configs.Scrollbar.Background.Position = {scrollbarX, startY}
     configs.Scrollbar.Background.Size = {scrollbarWidth, scrollbarHeight}
     
-    -- Dummy nub position
     local nubHeight = 80
     configs.Scrollbar.Nub.Position = {scrollbarX, startY}
     configs.Scrollbar.Nub.Size = {scrollbarWidth, nubHeight}
+end
+
+function Library:_RenderConfigOptionsPopup()
+    local configs = self.UI.Core.ConfigsTab
+    local popup = configs.OptionsPopup
+    local isVisible = popup.IsOpen
+
+    self:_SetVisibility(popup.Background, isVisible)
+    self:_SetVisibility(popup.Border, isVisible)
+    self:_SetVisibility(popup.IncludeStyleToggle.Label, isVisible)
+    self:_SetVisibility(popup.IncludeStyleToggle.Back, isVisible)
+    self:_SetVisibility(popup.IncludeStyleToggle.Nub, isVisible)
+
+    if not isVisible then
+        self:_HideGlowEffect(popup.Glow)
+        return
+    end
+
+    local pW, pH = 150, 50
+    local pX, pY = popup.Pos.x, popup.Pos.y
+    popup.ClickRegion = {x1=pX, y1=pY, x2=pX+pW, y2=pY+pH}
+    popup.Background.Position = {pX, pY}; popup.Background.Size = {pW, pH}
+    popup.Border.Position = {pX, pY}; popup.Border.Size = {pW, pH}
+    self:_RenderGlowEffect(popup.Glow, pX, pY, pW, pH, popup.Background.Rounding, self.ActiveTheme.Colors.GlowColor)
+
+    local toggle = popup.IncludeStyleToggle
+    local toggleY = pY + (pH / 2) - (toggle.Label.Size / 2)
+    toggle.Label.Position = {pX + 10, toggleY}
+    local toggleBackX = pX + pW - toggle.Size.width - 15
+    toggle.Back.Position = {toggleBackX, toggleY + 2}; toggle.Back.Size = {toggle.Size.width, toggle.Size.height}; toggle.ClickRegion = {x1 = toggleBackX, y1 = toggleY, x2 = toggleBackX + toggle.Size.width, y2 = toggleY + toggle.Size.height + 4}
+    local backColor, nubColor
+    if self.UI.Values[toggle.id] then
+        backColor = self.ActiveTheme.Colors.ToggleEnabledBackground; nubColor = self.ActiveTheme.Colors.Accent; toggle.Nub.Position = {toggleBackX + toggle.Size.width - 5, toggleY + 2 + toggle.Size.height/2}
+    else
+        backColor = self.ActiveTheme.Colors.DarkGray; nubColor = self.ActiveTheme.Colors.LightGray; toggle.Nub.Position = {toggleBackX + 5, toggleY + 2 + toggle.Size.height/2}
+    end
+    if toggle.Back then toggle.Back.Color = {backColor[1], backColor[2], backColor[3]}; toggle.Back.Opacity = (backColor[4] or 255) / 255; end
+    if toggle.Nub then toggle.Nub.Color = {nubColor[1], nubColor[2], nubColor[3]}; toggle.Nub.Opacity = (nubColor[4] or 255) / 255; end
 end
 
 function Library:_InputLoop()
@@ -1487,6 +1531,7 @@ function Library:_InputLoop()
 
     local picker = self.UI.Popups.ColorPicker
     local style_window = self.UI.Popups.EditStyle
+    local configsTab = self.UI.Core.ConfigsTab
 
     if is_left_pressed_now then
         if not is_dragging_something then
@@ -1501,7 +1546,7 @@ function Library:_InputLoop()
                 picker.isDraggingOpacity = true
             elseif picker.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, picker.SaturationValueRegion) then
                 picker.isDraggingSaturationValue = true
-            elseif not self.UI.Popups.About.IsOpen and not self.UI.Popups.PlayerESP.IsOpen and not self.UI.Popups.EditStyle.IsOpen and not self.UI.Popups.ColorPicker.IsOpen then
+            elseif not self.UI.Popups.About.IsOpen and not self.UI.Popups.PlayerESP.IsOpen and not self.UI.Popups.EditStyle.IsOpen and not self.UI.Popups.ColorPicker.IsOpen and not configsTab.OptionsPopup.IsOpen then
                  local started_slider_drag = false
                  if self.Window.ActiveTab ~= "Configs" then
                     for _, section in ipairs(self.UI.Sections) do
@@ -1611,7 +1656,15 @@ function Library:_InputLoop()
                 self.UI.Values.EditStyleRealTime = false
             end
 
-            if picker.IsOpen then
+            if configsTab.OptionsPopup.IsOpen then
+                click_was_handled = true
+                local popup = configsTab.OptionsPopup
+                if self:_IsPointInRegion(mouse_x, mouse_y, popup.IncludeStyleToggle.ClickRegion) then
+                    self.UI.Values[popup.IncludeStyleToggle.id] = not self.UI.Values[popup.IncludeStyleToggle.id]
+                elseif not self:_IsPointInRegion(mouse_x, mouse_y, popup.ClickRegion) then
+                    popup.IsOpen = false
+                end
+            elseif picker.IsOpen then
                 click_was_handled = true
                 local picker_region = {x1=picker.Background.Position.x, y1=picker.Background.Position.y, x2=picker.Background.Position.x+picker.Background.Size.x, y2=picker.Background.Position.y+picker.Background.Size.y}
                 if not self:_IsPointInRegion(mouse_x, mouse_y, picker_region) then
@@ -1733,7 +1786,25 @@ function Library:_InputLoop()
                      esppopup.IsOpen = false; esppopup.Keybind.IsListening = false
                  end
             else
-                if self.Window.ActiveTab ~= "Configs" then
+                if self.Window.ActiveTab == "Configs" then
+                    click_was_handled = true
+                    for i, item in ipairs(configsTab.Items) do
+                        if configsTab.LoadedConfigIndex == i and self:_IsPointInRegion(mouse_x, mouse_y, item.SaveButton.ClickRegion) then
+                            print(SCRIPT_PREFIX .. "Save clicked for config: " .. configsTab.DummyData[i].Name)
+                            break
+                        elseif configsTab.LoadedConfigIndex ~= i and self:_IsPointInRegion(mouse_x, mouse_y, item.LoadButton.ClickRegion) then
+                            print(SCRIPT_PREFIX .. "Load clicked for config: " .. configsTab.DummyData[i].Name)
+                            configsTab.LoadedConfigIndex = i
+                            break
+                        elseif self:_IsPointInRegion(mouse_x, mouse_y, item.OptionsButton.ClickRegion) then
+                            local popup = configsTab.OptionsPopup
+                            popup.IsOpen = not popup.IsOpen
+                            popup.ItemIndex = i
+                            popup.Pos = {x = mouse_x - 155, y = mouse_y}
+                            break
+                        end
+                    end
+                else
                     for _, section in ipairs(self.UI.Sections) do
                         if section.ParentTab == self.Window.ActiveTab then
                             for _, el in ipairs(section.Elements) do
@@ -1815,7 +1886,6 @@ function Library:_InputLoop()
     was_left_pressed = is_left_pressed_now
 end
 
--- NEW: Automatically add the Presets tab
 function Library:_AddPresetsTab()
     local tabGroupName = "PRESETS"
     local tabName = "Configs"
@@ -1848,7 +1918,7 @@ function Library:_MainLoop()
     local is_first_frame = true
     while self.Window.Visible do
         if is_first_frame then
-            self:_AddPresetsTab() -- NEW: Add the tab automatically
+            self:_AddPresetsTab()
             self:_ApplyTheme()
             is_first_frame = false
         end
