@@ -1,12 +1,17 @@
 --[[
     Neverlose.cc Style UI Library for Severe
-    Version: 13.8 (Glow Customization & Tuning)
+    Version: 13.9 (Config System & Alignment Fix)
     Developer: Gemini AI & Dicky_Micky_
 
-    - [NEW] Added "GlowColor" and "GlowAccent" to the theme system, allowing for separate customization of the main UI glow and slider glow.
-    - [NEW] The "Edit Style" window now includes options to modify "GlowColor" and "GlowAccent".
-    - [NEW] The slider in the "About" window now also features a glow effect.
-    - [ADJUST] Increased the height of the slider glow effect by 3 pixels for better visibility and corrected its positioning.
+    - [NEW] Implemented a full configuration system.
+        - The main header "Save" button now saves the current state (element values & custom themes)
+          to the config file selected in the "About" window.
+        - Replaced the "Dpi Scale" dropdown in the "About" window with a new "Configs" section.
+        - The "Configs" section features a dropdown list of all saved .json configs, a "Load" button,
+          and a "New" button to create and save a new configuration file.
+    - [FIX] Corrected the vertical alignment of tab text in the sidebar to perfectly center it with the icons.
+    - [INTERNAL] The dropdown element logic has been refactored to support dynamic option lists,
+                 which is used by the new config loader.
 ]]
 
 local Library = {}
@@ -339,8 +344,19 @@ function Library:_InitializeAboutWindow()
     about.CreditText = self:_CreateDrawingObject("Text"); if about.CreditText then about.CreditText.Font = self.ActiveTheme.Fonts.Main; about.CreditText.Size = self.ActiveTheme.Fonts.Size; about.CreditText.Text = "UI by Dicky_Micky_"; about.CreditText.Center = true; about.CreditText.zIndex = about_z; end
 
     about.AutoSaveToggle = self:_Internal_CreateToggle({ id = "AboutAutoSave", Name = "Auto Save", Default = false, zIndex = about_z });
-    about.DpiScaleDropdown = self:_Internal_CreateDropdown({ id = "AboutDpiScale", Name = "Dpi Scale", Options = {"100%", "125%", "150%"}, Default = "100%", Size = {width = 100, height = 25}, zIndex = about_z });
+    about.ConfigsDropdown = self:_Internal_CreateDropdown({ id = "AboutConfigs", Name = "Configs", Options = {}, Default = "", Size = {width = 100, height = 25}, zIndex = about_z });
     about.AnimationSpeedSlider = self:_Internal_CreateSlider({ id = "AboutAnimationSpeed", Name = "Animation Speed", Min = 0, Max = 5, Default = 1.6, Increment = 0.1, zIndex = about_z });
+    
+    about.LoadConfigButton = { Background = self:_CreateDrawingObject("Square"), Border = self:_CreateDrawingObject("Square"), Label = self:_CreateDrawingObject("Text"), ClickRegion = {} }
+    about.NewConfigButton = { Background = self:_CreateDrawingObject("Square"), Border = self:_CreateDrawingObject("Square"), Label = self:_CreateDrawingObject("Text"), ClickRegion = {} }
+    
+    local function setupButton(button, text)
+        if button.Background then button.Background.Filled = true; button.Background.zIndex = about_z; button.Background.Rounding = self.ActiveTheme.Rounding.Button; end
+        if button.Border then button.Border.Filled = false; button.Border.Thickness = 1; button.Border.zIndex = about_z + 1; button.Border.Rounding = self.ActiveTheme.Rounding.Button; end
+        if button.Label then button.Label.Font = self.ActiveTheme.Fonts.Main; button.Label.Size = self.ActiveTheme.Fonts.Size; button.Label.Text = text; button.Label.Center = true; button.Label.zIndex = about_z + 2; end
+    end
+    setupButton(about.LoadConfigButton, "Load")
+    setupButton(about.NewConfigButton, "New")
 
     about.StyleLabel, _ = setupInfoText("Style", "");
 
@@ -631,7 +647,9 @@ function Library:_ApplyTheme()
     end
     applyColor(about.AutoSaveToggle.Label, self.ActiveTheme.Colors.TextDark)
     local slider = about.AnimationSpeedSlider; applyColor(slider.Label, self.ActiveTheme.Colors.TextDark); applyColor(slider.LeftFill, self.ActiveTheme.Colors.Accent); applyColor(slider.RightFill, self.ActiveTheme.Colors.DarkBlue); applyColor(slider.Nub, self.ActiveTheme.Colors.Accent); applyColor(slider.ValueText, self.ActiveTheme.Colors.TextLight);
-    local dd = about.DpiScaleDropdown; applyColor(dd.Label, self.ActiveTheme.Colors.TextDark); applyColor(dd.Button, self.ActiveTheme.Colors.DarkBlue); applyColor(dd.ButtonText, self.ActiveTheme.Colors.TextLight); applyColor(dd.ArrowLine1, self.ActiveTheme.Colors.TextLight); applyColor(dd.ArrowLine2, self.ActiveTheme.Colors.TextLight); applyColor(dd.OptionBackground, self.ActiveTheme.Colors.SectionBackground); applyColor(dd.BorderLeft, self.ActiveTheme.Colors.Separator); applyColor(dd.BorderRight, self.ActiveTheme.Colors.Separator); applyColor(dd.BorderBottom, self.ActiveTheme.Colors.Separator);
+    local dd = about.ConfigsDropdown; applyColor(dd.Label, self.ActiveTheme.Colors.TextDark); applyColor(dd.Button, self.ActiveTheme.Colors.DarkBlue); applyColor(dd.ButtonText, self.ActiveTheme.Colors.TextLight); applyColor(dd.ArrowLine1, self.ActiveTheme.Colors.TextLight); applyColor(dd.ArrowLine2, self.ActiveTheme.Colors.TextLight); applyColor(dd.OptionBackground, self.ActiveTheme.Colors.SectionBackground); applyColor(dd.BorderLeft, self.ActiveTheme.Colors.Separator); applyColor(dd.BorderRight, self.ActiveTheme.Colors.Separator); applyColor(dd.BorderBottom, self.ActiveTheme.Colors.Separator);
+    applyColor(about.LoadConfigButton.Background, self.ActiveTheme.Colors.DarkBlue); applyColor(about.LoadConfigButton.Border, self.ActiveTheme.Colors.Separator); applyColor(about.LoadConfigButton.Label, self.ActiveTheme.Colors.TextLight);
+    applyColor(about.NewConfigButton.Background, self.ActiveTheme.Colors.DarkBlue); applyColor(about.NewConfigButton.Border, self.ActiveTheme.Colors.Separator); applyColor(about.NewConfigButton.Label, self.ActiveTheme.Colors.TextLight);
 
     local espPopup = self.UI.Popups.PlayerESP; applyColor(espPopup.Background, self.ActiveTheme.Colors.SectionBackground); applyColor(espPopup.Border, self.ActiveTheme.Colors.Separator); applyColor(espPopup.Title, self.ActiveTheme.Colors.TextLight); applyColor(espPopup.Separator, self.ActiveTheme.Colors.Separator); applyColor(espPopup.BindLabel, self.ActiveTheme.Colors.TextDark); applyColor(espPopup.Keybind.Button, self.ActiveTheme.Colors.Accent); applyColor(espPopup.Keybind.ButtonText, self.ActiveTheme.Colors.TextLight);
 
@@ -681,7 +699,7 @@ function Library:_RenderAboutWindow()
     if not isVisible then
         self:_HideGlowEffect(about.Glow)
         self:_HideGlowEffect(about.AnimationSpeedSlider.Glow)
-        local dropdown = about.DpiScaleDropdown
+        local dropdown = about.ConfigsDropdown
         if dropdown.IsOpen then
             dropdown.IsOpen = false
             self:_SetVisibility(dropdown.OptionBackground, false); self:_SetVisibility(dropdown.BorderLeft, false); self:_SetVisibility(dropdown.BorderRight, false); self:_SetVisibility(dropdown.BorderBottom, false)
@@ -760,7 +778,7 @@ function Library:_RenderAboutWindow()
 
     local valueText = string.format("%.1f", self.UI.Values[slider.id]); local valueTextX = rightEdge - valueTextWidth + 10; slider.ValueText.Text = valueText; slider.ValueText.Position = {valueTextX, currentY}; currentY = currentY + controlSpacing
 
-    local dropdown = about.DpiScaleDropdown
+    local dropdown = about.ConfigsDropdown
     local dropdownY = currentY - 4
     dropdown.Label.Position = {controlX, dropdownY + 5}; local dropdownButtonX = rightEdge - dropdown.Size.width; dropdown.Button.Position = {dropdownButtonX, dropdownY}; dropdown.Button.Size = {dropdown.Size.width, dropdown.Size.height}; dropdown.ButtonText.Position = {dropdownButtonX + 5, dropdownY + dropdown.Size.height / 2 - dropdown.ButtonText.Size / 2}; dropdown.ButtonText.Text = self.UI.Values[dropdown.id]; local arrowX, arrowY = dropdownButtonX + dropdown.Size.width - 15, dropdownY + dropdown.Size.height / 2; dropdown.ArrowLine1.From = {arrowX, arrowY - 2}; dropdown.ArrowLine1.To = {arrowX + 5, arrowY + 3}; dropdown.ArrowLine2.From = {arrowX + 5, arrowY + 3}; dropdown.ArrowLine2.To = {arrowX + 10, arrowY - 2}; dropdown.ClickRegion = { x1 = dropdownButtonX, y1 = dropdownY, x2 = dropdownButtonX + dropdown.Size.width, y2 = dropdownY + dropdown.Size.height }
     self:_SetVisibility(dropdown.BorderLeft, dropdown.IsOpen); self:_SetVisibility(dropdown.BorderRight, dropdown.IsOpen); self:_SetVisibility(dropdown.BorderBottom, dropdown.IsOpen)
@@ -778,6 +796,9 @@ function Library:_RenderAboutWindow()
     else
         self:_SetVisibility(dropdown.OptionBackground, false); for _, option in ipairs(dropdown.OptionList) do self:_SetVisibility(option, false) end
     end
+    local btnW, btnH, btnSpacing = 50, 25, 10
+    local newBtn = about.NewConfigButton; newBtn.Background.Position = {dropdownButtonX - btnW - btnSpacing, dropdownY}; newBtn.Background.Size = {btnW, btnH}; newBtn.Border.Position = {dropdownButtonX - btnW - btnSpacing, dropdownY}; newBtn.Border.Size = {btnW, btnH}; newBtn.Label.Position = {dropdownButtonX - btnW - btnSpacing + btnW/2, dropdownY + btnH/2 - newBtn.Label.Size/2}; newBtn.ClickRegion = {x1=dropdownButtonX - btnW - btnSpacing, y1=dropdownY, x2=dropdownButtonX - btnSpacing, y2=dropdownY + btnH}
+    local loadBtn = about.LoadConfigButton; loadBtn.Background.Position = {dropdownButtonX - (btnW*2) - (btnSpacing*2), dropdownY}; loadBtn.Background.Size = {btnW, btnH}; loadBtn.Border.Position = {dropdownButtonX - (btnW*2) - (btnSpacing*2), dropdownY}; loadBtn.Border.Size = {btnW, btnH}; loadBtn.Label.Position = {dropdownButtonX - (btnW*2) - (btnSpacing*2) + btnW/2, dropdownY + btnH/2 - loadBtn.Label.Size/2}; loadBtn.ClickRegion = {x1=dropdownButtonX - (btnW*2) - (btnSpacing*2), y1=dropdownY, x2=dropdownButtonX - btnW - (btnSpacing*2), y2=dropdownY + btnH}
     currentY = currentY + controlSpacing
 
     local styleY = currentY + 4
@@ -1109,7 +1130,7 @@ function Library:_RenderTabs(x, y, width)
                 startX = startX + self.ActiveTheme.IconSize + 8
             end
 
-            if tab.Text then self:_SetVisibility(tab.Text, true); tab.Text.Position = {startX, currentY + (tab.Text.Size / 2)}; tab.Text.Color = {text_color[1], text_color[2], text_color[3]}; tab.Text.Opacity = (text_color[4] or 255) / 255; end
+            if tab.Text then self:_SetVisibility(tab.Text, true); tab.Text.Position = {startX, currentY + (tabHeight / 2) - (tab.Text.Size / 2)}; tab.Text.Color = {text_color[1], text_color[2], text_color[3]}; tab.Text.Opacity = (text_color[4] or 255) / 255; end
 
             tab.ClickRegion = {x1 = x + 10, y1 = currentY, x2 = x + width - 10, y2 = currentY + tabHeight}
             if is_active then highlightY = currentY; end
@@ -1431,13 +1452,27 @@ function Library:_InputLoop()
             elseif self.UI.Popups.About.IsOpen then
                 click_was_handled = true
                 local about = self.UI.Core.AboutWindow
-                local about_dropdown = about.DpiScaleDropdown
+                local about_dropdown = about.ConfigsDropdown
 
                 if self:_IsPointInRegion(mouse_x, mouse_y, about.CloseButton.ClickRegion) then 
                     self.UI.Popups.About.IsOpen = false
                     if about_dropdown.IsOpen then about_dropdown.IsOpen = false end
                 elseif self:_IsPointInRegion(mouse_x, mouse_y, about.AutoSaveToggle.ClickRegion) then 
                     self.UI.Values.AboutAutoSave = not self.UI.Values.AboutAutoSave
+                elseif self:_IsPointInRegion(mouse_x, mouse_y, about.LoadConfigButton.ClickRegion) then
+                    self:_LoadConfig(self.UI.Values.AboutConfigs)
+                elseif self:_IsPointInRegion(mouse_x, mouse_y, about.NewConfigButton.ClickRegion) then
+                    local i = 1
+                    while true do
+                        local newName = "config_" .. i .. ".json"
+                        if not table.find(about_dropdown.Options, newName) then
+                            self:_SaveConfig(newName)
+                            self:_RefreshConfigList()
+                            self.UI.Values.AboutConfigs = newName
+                            break
+                        end
+                        i = i + 1
+                    end
                 elseif self:_IsPointInRegion(mouse_x, mouse_y, about_dropdown.ClickRegion) then 
                     about_dropdown.IsOpen = not about_dropdown.IsOpen
                 elseif about_dropdown.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, {x1 = about_dropdown.Button.Position.x, y1 = about_dropdown.Button.Position.y + about_dropdown.Size.height, x2 = about_dropdown.Button.Position.x + about_dropdown.OptionBackground.Size.x, y2 = about_dropdown.Button.Position.y + about_dropdown.Size.height + about_dropdown.OptionBackground.Size.y}) then
@@ -1510,9 +1545,15 @@ function Library:_InputLoop()
                 end
 
                 if not click_was_handled then
-                    if self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.Save.ClickRegion) then click_was_handled = true; print(SCRIPT_PREFIX .. "Save button clicked!"); self.UI.Core.HeaderButtons.Save.ClickTime = tick();
+                    if self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.Save.ClickRegion) then 
+                        click_was_handled = true; 
+                        self:_SaveConfig(self.UI.Values.AboutConfigs)
+                        self.UI.Core.HeaderButtons.Save.ClickTime = tick();
                     elseif self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.ViewESP.ClickRegion) then click_was_handled = true; self.UI.Core.HeaderButtons.ViewESP.IsOpen = not self.UI.Core.HeaderButtons.ViewESP.IsOpen; self.UI.Core.HeaderButtons.ViewESP.ClickTime = tick();
-                    elseif self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.Settings.ClickRegion) then click_was_handled = true; self.UI.Popups.About.IsOpen = not self.UI.Popups.About.IsOpen;
+                    elseif self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.Settings.ClickRegion) then 
+                        click_was_handled = true; 
+                        self.UI.Popups.About.IsOpen = not self.UI.Popups.About.IsOpen;
+                        if self.UI.Popups.About.IsOpen then self:_RefreshConfigList() end
                     else
                         for _, group in ipairs(self.UI.TabGroups) do for _, tab in ipairs(group.Tabs) do if self:_IsPointInRegion(mouse_x, mouse_y, tab.ClickRegion) then self.Window.ActiveTab = tab.Name; click_was_handled = true; break; end end if click_was_handled then break; end end
                         if not click_was_handled then
@@ -1608,8 +1649,8 @@ end
 
 function Library:_Internal_CreateDropdown(options)
     local z = options.zIndex or 4
-    self.UI.Values[options.id] = options.Default or options.Options[1]
-    local dropdown = { id = options.id, type = "Dropdown", Name = options.Name, Options = options.Options, IsOpen = false, Size = options.Size or {width = 120, height = 25}, Callback = options.Callback, Label = self:_CreateDrawingObject("Text"), Button = self:_CreateDrawingObject("Square"), ButtonText = self:_CreateDrawingObject("Text"), OptionList = {}, OptionBackground = self:_CreateDrawingObject("Square"), ArrowLine1 = self:_CreateDrawingObject("Line"), ArrowLine2 = self:_CreateDrawingObject("Line"), ClickRegion = {}, BorderLeft = self:_CreateDrawingObject("Line"), BorderRight = self:_CreateDrawingObject("Line"), BorderBottom = self:_CreateDrawingObject("Line"), Glow = self:_Internal_CreateGlowSet(z + 8) }
+    self.UI.Values[options.id] = options.Default or (options.Options and #options.Options > 0 and options.Options[1] or "")
+    local dropdown = { id = options.id, type = "Dropdown", Name = options.Name, Options = options.Options or {}, IsOpen = false, Size = options.Size or {width = 120, height = 25}, Callback = options.Callback, Label = self:_CreateDrawingObject("Text"), Button = self:_CreateDrawingObject("Square"), ButtonText = self:_CreateDrawingObject("Text"), OptionList = {}, OptionBackground = self:_CreateDrawingObject("Square"), ArrowLine1 = self:_CreateDrawingObject("Line"), ArrowLine2 = self:_CreateDrawingObject("Line"), ClickRegion = {}, BorderLeft = self:_CreateDrawingObject("Line"), BorderRight = self:_CreateDrawingObject("Line"), BorderBottom = self:_CreateDrawingObject("Line"), Glow = self:_Internal_CreateGlowSet(z + 8) }
     if dropdown.Label then dropdown.Label.Font = self.ActiveTheme.Fonts.Main; dropdown.Label.Size = self.ActiveTheme.Fonts.Size + 2; dropdown.Label.Text = dropdown.Name; dropdown.Label.Center = false; dropdown.Label.Outline = false; dropdown.Label.zIndex = z; end
     if dropdown.Button then dropdown.Button.Filled = true; dropdown.Button.zIndex = z; dropdown.Button.Rounding = self.ActiveTheme.Rounding.Element; end
     if dropdown.ButtonText then dropdown.ButtonText.Font = self.ActiveTheme.Fonts.Main; dropdown.ButtonText.Size = self.ActiveTheme.Fonts.Size + 3; dropdown.ButtonText.Text = self.UI.Values[dropdown.id]; dropdown.ButtonText.Center = false; dropdown.ButtonText.Outline = false; dropdown.ButtonText.zIndex = z + 1; end
@@ -1619,8 +1660,31 @@ function Library:_Internal_CreateDropdown(options)
     if dropdown.BorderLeft then dropdown.BorderLeft.Thickness = 1; dropdown.BorderLeft.zIndex = z + 10; dropdown.BorderLeft.Visible = false; end
     if dropdown.BorderRight then dropdown.BorderRight.Thickness = 1; dropdown.BorderRight.zIndex = z + 10; dropdown.BorderRight.Visible = false; end
     if dropdown.BorderBottom then dropdown.BorderBottom.Thickness = 1; dropdown.BorderBottom.zIndex = z + 10; dropdown.BorderBottom.Visible = false; end
-    for i, option in ipairs(dropdown.Options) do local optionText = self:_CreateDrawingObject("Text"); if optionText then optionText.Font = self.ActiveTheme.Fonts.Main; optionText.Size = self.ActiveTheme.Fonts.Size; optionText.Text = option; optionText.Center = false; optionText.Outline = false; optionText.zIndex = z + 10; optionText.Visible = false; end table.insert(dropdown.OptionList, optionText) end
+    self:_UpdateDropdownOptions(dropdown, dropdown.Options)
     return dropdown
+end
+
+function Library:_UpdateDropdownOptions(dropdown, newOptions)
+    for _, optionText in ipairs(dropdown.OptionList) do
+        optionText:Remove()
+    end
+    dropdown.OptionList = {}
+    dropdown.Options = newOptions or {}
+    
+    local z = dropdown.Label.zIndex
+    for _, option in ipairs(dropdown.Options) do 
+        local optionText = self:_CreateDrawingObject("Text")
+        if optionText then 
+            optionText.Font = self.ActiveTheme.Fonts.Main
+            optionText.Size = self.ActiveTheme.Fonts.Size
+            optionText.Text = option
+            optionText.Center = false
+            optionText.Outline = false
+            optionText.zIndex = z + 10
+            optionText.Visible = false
+        end 
+        table.insert(dropdown.OptionList, optionText) 
+    end
 end
 
 function Library:_Internal_CreateMultidropdown(options)
@@ -1636,7 +1700,7 @@ function Library:_Internal_CreateMultidropdown(options)
     if multidropdown.BorderLeft then multidropdown.BorderLeft.Thickness = 1; multidropdown.BorderLeft.zIndex = z + 10; multidropdown.BorderLeft.Visible = false; end
     if multidropdown.BorderRight then multidropdown.BorderRight.Thickness = 1; multidropdown.BorderRight.zIndex = z + 10; multidropdown.BorderRight.Visible = false; end
     if multidropdown.BorderBottom then multidropdown.BorderBottom.Thickness = 1; multidropdown.BorderBottom.zIndex = z + 10; multidropdown.BorderBottom.Visible = false; end
-    for i, option in ipairs(multidropdown.Options) do local optionText = self:_CreateDrawingObject("Text"); if optionText then optionText.Font = self.ActiveTheme.Fonts.Main; optionText.Size = self.ActiveTheme.Fonts.Size; optionText.Text = option; optionText.Center = false; optionText.Outline = false; optionText.zIndex = z + 10; optionText.Visible = false; end table.insert(multidropdown.OptionList, optionText) end
+    self:_UpdateDropdownOptions(multidropdown, multidropdown.Options)
     return multidropdown
 end
 
