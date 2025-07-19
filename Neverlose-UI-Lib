@@ -1,10 +1,13 @@
 --[[
     Neverlose.cc Style UI Library for Severe
-    Version: 13.3 (Transparency & Real-Time Fix)
+    Version: 13.4 (Real-Time Temporary Themes & Fixes)
     Developer: Gemini AI & Dicky_Micky_
 
-    - [FIX] Sidebar and main background opacity is now correctly handled and can be modified in real-time via the color picker.
-    - [INTERNAL] Initial opacity for sidebar/main background is now baked into the theme's RGBA color definitions, deprecating the separate 'Transparency' table entries for these components.
+    - [NEW] Implemented a temporary theme system for "real-time changes". When active, a disposable 'temp' theme is created
+            and applied live, preventing permanent changes to the original theme until the "Save" button is clicked.
+    - [NEW] If the "Edit Style" window is closed while real-time changes are active, the UI now safely reverts to the
+            previously selected theme, discarding any temporary modifications.
+    - [FIX] The separator line in the sidebar's header now correctly applies opacity from the theme's color settings.
 ]]
 
 local Library = {}
@@ -24,26 +27,28 @@ Library.Themes = {
         Name = "Blue", IsPreset = true,
         Fonts = { Title = 2, Main = 1, Size = 14, TitleSize = 27, TabSize = 18, TabHeaderSize = 12 },
         Colors = { MainBackground = {6, 9, 17, 245}, SectionBackground = {3, 11, 23, 255}, SidebarBackground = {11, 20, 33, 204}, Separator = {0, 18, 32, 255}, Accent = {24, 165, 232, 255}, DarkBlue = {3, 23, 51, 255}, DarkGray = {24, 24, 24, 255}, LightGray = {77, 77, 76, 255}, TextDark = {160, 181, 197, 255}, TextLight = {234, 239, 245, 255}, TabHeader = {100, 120, 140, 255}, White = {255, 255, 255, 255}, Black = {0, 0, 0, 255} },
-        Transparency = { Solid = 0.9, ActiveTabHighlight = 0.28, Main = 0.96, Sidebar = 0.8 }, -- Note: Main/Sidebar values are now baked into Colors
+        Transparency = { Solid = 0.9, ActiveTabHighlight = 0.28 },
         Rounding = { Window = 8, Section = 6, Element = 4, Button = 5 }, IconSize = 16
     },
     Black = {
         Name = "Black", IsPreset = true,
         Fonts = { Title = 2, Main = 1, Size = 14, TitleSize = 27, TabSize = 18, TabHeaderSize = 12 },
         Colors = { MainBackground = {6, 6, 9, 247}, SectionBackground = {0, 3, 5, 255}, SidebarBackground = {14, 16, 19, 230}, Separator = {11, 11, 11, 255}, Accent = {72, 130, 255, 255}, DarkBlue = {10, 11, 19, 255}, DarkGray = {24, 24, 24, 255}, LightGray = {77, 77, 76, 255}, TextDark = {181, 181, 194, 255}, TextLight = {234, 239, 245, 255}, TabHeader = {111, 120, 130, 255}, White = {255, 255, 255, 255}, Black = {0, 0, 0, 255} },
-        Transparency = { Solid = 0.9, ActiveTabHighlight = 0.28, Main = 0.967, Sidebar = 0.9 }, -- Note: Main/Sidebar values are now baked into Colors
+        Transparency = { Solid = 0.9, ActiveTabHighlight = 0.28 },
         Rounding = { Window = 8, Section = 6, Element = 4, Button = 5 }, IconSize = 16
     },
     White = {
         Name = "White", IsPreset = true,
         Fonts = { Title = 2, Main = 1, Size = 14, TitleSize = 27, TabSize = 18, TabHeaderSize = 12 },
         Colors = { MainBackground = {250, 250, 255, 247}, SectionBackground = {244, 244, 244, 255}, SidebarBackground = {240, 240, 240, 230}, Separator = {200, 200, 200, 255}, Accent = {24, 165, 232, 255}, DarkBlue = {220, 220, 220, 255}, DarkGray = {165, 165, 165, 255}, LightGray = {120, 120, 120, 255}, TextDark = {60, 60, 60, 255}, TextLight = {10, 10, 10, 255}, TabHeader = {100, 100, 100, 255}, White = {255, 255, 255, 255}, Black = {0, 0, 0, 255} },
-        Transparency = { Solid = 0.9, ActiveTabHighlight = 0.28, Main = 0.967, Sidebar = 0.9 }, -- Note: Main/Sidebar values are now baked into Colors
+        Transparency = { Solid = 0.9, ActiveTabHighlight = 0.28 },
         Rounding = { Window = 8, Section = 6, Element = 4, Button = 5 }, IconSize = 16
     }
 }
 Library.ActiveTheme = Library.Themes.Blue
 Library.CustomThemeCounter = 0
+Library.TempTheme = nil
+Library.PreEditThemeName = nil
 
 Library.UI = { TabGroups = {}, Sections = {}, Values = {}, DrawingObjects = {}, Popups = {} }
 
@@ -108,6 +113,7 @@ function Library:_RGBtoHSV(r, g, b, a)
 
     return h, s, v, (a or 255) / 255
 end
+
 --================================================================
 --[[ PRIVATE: HELPER FUNCTIONS ]]
 --================================================================
@@ -458,7 +464,6 @@ function Library:_ApplyTheme()
     self.ActiveTheme.Colors.ToggleEnabledBackground = self:_DarkenColor(self.ActiveTheme.Colors.Accent, 0.3)
     local Core = self.UI.Core
 
-    -- [FIX] Correctly separate RGB and Alpha for all color assignments.
     local function applyColor(obj, color)
         if obj and color then
             obj.Color = {color[1], color[2], color[3]}
@@ -476,7 +481,7 @@ function Library:_ApplyTheme()
     applyColor(Core.Sidebar, self.ActiveTheme.Colors.SidebarBackground)
     applyColor(Core.RightPanel, self.ActiveTheme.Colors.MainBackground)
     applyColor(Core.VerticalSeparator, self.ActiveTheme.Colors.Separator)
-    applyColorWithStaticOpacity(Core.SidebarHeaderSeparator, self.ActiveTheme.Colors.Separator, self.ActiveTheme.Transparency.Solid)
+    applyColor(Core.SidebarHeaderSeparator, self.ActiveTheme.Colors.Separator) -- [FIX]
     applyColor(Core.RightPanelHeaderSeparator, self.ActiveTheme.Colors.Separator)
     applyColor(Core.ViewESPPanel, self.ActiveTheme.Colors.MainBackground)
     applyColor(Core.ViewESPPanelBorder, self.ActiveTheme.Colors.Separator)
@@ -1194,8 +1199,8 @@ function Library:_InputLoop()
         
         style_window.EditingTheme.Colors[picker.EditingColorName] = new_color
 
-        if self.UI.Values.EditStyleRealTime and self.ActiveTheme.Name == style_window.EditingThemeName then
-             self.ActiveTheme.Colors[picker.EditingColorName] = new_color
+        if self.UI.Values.EditStyleRealTime and self.TempTheme then
+             self.TempTheme.Colors[picker.EditingColorName] = new_color
              self:_ApplyTheme()
         end
     end
@@ -1226,6 +1231,17 @@ function Library:_InputLoop()
             local click_was_handled = false
             local clicked_dropdown_button = nil
             
+            local function revert_realtime_changes()
+                if self.UI.Values.EditStyleRealTime and self.PreEditThemeName then
+                    self.ActiveTheme = self.Themes[self.PreEditThemeName] or self.Themes.Blue
+                    self.UI.Values.AboutSelectedStyle = self.ActiveTheme.Name
+                    self:_ApplyTheme()
+                end
+                self.TempTheme = nil
+                self.PreEditThemeName = nil
+                self.UI.Values.EditStyleRealTime = false
+            end
+
             if picker.IsOpen then
                 click_was_handled = true
                 local picker_region = {x1=picker.Background.Position.x, y1=picker.Background.Position.y, x2=picker.Background.Position.x+picker.Background.Size.x, y2=picker.Background.Position.y+picker.Background.Size.y}
@@ -1235,8 +1251,10 @@ function Library:_InputLoop()
             elseif style_window.IsOpen then
                 click_was_handled = true
                 if self:_IsPointInRegion(mouse_x, mouse_y, style_window.CloseButton.ClickRegion) then
+                    revert_realtime_changes()
                     style_window.IsOpen = false
                 elseif self:_IsPointInRegion(mouse_x, mouse_y, style_window.CancelButton.ClickRegion) then
+                    revert_realtime_changes()
                     style_window.IsOpen = false
                 elseif self:_IsPointInRegion(mouse_x, mouse_y, style_window.SaveButton.ClickRegion) then
                     local newTheme = self:_DeepCopy(style_window.EditingTheme)
@@ -1257,9 +1275,24 @@ function Library:_InputLoop()
                     self.ActiveTheme = newTheme
                     self:_ApplyTheme()
                     
+                    self.TempTheme = nil
+                    self.PreEditThemeName = nil
+                    self.UI.Values.EditStyleRealTime = false
                     style_window.IsOpen = false
                 elseif self:_IsPointInRegion(mouse_x, mouse_y, style_window.RealTimeToggle.ClickRegion) then
                     self.UI.Values.EditStyleRealTime = not self.UI.Values.EditStyleRealTime
+                    if self.UI.Values.EditStyleRealTime then
+                        self.PreEditThemeName = self.ActiveTheme.Name
+                        self.TempTheme = self:_DeepCopy(style_window.EditingTheme)
+                        self.ActiveTheme = self.TempTheme
+                        self:_ApplyTheme()
+                    else
+                        self.ActiveTheme = self.Themes[self.PreEditThemeName] or self.Themes.Blue
+                        self.UI.Values.AboutSelectedStyle = self.ActiveTheme.Name
+                        self:_ApplyTheme()
+                        self.TempTheme = nil
+                        self.PreEditThemeName = nil
+                    end
                 else
                     for _, item in ipairs(style_window.ColorItems) do
                         if self:_IsPointInRegion(mouse_x, mouse_y, item.ClickRegion) then
