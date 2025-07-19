@@ -277,8 +277,8 @@ function Library:_InitializeCoreUI()
     end
     setupHeaderButton(UI.Core.HeaderButtons.Save, " Save")
     setupHeaderButton(UI.Core.HeaderButtons.ViewESP, "View ESP")
-    if UI.Core.HeaderButtons.Save.Icon then UI.Core.HeaderButtons.Save.Icon.Url = "https://s6.imgcdn.dev/Y4wbgw.png"; UI.Core.HeaderButtons.Save.Icon.Visible = true; end
-    if UI.Core.HeaderButtons.Settings.Icon then UI.Core.HeaderButtons.Settings.Icon.Url = "https://s6.imgcdn.dev/Y4kkRT.png"; UI.Core.HeaderButtons.Settings.Icon.Size = {20, 20}; UI.Core.HeaderButtons.Settings.Icon.zIndex = 5; end
+    if UI.Core.HeaderButtons.Save.Icon then UI.Core.HeaderButtons.Save.Icon.Url = "https://s6.imgcdn.dev/Y4Sudt.png"; UI.Core.HeaderButtons.Save.Icon.Visible = true; end
+    if UI.Core.HeaderButtons.Settings.Icon then UI.Core.HeaderButtons.Settings.Icon.Url = "https://s6.imgcdn.dev/Y4SCjT.png"; UI.Core.HeaderButtons.Settings.Icon.Size = {20, 20}; UI.Core.HeaderButtons.Settings.Icon.zIndex = 5; end
 
     UI.Core.ViewESPPanel = self:_CreateDrawingObject("Square"); if UI.Core.ViewESPPanel then UI.Core.ViewESPPanel.Filled = true; UI.Core.ViewESPPanel.zIndex = 1; UI.Core.ViewESPPanel.Rounding = self.ActiveTheme.Rounding.Window; end
     UI.Core.ViewESPImage = self:_CreateDrawingObject("Image"); if UI.Core.ViewESPImage then UI.Core.ViewESPImage.zIndex = 2; UI.Core.ViewESPImage.Visible = false; UI.Core.ViewESPImage.Url = "https://s6.imgcdn.dev/Y4wqGT.jpg"; UI.Core.ViewESPImage.Rounding = self.ActiveTheme.Rounding.Window - 2; end
@@ -313,7 +313,7 @@ function Library:_InitializeAboutWindow()
     about.Background = self:_CreateDrawingObject("Square"); if about.Background then about.Background.Filled = true; about.Background.zIndex = 30; about.Background.Rounding = self.ActiveTheme.Rounding.Section; end
     about.Border = self:_CreateDrawingObject("Square"); if about.Border then about.Border.Filled = false; about.Border.Thickness = 1; about.Border.zIndex = 31; about.Border.Rounding = self.ActiveTheme.Rounding.Section; end
     about.Glow = self:_Internal_CreateGlowSet(29)
-    about.HeaderIcon = self:_CreateDrawingObject("Image"); if about.HeaderIcon then about.HeaderIcon.Url = "https://s6.imgcdn.dev/Y4kkRT.png"; about.HeaderIcon.Size = {16, 16}; about.HeaderIcon.zIndex = about_z; end
+    about.HeaderIcon = self:_CreateDrawingObject("Image"); if about.HeaderIcon then about.HeaderIcon.Url = "https://s6.imgcdn.dev/Y4SCjT.png"; about.HeaderIcon.Size = {16, 16}; about.HeaderIcon.zIndex = about_z; end
     about.HeaderTitle = self:_CreateDrawingObject("Text"); if about.HeaderTitle then about.HeaderTitle.Font = self.ActiveTheme.Fonts.Main; about.HeaderTitle.Size = self.ActiveTheme.Fonts.Size + 2; about.HeaderTitle.Text = "About Neverlose"; about.HeaderTitle.Center = false; about.HeaderTitle.zIndex = about_z; end
     about.CloseButton = { Line1 = self:_CreateDrawingObject("Line"), Line2 = self:_CreateDrawingObject("Line"), ClickRegion = {} }; if about.CloseButton.Line1 then about.CloseButton.Line1.Thickness = 2; about.CloseButton.Line1.zIndex = about_z; end; if about.CloseButton.Line2 then about.CloseButton.Line2.Thickness = 2; about.CloseButton.Line2.zIndex = about_z; end
 
@@ -490,7 +490,7 @@ function Library:_InitializeEditStyleWindow()
 
     if style_window.SaveButton.Background then style_window.SaveButton.Background.Filled = true; style_window.SaveButton.Background.zIndex = z + 2; style_window.SaveButton.Background.Rounding = self.ActiveTheme.Rounding.Button; end
     if style_window.SaveButton.Label then style_window.SaveButton.Label.Font = self.ActiveTheme.Fonts.Main; style_window.SaveButton.Label.Size = self.ActiveTheme.Fonts.Size; style_window.SaveButton.Label.Text = "Save"; style_window.SaveButton.Label.Center = false; style_window.SaveButton.Label.zIndex = z + 3; end
-    if style_window.SaveButton.Icon then style_window.SaveButton.Icon.Url = "https://s6.imgcdn.dev/Y4wbgw.png"; style_window.SaveButton.Icon.Size = {13.33, 13.33}; style_window.SaveButton.Icon.zIndex = z + 3; end
+    if style_window.SaveButton.Icon then style_window.SaveButton.Icon.Url = "https://s6.imgcdn.dev/Y4Sudt.png"; style_window.SaveButton.Icon.Size = {13.33, 13.33}; style_window.SaveButton.Icon.zIndex = z + 3; end
 end
 
 function Library:_InitializeColorPickerWindow()
@@ -1586,7 +1586,7 @@ function Library:_Internal_CreateToggle(options)
     local z = options.zIndex or 4
     self.UI.Values[options.id] = options.Default or false
     local toggle = { id = options.id, type = "Toggle", Name = options.Name, Size = {width = 35, height = 12}, HasSettings = options.HasSettings or false, Callback = options.Callback, Label = self:_CreateDrawingObject("Text"), Back = self:_CreateDrawingObject("Square"), Nub = self:_CreateDrawingObject("Circle"), ClickRegion = {}, SettingsClickRegion = {}, SettingsIcon = nil }
-    if toggle.HasSettings then toggle.SettingsIcon = self:_CreateDrawingObject("Image"); if toggle.SettingsIcon then toggle.SettingsIcon.Url = "https://s6.imgcdn.dev/Y4NWx8.png"; toggle.SettingsIcon.Size = {16, 16}; toggle.SettingsIcon.zIndex = z + 1; end end
+    if toggle.HasSettings then toggle.SettingsIcon = self:_CreateDrawingObject("Image"); if toggle.SettingsIcon then toggle.SettingsIcon.Url = "https://s6.imgcdn.dev/Y4Skk8.png"; toggle.SettingsIcon.Size = {16, 16}; toggle.SettingsIcon.zIndex = z + 1; end end
     if toggle.Label then toggle.Label.Font = self.ActiveTheme.Fonts.Main; toggle.Label.Size = self.ActiveTheme.Fonts.Size + 2; toggle.Label.Text = toggle.Name; toggle.Label.Center = false; toggle.Label.Outline = false; toggle.Label.zIndex = z; end
     if toggle.Back then toggle.Back.Filled = true; toggle.Back.zIndex = z; toggle.Back.Rounding = 6; end
     if toggle.Nub then toggle.Nub.Filled = true; toggle.Nub.zIndex = z + 1; toggle.Nub.Radius = 9; end
