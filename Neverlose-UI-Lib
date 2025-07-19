@@ -1,10 +1,12 @@
 --[[
     Neverlose.cc Style UI Library for Severe
-    Version: 13.7 (Glow Effect Tuning)
+    Version: 13.8 (Glow Customization & Tuning)
     Developer: Gemini AI & Dicky_Micky_
 
-    - [ADJUST] Corrected the glow effect on sliders. The glow is now smaller, properly centered, and applied to the top, bottom, and left sides of the filled track.
-    - [INTERNAL] Refactored the glow rendering logic for clearer and more reliable handling of which sides to draw the effect on.
+    - [NEW] Added "GlowColor" and "GlowAccent" to the theme system, allowing for separate customization of the main UI glow and slider glow.
+    - [NEW] The "Edit Style" window now includes options to modify "GlowColor" and "GlowAccent".
+    - [NEW] The slider in the "About" window now also features a glow effect.
+    - [ADJUST] Increased the height of the slider glow effect by 3 pixels for better visibility and corrected its positioning.
 ]]
 
 local Library = {}
@@ -23,21 +25,21 @@ Library.Themes = {
     Blue = {
         Name = "Blue", IsPreset = true,
         Fonts = { Title = 2, Main = 1, Size = 14, TitleSize = 27, TabSize = 18, TabHeaderSize = 12 },
-        Colors = { MainBackground = {6, 9, 17, 245}, SectionBackground = {3, 11, 23, 255}, SidebarBackground = {11, 20, 33, 204}, Separator = {0, 18, 32, 255}, Accent = {24, 165, 232, 255}, DarkBlue = {3, 23, 51, 255}, DarkGray = {24, 24, 24, 255}, LightGray = {77, 77, 76, 255}, TextDark = {160, 181, 197, 255}, TextLight = {234, 239, 245, 255}, TabHeader = {100, 120, 140, 255}, White = {255, 255, 255, 255}, Black = {0, 0, 0, 255} },
+        Colors = { MainBackground = {6, 9, 17, 245}, SectionBackground = {3, 11, 23, 255}, SidebarBackground = {11, 20, 33, 204}, Separator = {0, 18, 32, 255}, Accent = {24, 165, 232, 255}, DarkBlue = {3, 23, 51, 255}, DarkGray = {24, 24, 24, 255}, LightGray = {77, 77, 76, 255}, TextDark = {160, 181, 197, 255}, TextLight = {234, 239, 245, 255}, TabHeader = {100, 120, 140, 255}, GlowColor = {7, 70, 99, 255}, GlowAccent = {24, 165, 232, 255} },
         Transparency = { Solid = 0.9, ActiveTabHighlight = 0.28 },
         Rounding = { Window = 8, Section = 6, Element = 4, Button = 5 }, IconSize = 16
     },
     Black = {
         Name = "Black", IsPreset = true,
         Fonts = { Title = 2, Main = 1, Size = 14, TitleSize = 27, TabSize = 18, TabHeaderSize = 12 },
-        Colors = { MainBackground = {6, 6, 9, 247}, SectionBackground = {0, 3, 5, 255}, SidebarBackground = {14, 16, 19, 230}, Separator = {11, 11, 11, 255}, Accent = {72, 130, 255, 255}, DarkBlue = {10, 11, 19, 255}, DarkGray = {24, 24, 24, 255}, LightGray = {77, 77, 76, 255}, TextDark = {181, 181, 194, 255}, TextLight = {234, 239, 245, 255}, TabHeader = {111, 120, 130, 255}, White = {255, 255, 255, 255}, Black = {0, 0, 0, 255} },
+        Colors = { MainBackground = {6, 6, 9, 247}, SectionBackground = {0, 3, 5, 255}, SidebarBackground = {14, 16, 19, 230}, Separator = {11, 11, 11, 255}, Accent = {72, 130, 255, 255}, DarkBlue = {10, 11, 19, 255}, DarkGray = {24, 24, 24, 255}, LightGray = {77, 77, 76, 255}, TextDark = {181, 181, 194, 255}, TextLight = {234, 239, 245, 255}, TabHeader = {111, 120, 130, 255}, GlowColor = {22, 39, 77, 255}, GlowAccent = {72, 130, 255, 255} },
         Transparency = { Solid = 0.9, ActiveTabHighlight = 0.28 },
         Rounding = { Window = 8, Section = 6, Element = 4, Button = 5 }, IconSize = 16
     },
     White = {
         Name = "White", IsPreset = true,
         Fonts = { Title = 2, Main = 1, Size = 14, TitleSize = 27, TabSize = 18, TabHeaderSize = 12 },
-        Colors = { MainBackground = {250, 250, 255, 247}, SectionBackground = {244, 244, 244, 255}, SidebarBackground = {240, 240, 240, 230}, Separator = {200, 200, 200, 255}, Accent = {24, 165, 232, 255}, DarkBlue = {220, 220, 220, 255}, DarkGray = {165, 165, 165, 255}, LightGray = {120, 120, 120, 255}, TextDark = {60, 60, 60, 255}, TextLight = {10, 10, 10, 255}, TabHeader = {100, 100, 100, 255}, White = {255, 255, 255, 255}, Black = {0, 0, 0, 255} },
+        Colors = { MainBackground = {250, 250, 255, 247}, SectionBackground = {244, 244, 244, 255}, SidebarBackground = {240, 240, 240, 230}, Separator = {200, 200, 200, 255}, Accent = {24, 165, 232, 255}, DarkBlue = {220, 220, 220, 255}, DarkGray = {165, 165, 165, 255}, LightGray = {120, 120, 120, 255}, TextDark = {60, 60, 60, 255}, TextLight = {10, 10, 10, 255}, TabHeader = {100, 100, 100, 255}, GlowColor = {7, 70, 99, 255}, GlowAccent = {24, 165, 232, 255} },
         Transparency = { Solid = 0.9, ActiveTabHighlight = 0.28 },
         Rounding = { Window = 8, Section = 6, Element = 4, Button = 5 }, IconSize = 16
     }
@@ -457,8 +459,8 @@ function Library:_InitializeEditStyleWindow()
     style_window.Separator2 = self:_CreateDrawingObject("Line"); if style_window.Separator2 then style_window.Separator2.Thickness = 2; style_window.Separator2.zIndex = z + 1; end
     
     local color_order = {
-        "Accent", "Black", "DarkBlue", "DarkGray", "LightGray", "MainBackground", "SectionBackground",
-        "Separator", "SidebarBackground", "TabHeader", "TextDark", "TextLight", "White"
+        "Accent", "GlowColor", "GlowAccent", "DarkBlue", "DarkGray", "LightGray", "MainBackground", "SectionBackground",
+        "Separator", "SidebarBackground", "TabHeader", "TextDark", "TextLight"
     }
     for _, colorName in ipairs(color_order) do
         local item = {
@@ -532,7 +534,6 @@ end
 
 function Library:_ApplyTheme()
     self.ActiveTheme.Colors.ToggleEnabledBackground = self:_DarkenColor(self.ActiveTheme.Colors.Accent, 0.3)
-    self.ActiveTheme.Colors.GlowColor = self.ActiveTheme.Colors.ToggleEnabledBackground
     local Core = self.UI.Core
 
     local function applyColor(obj, color)
@@ -679,6 +680,7 @@ function Library:_RenderAboutWindow()
 
     if not isVisible then
         self:_HideGlowEffect(about.Glow)
+        self:_HideGlowEffect(about.AnimationSpeedSlider.Glow)
         local dropdown = about.DpiScaleDropdown
         if dropdown.IsOpen then
             dropdown.IsOpen = false
@@ -746,7 +748,17 @@ function Library:_RenderAboutWindow()
     local sliderRightEdge = rightEdge - valueTextWidth
     local sliderBackX = controlX + 140
     local sliderBackWidth = sliderRightEdge - sliderBackX
-    slider.Back.Position = {sliderBackX, currentY + 8}; slider.Back.Size = {sliderBackWidth, 2}; slider.ClickRegion = { x1 = sliderBackX, y1 = currentY - 2, x2 = sliderBackX + sliderBackWidth, y2 = currentY + 18 }; local value_percentage = math.clamp((self.UI.Values[slider.id] - slider.Min) / (slider.Max - slider.Min), 0, 1); local nubX = sliderBackX + sliderBackWidth * value_percentage; slider.LeftFill.Position = {sliderBackX, currentY + 8}; slider.LeftFill.Size = {nubX - sliderBackX, 2}; slider.RightFill.Position = {nubX, currentY + 8}; slider.RightFill.Size = {sliderBackX + sliderBackWidth - nubX, 2}; slider.Nub.Position = {nubX, currentY + 9}; local valueText = string.format("%.1f", self.UI.Values[slider.id]); local valueTextX = rightEdge - valueTextWidth + 10; slider.ValueText.Text = valueText; slider.ValueText.Position = {valueTextX, currentY}; currentY = currentY + controlSpacing
+    slider.Back.Position = {sliderBackX, currentY + 8}; slider.Back.Size = {sliderBackWidth, 2}; slider.ClickRegion = { x1 = sliderBackX, y1 = currentY - 2, x2 = sliderBackX + sliderBackWidth, y2 = currentY + 18 }; local value_percentage = math.clamp((self.UI.Values[slider.id] - slider.Min) / (slider.Max - slider.Min), 0, 1); local nubX = sliderBackX + sliderBackWidth * value_percentage; slider.LeftFill.Position = {sliderBackX, currentY + 8}; slider.LeftFill.Size = {nubX - sliderBackX, 2}; slider.RightFill.Position = {nubX, currentY + 8}; slider.RightFill.Size = {sliderBackX + sliderBackWidth - nubX, 2}; slider.Nub.Position = {nubX, currentY + 9}; 
+    
+    local glowWidth = nubX - sliderBackX
+    local glowHeight = 8
+    if glowWidth > 0 then
+        self:_RenderGlowEffect(slider.Glow, sliderBackX, currentY + 9 - (glowHeight / 2), glowWidth, glowHeight, slider.LeftFill.Rounding, self.ActiveTheme.Colors.GlowAccent, {top=true, bottom=true, left=true, right=false})
+    else
+        self:_HideGlowEffect(slider.Glow)
+    end
+
+    local valueText = string.format("%.1f", self.UI.Values[slider.id]); local valueTextX = rightEdge - valueTextWidth + 10; slider.ValueText.Text = valueText; slider.ValueText.Position = {valueTextX, currentY}; currentY = currentY + controlSpacing
 
     local dropdown = about.DpiScaleDropdown
     local dropdownY = currentY - 4
@@ -1165,9 +1177,9 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
                     el.Nub.Position = {nubX, elementY + 9};
                     
                     local glowWidth = nubX - sliderBackX
-                    local glowHeight = 5
+                    local glowHeight = 8
                     if glowWidth > 0 then
-                        self:_RenderGlowEffect(el.Glow, sliderBackX, elementY + 9 - (glowHeight / 2), glowWidth, glowHeight, el.LeftFill.Rounding, self.ActiveTheme.Colors.Accent, {top=true, bottom=true, left=true, right=false})
+                        self:_RenderGlowEffect(el.Glow, sliderBackX, elementY + 9 - (glowHeight / 2), glowWidth, glowHeight, el.LeftFill.Rounding, self.ActiveTheme.Colors.GlowAccent, {top=true, bottom=true, left=true, right=false})
                     else
                         self:_HideGlowEffect(el.Glow)
                     end
