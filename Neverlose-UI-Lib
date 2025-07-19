@@ -1,10 +1,11 @@
 --[[
     Neverlose.cc Style UI Library for Severe
-    Version: 14.3 (Critical Input & Theme Fixes)
+    Version: 15.0 (Tooltips, Style Naming & Fixes)
     Developer: Gemini AI & Dicky_Micky_
 
-    - [FIX] Resolved a critical bug where clicking within the "Configs" tab area would block input to all other UI elements (like the sidebar).
-    - [FIX] The "Load" button's background now correctly applies the theme's accent color.
+    - [NEW] Added tooltips for theme styles in the "About" window. Hover over a style circle for 1 second to see its name.
+    - [NEW] Implemented a text input system for the "Edit Style" window. You can now click on the style name field to type a custom name for your theme.
+    - [FIX] The "Load" button in the "Configs" tab now correctly uses the active theme's accent color for its background, improving visual consistency.
 ]]
 
 local Library = {}
@@ -314,6 +315,7 @@ end
 function Library:_InitializeAboutWindow()
     local about = {}; self.UI.Core.AboutWindow = about; local about_z = 32
     about.StyleCircles = {}
+    about.HoveredThemeCircle = { Name = nil, HoverStartTime = 0 } -- For tooltip
     about.Background = self:_CreateDrawingObject("Square"); if about.Background then about.Background.Filled = true; about.Background.zIndex = 30; about.Background.Rounding = self.ActiveTheme.Rounding.Section; end
     about.Border = self:_CreateDrawingObject("Square"); if about.Border then about.Border.Filled = false; about.Border.Thickness = 1; about.Border.zIndex = 31; about.Border.Rounding = self.ActiveTheme.Rounding.Section; end
     about.Glow = self:_Internal_CreateGlowSet(29)
@@ -348,8 +350,16 @@ function Library:_InitializeAboutWindow()
 
     about.StyleLabel, _ = setupInfoText("Style", "");
 
-    self:_RebuildStyleCircles()
+    -- Tooltip initialization
+    local tooltip_z = 60
+    about.Tooltip = {
+        Background = self:_CreateDrawingObject("Square"),
+        Text = self:_CreateDrawingObject("Text")
+    }
+    if about.Tooltip.Background then about.Tooltip.Background.Filled = true; about.Tooltip.Background.zIndex = tooltip_z; about.Tooltip.Background.Rounding = self.ActiveTheme.Rounding.Element; end
+    if about.Tooltip.Text then about.Tooltip.Text.Font = self.ActiveTheme.Fonts.Main; about.Tooltip.Text.Size = self.ActiveTheme.Fonts.Size; about.Tooltip.Text.Center = false; about.Tooltip.Text.zIndex = tooltip_z + 1; end
 
+    self:_RebuildStyleCircles()
     self.UI.Values["AboutSelectedStyle"] = "Blue"
 end
 
@@ -442,9 +452,13 @@ end
 function Library:_InitializeEditStyleWindow()
     local style_window = {}; self.UI.Popups.EditStyle = style_window; local z = 40
     style_window.IsOpen = false
+    style_window.IsEditingName = false -- For text input
+    style_window.last_key_press_time = 0
+    style_window.key_press_delay = 0.08
+    style_window.last_key_pressed = ""
     style_window.ColorItems = {}
     style_window.EditingTheme = {}
-    style_window.EditingThemeName = ""
+    style_window.EditingThemeName = "" -- Original name of the theme being edited
 
     style_window.Background = self:_CreateDrawingObject("Square"); if style_window.Background then style_window.Background.Filled = true; style_window.Background.zIndex = z; style_window.Background.Rounding = self.ActiveTheme.Rounding.Section; end
     style_window.Border = self:_CreateDrawingObject("Square"); if style_window.Border then style_window.Border.Filled = false; style_window.Border.Thickness = 1; style_window.Border.zIndex = z + 1; style_window.Border.Rounding = self.ActiveTheme.Rounding.Section; end
@@ -459,6 +473,8 @@ function Library:_InitializeEditStyleWindow()
     style_window.StyleNameLabel = self:_CreateDrawingObject("Text"); if style_window.StyleNameLabel then style_window.StyleNameLabel.Font = self.ActiveTheme.Fonts.Main; style_window.StyleNameLabel.Size = self.ActiveTheme.Fonts.Size + 1; style_window.StyleNameLabel.Text = "Style name"; style_window.StyleNameLabel.Center = false; style_window.StyleNameLabel.zIndex = z + 2; end
     style_window.StyleNameInputBg = self:_CreateDrawingObject("Square"); if style_window.StyleNameInputBg then style_window.StyleNameInputBg.Filled = true; style_window.StyleNameInputBg.zIndex = z + 2; style_window.StyleNameInputBg.Rounding = self.ActiveTheme.Rounding.Element; end
     style_window.StyleNameInputText = self:_CreateDrawingObject("Text"); if style_window.StyleNameInputText then style_window.StyleNameInputText.Font = self.ActiveTheme.Fonts.Main; style_window.StyleNameInputText.Size = self.ActiveTheme.Fonts.Size + 1; style_window.StyleNameInputText.Text = "Style"; style_window.StyleNameInputText.Center = false; style_window.StyleNameInputText.zIndex = z + 3; end
+    style_window.StyleNameInputCursor = self:_CreateDrawingObject("Line"); if style_window.StyleNameInputCursor then style_window.StyleNameInputCursor.Thickness = 1.5; style_window.StyleNameInputCursor.zIndex = z + 4; end
+    style_window.StyleNameInputClickRegion = {}
     
     style_window.Separator2 = self:_CreateDrawingObject("Line"); if style_window.Separator2 then style_window.Separator2.Thickness = 2; style_window.Separator2.zIndex = z + 1; end
     
@@ -706,6 +722,8 @@ function Library:_ApplyTheme()
     applyColor(about.InfoRegisteredToLabel, self.ActiveTheme.Colors.TextDark); applyColor(about.InfoRegisteredToValue, self.ActiveTheme.Colors.Accent);
     applyColor(about.InfoSubscriptionLabel, self.ActiveTheme.Colors.TextDark); applyColor(about.InfoSubscriptionValue, self.ActiveTheme.Colors.Accent);
     applyColor(about.FooterText, self.ActiveTheme.Colors.TextDark); applyColor(about.Separator3, self.ActiveTheme.Colors.Separator); applyColor(about.CreditText, self.ActiveTheme.Colors.TextDark); applyColor(about.StyleLabel, self.ActiveTheme.Colors.TextDark);
+    applyColor(about.Tooltip.Background, self.ActiveTheme.Colors.MainBackground)
+    applyColor(about.Tooltip.Text, self.ActiveTheme.Colors.TextLight)
     for _, circle in ipairs(about.StyleCircles) do
         applyColor(circle.Border, self.ActiveTheme.Colors.Accent)
         if circle.PlusLine1 then applyColor(circle.PlusLine1, self.ActiveTheme.Colors.TextDark) end
@@ -717,7 +735,7 @@ function Library:_ApplyTheme()
 
     local espPopup = self.UI.Popups.PlayerESP; applyColor(espPopup.Background, self.ActiveTheme.Colors.SectionBackground); applyColor(espPopup.Border, self.ActiveTheme.Colors.Separator); applyColor(espPopup.Title, self.ActiveTheme.Colors.TextLight); applyColor(espPopup.Separator, self.ActiveTheme.Colors.Separator); applyColor(espPopup.BindLabel, self.ActiveTheme.Colors.TextDark); applyColor(espPopup.Keybind.Button, self.ActiveTheme.Colors.Accent); applyColor(espPopup.Keybind.ButtonText, self.ActiveTheme.Colors.TextLight);
 
-    local stylePopup = self.UI.Popups.EditStyle; applyColor(stylePopup.Background, self.ActiveTheme.Colors.SectionBackground); applyColor(stylePopup.Border, self.ActiveTheme.Colors.Separator); applyColor(stylePopup.HeaderIcon, self.ActiveTheme.Colors.Accent); applyColor(stylePopup.HeaderTitle, self.ActiveTheme.Colors.TextLight); applyColor(stylePopup.CloseButton.Line1, self.ActiveTheme.Colors.TextDark); applyColor(stylePopup.CloseButton.Line2, self.ActiveTheme.Colors.TextDark); applyColor(stylePopup.Separator1, self.ActiveTheme.Colors.Separator); applyColor(stylePopup.StyleNameLabel, self.ActiveTheme.Colors.TextLight); applyColor(stylePopup.StyleNameInputBg, self.ActiveTheme.Colors.DarkBlue); applyColor(stylePopup.StyleNameInputText, self.ActiveTheme.Colors.TextLight); applyColor(stylePopup.Separator2, self.ActiveTheme.Colors.Separator); applyColor(stylePopup.Separator3, self.ActiveTheme.Colors.Separator);
+    local stylePopup = self.UI.Popups.EditStyle; applyColor(stylePopup.Background, self.ActiveTheme.Colors.SectionBackground); applyColor(stylePopup.Border, self.ActiveTheme.Colors.Separator); applyColor(stylePopup.HeaderIcon, self.ActiveTheme.Colors.Accent); applyColor(stylePopup.HeaderTitle, self.ActiveTheme.Colors.TextLight); applyColor(stylePopup.CloseButton.Line1, self.ActiveTheme.Colors.TextDark); applyColor(stylePopup.CloseButton.Line2, self.ActiveTheme.Colors.TextDark); applyColor(stylePopup.Separator1, self.ActiveTheme.Colors.Separator); applyColor(stylePopup.StyleNameLabel, self.ActiveTheme.Colors.TextLight); applyColor(stylePopup.StyleNameInputBg, self.ActiveTheme.Colors.DarkBlue); applyColor(stylePopup.StyleNameInputText, self.ActiveTheme.Colors.TextLight); applyColor(stylePopup.StyleNameInputCursor, self.ActiveTheme.Colors.TextLight); applyColor(stylePopup.Separator2, self.ActiveTheme.Colors.Separator); applyColor(stylePopup.Separator3, self.ActiveTheme.Colors.Separator);
     for _, item in ipairs(stylePopup.ColorItems) do
         applyColor(item.Label, self.ActiveTheme.Colors.TextLight)
         applyColor(item.ColorBorder, self.ActiveTheme.Colors.Separator)
@@ -770,7 +788,7 @@ end
 --[[ PRIVATE: RENDERING & INPUT HANDLING ]]
 --================================================================
 
-function Library:_RenderAboutWindow()
+function Library:_RenderAboutWindow(mouse_pos)
     local about = self.UI.Core.AboutWindow
     local isVisible = self.UI.Popups.About.IsOpen
 
@@ -783,13 +801,16 @@ function Library:_RenderAboutWindow()
                     if obj.Back then self:_SetVisibility(obj.Back, visible); self:_SetVisibility(obj.Nub, visible); end
                     if obj.LeftFill then self:_SetVisibility(obj.LeftFill, visible); self:_SetVisibility(obj.RightFill, visible); self:_SetVisibility(obj.Nub, visible); self:_SetVisibility(obj.ValueText, visible); end
                     if obj.Button then self:_SetVisibility(obj.Button, visible); self:_SetVisibility(obj.ButtonText, visible); self:_SetVisibility(obj.ArrowLine1, visible); self:_SetVisibility(obj.ArrowLine2, visible); end
-                elseif key ~= "ClickRegion" and key ~= "StyleCircles" and key ~= "Glow" then
+                elseif key ~= "ClickRegion" and key ~= "StyleCircles" and key ~= "Glow" and key ~= "Tooltip" and key ~= "HoveredThemeCircle" then
                      setAboutVisibility(obj, visible)
                 end
             end
         end
     end
     setAboutVisibility(about, isVisible)
+    self:_SetVisibility(about.Tooltip.Background, false) -- Hide tooltip by default
+    self:_SetVisibility(about.Tooltip.Text, false)
+
     for _, circle in ipairs(about.StyleCircles) do
         self:_SetVisibility(circle.Circle, isVisible); self:_SetVisibility(circle.Border, isVisible and self.UI.Values.AboutSelectedStyle == circle.Name);
         if circle.Inner then self:_SetVisibility(circle.Inner, isVisible) end
@@ -920,6 +941,26 @@ function Library:_RenderAboutWindow()
         circle.ClickRegion = {x1 = circleX - 10, y1 = circleY - 5, x2 = circleX + 10, y2 = circleY + 15}
     end
     
+    -- Tooltip Rendering
+    if about.HoveredThemeCircle.Name and (tick() - about.HoveredThemeCircle.HoverStartTime > 1) then
+        local tooltip = about.Tooltip
+        local text = about.HoveredThemeCircle.Name
+        tooltip.Text.Text = text
+        if tooltip.Text.TextBounds then
+            local ttW = tooltip.Text.TextBounds.x + 16
+            local ttH = tooltip.Text.TextBounds.y + 10
+            local ttX = mouse_pos.x + 15
+            local ttY = mouse_pos.y
+            
+            tooltip.Background.Position = {ttX, ttY}
+            tooltip.Background.Size = {ttW, ttH}
+            tooltip.Text.Position = {ttX + 8, ttY + 5}
+            
+            self:_SetVisibility(tooltip.Background, true)
+            self:_SetVisibility(tooltip.Text, true)
+        end
+    end
+
     about.CreditText.Position = {winX + winW / 2, winY + winH - 25}
 end
 
@@ -964,6 +1005,8 @@ function Library:_RenderEditStyleWindow()
 
     self:_SetVisibility(style_window.Background, isVisible); self:_SetVisibility(style_window.Border, isVisible); self:_SetVisibility(style_window.HeaderIcon, isVisible); self:_SetVisibility(style_window.HeaderTitle, isVisible); self:_SetVisibility(style_window.CloseButton.Line1, isVisible); self:_SetVisibility(style_window.CloseButton.Line2, isVisible); self:_SetVisibility(style_window.Separator1, isVisible);
     self:_SetVisibility(style_window.StyleNameLabel, isVisible); self:_SetVisibility(style_window.StyleNameInputBg, isVisible); self:_SetVisibility(style_window.StyleNameInputText, isVisible); self:_SetVisibility(style_window.Separator2, isVisible); self:_SetVisibility(style_window.Separator3, isVisible);
+    self:_SetVisibility(style_window.StyleNameInputCursor, isVisible and style_window.IsEditingName and math.sin(tick() * 5) > 0)
+
     for _, item in ipairs(style_window.ColorItems) do
         self:_SetVisibility(item.Label, isVisible); self:_SetVisibility(item.ColorCircle, isVisible); self:_SetVisibility(item.ColorBorder, isVisible);
     end
@@ -997,6 +1040,14 @@ function Library:_RenderEditStyleWindow()
         local inputX = winX + winW - inputW - 15
         style_window.StyleNameInputBg.Position = {inputX, currentY - 5}; style_window.StyleNameInputBg.Size = {inputW, inputH}
         style_window.StyleNameInputText.Position = {inputX + 8, currentY - 5 + (inputH/2) - (style_window.StyleNameInputText.Size / 2)}
+        style_window.StyleNameInputClickRegion = {x1 = inputX, y1 = currentY - 5, x2 = inputX + inputW, y2 = currentY - 5 + inputH}
+        
+        if style_window.StyleNameInputText.TextBounds then
+            local cursorX = inputX + 8 + style_window.StyleNameInputText.TextBounds.x
+            local cursorY = currentY - 5 + 4
+            style_window.StyleNameInputCursor.From = {cursorX, cursorY}
+            style_window.StyleNameInputCursor.To = {cursorX, cursorY + inputH - 8}
+        end
 
         currentY = currentY + 30
         style_window.Separator2.From = {winX + 10, currentY}; style_window.Separator2.To = {winX + winW - 10, currentY}
@@ -1151,6 +1202,9 @@ end
 function Library:_RenderLoop()
     if not self.Window.Visible then return end
 
+    local mouse_pos = getmouseposition()
+    if not mouse_pos then return end
+
     local Core = self.UI.Core
     local windowX, windowY = self:_SafeNumber(self.Window.X, 0), self:_SafeNumber(self.Window.Y, 0)
     local sidebarWidth, headerHeight = self:_SafeNumber(self.Window.SidebarWidth, 0), self:_SafeNumber(self.Window.HeaderHeight, 0)
@@ -1228,7 +1282,7 @@ function Library:_RenderLoop()
     
     self:_RenderConfigOptionsPopup()
     self:_RenderPlayerESPSettingsPopup()
-    self:_RenderAboutWindow()
+    self:_RenderAboutWindow(mouse_pos)
     self:_RenderEditStyleWindow()
     self:_RenderColorPickerWindow()
 end
@@ -1529,11 +1583,12 @@ function Library:_InputLoop()
     local picker = self.UI.Popups.ColorPicker
     local style_window = self.UI.Popups.EditStyle
     local configsTab = self.UI.Core.ConfigsTab
+    local about_window = self.UI.Core.AboutWindow
 
     if is_left_pressed_now then
         if not is_dragging_something then
             is_dragging_something = true
-            local about_slider = self.UI.Core.AboutWindow.AnimationSpeedSlider
+            local about_slider = about_window.AnimationSpeedSlider
             
             if self.UI.Popups.About.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, about_slider.ClickRegion) then
                 about_slider.IsDragging = true
@@ -1573,7 +1628,7 @@ function Library:_InputLoop()
     else
         if self.Window.IsDragging then self.Window.IsDragging = false end
         for _, section in ipairs(self.UI.Sections) do for _, el in ipairs(section.Elements) do if el.IsDragging then el.IsDragging = false end end end
-        if self.UI.Core.AboutWindow.AnimationSpeedSlider.IsDragging then self.UI.Core.AboutWindow.AnimationSpeedSlider.IsDragging = false end
+        if about_window.AnimationSpeedSlider.IsDragging then about_window.AnimationSpeedSlider.IsDragging = false end
         if picker.isDraggingHue then picker.isDraggingHue = false end
         if picker.isDraggingOpacity then picker.isDraggingOpacity = false end
         if picker.isDraggingSaturationValue then picker.isDraggingSaturationValue = false end
@@ -1593,7 +1648,7 @@ function Library:_InputLoop()
             end
         end
     end
-    local about_slider = self.UI.Core.AboutWindow.AnimationSpeedSlider
+    local about_slider = about_window.AnimationSpeedSlider
     if about_slider.IsDragging then
         local sliderBackX, sliderBackWidth = self:_SafeNumber(about_slider.Back.Position.x, 0), self:_SafeNumber(about_slider.Back.Size.x, 1)
         local mouse_relative_x = math.clamp(mouse_x - sliderBackX, 0, sliderBackWidth)
@@ -1634,6 +1689,24 @@ function Library:_InputLoop()
         picker.v = 1 - math.clamp((mouse_y - region.y1) / (region.y2 - region.y1), 0, 1)
         update_color_picker()
     end
+    
+    -- About window tooltip hover logic
+    if about_window and self.UI.Popups.About.IsOpen then
+        local is_hovering_any_circle = false
+        for _, circle in ipairs(about_window.StyleCircles) do
+            if self:_IsPointInRegion(mouse_x, mouse_y, circle.ClickRegion) then
+                is_hovering_any_circle = true
+                if about_window.HoveredThemeCircle.Name ~= circle.Name then
+                    about_window.HoveredThemeCircle.Name = circle.Name
+                    about_window.HoveredThemeCircle.HoverStartTime = tick()
+                end
+                break
+            end
+        end
+        if not is_hovering_any_circle then
+            about_window.HoveredThemeCircle.Name = nil
+        end
+    end
 
     if is_left_clicked then
         if is_dragging_something then
@@ -1672,22 +1745,33 @@ function Library:_InputLoop()
                 if self:_IsPointInRegion(mouse_x, mouse_y, style_window.CloseButton.ClickRegion) then
                     revert_realtime_changes()
                     style_window.IsOpen = false
+                    style_window.IsEditingName = false
                 elseif self:_IsPointInRegion(mouse_x, mouse_y, style_window.CancelButton.ClickRegion) then
                     revert_realtime_changes()
                     style_window.IsOpen = false
+                    style_window.IsEditingName = false
                 elseif self:_IsPointInRegion(mouse_x, mouse_y, style_window.SaveButton.ClickRegion) then
                     local newTheme = self:_DeepCopy(style_window.EditingTheme)
-                    local themeName = style_window.EditingThemeName
+                    local newName = style_window.StyleNameInputText.Text
+                    local originalName = style_window.EditingThemeName
                     
-                    newTheme.IsPreset = false
-                    
-                    if not self.Themes[themeName] or self.Themes[themeName].IsPreset then 
-                         self.CustomThemeCounter = self.CustomThemeCounter + 1
-                         newTheme.Name = "Custom "..self.CustomThemeCounter
-                         self.Themes[newTheme.Name] = newTheme
-                    else 
-                        self.Themes[themeName] = newTheme
+                    if newName == "" then newName = "Custom" end
+
+                    -- If name changed, remove old theme if it was a custom one
+                    if newName ~= originalName and self.Themes[originalName] and not self.Themes[originalName].IsPreset then
+                        self.Themes[originalName] = nil
                     end
+                    
+                    -- If a theme with the new name already exists (and it's not the one we were editing), add a suffix
+                    if self.Themes[newName] and newName ~= originalName then
+                        local i = 1
+                        while self.Themes[newName .. " (" .. i .. ")"] do i = i + 1 end
+                        newName = newName .. " (" .. i .. ")"
+                    end
+                    
+                    newTheme.Name = newName
+                    newTheme.IsPreset = false
+                    self.Themes[newName] = newTheme
                     
                     self:_RebuildStyleCircles()
                     self.UI.Values.AboutSelectedStyle = newTheme.Name
@@ -1698,6 +1782,7 @@ function Library:_InputLoop()
                     self.PreEditThemeName = nil
                     self.UI.Values.EditStyleRealTime = false
                     style_window.IsOpen = false
+                    style_window.IsEditingName = false
                 elseif self:_IsPointInRegion(mouse_x, mouse_y, style_window.RealTimeToggle.ClickRegion) then
                     self.UI.Values.EditStyleRealTime = not self.UI.Values.EditStyleRealTime
                     if self.UI.Values.EditStyleRealTime then
@@ -1712,7 +1797,10 @@ function Library:_InputLoop()
                         self.TempTheme = nil
                         self.PreEditThemeName = nil
                     end
+                elseif self:_IsPointInRegion(mouse_x, mouse_y, style_window.StyleNameInputClickRegion) then
+                    style_window.IsEditingName = true
                 else
+                    local clicked_color = false
                     for _, item in ipairs(style_window.ColorItems) do
                         if self:_IsPointInRegion(mouse_x, mouse_y, item.ClickRegion) then
                             picker.IsOpen = true
@@ -1720,8 +1808,12 @@ function Library:_InputLoop()
                             picker.Pos = {x = mouse_x, y = mouse_y}
                             local color_to_edit = style_window.EditingTheme.Colors[item.Name]
                             picker.h, picker.s, picker.v, picker.a = self:_RGBtoHSV(color_to_edit[1], color_to_edit[2], color_to_edit[3], color_to_edit[4])
+                            clicked_color = true
                             break
                         end
+                    end
+                    if not clicked_color then
+                        style_window.IsEditingName = false
                     end
                 end
             elseif self.UI.Popups.About.IsOpen then
@@ -1753,9 +1845,11 @@ function Library:_InputLoop()
                         if self:_IsPointInRegion(mouse_x, mouse_y, circle.ClickRegion) then
                             circle_clicked = true
                             if circle.IsAddButton then
+                                self.CustomThemeCounter = self.CustomThemeCounter + 1
+                                local newName = "Custom " .. self.CustomThemeCounter
                                 style_window.EditingTheme = self:_DeepCopy(self.ActiveTheme)
-                                style_window.EditingThemeName = "Custom " .. (self.CustomThemeCounter + 1)
-                                style_window.StyleNameInputText.Text = style_window.EditingThemeName
+                                style_window.EditingThemeName = newName -- Store original name for potential rename
+                                style_window.StyleNameInputText.Text = newName
                                 style_window.IsOpen = true
                             else
                                 self.UI.Values.AboutSelectedStyle = circle.Name
@@ -1858,12 +1952,33 @@ function Library:_InputLoop()
         end
     end
 
+    -- Keybind listening logic
     local popupKeybind = self.UI.Popups.PlayerESP.Keybind
     if popupKeybind.IsListening then
         local key = getpressedkey()
         if key and key ~= "None" then if self.UI.Values[popupKeybind.id] ~= key then self.UI.Values[popupKeybind.id] = key; end; popupKeybind.IsListening = false; end
     end
     
+    -- Style name text input logic
+    if style_window.IsEditingName then
+        local key = getpressedkey()
+        if key and key ~= "None" and key ~= style_window.last_key_pressed and (tick() - style_window.last_key_press_time > style_window.key_press_delay) then
+            local current_text = style_window.StyleNameInputText.Text
+            if key == "Backspace" then
+                if #current_text > 0 then style_window.StyleNameInputText.Text = string.sub(current_text, 1, -2) end
+            elseif key == "Space" then
+                if #current_text < 20 then style_window.StyleNameInputText.Text = current_text .. " " end
+            elseif string.len(key) == 1 and string.match(key, "%w") then -- Allow alphanumeric characters
+                if #current_text < 20 then style_window.StyleNameInputText.Text = current_text .. key end
+            end
+            style_window.last_key_press_time = tick()
+            style_window.last_key_pressed = key
+        elseif key == "None" then
+             style_window.last_key_pressed = "None"
+        end
+    end
+
+    -- ESP toggle via keybind
     local esp_bind = self.UI.Values["PlayerESPBind"]
     if esp_bind and esp_bind ~= "none" then
         local currentTime = tick()
