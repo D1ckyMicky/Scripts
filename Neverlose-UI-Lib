@@ -1,11 +1,10 @@
 --[[
     Neverlose.cc Style UI Library for Severe
-    Version: 13.6 (Glow System Fix)
+    Version: 13.7 (Glow Effect Tuning)
     Developer: Gemini AI & Dicky_Micky_
 
-    - [FIX] Resolved a crash ("Invalid Square Type: Glow") caused by incorrectly assigning a custom 'Glow' property
-            to a native Drawing object. The storage for core UI components has been refactored to correctly
-            associate glow effects without modifying the underlying drawing userdata.
+    - [ADJUST] Corrected the glow effect on sliders. The glow is now smaller, properly centered, and applied to the top, bottom, and left sides of the filled track.
+    - [INTERNAL] Refactored the glow rendering logic for clearer and more reliable handling of which sides to draw the effect on.
 ]]
 
 local Library = {}
@@ -195,13 +194,23 @@ function Library:_RenderGlowEffect(glowSet, x, y, width, height, rounding, color
         local alpha_factor = 0.24 * math.exp(-0.24 * i)
         local spread = i * 0.6
 
-        local glowX, glowY = x - spread, y - spread
-        local glowW, glowH = width + (spread * 2), height + (spread * 2)
+        local glowX, glowY = x, y
+        local glowW, glowH = width, height
 
-        if not sides.left then glowX = x; glowW = width + spread end
-        if not sides.right then glowW = (sides.left and width + (spread*2) or width + spread) end
-        if not sides.top then glowY = y; glowH = height + spread end
-        if not sides.bottom then glowH = (sides.top and height + (spread*2) or height + spread) end
+        if sides.left then
+            glowX = x - spread
+            glowW = glowW + spread
+        end
+        if sides.right then
+            glowW = glowW + spread
+        end
+        if sides.top then
+            glowY = y - spread
+            glowH = glowH + spread
+        end
+        if sides.bottom then
+            glowH = glowH + spread
+        end
         
         glowSquare.Position = {glowX, glowY}
         glowSquare.Size = {glowW, glowH}
@@ -1088,7 +1097,7 @@ function Library:_RenderTabs(x, y, width)
                 startX = startX + self.ActiveTheme.IconSize + 8
             end
 
-            if tab.Text then self:_SetVisibility(tab.Text, true); tab.Text.Position = {startX, currentY + (tabHeight / 2) - (tab.Text.Size / 2)}; tab.Text.Color = {text_color[1], text_color[2], text_color[3]}; tab.Text.Opacity = (text_color[4] or 255) / 255; end
+            if tab.Text then self:_SetVisibility(tab.Text, true); tab.Text.Position = {startX, currentY + (tab.Text.Size / 2)}; tab.Text.Color = {text_color[1], text_color[2], text_color[3]}; tab.Text.Opacity = (text_color[4] or 255) / 255; end
 
             tab.ClickRegion = {x1 = x + 10, y1 = currentY, x2 = x + width - 10, y2 = currentY + tabHeight}
             if is_active then highlightY = currentY; end
@@ -1156,8 +1165,9 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
                     el.Nub.Position = {nubX, elementY + 9};
                     
                     local glowWidth = nubX - sliderBackX
+                    local glowHeight = 5
                     if glowWidth > 0 then
-                        self:_RenderGlowEffect(el.Glow, sliderBackX, elementY + 9 - el.Nub.Radius, glowWidth, el.Nub.Radius * 2, el.LeftFill.Rounding, self.ActiveTheme.Colors.Accent, {top=true, bottom=true, left=true, right=true})
+                        self:_RenderGlowEffect(el.Glow, sliderBackX, elementY + 9 - (glowHeight / 2), glowWidth, glowHeight, el.LeftFill.Rounding, self.ActiveTheme.Colors.Accent, {top=true, bottom=true, left=true, right=false})
                     else
                         self:_HideGlowEffect(el.Glow)
                     end
