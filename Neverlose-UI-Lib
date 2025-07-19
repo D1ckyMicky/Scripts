@@ -1,11 +1,15 @@
 --[[
     Neverlose.cc Style UI Library for Severe
-    Version: 15.0 (Tooltips, Style Naming & Fixes)
+    Version: 16.0 (Config System - Phase 1: File I/O)
     Developer: Gemini AI & Dicky_Micky_
 
-    - [NEW] Added tooltips for theme styles in the "About" window. Hover over a style circle for 1 second to see its name.
-    - [NEW] Implemented a text input system for the "Edit Style" window. You can now click on the style name field to type a custom name for your theme.
-    - [FIX] The "Load" button in the "Configs" tab now correctly uses the active theme's accent color for its background, improving visual consistency.
+    - [NEW] Implemented the core config saving/loading system using the file system.
+    - [NEW] The library now automatically creates a 'NL_Configs' folder on startup.
+    - [NEW] On first launch (or if no configs exist), a 'default.json' config is created with the default values of all UI elements.
+    - [NEW] The 'Configs' tab now dynamically loads and displays all .json files found in the 'NL_Configs' folder.
+    - [UPDATE] The 'Save' button now saves the current UI values to the selected config file.
+    - [UPDATE] The 'Load' button now loads UI values from the selected config file.
+    - [INTERNAL] Removed 'DummyData' in favor of the new dynamic system.
 ]]
 
 local Library = {}
@@ -19,6 +23,8 @@ Library.Window = {
     SidebarWidth = 187, HeaderHeight = 65, IsDragging = false,
     ActiveTab = "", PanelOverlap = 4
 }
+
+Library.ConfigFolderPath = "NL_Configs" -- Новая папка для конфигов
 
 Library.Themes = {
     Blue = {
@@ -143,7 +149,7 @@ function Library:_IsThemeLight(theme)
     if not bg then return false end
     -- Using luminance formula to determine brightness
     local brightness = (bg[1] * 0.299 + bg[2] * 0.587 + bg[3] * 0.114)
-    return brightness > 120 -- Threshold for what is considered a "light" background
+    return brightness > 150 -- Threshold for what is considered a "light" background
 end
 
 function Library:_getAvatarThumbnail(userId)
@@ -294,11 +300,6 @@ function Library:_InitializeCoreUI()
         local localPlayerName = Players.localPlayer.Name
         UI.Core.PlayerDisplayName.Text = localPlayerName
         if UI.Core.AboutWindow.InfoRegisteredToValue then UI.Core.AboutWindow.InfoRegisteredToValue.Text = " " .. localPlayerName end
-        if self.UI.Core.ConfigsTab and self.UI.Core.ConfigsTab.DummyData then
-            for _, data in ipairs(self.UI.Core.ConfigsTab.DummyData) do
-                data.Author = localPlayerName
-            end
-        end
         local userId = Players.localPlayer.UserId
         if userId and userId > 0 then
             local avatarUrl; pcall(function() avatarUrl = self:_getAvatarThumbnail(userId) end)
@@ -551,7 +552,9 @@ end
 function Library:_InitializeConfigsTab()
     local configs = {}; self.UI.Core.ConfigsTab = configs; local z = 4
     
-    configs.LoadedConfigIndex = 1
+    configs.LoadedConfigName = ""
+    configs.Items = {} -- Will be populated by _RefreshConfigList
+
     configs.MyItemsLabel = self:_CreateDrawingObject("Text")
     if configs.MyItemsLabel then
         configs.MyItemsLabel.Font = self.ActiveTheme.Fonts.Main; configs.MyItemsLabel.Size = self.ActiveTheme.Fonts.Size + 2; configs.MyItemsLabel.Text = "- My items"; configs.MyItemsLabel.Center = false; configs.MyItemsLabel.zIndex = z;
@@ -573,57 +576,163 @@ function Library:_InitializeConfigsTab()
     }
     if configs.OptionsPopup.Background then configs.OptionsPopup.Background.Filled = true; configs.OptionsPopup.Background.zIndex = z + 11; configs.OptionsPopup.Background.Rounding = self.ActiveTheme.Rounding.Section; end
     if configs.OptionsPopup.Border then configs.OptionsPopup.Border.Filled = false; configs.OptionsPopup.Border.Thickness = 1; configs.OptionsPopup.Border.zIndex = z + 12; configs.OptionsPopup.Border.Rounding = self.ActiveTheme.Rounding.Section; end
+end
 
-    configs.DummyData = {
-        { Name = "Default Config", Modified = "18.07 12:30", Author = "user name" },
-        { Name = "Legit Config", Modified = "19.07 14:56", Author = "user name" },
-        { Name = "Rage Config", Modified = "17.07 08:00", Author = "user name" }
+--================================================================
+--[[ PRIVATE: CONFIG SYSTEM ]]
+--================================================================
+
+function Library:_GetConfigPath(name)
+    return self.ConfigFolderPath .. "\\" .. name .. ".json"
+end
+
+function Library:_SaveConfig(name)
+    local configData = {
+        Values = {},
+        Themes = {}
     }
+
+    -- 1. Собираем все значения элементов UI
+    for id, value in pairs(self.UI.Values) do
+        -- Пропускаем внутренние значения UI, которые не нужно сохранять
+        if not string.find(id, "About") and id ~= "ConfigIncludeStyle" then
+            configData.Values[id] = value
+        end
+    end
+
+    -- 2. Собираем все кастомные темы (пока неактивно, но структура готова)
+    -- if self.UI.Values["ConfigIncludeStyle"] then
+    --     for themeName, themeData in pairs(self.Themes) do
+    --         if not themeData.IsPreset then
+    --             configData.Themes[themeName] = themeData
+    --         end
+    --     end
+    -- end
+
+    -- 3. Кодируем в JSON и сохраняем в файл
+    local success, encodedData = pcall(JSONEncode, configData)
+    if success then
+        writefile(self:_GetConfigPath(name), encodedData)
+        print(SCRIPT_PREFIX .. "Config '" .. name .. "' saved successfully.")
+        self:_RefreshConfigList() -- Обновляем список, чтобы показать актуальную дату
+    else
+        warn(SCRIPT_PREFIX .. "Failed to encode config data for '" .. name .. "'.")
+    end
+end
+
+function Library:_LoadConfig(name)
+    local filePath = self:_GetConfigPath(name)
+    if not checkfile(filePath) then
+        warn(SCRIPT_PREFIX .. "Config file not found: " .. name)
+        return
+    end
+
+    local success, fileContent = pcall(readfile, filePath)
+    if not success or not fileContent then
+        warn(SCRIPT_PREFIX .. "Failed to read config file: " .. name)
+        return
+    end
+
+    local success, decodedData = pcall(JSONDecode, fileContent)
+    if not success or not decodedData then
+        warn(SCRIPT_PREFIX .. "Failed to decode config JSON: " .. name)
+        return
+    end
+
+    -- Применяем значения
+    if decodedData.Values then
+        for id, value in pairs(decodedData.Values) do
+            if self.UI.Values[id] ~= nil then
+                self.UI.Values[id] = value
+            end
+        end
+    end
+
+    -- Применяем темы (пока неактивно)
+    -- if decodedData.Themes then
+    --     for themeName, themeData in pairs(decodedData.Themes) do
+    --         self.Themes[themeName] = themeData
+    --     end
+    --     self:_RebuildStyleCircles()
+    -- end
+
+    self.UI.Core.ConfigsTab.LoadedConfigName = name
+    print(SCRIPT_PREFIX .. "Config '" .. name .. "' loaded successfully.")
+    self:_ApplyTheme() -- Применяем тему на случай, если она была загружена
+end
+
+function Library:_RefreshConfigList()
+    local configs = self.UI.Core.ConfigsTab
+    
+    -- Очищаем старые объекты
+    for _, item in ipairs(configs.Items) do
+        for _, obj in pairs(item) do
+            if type(obj) == 'table' and obj.Remove then pcall(obj.Remove, obj) end
+        end
+    end
     configs.Items = {}
 
-    for i = 1, #configs.DummyData do
-        local item = {
-            Background = self:_CreateDrawingObject("Square"),
-            Name = self:_CreateDrawingObject("Text"),
-            Modified = self:_CreateDrawingObject("Text"),
-            Author = self:_CreateDrawingObject("Text"),
-            OptionsButton = {
-                Dot1 = self:_CreateDrawingObject("Circle"), Dot2 = self:_CreateDrawingObject("Circle"), Dot3 = self:_CreateDrawingObject("Circle"),
-                ClickRegion = {}
-            },
-            LoadButton = {
-                Background = self:_CreateDrawingObject("Square"),
-                Icon = self:_CreateDrawingObject("Image"),
-                Label = self:_CreateDrawingObject("Text"),
-                ClickRegion = {}
-            },
-            SaveButton = {
-                Background = self:_CreateDrawingObject("Square"), Border = self:_CreateDrawingObject("Square"),
-                Icon = self:_CreateDrawingObject("Image"), Label = self:_CreateDrawingObject("Text"),
-                ClickRegion = {}
-            }
-        }
-        
-        if item.Background then item.Background.Filled = true; item.Background.zIndex = z; item.Background.Rounding = self.ActiveTheme.Rounding.Section; end
-        if item.Name then item.Name.Font = self.ActiveTheme.Fonts.Main; item.Name.Size = self.ActiveTheme.Fonts.Size + 2; item.Name.Center = false; item.Name.zIndex = z + 1; end
-        if item.Modified then item.Modified.Font = self.ActiveTheme.Fonts.Main; item.Modified.Size = self.ActiveTheme.Fonts.Size; item.Modified.Center = false; item.Modified.zIndex = z + 1; end
-        if item.Author then item.Author.Font = self.ActiveTheme.Fonts.Main; item.Author.Size = self.ActiveTheme.Fonts.Size; item.Author.Center = false; item.Author.zIndex = z + 1; end
-        
-        if item.OptionsButton.Dot1 then item.OptionsButton.Dot1.Filled = true; item.OptionsButton.Dot1.Radius = 1.5; item.OptionsButton.Dot1.zIndex = z + 2; end
-        if item.OptionsButton.Dot2 then item.OptionsButton.Dot2.Filled = true; item.OptionsButton.Dot2.Radius = 1.5; item.OptionsButton.Dot2.zIndex = z + 2; end
-        if item.OptionsButton.Dot3 then item.OptionsButton.Dot3.Filled = true; item.OptionsButton.Dot3.Radius = 1.5; item.OptionsButton.Dot3.zIndex = z + 2; end
+    local files = listfiles(self.ConfigFolderPath)
+    if not files then return end
 
-        if item.LoadButton.Background then item.LoadButton.Filled = true; item.LoadButton.zIndex = z + 2; item.LoadButton.Rounding = self.ActiveTheme.Rounding.Button; end
-        if item.LoadButton.Icon then item.LoadButton.Icon.Size = {14, 14}; item.LoadButton.Icon.zIndex = z + 3; item.LoadButton.Icon.Url = "https://s6.imgcdn.dev/Y4v6tt.png"; end
-        if item.LoadButton.Label then item.LoadButton.Label.Font = self.ActiveTheme.Fonts.Main; item.LoadButton.Label.Size = self.ActiveTheme.Fonts.Size; item.LoadButton.Label.Text = "Load"; item.LoadButton.Label.Center = false; item.LoadButton.Label.zIndex = z + 3; end
-
-        if item.SaveButton.Background then item.SaveButton.Filled = true; item.SaveButton.zIndex = z + 2; item.SaveButton.Rounding = self.ActiveTheme.Rounding.Button; end
-        if item.SaveButton.Border then item.SaveButton.Border.Filled = false; item.SaveButton.Border.Thickness = 1; item.SaveButton.Border.zIndex = z + 3; item.SaveButton.Border.Rounding = self.ActiveTheme.Rounding.Button; end
-        if item.SaveButton.Icon then item.SaveButton.Icon.Size = {13.33, 13.33}; item.SaveButton.Icon.zIndex = z + 3; item.SaveButton.Icon.Url = "https://s6.imgcdn.dev/Y4Sudt.png"; end
-        if item.SaveButton.Label then item.SaveButton.Label.Font = self.ActiveTheme.Fonts.Main; item.SaveButton.Label.Size = self.ActiveTheme.Fonts.Size; item.SaveButton.Label.Text = "Save"; item.SaveButton.Label.Center = false; item.SaveButton.Label.zIndex = z + 3; end
-
-        table.insert(configs.Items, item)
+    local localPlayerName = "user name"
+    if game:FindService("Players") and game:FindService("Players").localPlayer then
+        localPlayerName = game:FindService("Players").localPlayer.Name
     end
+
+    for _, fileName in ipairs(files) do
+        if string.sub(fileName, -5) == ".json" then
+            local configName = string.sub(fileName, 1, -6)
+            local item = {
+                Name = configName,
+                Modified = "N/A", -- В Severe API нет функции для получения даты изменения файла
+                Author = localPlayerName,
+                Drawing = {
+                    Background = self:_CreateDrawingObject("Square"),
+                    Name = self:_CreateDrawingObject("Text"),
+                    Modified = self:_CreateDrawingObject("Text"),
+                    Author = self:_CreateDrawingObject("Text"),
+                    OptionsButton = {
+                        Dot1 = self:_CreateDrawingObject("Circle"), Dot2 = self:_CreateDrawingObject("Circle"), Dot3 = self:_CreateDrawingObject("Circle"),
+                        ClickRegion = {}
+                    },
+                    LoadButton = {
+                        Background = self:_CreateDrawingObject("Square"),
+                        Icon = self:_CreateDrawingObject("Image"),
+                        Label = self:_CreateDrawingObject("Text"),
+                        ClickRegion = {}
+                    },
+                    SaveButton = {
+                        Background = self:_CreateDrawingObject("Square"), Border = self:_CreateDrawingObject("Square"),
+                        Icon = self:_CreateDrawingObject("Image"), Label = self:_CreateDrawingObject("Text"),
+                        ClickRegion = {}
+                    }
+                }
+            }
+            
+            local d = item.Drawing; local z = 4
+            if d.Background then d.Background.Filled = true; d.Background.zIndex = z; d.Background.Rounding = self.ActiveTheme.Rounding.Section; end
+            if d.Name then d.Name.Font = self.ActiveTheme.Fonts.Main; d.Name.Size = self.ActiveTheme.Fonts.Size + 2; d.Name.Center = false; d.Name.zIndex = z + 1; end
+            if d.Modified then d.Modified.Font = self.ActiveTheme.Fonts.Main; d.Modified.Size = self.ActiveTheme.Fonts.Size; d.Modified.Center = false; d.Modified.zIndex = z + 1; end
+            if d.Author then d.Author.Font = self.ActiveTheme.Fonts.Main; d.Author.Size = self.ActiveTheme.Fonts.Size; d.Author.Center = false; d.Author.zIndex = z + 1; end
+            
+            if d.OptionsButton.Dot1 then d.OptionsButton.Dot1.Filled = true; d.OptionsButton.Dot1.Radius = 1.5; d.OptionsButton.Dot1.zIndex = z + 2; end
+            if d.OptionsButton.Dot2 then d.OptionsButton.Dot2.Filled = true; d.OptionsButton.Dot2.Radius = 1.5; d.OptionsButton.Dot2.zIndex = z + 2; end
+            if d.OptionsButton.Dot3 then d.OptionsButton.Dot3.Filled = true; d.OptionsButton.Dot3.Radius = 1.5; d.OptionsButton.Dot3.zIndex = z + 2; end
+
+            if d.LoadButton.Background then d.LoadButton.Filled = true; d.LoadButton.zIndex = z + 2; d.LoadButton.Rounding = self.ActiveTheme.Rounding.Button; end
+            if d.LoadButton.Icon then d.LoadButton.Icon.Size = {14, 14}; d.LoadButton.Icon.zIndex = z + 3; d.LoadButton.Icon.Url = "https://s6.imgcdn.dev/Y4v6tt.png"; end
+            if d.LoadButton.Label then d.LoadButton.Label.Font = self.ActiveTheme.Fonts.Main; d.LoadButton.Label.Size = self.ActiveTheme.Fonts.Size; d.LoadButton.Label.Text = "Load"; d.LoadButton.Label.Center = false; d.LoadButton.Label.zIndex = z + 3; end
+
+            if d.SaveButton.Background then d.SaveButton.Filled = true; d.SaveButton.zIndex = z + 2; d.SaveButton.Rounding = self.ActiveTheme.Rounding.Button; end
+            if d.SaveButton.Border then d.SaveButton.Border.Filled = false; d.SaveButton.Border.Thickness = 1; d.SaveButton.Border.zIndex = z + 3; d.SaveButton.Border.Rounding = self.ActiveTheme.Rounding.Button; end
+            if d.SaveButton.Icon then d.SaveButton.Icon.Size = {13.33, 13.33}; d.SaveButton.Icon.zIndex = z + 3; d.SaveButton.Icon.Url = "https://s6.imgcdn.dev/Y4Sudt.png"; end
+            if d.SaveButton.Label then d.SaveButton.Label.Font = self.ActiveTheme.Fonts.Main; d.SaveButton.Label.Size = self.ActiveTheme.Fonts.Size; d.SaveButton.Label.Text = "Save"; d.SaveButton.Label.Center = false; d.SaveButton.Label.zIndex = z + 3; end
+            
+            table.insert(configs.Items, item)
+        end
+    end
+    self:_ApplyTheme()
 end
 
 --================================================================
@@ -762,24 +871,25 @@ function Library:_ApplyTheme()
         applyColor(popup.IncludeStyleToggle.Label, self.ActiveTheme.Colors.TextDark)
 
         for i, item in ipairs(configsTab.Items) do
-            applyColor(item.Background, self.ActiveTheme.Colors.SectionBackground)
-            applyColor(item.Name, self.ActiveTheme.Colors.TextLight)
-            applyColor(item.Modified, self.ActiveTheme.Colors.TextDark)
-            applyColor(item.Author, self.ActiveTheme.Colors.TextDark)
-            applyColor(item.OptionsButton.Dot1, self.ActiveTheme.Colors.TextDark)
-            applyColor(item.OptionsButton.Dot2, self.ActiveTheme.Colors.TextDark)
-            applyColor(item.OptionsButton.Dot3, self.ActiveTheme.Colors.TextDark)
+            local d = item.Drawing
+            applyColor(d.Background, self.ActiveTheme.Colors.SectionBackground)
+            applyColor(d.Name, self.ActiveTheme.Colors.TextLight)
+            applyColor(d.Modified, self.ActiveTheme.Colors.TextDark)
+            applyColor(d.Author, self.ActiveTheme.Colors.TextDark)
+            applyColor(d.OptionsButton.Dot1, self.ActiveTheme.Colors.TextDark)
+            applyColor(d.OptionsButton.Dot2, self.ActiveTheme.Colors.TextDark)
+            applyColor(d.OptionsButton.Dot3, self.ActiveTheme.Colors.TextDark)
             
             -- Save Button
-            applyColor(item.SaveButton.Background, self.ActiveTheme.Colors.SectionBackground)
-            applyColor(item.SaveButton.Border, self.ActiveTheme.Colors.Accent)
-            applyColor(item.SaveButton.Icon, self.ActiveTheme.Colors.TextLight)
-            applyColor(item.SaveButton.Label, self.ActiveTheme.Colors.TextLight)
+            applyColor(d.SaveButton.Background, self.ActiveTheme.Colors.SectionBackground)
+            applyColor(d.SaveButton.Border, self.ActiveTheme.Colors.Accent)
+            applyColor(d.SaveButton.Icon, self.ActiveTheme.Colors.TextLight)
+            applyColor(d.SaveButton.Label, self.ActiveTheme.Colors.TextLight)
             -- Load Button
-            applyColor(item.LoadButton.Background, self.ActiveTheme.Colors.Accent)
+            applyColor(d.LoadButton.Background, self.ActiveTheme.Colors.Accent)
             local loadBtnTextColor = isThemeLight and blackColor or whiteColor
-            applyColor(item.LoadButton.Icon, loadBtnTextColor)
-            applyColor(item.LoadButton.Label, loadBtnTextColor)
+            applyColor(d.LoadButton.Icon, loadBtnTextColor)
+            applyColor(d.LoadButton.Label, loadBtnTextColor)
         end
     end
 end
@@ -1271,10 +1381,10 @@ function Library:_RenderLoop()
         self:_SetVisibility(configsTab.Scrollbar.Background, false)
         self:_SetVisibility(configsTab.Scrollbar.Nub, false)
         for _, item in ipairs(configsTab.Items) do
-            for _, obj in pairs(item) do if type(obj) == 'table' and obj.Visible ~= nil then self:_SetVisibility(obj, false) end end
-            for _, obj in pairs(item.OptionsButton) do if type(obj) == 'table' and obj.Visible ~= nil then self:_SetVisibility(obj, false) end end
-            for _, obj in pairs(item.LoadButton) do if type(obj) == 'table' and obj.Visible ~= nil then self:_SetVisibility(obj, false) end end
-            for _, obj in pairs(item.SaveButton) do if type(obj) == 'table' and obj.Visible ~= nil then self:_SetVisibility(obj, false) end end
+            for _, obj in pairs(item.Drawing) do if type(obj) == 'table' and obj.Visible ~= nil then self:_SetVisibility(obj, false) end end
+            for _, obj in pairs(item.Drawing.OptionsButton) do if type(obj) == 'table' and obj.Visible ~= nil then self:_SetVisibility(obj, false) end end
+            for _, obj in pairs(item.Drawing.LoadButton) do if type(obj) == 'table' and obj.Visible ~= nil then self:_SetVisibility(obj, false) end end
+            for _, obj in pairs(item.Drawing.SaveButton) do if type(obj) == 'table' and obj.Visible ~= nil then self:_SetVisibility(obj, false) end end
         end
         local popup = configsTab.OptionsPopup
         if popup.IsOpen then popup.IsOpen = false end
@@ -1447,13 +1557,14 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
     self:_SetVisibility(configs.Scrollbar.Background, true)
     self:_SetVisibility(configs.Scrollbar.Nub, true)
     for _, item in ipairs(configs.Items) do
-        self:_SetVisibility(item.Background, true)
-        self:_SetVisibility(item.Name, true)
-        self:_SetVisibility(item.Modified, true)
-        self:_SetVisibility(item.Author, true)
-        self:_SetVisibility(item.OptionsButton.Dot1, true)
-        self:_SetVisibility(item.OptionsButton.Dot2, true)
-        self:_SetVisibility(item.OptionsButton.Dot3, true)
+        local d = item.Drawing
+        self:_SetVisibility(d.Background, true)
+        self:_SetVisibility(d.Name, true)
+        self:_SetVisibility(d.Modified, true)
+        self:_SetVisibility(d.Author, true)
+        self:_SetVisibility(d.OptionsButton.Dot1, true)
+        self:_SetVisibility(d.OptionsButton.Dot2, true)
+        self:_SetVisibility(d.OptionsButton.Dot3, true)
     end
 
     local startX = panelX + 20
@@ -1469,19 +1580,19 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
     local itemSpacing = 10
 
     for i, item in ipairs(configs.Items) do
-        local data = configs.DummyData[i]
-        item.Background.Position = {startX, currentY}
-        item.Background.Size = {contentAreaWidth, itemHeight}
+        local d = item.Drawing
+        d.Background.Position = {startX, currentY}
+        d.Background.Size = {contentAreaWidth, itemHeight}
 
-        item.Name.Text = data.Name
-        item.Name.Position = {startX + 15, currentY + 12}
+        d.Name.Text = item.Name
+        d.Name.Position = {startX + 15, currentY + 12}
 
-        item.Modified.Text = "Modified: " .. data.Modified
-        item.Modified.Position = {startX + 15, currentY + 35}
+        d.Modified.Text = "Modified: " .. item.Modified
+        d.Modified.Position = {startX + 15, currentY + 35}
 
-        if item.Modified.TextBounds then
-            item.Author.Text = "Author: " .. data.Author
-            item.Author.Position = {startX + 15 + item.Modified.TextBounds.x + 10, currentY + 35}
+        if d.Modified.TextBounds then
+            d.Author.Text = "Author: " .. item.Author
+            d.Author.Position = {startX + 15 + d.Modified.TextBounds.x + 10, currentY + 35}
         end
         
         local btnWidth, btnHeight = 85, 28
@@ -1490,22 +1601,22 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
 
         local optionsBtnX = btnX - 25
         local optionsBtnY = currentY + (itemHeight / 2)
-        item.OptionsButton.Dot1.Position = {optionsBtnX - 6, optionsBtnY}
-        item.OptionsButton.Dot2.Position = {optionsBtnX, optionsBtnY}
-        item.OptionsButton.Dot3.Position = {optionsBtnX + 6, optionsBtnY}
-        item.OptionsButton.ClickRegion = {x1 = optionsBtnX - 10, y1 = optionsBtnY - 10, x2 = optionsBtnX + 10, y2 = optionsBtnY + 10}
+        d.OptionsButton.Dot1.Position = {optionsBtnX - 6, optionsBtnY}
+        d.OptionsButton.Dot2.Position = {optionsBtnX, optionsBtnY}
+        d.OptionsButton.Dot3.Position = {optionsBtnX + 6, optionsBtnY}
+        d.OptionsButton.ClickRegion = {x1 = optionsBtnX - 10, y1 = optionsBtnY - 10, x2 = optionsBtnX + 10, y2 = optionsBtnY + 10}
 
-        local isLoaded = (configs.LoadedConfigIndex == i)
-        self:_SetVisibility(item.SaveButton.Background, isLoaded)
-        self:_SetVisibility(item.SaveButton.Border, isLoaded)
-        self:_SetVisibility(item.SaveButton.Icon, isLoaded)
-        self:_SetVisibility(item.SaveButton.Label, isLoaded)
-        self:_SetVisibility(item.LoadButton.Background, not isLoaded)
-        self:_SetVisibility(item.LoadButton.Icon, not isLoaded)
-        self:_SetVisibility(item.LoadButton.Label, not isLoaded)
+        local isLoaded = (configs.LoadedConfigName == item.Name)
+        self:_SetVisibility(d.SaveButton.Background, isLoaded)
+        self:_SetVisibility(d.SaveButton.Border, isLoaded)
+        self:_SetVisibility(d.SaveButton.Icon, isLoaded)
+        self:_SetVisibility(d.SaveButton.Label, isLoaded)
+        self:_SetVisibility(d.LoadButton.Background, not isLoaded)
+        self:_SetVisibility(d.LoadButton.Icon, not isLoaded)
+        self:_SetVisibility(d.LoadButton.Label, not isLoaded)
 
         if isLoaded then
-            local saveBtn = item.SaveButton
+            local saveBtn = d.SaveButton
             saveBtn.Background.Position = {btnX, btnY}; saveBtn.Background.Size = {btnWidth, btnHeight}
             saveBtn.Border.Position = {btnX, btnY}; saveBtn.Border.Size = {btnWidth, btnHeight}
             local iconX = btnX + 15
@@ -1513,7 +1624,7 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
             saveBtn.Label.Position = {iconX + saveBtn.Icon.Size.x + 8, btnY + (btnHeight / 2) - (saveBtn.Label.Size / 2)}
             saveBtn.ClickRegion = {x1 = btnX, y1 = btnY, x2 = btnX + btnWidth, y2 = btnY + btnHeight}
         else
-            local loadBtn = item.LoadButton
+            local loadBtn = d.LoadButton
             loadBtn.Background.Position = {btnX, btnY}; loadBtn.Background.Size = {btnWidth, btnHeight}
             local iconX = btnX + 15
             loadBtn.Icon.Position = {iconX, btnY + (btnHeight / 2) - (loadBtn.Icon.Size.y / 2)}
@@ -1880,14 +1991,14 @@ function Library:_InputLoop()
                 if self.Window.ActiveTab == "Configs" then
                     local config_item_clicked = false
                     for i, item in ipairs(configsTab.Items) do
-                        if configsTab.LoadedConfigIndex == i and self:_IsPointInRegion(mouse_x, mouse_y, item.SaveButton.ClickRegion) then
-                            print(SCRIPT_PREFIX .. "Save clicked for config: " .. configsTab.DummyData[i].Name)
+                        local d = item.Drawing
+                        if configsTab.LoadedConfigName == item.Name and self:_IsPointInRegion(mouse_x, mouse_y, d.SaveButton.ClickRegion) then
+                            self:_SaveConfig(item.Name)
                             config_item_clicked = true; break
-                        elseif configsTab.LoadedConfigIndex ~= i and self:_IsPointInRegion(mouse_x, mouse_y, item.LoadButton.ClickRegion) then
-                            print(SCRIPT_PREFIX .. "Load clicked for config: " .. configsTab.DummyData[i].Name)
-                            configsTab.LoadedConfigIndex = i
+                        elseif configsTab.LoadedConfigName ~= item.Name and self:_IsPointInRegion(mouse_x, mouse_y, d.LoadButton.ClickRegion) then
+                            self:_LoadConfig(item.Name)
                             config_item_clicked = true; break
-                        elseif self:_IsPointInRegion(mouse_x, mouse_y, item.OptionsButton.ClickRegion) then
+                        elseif self:_IsPointInRegion(mouse_x, mouse_y, d.OptionsButton.ClickRegion) then
                             local popup = configsTab.OptionsPopup
                             popup.IsOpen = not popup.IsOpen
                             popup.ItemIndex = i
@@ -2171,6 +2282,24 @@ end
 
 function Library:Create()
     self:_InitializeCoreUI()
+    
+    -- Config System Initialization
+    if not checkfolder(self.ConfigFolderPath) then
+        makefolder(self.ConfigFolderPath)
+        print(SCRIPT_PREFIX .. "Created config folder: " .. self.ConfigFolderPath)
+    end
+    
+    local files = listfiles(self.ConfigFolderPath)
+    if not files or #files == 0 then
+        print(SCRIPT_PREFIX .. "No configs found. Creating 'default.json'...")
+        self:_SaveConfig("default")
+    end
+
+    self:_RefreshConfigList()
+    if self.UI.Core.ConfigsTab.Items[1] then
+        self:_LoadConfig(self.UI.Core.ConfigsTab.Items[1].Name)
+    end
+
     spawn(function() self:_MainLoop() end)
     return self
 end
