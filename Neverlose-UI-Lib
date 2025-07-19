@@ -1,13 +1,11 @@
 --[[
     Neverlose.cc Style UI Library for Severe
-    Version: 13.5 (Glow Effect Implementation)
+    Version: 13.6 (Glow System Fix)
     Developer: Gemini AI & Dicky_Micky_
 
-    - [NEW] Added a comprehensive glow effect system for major UI components based on user-provided example.
-    - [NEW] Glow is now applied to the main window (Sidebar & Main Panel), popups (About, ESP Settings, Edit Style), 
-            the filled portion of sliders, and open dropdown panels.
-    - [NEW] The Color Picker window now has a border and a glow effect.
-    - [ADJUST] The glow color is dynamically tied to the theme's accent color.
+    - [FIX] Resolved a crash ("Invalid Square Type: Glow") caused by incorrectly assigning a custom 'Glow' property
+            to a native Drawing object. The storage for core UI components has been refactored to correctly
+            associate glow effects without modifying the underlying drawing userdata.
 ]]
 
 local Library = {}
@@ -229,9 +227,14 @@ end
 function Library:_InitializeCoreUI()
     local UI = self.UI; UI.Core = {}
 
-    UI.Core.Sidebar = self:_CreateDrawingObject("Square"); UI.Core.RightPanel = self:_CreateDrawingObject("Square"); UI.Core.VerticalSeparator = self:_CreateDrawingObject("Square"); UI.Core.SidebarHeaderSeparator = self:_CreateDrawingObject("Square"); UI.Core.RightPanelHeaderSeparator = self:_CreateDrawingObject("Square")
-    if UI.Core.Sidebar then UI.Core.Sidebar.Filled = true; UI.Core.Sidebar.zIndex = 1; UI.Core.Sidebar.Rounding = self.ActiveTheme.Rounding.Window; UI.Core.Sidebar.Glow = self:_Internal_CreateGlowSet(0); end
-    if UI.Core.RightPanel then UI.Core.RightPanel.Filled = true; UI.Core.RightPanel.zIndex = 1; UI.Core.RightPanel.Rounding = self.ActiveTheme.Rounding.Window; UI.Core.RightPanel.Glow = self:_Internal_CreateGlowSet(0); end
+    UI.Core.Sidebar = { Drawing = self:_CreateDrawingObject("Square"), Glow = self:_Internal_CreateGlowSet(0) }
+    UI.Core.RightPanel = { Drawing = self:_CreateDrawingObject("Square"), Glow = self:_Internal_CreateGlowSet(0) }
+    UI.Core.VerticalSeparator = self:_CreateDrawingObject("Square")
+    UI.Core.SidebarHeaderSeparator = self:_CreateDrawingObject("Square")
+    UI.Core.RightPanelHeaderSeparator = self:_CreateDrawingObject("Square")
+    
+    if UI.Core.Sidebar.Drawing then UI.Core.Sidebar.Drawing.Filled = true; UI.Core.Sidebar.Drawing.zIndex = 1; UI.Core.Sidebar.Drawing.Rounding = self.ActiveTheme.Rounding.Window; end
+    if UI.Core.RightPanel.Drawing then UI.Core.RightPanel.Drawing.Filled = true; UI.Core.RightPanel.Drawing.zIndex = 1; UI.Core.RightPanel.Drawing.Rounding = self.ActiveTheme.Rounding.Window; end
     if UI.Core.VerticalSeparator then UI.Core.VerticalSeparator.Filled = true; UI.Core.VerticalSeparator.zIndex = 3; end
     if UI.Core.SidebarHeaderSeparator then UI.Core.SidebarHeaderSeparator.Filled = true; UI.Core.SidebarHeaderSeparator.zIndex = 2; end
     if UI.Core.RightPanelHeaderSeparator then UI.Core.RightPanelHeaderSeparator.Filled = true; UI.Core.RightPanelHeaderSeparator.zIndex = 2; end
@@ -537,8 +540,8 @@ function Library:_ApplyTheme()
         end
     end
 
-    applyColor(Core.Sidebar, self.ActiveTheme.Colors.SidebarBackground)
-    applyColor(Core.RightPanel, self.ActiveTheme.Colors.MainBackground)
+    applyColor(Core.Sidebar.Drawing, self.ActiveTheme.Colors.SidebarBackground)
+    applyColor(Core.RightPanel.Drawing, self.ActiveTheme.Colors.MainBackground)
     applyColor(Core.VerticalSeparator, self.ActiveTheme.Colors.Separator)
     applyColor(Core.SidebarHeaderSeparator, self.ActiveTheme.Colors.Separator)
     applyColor(Core.RightPanelHeaderSeparator, self.ActiveTheme.Colors.Separator)
@@ -1014,14 +1017,14 @@ function Library:_RenderLoop()
     local sidebarWidth, headerHeight = self:_SafeNumber(self.Window.SidebarWidth, 0), self:_SafeNumber(self.Window.HeaderHeight, 0)
     local rightPanelX = windowX + sidebarWidth - self.Window.PanelOverlap
 
-    self:_SetVisibility(Core.Sidebar, true); self:_SetVisibility(Core.RightPanel, true); self:_SetVisibility(Core.VerticalSeparator, true); self:_SetVisibility(Core.SidebarHeaderSeparator, true); self:_SetVisibility(Core.RightPanelHeaderSeparator, true); self:_SetVisibility(Core.Title, true); self:_SetVisibility(Core.SidebarBottomCircle, true); if Core.SidebarAvatar then self:_SetVisibility(Core.SidebarAvatar, true) end; self:_SetVisibility(Core.PlayerDisplayName, true); self:_SetVisibility(Core.TillLabel, true); self:_SetVisibility(Core.ForeverLabel, true)
+    self:_SetVisibility(Core.Sidebar.Drawing, true); self:_SetVisibility(Core.RightPanel.Drawing, true); self:_SetVisibility(Core.VerticalSeparator, true); self:_SetVisibility(Core.SidebarHeaderSeparator, true); self:_SetVisibility(Core.RightPanelHeaderSeparator, true); self:_SetVisibility(Core.Title, true); self:_SetVisibility(Core.SidebarBottomCircle, true); if Core.SidebarAvatar then self:_SetVisibility(Core.SidebarAvatar, true) end; self:_SetVisibility(Core.PlayerDisplayName, true); self:_SetVisibility(Core.TillLabel, true); self:_SetVisibility(Core.ForeverLabel, true)
     self:_SetVisibility(Core.Title2, not self:_IsThemeLight(self.ActiveTheme)); self:_SetVisibility(Core.Title3, not self:_IsThemeLight(self.ActiveTheme))
 
-    if Core.Sidebar then Core.Sidebar.Position = {windowX, windowY}; Core.Sidebar.Size = {sidebarWidth, self.Window.Height}; end
-    if Core.RightPanel then Core.RightPanel.Position = {rightPanelX, windowY}; Core.RightPanel.Size = {self.Window.Width - sidebarWidth + self.Window.PanelOverlap, self.Window.Height}; end
+    if Core.Sidebar.Drawing then Core.Sidebar.Drawing.Position = {windowX, windowY}; Core.Sidebar.Drawing.Size = {sidebarWidth, self.Window.Height}; end
+    if Core.RightPanel.Drawing then Core.RightPanel.Drawing.Position = {rightPanelX, windowY}; Core.RightPanel.Drawing.Size = {self.Window.Width - sidebarWidth + self.Window.PanelOverlap, self.Window.Height}; end
     
-    self:_RenderGlowEffect(Core.Sidebar.Glow, windowX, windowY, sidebarWidth, self.Window.Height, Core.Sidebar.Rounding, self.ActiveTheme.Colors.GlowColor, {top=true, bottom=true, left=true, right=false})
-    self:_RenderGlowEffect(Core.RightPanel.Glow, rightPanelX, windowY, self.Window.Width - sidebarWidth + self.Window.PanelOverlap, self.Window.Height, Core.RightPanel.Rounding, self.ActiveTheme.Colors.GlowColor, {top=true, bottom=true, left=false, right=true})
+    self:_RenderGlowEffect(Core.Sidebar.Glow, windowX, windowY, sidebarWidth, self.Window.Height, Core.Sidebar.Drawing.Rounding, self.ActiveTheme.Colors.GlowColor, {top=true, bottom=true, left=true, right=false})
+    self:_RenderGlowEffect(Core.RightPanel.Glow, rightPanelX, windowY, self.Window.Width - sidebarWidth + self.Window.PanelOverlap, self.Window.Height, Core.RightPanel.Drawing.Rounding, self.ActiveTheme.Colors.GlowColor, {top=true, bottom=true, left=false, right=true})
 
     if Core.VerticalSeparator then Core.VerticalSeparator.Position = {rightPanelX, windowY}; Core.VerticalSeparator.Size = {4, self.Window.Height}; end
     if Core.SidebarHeaderSeparator then Core.SidebarHeaderSeparator.Position = {windowX, windowY + self.Window.Height - 100 + 14}; Core.SidebarHeaderSeparator.Size = {sidebarWidth, 4}; end
