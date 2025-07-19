@@ -1,12 +1,11 @@
 --[[
     Neverlose.cc Style UI Library for Severe
-    Version: 13.8 (Glow Customization & Tuning)
+    Version: 14.0 (Config System Scaffolding)
     Developer: Gemini AI & Dicky_Micky_
 
-    - [NEW] Added "GlowColor" and "GlowAccent" to the theme system, allowing for separate customization of the main UI glow and slider glow.
-    - [NEW] The "Edit Style" window now includes options to modify "GlowColor" and "GlowAccent".
-    - [NEW] The slider in the "About" window now also features a glow effect.
-    - [ADJUST] Increased the height of the slider glow effect by 3 pixels for better visibility and corrected its positioning.
+    - [NEW] Added a persistent "Presets" tab for config management, which appears automatically.
+    - [NEW] Added the basic UI structure for the "Configs" tab, including a placeholder list and item layout based on the design.
+    - [INTERNAL] Refactored rendering logic to support full-width tab content for the new config system.
 ]]
 
 local Library = {}
@@ -288,12 +287,18 @@ function Library:_InitializeCoreUI()
     self:_InitializePlayerESPSettingsPopup()
     self:_InitializeEditStyleWindow()
     self:_InitializeColorPickerWindow()
+    self:_InitializeConfigsTab() -- NEW: Initialize config tab objects
 
     local Players = game:FindService("Players")
     if Players and Players.localPlayer then
         local localPlayerName = Players.localPlayer.Name
         UI.Core.PlayerDisplayName.Text = localPlayerName
         if UI.Core.AboutWindow.InfoRegisteredToValue then UI.Core.AboutWindow.InfoRegisteredToValue.Text = " " .. localPlayerName end
+        -- NEW: Set author name for configs
+        if self.UI.Core.ConfigsTab and self.UI.Core.ConfigsTab.DummyData then
+            self.UI.Core.ConfigsTab.DummyData[1].Author = localPlayerName
+            self.UI.Core.ConfigsTab.DummyData[2].Author = localPlayerName
+        end
         local userId = Players.localPlayer.UserId
         if userId and userId > 0 then
             local avatarUrl; pcall(function() avatarUrl = self:_getAvatarThumbnail(userId) end)
@@ -528,6 +533,74 @@ function Library:_InitializeColorPickerWindow()
     picker.OpacitySliderRegion = {}
 end
 
+-- NEW: Initialize drawing objects for the Configs tab
+function Library:_InitializeConfigsTab()
+    local configs = {}; self.UI.Core.ConfigsTab = configs; local z = 4
+    
+    configs.MyItemsLabel = self:_CreateDrawingObject("Text")
+    if configs.MyItemsLabel then
+        configs.MyItemsLabel.Font = self.ActiveTheme.Fonts.Main; configs.MyItemsLabel.Size = self.ActiveTheme.Fonts.Size + 2; configs.MyItemsLabel.Text = "- My items"; configs.MyItemsLabel.Center = false; configs.MyItemsLabel.zIndex = z;
+    end
+
+    configs.Scrollbar = {
+        Background = self:_CreateDrawingObject("Square"),
+        Nub = self:_CreateDrawingObject("Square")
+    }
+    if configs.Scrollbar.Background then configs.Scrollbar.Background.Filled = true; configs.Scrollbar.Background.zIndex = z + 2; configs.Scrollbar.Background.Rounding = 2; end
+    if configs.Scrollbar.Nub then configs.Scrollbar.Nub.Filled = true; configs.Scrollbar.Nub.zIndex = z + 3; configs.Scrollbar.Nub.Rounding = 2; end
+
+    configs.DummyData = {
+        { Name = "Config name", Modified = "19.07 14:56", Author = "user name", IsLoaded = false },
+        { Name = "Config name", Modified = "19.07 14:56", Author = "user name", IsLoaded = true }
+    }
+    configs.Items = {}
+
+    for i = 1, 2 do -- Create drawing objects for 2 items as placeholders
+        local item = {
+            Background = self:_CreateDrawingObject("Square"),
+            Name = self:_CreateDrawingObject("Text"),
+            Modified = self:_CreateDrawingObject("Text"),
+            Author = self:_CreateDrawingObject("Text"),
+            OptionsButton = {
+                Dot1 = self:_CreateDrawingObject("Circle"), Dot2 = self:_CreateDrawingObject("Circle"), Dot3 = self:_CreateDrawingObject("Circle"),
+                ClickRegion = {}
+            },
+            LoadButton = {
+                Background = self:_CreateDrawingObject("Square"),
+                Icon = self:_CreateDrawingObject("Image"),
+                Label = self:_CreateDrawingObject("Text"),
+                ClickRegion = {}
+            },
+            SaveButton = {
+                Background = self:_CreateDrawingObject("Square"), Border = self:_CreateDrawingObject("Square"),
+                Icon = self:_CreateDrawingObject("Image"), Label = self:_CreateDrawingObject("Text"),
+                ClickRegion = {}
+            }
+        }
+        
+        -- Common properties
+        if item.Background then item.Background.Filled = true; item.Background.zIndex = z; item.Background.Rounding = self.ActiveTheme.Rounding.Section; end
+        if item.Name then item.Name.Font = self.ActiveTheme.Fonts.Main; item.Name.Size = self.ActiveTheme.Fonts.Size + 2; item.Name.Center = false; item.Name.zIndex = z + 1; end
+        if item.Modified then item.Modified.Font = self.ActiveTheme.Fonts.Main; item.Modified.Size = self.ActiveTheme.Fonts.Size; item.Modified.Center = false; item.Modified.zIndex = z + 1; end
+        if item.Author then item.Author.Font = self.ActiveTheme.Fonts.Main; item.Author.Size = self.ActiveTheme.Fonts.Size; item.Author.Center = false; item.Author.zIndex = z + 1; end
+        
+        if item.OptionsButton.Dot1 then item.OptionsButton.Dot1.Filled = true; item.OptionsButton.Dot1.Radius = 1.5; item.OptionsButton.Dot1.zIndex = z + 2; end
+        if item.OptionsButton.Dot2 then item.OptionsButton.Dot2.Filled = true; item.OptionsButton.Dot2.Radius = 1.5; item.OptionsButton.Dot2.zIndex = z + 2; end
+        if item.OptionsButton.Dot3 then item.OptionsButton.Dot3.Filled = true; item.OptionsButton.Dot3.Radius = 1.5; item.OptionsButton.Dot3.zIndex = z + 2; end
+
+        if item.LoadButton.Background then item.LoadButton.Filled = true; item.LoadButton.zIndex = z + 2; item.LoadButton.Rounding = self.ActiveTheme.Rounding.Button; end
+        if item.LoadButton.Icon then item.LoadButton.Icon.Size = {14, 14}; item.LoadButton.Icon.zIndex = z + 3; item.LoadButton.Icon.Url = "https://s6.imgcdn.dev/Yuw2jM.png"; end -- Placeholder Load Icon
+        if item.LoadButton.Label then item.LoadButton.Label.Font = self.ActiveTheme.Fonts.Main; item.LoadButton.Label.Size = self.ActiveTheme.Fonts.Size; item.LoadButton.Label.Text = "Load"; item.LoadButton.Label.Center = false; item.LoadButton.Label.zIndex = z + 3; end
+
+        if item.SaveButton.Background then item.SaveButton.Filled = true; item.SaveButton.zIndex = z + 2; item.SaveButton.Rounding = self.ActiveTheme.Rounding.Button; end
+        if item.SaveButton.Border then item.SaveButton.Border.Filled = false; item.SaveButton.Border.Thickness = 1; item.SaveButton.Border.zIndex = z + 3; item.SaveButton.Border.Rounding = self.ActiveTheme.Rounding.Button; end
+        if item.SaveButton.Icon then item.SaveButton.Icon.Size = {13.33, 13.33}; item.SaveButton.Icon.zIndex = z + 3; item.SaveButton.Icon.Url = "https://s6.imgcdn.dev/Y4Sudt.png"; end
+        if item.SaveButton.Label then item.SaveButton.Label.Font = self.ActiveTheme.Fonts.Main; item.SaveButton.Label.Size = self.ActiveTheme.Fonts.Size; item.SaveButton.Label.Text = "Save"; item.SaveButton.Label.Center = false; item.SaveButton.Label.zIndex = z + 3; end
+
+        table.insert(configs.Items, item)
+    end
+end
+
 --================================================================
 --[[ PRIVATE: THEME MANAGEMENT ]]
 --================================================================
@@ -646,6 +719,35 @@ function Library:_ApplyTheme()
     local saveButtonTextColor = isThemeLight and self.ActiveTheme.Colors.Black or self.ActiveTheme.Colors.White
     applyColor(stylePopup.SaveButton.Label, saveButtonTextColor)
     applyColor(stylePopup.SaveButton.Icon, saveButtonTextColor)
+    
+    -- NEW: Apply theme to Configs Tab
+    local configsTab = self.UI.Core.ConfigsTab
+    if configsTab then
+        applyColor(configsTab.MyItemsLabel, self.ActiveTheme.Colors.TextLight)
+        applyColor(configsTab.Scrollbar.Background, self.ActiveTheme.Colors.DarkBlue)
+        applyColor(configsTab.Scrollbar.Nub, self.ActiveTheme.Colors.Accent)
+        for i, item in ipairs(configsTab.Items) do
+            applyColor(item.Background, self.ActiveTheme.Colors.SectionBackground)
+            applyColor(item.Name, self.ActiveTheme.Colors.TextLight)
+            applyColor(item.Modified, self.ActiveTheme.Colors.TextDark)
+            applyColor(item.Author, self.ActiveTheme.Colors.TextDark)
+            applyColor(item.OptionsButton.Dot1, self.ActiveTheme.Colors.TextDark)
+            applyColor(item.OptionsButton.Dot2, self.ActiveTheme.Colors.TextDark)
+            applyColor(item.OptionsButton.Dot3, self.ActiveTheme.Colors.TextDark)
+            
+            local isLoaded = configsTab.DummyData[i].IsLoaded
+            -- Save Button (shown when loaded)
+            applyColor(item.SaveButton.Background, self.ActiveTheme.Colors.SectionBackground)
+            applyColor(item.SaveButton.Border, self.ActiveTheme.Colors.Accent)
+            applyColor(item.SaveButton.Icon, self.ActiveTheme.Colors.TextLight)
+            applyColor(item.SaveButton.Label, self.ActiveTheme.Colors.TextLight)
+            -- Load Button (shown when not loaded)
+            applyColor(item.LoadButton.Background, self.ActiveTheme.Colors.Accent)
+            local loadBtnTextColor = isThemeLight and self.ActiveTheme.Colors.Black or self.ActiveTheme.Colors.White
+            applyColor(item.LoadButton.Icon, loadBtnTextColor)
+            applyColor(item.LoadButton.Label, loadBtnTextColor)
+        end
+    end
 end
 
 --================================================================
@@ -1081,7 +1183,31 @@ function Library:_RenderLoop()
     elseif Core.ViewESPImage then self:_SetVisibility(Core.ViewESPImage, false) end
 
     self:_RenderTabs(windowX, windowY + headerHeight, sidebarWidth)
-    self:_RenderSections(rightPanelX, windowY, headerHeight)
+    
+    -- NEW: Conditional rendering for main panel
+    if self.Window.ActiveTab == "Configs" then
+        self:_RenderConfigsTab(rightPanelX, windowY, headerHeight)
+        -- Hide all sections since they are not visible
+        for _, section in ipairs(self.UI.Sections) do
+            for _, obj in pairs(section.Drawing) do self:_SetVisibility(obj, false) end
+            for _, el in ipairs(section.Elements) do 
+                for _, obj in pairs(el) do if type(obj) == 'table' and obj.Visible ~= nil then self:_SetVisibility(obj, false) end end 
+                if el.OptionList then for _, opt in ipairs(el.OptionList) do self:_SetVisibility(opt, false) end end
+                if el.Glow then self:_HideGlowEffect(el.Glow) end
+            end
+        end
+    else
+        self:_RenderSections(rightPanelX, windowY, headerHeight)
+        self:_SetVisibility(self.UI.Core.ConfigsTab.MyItemsLabel, false)
+        self:_SetVisibility(self.UI.Core.ConfigsTab.Scrollbar.Background, false)
+        self:_SetVisibility(self.UI.Core.ConfigsTab.Scrollbar.Nub, false)
+        for _, item in ipairs(self.UI.Core.ConfigsTab.Items) do
+            for _, obj in pairs(item) do if type(obj) == 'table' and obj.Visible ~= nil then self:_SetVisibility(obj, false) end end
+            for _, obj in pairs(item.OptionsButton) do if type(obj) == 'table' and obj.Visible ~= nil then self:_SetVisibility(obj, false) end end
+            for _, obj in pairs(item.LoadButton) do if type(obj) == 'table' and obj.Visible ~= nil then self:_SetVisibility(obj, false) end end
+            for _, obj in pairs(item.SaveButton) do if type(obj) == 'table' and obj.Visible ~= nil then self:_SetVisibility(obj, false) end end
+        end
+    end
 
     self:_RenderPlayerESPSettingsPopup()
     self:_RenderAboutWindow()
@@ -1104,7 +1230,10 @@ function Library:_RenderTabs(x, y, width)
             if tab.Icon then
                 self:_SetVisibility(tab.Icon, true)
                 tab.Icon.Position = {startX, currentY + (tabHeight / 2) - (self.ActiveTheme.IconSize / 2)}
-                local iconColor = (tab.Name == "Players") and self.ActiveTheme.Colors.Accent or text_color
+                local iconColor = text_color
+                if tab.Name == "Players" or (tab.Name == "Configs" and is_active) then
+                    iconColor = self.ActiveTheme.Colors.Accent
+                end
                 if tab.Icon.Color then tab.Icon.Color = {iconColor[1], iconColor[2], iconColor[3]}; tab.Icon.Opacity = (iconColor[4] or 255) / 255; end
                 startX = startX + self.ActiveTheme.IconSize + 8
             end
@@ -1233,6 +1362,107 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
     end
 end
 
+-- NEW: Render function for the Configs tab content
+function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
+    local configs = self.UI.Core.ConfigsTab
+    local theme = self.ActiveTheme
+
+    -- Set visibility for all config UI elements
+    self:_SetVisibility(configs.MyItemsLabel, true)
+    self:_SetVisibility(configs.Scrollbar.Background, true)
+    self:_SetVisibility(configs.Scrollbar.Nub, true)
+    for _, item in ipairs(configs.Items) do
+        self:_SetVisibility(item.Background, true)
+        self:_SetVisibility(item.Name, true)
+        self:_SetVisibility(item.Modified, true)
+        self:_SetVisibility(item.Author, true)
+        self:_SetVisibility(item.OptionsButton.Dot1, true)
+        self:_SetVisibility(item.OptionsButton.Dot2, true)
+        self:_SetVisibility(item.OptionsButton.Dot3, true)
+    end
+
+    -- Positioning
+    local startX = panelX + 20
+    local startY = panelY + headerHeight + 20
+    local contentWidth = (self.Window.Width - self.Window.SidebarWidth + self.Window.PanelOverlap) - 40
+    local scrollbarWidth = 6
+    local contentAreaWidth = contentWidth - scrollbarWidth - 10
+
+    configs.MyItemsLabel.Position = {startX, startY}
+
+    local currentY = startY + 25
+    local itemHeight = 60
+    local itemSpacing = 10
+
+    for i, item in ipairs(configs.Items) do
+        local data = configs.DummyData[i]
+        item.Background.Position = {startX, currentY}
+        item.Background.Size = {contentAreaWidth, itemHeight}
+
+        item.Name.Text = data.Name
+        item.Name.Position = {startX + 15, currentY + 12}
+
+        item.Modified.Text = "Modified: " .. data.Modified
+        item.Modified.Position = {startX + 15, currentY + 35}
+
+        if item.Modified.TextBounds then
+            item.Author.Text = "Author: " .. data.Author
+            item.Author.Position = {startX + 15 + item.Modified.TextBounds.x + 10, currentY + 35}
+        end
+        
+        local btnWidth, btnHeight = 85, 28
+        local btnX = startX + contentAreaWidth - btnWidth - 15
+        local btnY = currentY + (itemHeight / 2) - (btnHeight / 2)
+
+        local optionsBtnX = btnX - 25
+        local optionsBtnY = currentY + (itemHeight / 2)
+        item.OptionsButton.Dot1.Position = {optionsBtnX - 6, optionsBtnY}
+        item.OptionsButton.Dot2.Position = {optionsBtnX, optionsBtnY}
+        item.OptionsButton.Dot3.Position = {optionsBtnX + 6, optionsBtnY}
+        item.OptionsButton.ClickRegion = {x1 = optionsBtnX - 10, y1 = optionsBtnY - 10, x2 = optionsBtnX + 10, y2 = optionsBtnY + 10}
+
+        -- Conditionally show Save or Load button
+        local isLoaded = data.IsLoaded
+        self:_SetVisibility(item.SaveButton.Background, isLoaded)
+        self:_SetVisibility(item.SaveButton.Border, isLoaded)
+        self:_SetVisibility(item.SaveButton.Icon, isLoaded)
+        self:_SetVisibility(item.SaveButton.Label, isLoaded)
+        self:_SetVisibility(item.LoadButton.Background, not isLoaded)
+        self:_SetVisibility(item.LoadButton.Icon, not isLoaded)
+        self:_SetVisibility(item.LoadButton.Label, not isLoaded)
+
+        if isLoaded then -- Render Save button
+            local saveBtn = item.SaveButton
+            saveBtn.Background.Position = {btnX, btnY}; saveBtn.Background.Size = {btnWidth, btnHeight}
+            saveBtn.Border.Position = {btnX, btnY}; saveBtn.Border.Size = {btnWidth, btnHeight}
+            local iconX = btnX + 15
+            saveBtn.Icon.Position = {iconX, btnY + (btnHeight / 2) - (saveBtn.Icon.Size.y / 2)}
+            saveBtn.Label.Position = {iconX + saveBtn.Icon.Size.x + 8, btnY + (btnHeight / 2) - (saveBtn.Label.Size / 2)}
+            saveBtn.ClickRegion = {x1 = btnX, y1 = btnY, x2 = btnX + btnWidth, y2 = btnY + btnHeight}
+        else -- Render Load button
+            local loadBtn = item.LoadButton
+            loadBtn.Background.Position = {btnX, btnY}; loadBtn.Background.Size = {btnWidth, btnHeight}
+            local iconX = btnX + 15
+            loadBtn.Icon.Position = {iconX, btnY + (btnHeight / 2) - (loadBtn.Icon.Size.y / 2)}
+            loadBtn.Label.Position = {iconX + loadBtn.Icon.Size.x + 8, btnY + (btnHeight / 2) - (loadBtn.Label.Size / 2)}
+            loadBtn.ClickRegion = {x1 = btnX, y1 = btnY, x2 = btnX + btnWidth, y2 = btnY + btnHeight}
+        end
+
+        currentY = currentY + itemHeight + itemSpacing
+    end
+    
+    -- Render Scrollbar
+    local scrollbarX = startX + contentAreaWidth + 5
+    local scrollbarHeight = self.Window.Height - headerHeight - 40
+    configs.Scrollbar.Background.Position = {scrollbarX, startY}
+    configs.Scrollbar.Background.Size = {scrollbarWidth, scrollbarHeight}
+    
+    -- Dummy nub position
+    local nubHeight = 80
+    configs.Scrollbar.Nub.Position = {scrollbarX, startY}
+    configs.Scrollbar.Nub.Size = {scrollbarWidth, nubHeight}
+end
+
 function Library:_InputLoop()
     local mouse_pos = getmouseposition()
     if not mouse_pos then return end
@@ -1259,15 +1489,17 @@ function Library:_InputLoop()
                 picker.isDraggingSaturationValue = true
             elseif not self.UI.Popups.About.IsOpen and not self.UI.Popups.PlayerESP.IsOpen and not self.UI.Popups.EditStyle.IsOpen and not self.UI.Popups.ColorPicker.IsOpen then
                  local started_slider_drag = false
-                 for _, section in ipairs(self.UI.Sections) do
-                    if section.ParentTab == self.Window.ActiveTab then
-                        for _, el in ipairs(section.Elements) do
-                            if el.type == "Slider" and self:_IsPointInRegion(mouse_x, mouse_y, el.ClickRegion) then
-                                el.IsDragging = true; started_slider_drag = true; break
+                 if self.Window.ActiveTab ~= "Configs" then
+                    for _, section in ipairs(self.UI.Sections) do
+                        if section.ParentTab == self.Window.ActiveTab then
+                            for _, el in ipairs(section.Elements) do
+                                if el.type == "Slider" and self:_IsPointInRegion(mouse_x, mouse_y, el.ClickRegion) then
+                                    el.IsDragging = true; started_slider_drag = true; break
+                                end
                             end
                         end
+                        if started_slider_drag then break end
                     end
-                    if started_slider_drag then break end
                  end
                  if not started_slider_drag then
                     local header_drag_region = {x1 = self.Window.X, y1 = self.Window.Y, x2 = self.Window.X + self.Window.Width, y2 = self.Window.Y + self.Window.HeaderHeight}
@@ -1487,26 +1719,28 @@ function Library:_InputLoop()
                      esppopup.IsOpen = false; esppopup.Keybind.IsListening = false
                  end
             else
-                for _, section in ipairs(self.UI.Sections) do
-                    if section.ParentTab == self.Window.ActiveTab then
-                        for _, el in ipairs(section.Elements) do
-                            if (el.type == "Dropdown" or el.type == "Multidropdown") and el.IsOpen then
-                                local dropdownButtonX = el.Button.Position.x
-                                local optionY = el.Button.Position.y + el.Size.height + 5
-                                for i, option_text in ipairs(el.OptionList) do
-                                    local optionRegion = {x1 = dropdownButtonX, y1 = optionY, x2 = dropdownButtonX + el.Size.width, y2 = optionY + 20}
-                                    if self:_IsPointInRegion(mouse_x, mouse_y, optionRegion) then
-                                        if el.type == "Dropdown" then self.UI.Values[el.id] = el.Options[i]; if el.Callback then el.Callback(self.UI.Values[el.id]) end; el.IsOpen = false;
-                                        else local opt = el.Options[i]; local found_idx = table.find(self.UI.Values[el.id], opt); if found_idx then table.remove(self.UI.Values[el.id], found_idx) else table.insert(self.UI.Values[el.id], opt) end; if el.Callback then el.Callback(self.UI.Values[el.id]) end; clicked_dropdown_button = el end
-                                        click_was_handled = true; break
+                if self.Window.ActiveTab ~= "Configs" then
+                    for _, section in ipairs(self.UI.Sections) do
+                        if section.ParentTab == self.Window.ActiveTab then
+                            for _, el in ipairs(section.Elements) do
+                                if (el.type == "Dropdown" or el.type == "Multidropdown") and el.IsOpen then
+                                    local dropdownButtonX = el.Button.Position.x
+                                    local optionY = el.Button.Position.y + el.Size.height + 5
+                                    for i, option_text in ipairs(el.OptionList) do
+                                        local optionRegion = {x1 = dropdownButtonX, y1 = optionY, x2 = dropdownButtonX + el.Size.width, y2 = optionY + 20}
+                                        if self:_IsPointInRegion(mouse_x, mouse_y, optionRegion) then
+                                            if el.type == "Dropdown" then self.UI.Values[el.id] = el.Options[i]; if el.Callback then el.Callback(self.UI.Values[el.id]) end; el.IsOpen = false;
+                                            else local opt = el.Options[i]; local found_idx = table.find(self.UI.Values[el.id], opt); if found_idx then table.remove(self.UI.Values[el.id], found_idx) else table.insert(self.UI.Values[el.id], opt) end; if el.Callback then el.Callback(self.UI.Values[el.id]) end; clicked_dropdown_button = el end
+                                            click_was_handled = true; break
+                                        end
+                                        optionY = optionY + 20
                                     end
-                                    optionY = optionY + 20
                                 end
+                                if click_was_handled then break end
                             end
-                            if click_was_handled then break end
                         end
+                        if click_was_handled then break end
                     end
-                    if click_was_handled then break end
                 end
 
                 if not click_was_handled then
@@ -1516,20 +1750,22 @@ function Library:_InputLoop()
                     else
                         for _, group in ipairs(self.UI.TabGroups) do for _, tab in ipairs(group.Tabs) do if self:_IsPointInRegion(mouse_x, mouse_y, tab.ClickRegion) then self.Window.ActiveTab = tab.Name; click_was_handled = true; break; end end if click_was_handled then break; end end
                         if not click_was_handled then
-                            for _, section in ipairs(self.UI.Sections) do
-                                if section.ParentTab == self.Window.ActiveTab then
-                                    for _, el in ipairs(section.Elements) do
-                                        if el.HasSettings and self:_IsPointInRegion(mouse_x, mouse_y, el.SettingsClickRegion) then
-                                            local espPopup = self.UI.Popups.PlayerESP; espPopup.IsOpen = not espPopup.IsOpen; espPopup.Pos = {x = mouse_x, y = mouse_y}; click_was_handled = true; break
-                                        elseif self:_IsPointInRegion(mouse_x, mouse_y, el.ClickRegion) then
-                                            click_was_handled = true
-                                            if el.type == "Toggle" then self.UI.Values[el.id] = not self.UI.Values[el.id]; if el.Callback then el.Callback(self.UI.Values[el.id]) end;
-                                            elseif el.type == "Dropdown" or el.type == "Multidropdown" then clicked_dropdown_button = el; el.IsOpen = not el.IsOpen;
-                                            end; break
+                            if self.Window.ActiveTab ~= "Configs" then
+                                for _, section in ipairs(self.UI.Sections) do
+                                    if section.ParentTab == self.Window.ActiveTab then
+                                        for _, el in ipairs(section.Elements) do
+                                            if el.HasSettings and self:_IsPointInRegion(mouse_x, mouse_y, el.SettingsClickRegion) then
+                                                local espPopup = self.UI.Popups.PlayerESP; espPopup.IsOpen = not espPopup.IsOpen; espPopup.Pos = {x = mouse_x, y = mouse_y}; click_was_handled = true; break
+                                            elseif self:_IsPointInRegion(mouse_x, mouse_y, el.ClickRegion) then
+                                                click_was_handled = true
+                                                if el.type == "Toggle" then self.UI.Values[el.id] = not self.UI.Values[el.id]; if el.Callback then el.Callback(self.UI.Values[el.id]) end;
+                                                elseif el.type == "Dropdown" or el.type == "Multidropdown" then clicked_dropdown_button = el; el.IsOpen = not el.IsOpen;
+                                                end; break
+                                            end
                                         end
                                     end
+                                    if click_was_handled then break end
                                 end
-                                if click_was_handled then break end
                             end
                         end
                     end
@@ -1565,11 +1801,40 @@ function Library:_InputLoop()
     was_left_pressed = is_left_pressed_now
 end
 
+-- NEW: Automatically add the Presets tab
+function Library:_AddPresetsTab()
+    local tabGroupName = "PRESETS"
+    local tabName = "Configs"
+
+    for _, group in ipairs(self.UI.TabGroups) do
+        if group.Name == tabGroupName then return end
+    end
+
+    local group = { Name = tabGroupName, Header = self:_CreateDrawingObject("Text"), Tabs = {} }
+    if group.Header then
+        group.Header.Font = self.ActiveTheme.Fonts.Main; group.Header.Size = self.ActiveTheme.Fonts.TabHeaderSize; group.Header.Text = group.Name; group.Header.Center = false; group.Header.Outline = false; group.Header.zIndex = 3;
+    end
+
+    local tab = { Name = tabName, Text = self:_CreateDrawingObject("Text"), Icon = self:_CreateDrawingObject("Image"), ClickRegion = {} }
+    if tab.Text then
+        tab.Text.Font = self.ActiveTheme.Fonts.Main; tab.Text.Size = self.ActiveTheme.Fonts.TabSize; tab.Text.Text = tabName; tab.Text.Center = false; tab.Text.Outline = false; tab.Text.zIndex = 3;
+    end
+    if tab.Icon then
+        tab.Icon.Url = "https://s6.imgcdn.dev/Y4Skk8.png" -- Gear icon
+        tab.Icon.Size = {self.ActiveTheme.IconSize, self.ActiveTheme.IconSize}; tab.Icon.zIndex = 3;
+    end
+
+    table.insert(group.Tabs, tab)
+    table.insert(self.UI.TabGroups, group)
+end
+
+
 function Library:_MainLoop()
     print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started.")
     local is_first_frame = true
     while self.Window.Visible do
         if is_first_frame then
+            self:_AddPresetsTab() -- NEW: Add the tab automatically
             self:_ApplyTheme()
             is_first_frame = false
         end
