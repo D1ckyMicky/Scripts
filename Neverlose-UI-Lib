@@ -173,6 +173,21 @@ end
 function Library:_SetVisibility(object, visible) if object and object.Visible ~= visible then object.Visible = visible end end
 function table.find(tbl, value) for i, v in ipairs(tbl) do if v == value then return i end end; return nil end
 
+-- Вставьте эту новую функцию в раздел PRIVATE: HELPER FUNCTIONS
+function Library:_CleanupDrawingObjects(tbl)
+    for _, v in pairs(tbl) do
+        if type(v) == 'table' then
+            if v.Remove and type(v.Remove) == 'function' then
+                -- Это объект отрисовки, удаляем его
+                pcall(v.Remove, v)
+            else
+                -- Это обычная таблица, идем глубже
+                self:_CleanupDrawingObjects(v)
+            end
+        end
+    end
+end
+
 --================================================================
 --[[ PRIVATE: GLOW EFFECT HELPERS ]]
 --================================================================
@@ -594,17 +609,19 @@ function Library:_SaveConfig(name)
         ActiveThemeName = self.ActiveTheme.Name
     }
 
-    -- 1. Собираем значения
     for id, value in pairs(self.UI.Values) do
         if not string.find(id, "About") and id ~= "ConfigIncludeStyle" then
             configData.Values[id] = value
         end
     end
 
-    -- 2. Собираем кастомные темы без лишних полей
     if self.UI.Values["ConfigIncludeStyle"] then
+        print(SCRIPT_PREFIX .. "Saving custom themes...") -- Строка для отладки
         for themeName, themeData in pairs(self.Themes) do
             if not themeData.IsPreset then
+                -- [ДОБАВЛЕНО] Печатаем в консоль каждую найденную кастомную тему
+                print(SCRIPT_PREFIX .. "Found custom theme to save: " .. themeName)
+                
                 local sanitizedTheme = {
                     Colors = self:_DeepCopy(themeData.Colors),
                     Rounding = self:_DeepCopy(themeData.Rounding),
@@ -616,12 +633,11 @@ function Library:_SaveConfig(name)
         end
     end
 
-    -- 3. Сохраняем в файл
     local success, encodedData = pcall(JSONEncode, configData)
     if success then
         writefile(self:_GetConfigPath(name), encodedData)
         print(SCRIPT_PREFIX .. "Config '" .. name .. "' saved successfully.")
-        self.UI.Core.ConfigsTab.NeedsRefresh = true -- [ИЗМЕНЕНО] Выставляем флаг вместо прямого вызова
+        self.UI.Core.ConfigsTab.NeedsRefresh = true
     else
         warn(SCRIPT_PREFIX .. "Failed to encode config data for '" .. name .. "'.")
     end
@@ -713,20 +729,19 @@ end
 function Library:_RefreshConfigList()
     local configs = self.UI.Core.ConfigsTab
     
-    -- Очищаем старые объекты
+    -- [ИЗМЕНЕНО] Используем новую функцию для полной очистки
     for _, item in ipairs(configs.Items) do
-        for _, obj in pairs(item) do
-            if type(obj) == 'table' and obj.Remove then pcall(obj.Remove, obj) end
-        end
+        self:_CleanupDrawingObjects(item.Drawing)
     end
     configs.Items = {}
 
     local files = listfiles(self.ConfigFolderPath)
     if not files then return end
 
-    local localPlayerName = "user name"
-    if game:FindService("Players") and game:FindService("Players").localPlayer then
-        localPlayerName = game:FindService("Players").localPlayer.Name
+    local localPlayerName = "user" -- Имя по умолчанию
+    local p = game:FindService("Players")
+    if p and p.localPlayer then
+        localPlayerName = p.localPlayer.Name
     end
 
     for _, fileName in ipairs(files) do
@@ -734,7 +749,7 @@ function Library:_RefreshConfigList()
             local configName = string.sub(fileName, 1, -5)
             local item = {
                 Name = configName,
-                Modified = "N/A", -- В Severe API нет функции для получения даты изменения файла
+                Modified = "N/A", 
                 Author = localPlayerName,
                 Drawing = {
                     Background = self:_CreateDrawingObject("Square"),
@@ -764,15 +779,12 @@ function Library:_RefreshConfigList()
             if d.Name then d.Name.Font = self.ActiveTheme.Fonts.Main; d.Name.Size = self.ActiveTheme.Fonts.Size + 2; d.Name.Center = false; d.Name.zIndex = z + 1; end
             if d.Modified then d.Modified.Font = self.ActiveTheme.Fonts.Main; d.Modified.Size = self.ActiveTheme.Fonts.Size; d.Modified.Center = false; d.Modified.zIndex = z + 1; end
             if d.Author then d.Author.Font = self.ActiveTheme.Fonts.Main; d.Author.Size = self.ActiveTheme.Fonts.Size; d.Author.Center = false; d.Author.zIndex = z + 1; end
-            
             if d.OptionsButton.Dot1 then d.OptionsButton.Dot1.Filled = true; d.OptionsButton.Dot1.Radius = 1.5; d.OptionsButton.Dot1.zIndex = z + 2; end
             if d.OptionsButton.Dot2 then d.OptionsButton.Dot2.Filled = true; d.OptionsButton.Dot2.Radius = 1.5; d.OptionsButton.Dot2.zIndex = z + 2; end
             if d.OptionsButton.Dot3 then d.OptionsButton.Dot3.Filled = true; d.OptionsButton.Dot3.Radius = 1.5; d.OptionsButton.Dot3.zIndex = z + 2; end
-
             if d.LoadButton.Background then d.LoadButton.Filled = true; d.LoadButton.zIndex = z + 2; d.LoadButton.Rounding = self.ActiveTheme.Rounding.Button; end
             if d.LoadButton.Icon then d.LoadButton.Icon.Size = {14, 14}; d.LoadButton.Icon.zIndex = z + 3; d.LoadButton.Icon.Url = "https://s6.imgcdn.dev/Y4v6tt.png"; end
             if d.LoadButton.Label then d.LoadButton.Label.Font = self.ActiveTheme.Fonts.Main; d.LoadButton.Label.Size = self.ActiveTheme.Fonts.Size; d.LoadButton.Label.Text = "Load"; d.LoadButton.Label.Center = false; d.LoadButton.Label.zIndex = z + 3; end
-
             if d.SaveButton.Background then d.SaveButton.Filled = true; d.SaveButton.zIndex = z + 2; d.SaveButton.Rounding = self.ActiveTheme.Rounding.Button; end
             if d.SaveButton.Border then d.SaveButton.Border.Filled = false; d.SaveButton.Border.Thickness = 1; d.SaveButton.Border.zIndex = z + 3; d.SaveButton.Border.Rounding = self.ActiveTheme.Rounding.Button; end
             if d.SaveButton.Icon then d.SaveButton.Icon.Size = {13.33, 13.33}; d.SaveButton.Icon.zIndex = z + 3; d.SaveButton.Icon.Url = "https://s6.imgcdn.dev/Y4Sudt.png"; end
@@ -2210,8 +2222,11 @@ end
 --================================================================
 
 function Library:_Internal_CreateToggle(options)
+    -- [ИЗМЕНЕНО] Приоритет значениям из загруженного конфига
+    if self.UI.Values[options.id] == nil then
+        self.UI.Values[options.id] = options.Default or false
+    end
     local z = options.zIndex or 4
-    self.UI.Values[options.id] = options.Default or false
     local toggle = { id = options.id, type = "Toggle", Name = options.Name, Size = {width = 35, height = 12}, HasSettings = options.HasSettings or false, Callback = options.Callback, Label = self:_CreateDrawingObject("Text"), Back = self:_CreateDrawingObject("Square"), Nub = self:_CreateDrawingObject("Circle"), ClickRegion = {}, SettingsClickRegion = {}, SettingsIcon = nil }
     if toggle.HasSettings then toggle.SettingsIcon = self:_CreateDrawingObject("Image"); if toggle.SettingsIcon then toggle.SettingsIcon.Url = "https://s6.imgcdn.dev/Y4Skk8.png"; toggle.SettingsIcon.Size = {16, 16}; toggle.SettingsIcon.zIndex = z + 1; end end
     if toggle.Label then toggle.Label.Font = self.ActiveTheme.Fonts.Main; toggle.Label.Size = self.ActiveTheme.Fonts.Size + 2; toggle.Label.Text = toggle.Name; toggle.Label.Center = false; toggle.Label.Outline = false; toggle.Label.zIndex = z; end
@@ -2221,8 +2236,10 @@ function Library:_Internal_CreateToggle(options)
 end
 
 function Library:_Internal_CreateSlider(options)
+    if self.UI.Values[options.id] == nil then
+        self.UI.Values[options.id] = options.Default or options.Min or 0
+    end
     local z = options.zIndex or 4
-    self.UI.Values[options.id] = options.Default or options.Min or 0
     local slider = { id = options.id, type = "Slider", Name = options.Name, Min = options.Min or 0, Max = options.Max or 100, Increment = options.Increment or 1, IsDragging = false, Callback = options.Callback, Label = self:_CreateDrawingObject("Text"), Back = self:_CreateDrawingObject("Square"), LeftFill = self:_CreateDrawingObject("Square"), RightFill = self:_CreateDrawingObject("Square"), Nub = self:_CreateDrawingObject("Circle"), ValueText = self:_CreateDrawingObject("Text"), ClickRegion = {}, Glow = self:_Internal_CreateGlowSet(z) }
     if slider.Label then slider.Label.Font = self.ActiveTheme.Fonts.Main; slider.Label.Size = self.ActiveTheme.Fonts.Size + 2; slider.Label.Text = slider.Name; slider.Label.Center = false; slider.Label.Outline = false; slider.Label.zIndex = z; end
     if slider.Back then slider.Back.Filled = true; slider.Back.zIndex = z; slider.Back.Rounding = 1; end
@@ -2234,8 +2251,10 @@ function Library:_Internal_CreateSlider(options)
 end
 
 function Library:_Internal_CreateDropdown(options)
+    if self.UI.Values[options.id] == nil then
+        self.UI.Values[options.id] = options.Default or options.Options[1]
+    end
     local z = options.zIndex or 4
-    self.UI.Values[options.id] = options.Default or options.Options[1]
     local dropdown = { id = options.id, type = "Dropdown", Name = options.Name, Options = options.Options, IsOpen = false, Size = options.Size or {width = 120, height = 25}, Callback = options.Callback, Label = self:_CreateDrawingObject("Text"), Button = self:_CreateDrawingObject("Square"), ButtonText = self:_CreateDrawingObject("Text"), OptionList = {}, OptionBackground = self:_CreateDrawingObject("Square"), ArrowLine1 = self:_CreateDrawingObject("Line"), ArrowLine2 = self:_CreateDrawingObject("Line"), ClickRegion = {}, BorderLeft = self:_CreateDrawingObject("Line"), BorderRight = self:_CreateDrawingObject("Line"), BorderBottom = self:_CreateDrawingObject("Line"), Glow = self:_Internal_CreateGlowSet(z + 8) }
     if dropdown.Label then dropdown.Label.Font = self.ActiveTheme.Fonts.Main; dropdown.Label.Size = self.ActiveTheme.Fonts.Size + 2; dropdown.Label.Text = dropdown.Name; dropdown.Label.Center = false; dropdown.Label.Outline = false; dropdown.Label.zIndex = z; end
     if dropdown.Button then dropdown.Button.Filled = true; dropdown.Button.zIndex = z; dropdown.Button.Rounding = self.ActiveTheme.Rounding.Element; end
@@ -2251,8 +2270,10 @@ function Library:_Internal_CreateDropdown(options)
 end
 
 function Library:_Internal_CreateMultidropdown(options)
+    if self.UI.Values[options.id] == nil then
+        self.UI.Values[options.id] = options.Default or {}
+    end
     local z = options.zIndex or 4
-    self.UI.Values[options.id] = options.Default or {}
     local multidropdown = { id = options.id, type = "Multidropdown", Name = options.Name, Options = options.Options, IsOpen = false, Size = {width = 120, height = 25}, Callback = options.Callback, Label = self:_CreateDrawingObject("Text"), Button = self:_CreateDrawingObject("Square"), ButtonText = self:_CreateDrawingObject("Text"), OptionList = {}, OptionBackground = self:_CreateDrawingObject("Square"), ArrowLine1 = self:_CreateDrawingObject("Line"), ArrowLine2 = self:_CreateDrawingObject("Line"), ClickRegion = {}, BorderLeft = self:_CreateDrawingObject("Line"), BorderRight = self:_CreateDrawingObject("Line"), BorderBottom = self:_CreateDrawingObject("Line"), Glow = self:_Internal_CreateGlowSet(z + 8) }
     if multidropdown.Label then multidropdown.Label.Font = self.ActiveTheme.Fonts.Main; multidropdown.Label.Size = self.ActiveTheme.Fonts.Size + 2; multidropdown.Label.Text = multidropdown.Name; multidropdown.Label.Center = false; multidropdown.Label.Outline = false; multidropdown.Label.zIndex = z; end
     if multidropdown.Button then multidropdown.Button.Filled = true; multidropdown.Button.zIndex = z; multidropdown.Button.Rounding = self.ActiveTheme.Rounding.Element; end
@@ -2268,8 +2289,10 @@ function Library:_Internal_CreateMultidropdown(options)
 end
 
 function Library:_Internal_CreateKeybind(options)
+    if self.UI.Values[options.id] == nil then
+        self.UI.Values[options.id] = options.Default or "none"
+    end
     local z = options.zIndex or 4
-    self.UI.Values[options.id] = options.Default or "none"
     local keybind = { id = options.id, type = "Keybind", Name = options.Name, Size = {width = 50, height = 25}, Callback = options.Callback, Button = self:_CreateDrawingObject("Square"), ButtonText = self:_CreateDrawingObject("Text"), IsListening = false, ClickRegion = {} }
     if keybind.Button then keybind.Button.Filled = false; keybind.Button.Thickness = 1; keybind.Button.zIndex = z; keybind.Button.Rounding = self.ActiveTheme.Rounding.Element; end
     if keybind.ButtonText then keybind.ButtonText.Font = self.ActiveTheme.Fonts.Main; keybind.ButtonText.Size = self.ActiveTheme.Fonts.Size; keybind.ButtonText.Text = self.UI.Values[keybind.id]; keybind.ButtonText.Center = false; keybind.ButtonText.Outline = false; keybind.ButtonText.zIndex = z + 1; end
