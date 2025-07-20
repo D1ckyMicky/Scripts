@@ -1328,7 +1328,12 @@ end
 
 function Library:_RenderLoop()
     if not self.Window.Visible then return end
-    
+
+    if self.UI.Core.ConfigsTab.NeedsRefresh then
+        self:_RefreshConfigList()
+        self.UI.Core.ConfigsTab.NeedsRefresh = false
+    end
+
     local mouse_pos = getmouseposition()
     if not mouse_pos then return end
 
@@ -1338,66 +1343,56 @@ function Library:_RenderLoop()
     local sidebarWidth, headerHeight = self:_SafeNumber(self.Window.SidebarWidth, 0), self:_SafeNumber(self.Window.HeaderHeight, 0)
     local rightPanelX = windowX + sidebarWidth - self.Window.PanelOverlap
 
-    -- 1. Отрисовка панелей и заголовка (проверено)
-    if Core.Sidebar.Drawing then
-        self:_SetVisibility(Core.Sidebar.Drawing, true)
-        Core.Sidebar.Drawing.Position = {windowX, windowY}
-        Core.Sidebar.Drawing.Size = {sidebarWidth, self.Window.Height}
-        self:_AnimateAndApplyColor(Core.Sidebar.Drawing, theme.Colors.SidebarBackground)
-    end
-    if Core.RightPanel.Drawing then
-        self:_SetVisibility(Core.RightPanel.Drawing, true)
-        Core.RightPanel.Drawing.Position = {rightPanelX, windowY}
-        Core.RightPanel.Drawing.Size = {self.Window.Width - sidebarWidth + self.Window.PanelOverlap, self.Window.Height}
-        self:_AnimateAndApplyColor(Core.RightPanel.Drawing, theme.Colors.MainBackground)
-    end
-    if Core.Title then
-        self:_SetVisibility(Core.Title, true)
-        Core.Title.Position = {windowX + 11, windowY + 25}
-        self:_AnimateAndApplyColor(Core.Title, theme.Colors.TextLight)
-    end
+    -- Устанавливаем видимость
+    self:_SetVisibility(Core.Sidebar.Drawing, true); self:_SetVisibility(Core.RightPanel.Drawing, true); self:_SetVisibility(Core.VerticalSeparator, true); self:_SetVisibility(Core.SidebarHeaderSeparator, true); self:_SetVisibility(Core.RightPanelHeaderSeparator, true); self:_SetVisibility(Core.Title, true); self:_SetVisibility(Core.SidebarBottomCircle, true); if Core.SidebarAvatar then self:_SetVisibility(Core.SidebarAvatar, true) end; self:_SetVisibility(Core.PlayerDisplayName, true); self:_SetVisibility(Core.TillLabel, true); self:_SetVisibility(Core.ForeverLabel, true)
+    
+    local isThemeLight = self:_IsThemeLight(theme)
+    self:_SetVisibility(Core.Title2, not isThemeLight); self:_SetVisibility(Core.Title3, not isThemeLight)
 
-    -- 2. Отрисовка разделителей (нужны для кнопок)
-    if Core.VerticalSeparator then
-        Core.VerticalSeparator.Position = {rightPanelX, windowY}; Core.VerticalSeparator.Size = {4, self.Window.Height};
-        self:_AnimateAndApplyColor(Core.VerticalSeparator, theme.Colors.Separator)
+    -- Анимируем цвета основных элементов
+    self:_AnimateAndApplyColor(Core.Sidebar.Drawing, theme.Colors.SidebarBackground)
+    self:_AnimateAndApplyColor(Core.RightPanel.Drawing, theme.Colors.MainBackground)
+    self:_AnimateAndApplyColor(Core.VerticalSeparator, theme.Colors.Separator)
+    self:_AnimateAndApplyColor(Core.SidebarHeaderSeparator, theme.Colors.Separator)
+    self:_AnimateAndApplyColor(Core.RightPanelHeaderSeparator, theme.Colors.Separator)
+    self:_AnimateAndApplyColor(Core.Title, theme.Colors.TextLight)
+    if not isThemeLight then
+        self:_AnimateAndApplyColor(Core.Title2, theme.Colors.Accent)
+        self:_AnimateAndApplyColor(Core.Title3, self:_DarkenColor(theme.Colors.Accent, 0.3))
     end
-    if Core.SidebarHeaderSeparator then
-        Core.SidebarHeaderSeparator.Position = {windowX, windowY + self.Window.Height - 100 + 14}; Core.SidebarHeaderSeparator.Size = {sidebarWidth, 4};
-        self:_AnimateAndApplyColor(Core.SidebarHeaderSeparator, theme.Colors.Separator)
-    end
-    if Core.RightPanelHeaderSeparator then
-        Core.RightPanelHeaderSeparator.Position = {rightPanelX, windowY + headerHeight}; Core.RightPanelHeaderSeparator.Size = {self.Window.Width - sidebarWidth + self.Window.PanelOverlap, 4};
-        self:_AnimateAndApplyColor(Core.RightPanelHeaderSeparator, theme.Colors.Separator)
-    end
+    self:_AnimateAndApplyColor(Core.SidebarBottomCircle, theme.Colors.Separator)
+    self:_AnimateAndApplyColor(Core.PlayerDisplayName, theme.Colors.TextDark)
+    self:_AnimateAndApplyColor(Core.TillLabel, theme.Colors.TextDark)
+    self:_AnimateAndApplyColor(Core.ForeverLabel, theme.Colors.Accent)
+    
+    -- Устанавливаем позиции
+    if Core.Sidebar.Drawing then Core.Sidebar.Drawing.Position = {windowX, windowY}; Core.Sidebar.Drawing.Size = {sidebarWidth, self.Window.Height}; end
+    if Core.RightPanel.Drawing then Core.RightPanel.Drawing.Position = {rightPanelX, windowY}; Core.RightPanel.Drawing.Size = {self.Window.Width - sidebarWidth + self.Window.PanelOverlap, self.Window.Height}; end
+    
+    self:_RenderGlowEffect(Core.Sidebar.Glow, windowX, windowY, sidebarWidth, self.Window.Height, theme.Colors.GlowColor, {top=true, bottom=true, left=true, right=false})
+    self:_RenderGlowEffect(Core.RightPanel.Glow, rightPanelX, windowY, self.Window.Width - sidebarWidth + self.Window.PanelOverlap, self.Window.Height, theme.Colors.GlowColor, {top=true, bottom=true, left=false, right=true})
 
-    -- 3. Отрисовка информации об игроке (проверено)
-    if Core.SidebarBottomCircle then
-        self:_SetVisibility(Core.SidebarBottomCircle, true)
-        local circleX = windowX + 8 + Core.SidebarBottomCircle.Radius; local circleY = windowY + self.Window.Height - 44
-        Core.SidebarBottomCircle.Position = {circleX, circleY}
-        self:_AnimateAndApplyColor(Core.SidebarBottomCircle, theme.Colors.Separator)
-    end
-    if Core.SidebarAvatar then
-        self:_SetVisibility(Core.SidebarAvatar, true)
-        local avatarSize = 56; local avatarX = windowX + 8; local avatarY = windowY + self.Window.Height - 44 - avatarSize / 2
-        Core.SidebarAvatar.Position = {avatarX, avatarY}; Core.SidebarAvatar.Size = {avatarSize, avatarSize}
-    end
+    if Core.VerticalSeparator then Core.VerticalSeparator.Position = {rightPanelX, windowY}; Core.VerticalSeparator.Size = {4, self.Window.Height}; end
+    if Core.SidebarHeaderSeparator then Core.SidebarHeaderSeparator.Position = {windowX, windowY + self.Window.Height - 100 + 14}; Core.SidebarHeaderSeparator.Size = {sidebarWidth, 4}; end
+    if Core.RightPanelHeaderSeparator then Core.RightPanelHeaderSeparator.Position = {rightPanelX, windowY + headerHeight}; Core.RightPanelHeaderSeparator.Size = {self.Window.Width - sidebarWidth + self.Window.PanelOverlap, 4}; end
+    if Core.Title then Core.Title.Position = {windowX + 11, windowY + 25}; end
+    if Core.Title2 then Core.Title2.Position = {windowX + 9, windowY + 26}; end
+    if Core.Title3 then Core.Title3.Position = {windowX + 7, windowY + 24}; end
+    if Core.SidebarBottomCircle then local circleX = windowX + 8 + Core.SidebarBottomCircle.Radius; local circleY = windowY + self.Window.Height - 44; Core.SidebarBottomCircle.Position = {circleX, circleY}; end
+    if Core.SidebarAvatar then local avatarSize = 56; local avatarX = windowX + 8; local avatarY = windowY + self.Window.Height - 44 - avatarSize / 2; Core.SidebarAvatar.Position = {avatarX, avatarY}; Core.SidebarAvatar.Size = {avatarSize, avatarSize}; end
+    
     if Core.PlayerDisplayName and Core.TillLabel and Core.ForeverLabel and Core.SidebarBottomCircle then
-        self:_SetVisibility(Core.PlayerDisplayName, true); self:_SetVisibility(Core.TillLabel, true); self:_SetVisibility(Core.ForeverLabel, true)
         local textX = windowX + 15 + Core.SidebarBottomCircle.Radius * 2 + 5
         Core.PlayerDisplayName.Position = {textX, windowY + self.Window.Height - 56}
         Core.TillLabel.Position = {textX, windowY + self.Window.Height - 40}
+        
         if Core.TillLabel.TextBounds and Core.TillLabel.TextBounds.x then
             Core.ForeverLabel.Position = {textX + Core.TillLabel.TextBounds.x, windowY + self.Window.Height - 40}
         else
             Core.ForeverLabel.Position = {textX + 30, windowY + self.Window.Height - 40}
         end
-        self:_AnimateAndApplyColor(Core.PlayerDisplayName, theme.Colors.TextDark); self:_AnimateAndApplyColor(Core.TillLabel, theme.Colors.TextDark); self:_AnimateAndApplyColor(Core.ForeverLabel, theme.Colors.Accent)
     end
 
-    -- ================== [ ВОЗВРАЩАЕМ БЛОК #2 ] ==================
-    -- 4. Отрисовка кнопок в шапке
     do
         local startX, startY = rightPanelX + 35, windowY + (headerHeight / 2)
         local function renderHeaderButton(button, x, y, width, height, has_icon, is_accent)
@@ -1443,7 +1438,6 @@ function Library:_RenderLoop()
         renderHeaderButton(Core.HeaderButtons.ViewESP, currentX, btnY, btnWidth, btnHeight, false, false)
         currentX = currentX + btnWidth + spacing
 
-        -- Кнопка "Create new" не будет рендериться, так как ActiveTab еще не установлен
         if self.Window.ActiveTab == "Configs" then
             renderHeaderButton(Core.HeaderButtons.CreateNew, currentX, btnY, createNewBtnWidth, btnHeight, true, true)
         else
@@ -1460,7 +1454,53 @@ function Library:_RenderLoop()
             self:_AnimateAndApplyColor(settingsIcon, theme.Colors.TextDark)
         end
     end
-    -- ==========================================================
+
+    self:_SetVisibility(Core.ViewESPPanel, Core.HeaderButtons.ViewESP.IsOpen); self:_SetVisibility(Core.ViewESPPanelBorder, Core.HeaderButtons.ViewESP.IsOpen)
+    if Core.HeaderButtons.ViewESP.IsOpen then 
+        self:_AnimateAndApplyColor(Core.ViewESPPanel, theme.Colors.MainBackground)
+        self:_AnimateAndApplyColor(Core.ViewESPPanelBorder, theme.Colors.Separator)
+        local panelX = windowX + self.Window.Width + 11; 
+        Core.ViewESPPanel.Position = {panelX, windowY}; Core.ViewESPPanel.Size = {200, 310}; 
+        Core.ViewESPPanelBorder.Position = {panelX, windowY}; Core.ViewESPPanelBorder.Size = {200, 310}; 
+        if Core.ViewESPImage then self:_SetVisibility(Core.ViewESPImage, true); local imageX, imageY = panelX + 3, windowY + 3; Core.ViewESPImage.Position = {imageX, imageY}; Core.ViewESPImage.Size = {194, 304}; end
+    elseif Core.ViewESPImage then self:_SetVisibility(Core.ViewESPImage, false) end
+
+    self:_RenderTabs(windowX, windowY + headerHeight, sidebarWidth)
+    
+    if self.Window.ActiveTab == "Configs" then
+        self:_RenderConfigsTab(rightPanelX, windowY, headerHeight)
+        for _, section in ipairs(self.UI.Sections) do
+            for _, obj in pairs(section.Drawing) do self:_SetVisibility(obj, false) end
+            for _, el in ipairs(section.Elements) do 
+                for _, obj in pairs(el) do if type(obj) == 'table' and obj.Visible ~= nil then self:_SetVisibility(obj, false) end end 
+                if el.OptionList then for _, opt in ipairs(el.OptionList) do self:_SetVisibility(opt, false) end end
+                if el.Glow then self:_HideGlowEffect(el.Glow) end
+            end
+        end
+    else
+        self:_RenderSections(rightPanelX, windowY, headerHeight)
+        local configsTab = self.UI.Core.ConfigsTab
+        self:_SetVisibility(configsTab.MyItemsLabel, false)
+        self:_SetVisibility(configsTab.Scrollbar.Background, false)
+        self:_SetVisibility(configsTab.Scrollbar.Nub, false)
+        for _, item in ipairs(configsTab.Items) do
+            for _, obj in pairs(item.Drawing) do
+                 if type(obj) == 'table' then
+                     for _, sub_obj in pairs(obj) do if type(sub_obj) == 'table' and sub_obj.Visible ~= nil then self:_SetVisibility(sub_obj, false) end end
+                     if obj.Visible ~= nil then self:_SetVisibility(obj, false) end
+                 end
+            end
+        end
+        local popup = configsTab.OptionsPopup
+        if popup.IsOpen then popup.IsOpen = false end
+    end
+    
+    self:_RenderSaveTooltip()
+    self:_RenderConfigOptionsPopup()
+    self:_RenderPlayerESPSettingsPopup()
+    self:_RenderAboutWindow(mouse_pos)
+    self:_RenderEditStyleWindow()
+    self:_RenderColorPickerWindow()
 end
 
 function Library:_RenderTabs(x, y, width)
@@ -2259,7 +2299,7 @@ end
 
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started in DEBUG MODE 1.")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started in DEBUG MODE. 2")
     local is_first_frame = true
     while self.Window.Visible do
         if is_first_frame then
