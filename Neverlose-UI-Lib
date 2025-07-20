@@ -1358,7 +1358,7 @@ function Library:_RenderLoop()
     self:_AnimateAndApplyColor(Core.Title, theme.Colors.TextLight)
     if not isThemeLight then
         self:_AnimateAndApplyColor(Core.Title2, theme.Colors.Accent)
-        self:_AnimateAndApplyColor(Core.Title3, theme:_DarkenColor(theme.Colors.Accent, 0.3))
+        self:_AnimateAndApplyColor(Core.Title3, self:_DarkenColor(theme.Colors.Accent, 0.3))
     end
     self:_AnimateAndApplyColor(Core.SidebarBottomCircle, theme.Colors.Separator)
     self:_AnimateAndApplyColor(Core.PlayerDisplayName, theme.Colors.TextDark)
@@ -1369,7 +1369,6 @@ function Library:_RenderLoop()
     if Core.Sidebar.Drawing then Core.Sidebar.Drawing.Position = {windowX, windowY}; Core.Sidebar.Drawing.Size = {sidebarWidth, self.Window.Height}; end
     if Core.RightPanel.Drawing then Core.RightPanel.Drawing.Position = {rightPanelX, windowY}; Core.RightPanel.Drawing.Size = {self.Window.Width - sidebarWidth + self.Window.PanelOverlap, self.Window.Height}; end
     
-    -- Исправленный вызов RenderGlowEffect
     self:_RenderGlowEffect(Core.Sidebar.Glow, windowX, windowY, sidebarWidth, self.Window.Height, theme.Colors.GlowColor, {top=true, bottom=true, left=true, right=false})
     self:_RenderGlowEffect(Core.RightPanel.Glow, rightPanelX, windowY, self.Window.Width - sidebarWidth + self.Window.PanelOverlap, self.Window.Height, theme.Colors.GlowColor, {top=true, bottom=true, left=false, right=true})
 
@@ -1381,14 +1380,22 @@ function Library:_RenderLoop()
     if Core.Title3 then Core.Title3.Position = {windowX + 7, windowY + 24}; end
     if Core.SidebarBottomCircle then local circleX = windowX + 8 + Core.SidebarBottomCircle.Radius; local circleY = windowY + self.Window.Height - 44; Core.SidebarBottomCircle.Position = {circleX, circleY}; end
     if Core.SidebarAvatar then local avatarSize = 56; local avatarX = windowX + 8; local avatarY = windowY + self.Window.Height - 44 - avatarSize / 2; Core.SidebarAvatar.Position = {avatarX, avatarY}; Core.SidebarAvatar.Size = {avatarSize, avatarSize}; end
+    
+    -- ================== [ НАЧАЛО ИСПРАВЛЕНИЯ ] ==================
     if Core.PlayerDisplayName and Core.TillLabel and Core.ForeverLabel then
-        local textX = windowX + 15 + Core.SidebarBottomCircle.Radius * 2 + 5; 
-        Core.PlayerDisplayName.Position = {textX, windowY + self.Window.Height - 56};
-        Core.TillLabel.Position = {textX, windowY + self.Window.Height - 40};
-        if Core.TillLabel.TextBounds then
-             Core.ForeverLabel.Position = {textX + Core.TillLabel.TextBounds.x, windowY + self.Window.Height - 40};
+        local textX = windowX + 15 + Core.SidebarBottomCircle.Radius * 2 + 5
+        Core.PlayerDisplayName.Position = {textX, windowY + self.Window.Height - 56}
+        Core.TillLabel.Position = {textX, windowY + self.Window.Height - 40}
+        
+        -- Проверяем, что TextBounds существует, прежде чем его использовать
+        if Core.TillLabel.TextBounds and Core.TillLabel.TextBounds.x then
+            Core.ForeverLabel.Position = {textX + Core.TillLabel.TextBounds.x, windowY + self.Window.Height - 40}
+        else
+            -- Временное положение, пока TextBounds не рассчитан
+            Core.ForeverLabel.Position = {textX + 30, windowY + self.Window.Height - 40}
         end
     end
+    -- =================== [ КОНЕЦ ИСПРАВЛЕНИЯ ] ===================
 
     do
         local startX, startY = rightPanelX + 35, windowY + (headerHeight / 2)
@@ -1396,7 +1403,6 @@ function Library:_RenderLoop()
             self:_SetVisibility(button.Background, true); self:_SetVisibility(button.Border, true); self:_SetVisibility(button.Label, true); 
             if button.Icon then self:_SetVisibility(button.Icon, button.Icon.Visible) end
             
-            -- Анимация кнопок
             local isThemeLight = self:_IsThemeLight(theme)
             local accentButtonTextColor = isThemeLight and {10, 10, 10, 255} or {234, 239, 245, 255}
             
@@ -1409,7 +1415,6 @@ function Library:_RenderLoop()
                 if button.Icon then self:_AnimateAndApplyColor(button.Icon, theme.Colors.TextDark) end
             end
 
-            -- Логика для кнопки Save с hover-эффектом
             if button == Core.HeaderButtons.Save then
                 local targetColor = button.IsHovered and theme.Colors.Accent or theme.Colors.MainBackground
                 button.CurrentColor = self:_LerpColor(button.CurrentColor, targetColor, 0.15)
