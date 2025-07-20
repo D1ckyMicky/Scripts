@@ -932,6 +932,7 @@ function Library:_RenderAboutWindow(mouse_pos)
     local isVisible = self.UI.Popups.About.IsOpen
     local theme = self.ActiveTheme
     
+    -- Эта внутренняя функция остается без изменений
     local function setAboutVisibility(tbl, visible)
         for key, obj in pairs(tbl) do
             if type(obj) == 'table' then
@@ -952,7 +953,8 @@ function Library:_RenderAboutWindow(mouse_pos)
     self:_SetVisibility(about.Tooltip.Text, false)
 
     for _, circle in ipairs(about.StyleCircles) do
-        self:_SetVisibility(circle.Circle, isVisible); self:_SetVisibility(circle.Border, isVisible and self.UI.Values.AboutSelectedStyle == circle.Name);
+        self:_SetVisibility(circle.Circle, isVisible); 
+        self:_SetVisibility(circle.Border, isVisible and self.UI.Values.AboutSelectedStyle == circle.Name);
         if circle.Inner then self:_SetVisibility(circle.Inner, isVisible) end
         if circle.PlusLine1 then self:_SetVisibility(circle.PlusLine1, isVisible); self:_SetVisibility(circle.PlusLine2, isVisible) end
     end
@@ -969,6 +971,7 @@ function Library:_RenderAboutWindow(mouse_pos)
         return
     end
 
+    -- Добавляем анимацию цветов для всех элементов окна
     self:_AnimateAndApplyColor(about.Background, theme.Colors.SectionBackground)
     self:_AnimateAndApplyColor(about.Border, theme.Colors.Separator)
     self:_AnimateAndApplyColor(about.HeaderIcon, theme.Colors.TextDark)
@@ -998,6 +1001,7 @@ function Library:_RenderAboutWindow(mouse_pos)
     local slider = about.AnimationSpeedSlider; self:_AnimateAndApplyColor(slider.Label, theme.Colors.TextDark); self:_AnimateAndApplyColor(slider.LeftFill, theme.Colors.Accent); self:_AnimateAndApplyColor(slider.RightFill, theme.Colors.DarkBlue); self:_AnimateAndApplyColor(slider.Nub, theme.Colors.Accent); self:_AnimateAndApplyColor(slider.ValueText, theme.Colors.TextLight);
     local dd = about.DpiScaleDropdown; self:_AnimateAndApplyColor(dd.Label, theme.Colors.TextDark); self:_AnimateAndApplyColor(dd.Button, theme.Colors.DarkBlue); self:_AnimateAndApplyColor(dd.ButtonText, theme.Colors.TextLight); self:_AnimateAndApplyColor(dd.ArrowLine1, theme.Colors.TextLight); self:_AnimateAndApplyColor(dd.ArrowLine2, theme.Colors.TextLight); self:_AnimateAndApplyColor(dd.OptionBackground, theme.Colors.SectionBackground); self:_AnimateAndApplyColor(dd.BorderLeft, theme.Colors.Separator); self:_AnimateAndApplyColor(dd.BorderRight, theme.Colors.Separator); self:_AnimateAndApplyColor(dd.BorderBottom, theme.Colors.Separator);
 
+    -- Позиционирование (без изменений)
     local winW, winH = 360, 500
     local winX, winY = self.Window.X + (self.Window.Width / 2) - (winW / 2), self.Window.Y + (self.Window.Height / 2) - (winH / 2)
     about.ClickRegion = {x1 = winX, y1 = winY, x2 = winX + winW, y2 = winY + winH}
@@ -1081,36 +1085,51 @@ end
 function Library:_RenderPlayerESPSettingsPopup()
     local popup = self.UI.Popups.PlayerESP
     local isVisible = popup.IsOpen
+    local theme = self.ActiveTheme
 
     self:_SetVisibility(popup.Background, isVisible); self:_SetVisibility(popup.Border, isVisible); self:_SetVisibility(popup.Title, isVisible); self:_SetVisibility(popup.Separator, isVisible); self:_SetVisibility(popup.BindLabel, isVisible); self:_SetVisibility(popup.Keybind.Button, isVisible); self:_SetVisibility(popup.Keybind.ButtonText, isVisible);
 
-    if isVisible then
-        local pX, pY = popup.Pos.x, popup.Pos.y
-        local pW = 250
-        local currentY = pY + 8
-        if popup.Title then popup.Title.Position = {pX + 10, currentY}; end
-        currentY = currentY + popup.Title.Size + 5
-        local separatorY = currentY
-        if popup.Separator then popup.Separator.From = {pX + 10, separatorY}; popup.Separator.To = {pX + pW - 10, separatorY}; end
-        currentY = currentY + 15
-        local elementY = currentY
-        if popup.BindLabel then popup.BindLabel.Position = {pX + 10, elementY}; end
-        local keybind = popup.Keybind
-        local bindButtonX = pX + pW - keybind.Size.width - 15
-        local bindButtonY = elementY - 5
-        if keybind.Button then keybind.Button.Position = {bindButtonX, bindButtonY}; keybind.Button.Size = {keybind.Size.width, keybind.Size.height}; end
-        if keybind.ButtonText then keybind.ButtonText.Position = {bindButtonX + (keybind.Size.width / 2), bindButtonY + (keybind.Size.height / 2) - (keybind.ButtonText.Size / 2)}; keybind.ButtonText.Center = true; keybind.ButtonText.Text = keybind.IsListening and "..." or self.UI.Values[keybind.id]; end
-        keybind.ClickRegion = {x1 = bindButtonX, y1 = bindButtonY, x2 = bindButtonX + keybind.Size.width, y2 = bindButtonY + keybind.Size.height}
-        currentY = currentY + 30
-        currentY = currentY + 5
-        local totalHeight = currentY - pY
-        popup.ClickRegion = {x1 = pX, y1 = pY, x2 = pX + pW, y2 = pY + totalHeight}
-        if popup.Background then popup.Background.Position = {pX, pY}; popup.Background.Size = {pW, totalHeight}; end
-        if popup.Border then popup.Border.Position = {pX, pY}; popup.Border.Size = {pW, totalHeight}; end
-        self:_RenderGlowEffect(popup.Glow, pX, pY, pW, totalHeight, popup.Background.Rounding, self.ActiveTheme.Colors.GlowColor)
-    else
-        self:_HideGlowEffect(popup.Glow)
+    if not isVisible then
+        if popup.Glow then self:_HideGlowEffect(popup.Glow) end
+        return
     end
+    
+    -- Добавляем анимацию цветов для всех элементов окна
+    self:_AnimateAndApplyColor(popup.Background, theme.Colors.SectionBackground)
+    self:_AnimateAndApplyColor(popup.Border, theme.Colors.Separator)
+    self:_AnimateAndApplyColor(popup.Title, theme.Colors.TextLight)
+    self:_AnimateAndApplyColor(popup.Separator, theme.Colors.Separator)
+    self:_AnimateAndApplyColor(popup.BindLabel, theme.Colors.TextDark)
+    self:_AnimateAndApplyColor(popup.Keybind.Button, theme.Colors.Accent)
+    
+    local isThemeLight = self:_IsThemeLight(theme)
+    local accentButtonTextColor = isThemeLight and {10, 10, 10, 255} or {234, 239, 245, 255}
+    self:_AnimateAndApplyColor(popup.Keybind.ButtonText, accentButtonTextColor)
+
+    -- Позиционирование (без изменений)
+    local pX, pY = popup.Pos.x, popup.Pos.y
+    local pW = 250
+    local currentY = pY + 8
+    if popup.Title then popup.Title.Position = {pX + 10, currentY}; end
+    currentY = currentY + popup.Title.Size + 5
+    local separatorY = currentY
+    if popup.Separator then popup.Separator.From = {pX + 10, separatorY}; popup.Separator.To = {pX + pW - 10, separatorY}; end
+    currentY = currentY + 15
+    local elementY = currentY
+    if popup.BindLabel then popup.BindLabel.Position = {pX + 10, elementY}; end
+    local keybind = popup.Keybind
+    local bindButtonX = pX + pW - keybind.Size.width - 15
+    local bindButtonY = elementY - 5
+    if keybind.Button then keybind.Button.Position = {bindButtonX, bindButtonY}; keybind.Button.Size = {keybind.Size.width, keybind.Size.height}; end
+    if keybind.ButtonText then keybind.ButtonText.Position = {bindButtonX + (keybind.Size.width / 2), bindButtonY + (keybind.Size.height / 2) - (keybind.ButtonText.Size / 2)}; keybind.ButtonText.Center = true; keybind.ButtonText.Text = keybind.IsListening and "..." or self.UI.Values[keybind.id]; end
+    keybind.ClickRegion = {x1 = bindButtonX, y1 = bindButtonY, x2 = bindButtonX + keybind.Size.width, y2 = bindButtonY + keybind.Size.height}
+    currentY = currentY + 30
+    currentY = currentY + 5
+    local totalHeight = currentY - pY
+    popup.ClickRegion = {x1 = pX, y1 = pY, x2 = pX + pW, y2 = pY + totalHeight}
+    if popup.Background then popup.Background.Position = {pX, pY}; popup.Background.Size = {pW, totalHeight}; end
+    if popup.Border then popup.Border.Position = {pX, pY}; popup.Border.Size = {pW, totalHeight}; end
+    if popup.Glow then self:_RenderGlowEffect(popup.Glow, pX, pY, pW, totalHeight, popup.Background.Rounding, theme.Colors.GlowColor) end
 end
 
 function Library:_RenderEditStyleWindow()
