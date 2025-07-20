@@ -244,7 +244,6 @@ function Library:_RenderSaveTooltip()
 end
 
 function Library:_AnimateAndApplyColor(drawingObject, targetColor)
-    -- Улучшенная проверка: убеждаемся, что и объект, и целевой цвет существуют и корректны
     if not drawingObject or type(targetColor) ~= "table" then return end
 
     local state = self.AnimationState[drawingObject]
@@ -253,19 +252,20 @@ function Library:_AnimateAndApplyColor(drawingObject, targetColor)
         self.AnimationState[drawingObject] = state
     end
 
-    local animationSpeed = 0.1
+    -- [ИЗМЕНЕНО] Скорость анимации теперь зависит от значения слайдера
+    -- Базовая скорость (0.05) умножается на значение слайдера (стандарт 1.6) = ~0.08 (похоже на прошлые 0.1)
+    local animationMultiplier = self.UI.Values["AboutAnimationSpeed"] or 1.6
+    local animationSpeed = 0.05 * animationMultiplier
 
-    -- Анимация цвета
     state.CurrentColor = self:_LerpColor(state.CurrentColor, targetColor, animationSpeed)
 
-    -- Применение цвета с дополнительной проверкой
     local color = state.CurrentColor
     if color then
         drawingObject.Color = {color[1], color[2], color[3]}
         if color[4] then
             drawingObject.Opacity = color[4] / 255
         else
-            drawingObject.Opacity = 1 -- По умолчанию делаем объект полностью непрозрачным
+            drawingObject.Opacity = 1
         end
     end
 end
@@ -712,17 +712,17 @@ function Library:_SaveConfig(name)
         ActiveThemeName = self.ActiveTheme.Name
     }
 
+    -- [ИЗМЕНЕНО] Теперь сохраняются все значения, включая настройки из окна "About"
     for id, value in pairs(self.UI.Values) do
-        if not string.find(id, "About") and id ~= "ConfigIncludeStyle" then
+        if id ~= "ConfigIncludeStyle" then
             configData.Values[id] = value
         end
     end
 
     if self.UI.Values["ConfigIncludeStyle"] then
-        print(SCRIPT_PREFIX .. "Saving custom themes...") -- Строка для отладки
+        print(SCRIPT_PREFIX .. "Saving custom themes...")
         for themeName, themeData in pairs(self.Themes) do
             if not themeData.IsPreset then
-                -- [ДОБАВЛЕНО] Печатаем в консоль каждую найденную кастомную тему
                 print(SCRIPT_PREFIX .. "Found custom theme to save: " .. themeName)
                 
                 local sanitizedTheme = {
@@ -1382,16 +1382,14 @@ function Library:_RenderLoop()
     local Core = self.UI.Core
     local theme = self.ActiveTheme
     local isThemeLight = self:_IsThemeLight(theme)
-    local accentButtonTextColor = isThemeLight and theme.Colors.TextLight or theme.Colors.TextLight -- Текст на кнопках с акцентом всегда светлый для контраста
+    local accentButtonTextColor = {234, 239, 245, 255} -- Текст на кнопках с акцентом всегда светлый для контраста
     local windowX, windowY = self:_SafeNumber(self.Window.X, 0), self:_SafeNumber(self.Window.Y, 0)
     local sidebarWidth, headerHeight = self:_SafeNumber(self.Window.SidebarWidth, 0), self:_SafeNumber(self.Window.HeaderHeight, 0)
     local rightPanelX = windowX + sidebarWidth - self.Window.PanelOverlap
 
-    -- Установка видимости
     self:_SetVisibility(Core.Sidebar.Drawing, true); self:_SetVisibility(Core.RightPanel.Drawing, true); self:_SetVisibility(Core.VerticalSeparator, true); self:_SetVisibility(Core.SidebarHeaderSeparator, true); self:_SetVisibility(Core.RightPanelHeaderSeparator, true); self:_SetVisibility(Core.Title, true); self:_SetVisibility(Core.SidebarBottomCircle, true); if Core.SidebarAvatar then self:_SetVisibility(Core.SidebarAvatar, true) end; self:_SetVisibility(Core.PlayerDisplayName, true); self:_SetVisibility(Core.TillLabel, true); self:_SetVisibility(Core.ForeverLabel, true)
     self:_SetVisibility(Core.Title2, not isThemeLight); self:_SetVisibility(Core.Title3, not isThemeLight)
 
-    -- Анимация цветов основных элементов
     self:_AnimateAndApplyColor(Core.Sidebar.Drawing, theme.Colors.SidebarBackground)
     self:_AnimateAndApplyColor(Core.RightPanel.Drawing, theme.Colors.MainBackground)
     self:_AnimateAndApplyColor(Core.VerticalSeparator, theme.Colors.Separator)
@@ -1400,19 +1398,17 @@ function Library:_RenderLoop()
     self:_AnimateAndApplyColor(Core.Title, theme.Colors.TextLight)
     self:_AnimateAndApplyColor(Core.Title2, theme.Colors.GlowAccent)
     self:_AnimateAndApplyColor(Core.Title3, theme.Colors.Accent)
-    self:_AnimateAndApplyColor(Core.SidebarBottomCircle, theme.Colors.Accent)
     self:_AnimateAndApplyColor(Core.PlayerDisplayName, theme.Colors.TextLight)
     self:_AnimateAndApplyColor(Core.TillLabel, theme.Colors.TextDark)
     self:_AnimateAndApplyColor(Core.ForeverLabel, theme.Colors.Accent)
-    if Core.SidebarAvatar then self:_AnimateAndApplyColor(Core.SidebarAvatar, {255, 255, 255, 255}) end -- Аватар всегда без цветокоррекции
+    if Core.SidebarAvatar then self:_AnimateAndApplyColor(Core.SidebarAvatar, {255, 255, 255, 255}) end
+    -- [ИЗМЕНЕНО] Цвет обводки аватара теперь Separator
+    self:_AnimateAndApplyColor(Core.SidebarBottomCircle, theme.Colors.Separator) 
 
-    -- Позиционирование (без изменений)
     if Core.Sidebar.Drawing then Core.Sidebar.Drawing.Position = {windowX, windowY}; Core.Sidebar.Drawing.Size = {sidebarWidth, self.Window.Height}; end
     if Core.RightPanel.Drawing then Core.RightPanel.Drawing.Position = {rightPanelX, windowY}; Core.RightPanel.Drawing.Size = {self.Window.Width - sidebarWidth + self.Window.PanelOverlap, self.Window.Height}; end
-    
     self:_RenderGlowEffect(Core.Sidebar.Glow, windowX, windowY, sidebarWidth, self.Window.Height, Core.Sidebar.Drawing.Rounding, theme.Colors.GlowColor, {top=true, bottom=true, left=true, right=false})
     self:_RenderGlowEffect(Core.RightPanel.Glow, rightPanelX, windowY, self.Window.Width - sidebarWidth + self.Window.PanelOverlap, self.Window.Height, Core.RightPanel.Drawing.Rounding, theme.Colors.GlowColor, {top=true, bottom=true, left=false, right=true})
-
     if Core.VerticalSeparator then Core.VerticalSeparator.Position = {rightPanelX, windowY}; Core.VerticalSeparator.Size = {4, self.Window.Height}; end
     if Core.SidebarHeaderSeparator then Core.SidebarHeaderSeparator.Position = {windowX, windowY + self.Window.Height - 100 + 14}; Core.SidebarHeaderSeparator.Size = {sidebarWidth, 4}; end
     if Core.RightPanelHeaderSeparator then Core.RightPanelHeaderSeparator.Position = {rightPanelX, windowY + headerHeight}; Core.RightPanelHeaderSeparator.Size = {self.Window.Width - sidebarWidth + self.Window.PanelOverlap, 4}; end
@@ -1433,15 +1429,23 @@ function Library:_RenderLoop()
              button.Background.Position = {x, y}; button.Background.Size = {width, height}; 
              button.Border.Position = {x, y}; button.Border.Size = {width, height}; 
              
-             -- Анимация цвета фона и обводки
              local isHovered = self:_IsPointInRegion(mouse_pos.x, mouse_pos.y, button.ClickRegion)
-             local targetBgColor = isHovered and self:_DarkenColor(theme.Colors.Accent, 0.5) or (is_accent and theme.Colors.Accent or theme.Colors.MainBackground)
+             local targetBgColor, targetTextColor
+             
+             if is_accent then
+                 local color = self:_DeepCopy(theme.Colors.Accent)
+                 color[4] = isHovered and 255 or 128 -- 100% opacity on hover, 50% otherwise
+                 targetBgColor = color
+                 targetTextColor = accentButtonTextColor
+             else
+                 targetBgColor = isHovered and theme.Colors.Accent or theme.Colors.MainBackground
+                 targetTextColor = theme.Colors.TextLight
+             end
+             
              local targetBorderColor = (tick() - (button.ClickTime or 0) < 0.1 or (button.IsOpen)) and theme.Colors.Accent or theme.Colors.Separator
+             
              self:_AnimateAndApplyColor(button.Background, targetBgColor)
              self:_AnimateAndApplyColor(button.Border, targetBorderColor)
-             
-             -- Анимация цвета текста и иконки
-             local targetTextColor = is_accent and accentButtonTextColor or theme.Colors.TextLight
              self:_AnimateAndApplyColor(button.Label, targetTextColor)
              if button.Icon then self:_AnimateAndApplyColor(button.Icon, targetTextColor) end
 
@@ -1513,6 +1517,9 @@ function Library:_RenderLoop()
         local popup = configsTab.OptionsPopup
         if popup.IsOpen then popup.IsOpen = false end
     end
+    
+    -- [ИЗМЕНЕНО] Обновляем состояние IsHovered для кнопки Save, чтобы тултип работал
+    Core.HeaderButtons.Save.IsHovered = self:_IsPointInRegion(mouse_pos.x, mouse_pos.y, Core.HeaderButtons.Save.ClickRegion)
     
     self:_RenderSaveTooltip()
     self:_RenderConfigOptionsPopup()
