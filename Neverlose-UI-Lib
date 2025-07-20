@@ -732,6 +732,21 @@ function Library:_InitializeConfigsTab()
     if configs.OptionsPopup.Border then configs.OptionsPopup.Border.Filled = false; configs.OptionsPopup.Border.Thickness = 1; configs.OptionsPopup.Border.zIndex = z + 12; configs.OptionsPopup.Border.Rounding = self.ActiveTheme.Rounding.Section; end
 end
 
+-- Вставьте эту новую функцию в раздел PRIVATE: CONFIG SYSTEM
+function Library:_CreateNewConfig()
+    local baseName = "New config"
+    local newName = baseName
+    local i = 1
+    
+    while checkfile(self:_GetConfigPath(newName)) do
+        newName = baseName .. " (" .. i .. ")"
+        i = i + 1
+    end
+    
+    print(SCRIPT_PREFIX .. "Creating new config: " .. newName)
+    self:_SaveConfig(newName)
+end
+
 function Library:_RefreshConfigList()
     local configs = self.UI.Core.ConfigsTab
     
@@ -857,7 +872,6 @@ function Library:_ApplyTheme()
         applyColor(group.Header, self.ActiveTheme.Colors.TabHeader)
     end
     
-    -- [ИЗМЕНЕНО] Применяем стили к кнопкам в шапке более гранулярно
     local default_buttons = { Core.HeaderButtons.Save, Core.HeaderButtons.ViewESP }
     for _, btn in ipairs(default_buttons) do
         applyColor(btn.Background, self.ActiveTheme.Colors.MainBackground)
@@ -958,6 +972,10 @@ function Library:_ApplyTheme()
             applyColor(d.OptionsButton.Dot1, self.ActiveTheme.Colors.TextDark)
             applyColor(d.OptionsButton.Dot2, self.ActiveTheme.Colors.TextDark)
             applyColor(d.OptionsButton.Dot3, self.ActiveTheme.Colors.TextDark)
+            
+            -- [ИЗМЕНЕНО] Усиленная установка стилей для кнопок
+            if d.SaveButton.Background then d.SaveButton.Background.Filled = true end
+            if d.LoadButton.Background then d.LoadButton.Background.Filled = true end
             
             applyColor(d.SaveButton.Background, self.ActiveTheme.Colors.SectionBackground)
             applyColor(d.SaveButton.Border, self.ActiveTheme.Colors.Accent)
@@ -1426,7 +1444,6 @@ function Library:_RenderLoop()
     if Core.TillLabel then local textX = windowX + 15 + Core.SidebarBottomCircle.Radius * 2 + 5; local textY = windowY + self.Window.Height - 40; Core.TillLabel.Position = {textX, textY}; end
     if Core.ForeverLabel then local textX = windowX + 8 + Core.SidebarBottomCircle.Radius * 2 + 30; local textY = windowY + self.Window.Height - 40; Core.ForeverLabel.Position = {textX, textY}; end
 
-    -- ## HEADER BUTTON RENDERING LOGIC ##
     do
         local startX, startY = rightPanelX + 35, windowY + (headerHeight / 2)
         local function renderHeaderButton(button, x, y, width, height, has_icon)
@@ -1441,20 +1458,24 @@ function Library:_RenderLoop()
         local btnWidth, btnHeight, spacing = 75, 30, 15
         local createNewBtnWidth = 120
         local btnY = startY - (btnHeight / 2)
-        local settingsIcon = Core.HeaderButtons.Settings.Icon
-        local settingsX = rightPanelX + (self.Window.Width - sidebarWidth + self.Window.PanelOverlap) - settingsIcon.Size.x - 20 - 30
-        local settingsY = startY - (settingsIcon.Size.y / 2)
-
+        
+        -- [ИЗМЕНЕНО] Рендерим ВСЕ кнопки, но управляем их видимостью
+        local currentX = startX
         if self.Window.ActiveTab == "Configs" then
-            renderHeaderButton(Core.HeaderButtons.CreateNew, startX, btnY, createNewBtnWidth, btnHeight, true)
-            self:_SetVisibility(Core.HeaderButtons.Save.Background, false); self:_SetVisibility(Core.HeaderButtons.Save.Border, false); self:_SetVisibility(Core.HeaderButtons.Save.Label, false); self:_SetVisibility(Core.HeaderButtons.Save.Icon, false);
-            self:_SetVisibility(Core.HeaderButtons.ViewESP.Background, false); self:_SetVisibility(Core.HeaderButtons.ViewESP.Border, false); self:_SetVisibility(Core.HeaderButtons.ViewESP.Label, false);
+            renderHeaderButton(Core.HeaderButtons.CreateNew, currentX, btnY, createNewBtnWidth, btnHeight, true)
+            currentX = currentX + createNewBtnWidth + spacing
         else
-            renderHeaderButton(Core.HeaderButtons.Save, startX, btnY, btnWidth, btnHeight, true)
-            renderHeaderButton(Core.HeaderButtons.ViewESP, startX + btnWidth + spacing, btnY, btnWidth, btnHeight, false)
             self:_SetVisibility(Core.HeaderButtons.CreateNew.Background, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Border, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Label, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Icon, false);
         end
         
+        renderHeaderButton(Core.HeaderButtons.Save, currentX, btnY, btnWidth, btnHeight, true)
+        currentX = currentX + btnWidth + spacing
+        
+        renderHeaderButton(Core.HeaderButtons.ViewESP, currentX, btnY, btnWidth, btnHeight, false)
+
+        local settingsIcon = Core.HeaderButtons.Settings.Icon
+        local settingsX = rightPanelX + (self.Window.Width - sidebarWidth + self.Window.PanelOverlap) - settingsIcon.Size.x - 20 - 30
+        local settingsY = startY - (settingsIcon.Size.y / 2)
         self:_SetVisibility(settingsIcon, true); settingsIcon.Position = {settingsX, settingsY}; Core.HeaderButtons.Settings.ClickRegion = {x1 = settingsX, y1 = settingsY, x2 = settingsX + settingsIcon.Size.x, y2 = settingsY + settingsIcon.Size.y}
     end
 
@@ -1464,10 +1485,8 @@ function Library:_RenderLoop()
 
     self:_RenderTabs(windowX, windowY + headerHeight, sidebarWidth)
     
-    -- ## TAB CONTENT RENDERING LOGIC ##
     if self.Window.ActiveTab == "Configs" then
         self:_RenderConfigsTab(rightPanelX, windowY, headerHeight)
-        -- Hide elements from other tabs
         for _, section in ipairs(self.UI.Sections) do
             for _, obj in pairs(section.Drawing) do self:_SetVisibility(obj, false) end
             for _, el in ipairs(section.Elements) do 
@@ -1479,7 +1498,6 @@ function Library:_RenderLoop()
     else
         self:_RenderSections(rightPanelX, windowY, headerHeight)
         local configsTab = self.UI.Core.ConfigsTab
-        -- [ИЗМЕНЕНО] Прячем элементы вкладки Configs, а не уничтожаем их
         self:_SetVisibility(configsTab.MyItemsLabel, false)
         self:_SetVisibility(configsTab.Scrollbar.Background, false)
         self:_SetVisibility(configsTab.Scrollbar.Nub, false)
@@ -1495,7 +1513,6 @@ function Library:_RenderLoop()
         if popup.IsOpen then popup.IsOpen = false end
     end
     
-    -- Render popups on top
     self:_RenderConfigOptionsPopup()
     self:_RenderPlayerESPSettingsPopup()
     self:_RenderAboutWindow(mouse_pos)
@@ -2113,7 +2130,9 @@ function Library:_InputLoop()
                         end
                     end
                     if config_item_clicked then click_was_handled = true end
-                else
+                end
+
+                if not click_was_handled then
                     for _, section in ipairs(self.UI.Sections) do
                         if section.ParentTab == self.Window.ActiveTab then
                             for _, el in ipairs(section.Elements) do
@@ -2138,17 +2157,22 @@ function Library:_InputLoop()
                 end
 
                 if not click_was_handled then
-                    -- [ИЗМЕНЕНО] Добавлен обработчик для новой кнопки
-                    if self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.CreateNew.ClickRegion) and self.Window.ActiveTab == "Configs" then
+                    -- [ИЗМЕНЕНО] Управление кликами по кнопкам в шапке
+                    local create_btn_region = self.UI.Core.HeaderButtons.CreateNew.ClickRegion
+                    local save_btn_region = self.UI.Core.HeaderButtons.Save.ClickRegion
+                    local view_esp_region = self.UI.Core.HeaderButtons.ViewESP.ClickRegion
+                    local settings_region = self.UI.Core.HeaderButtons.Settings.ClickRegion
+
+                    if self:_IsPointInRegion(mouse_x, mouse_y, create_btn_region) and self.Window.ActiveTab == "Configs" then
                         click_was_handled = true;
                         self.UI.Core.HeaderButtons.CreateNew.ClickTime = tick()
                         self:_CreateNewConfig()
-                    elseif self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.Save.ClickRegion) and self.Window.ActiveTab ~= "Configs" then
+                    elseif self:_IsPointInRegion(mouse_x, mouse_y, save_btn_region) then
                         click_was_handled = true; self.UI.Core.HeaderButtons.Save.ClickTime = tick();
                         if configsTab.LoadedConfigName ~= "" then self:_SaveConfig(configsTab.LoadedConfigName) end
-                    elseif self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.ViewESP.ClickRegion) then 
+                    elseif self:_IsPointInRegion(mouse_x, mouse_y, view_esp_region) then 
                         click_was_handled = true; self.UI.Core.HeaderButtons.ViewESP.IsOpen = not self.UI.Core.HeaderButtons.ViewESP.IsOpen; self.UI.Core.HeaderButtons.ViewESP.ClickTime = tick();
-                    elseif self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.Settings.ClickRegion) then 
+                    elseif self:_IsPointInRegion(mouse_x, mouse_y, settings_region) then 
                         click_was_handled = true; self.UI.Popups.About.IsOpen = not self.UI.Popups.About.IsOpen;
                     else
                         for _, group in ipairs(self.UI.TabGroups) do for _, tab in ipairs(group.Tabs) do if self:_IsPointInRegion(mouse_x, mouse_y, tab.ClickRegion) then self.Window.ActiveTab = tab.Name; click_was_handled = true; break; end end if click_was_handled then break; end end
