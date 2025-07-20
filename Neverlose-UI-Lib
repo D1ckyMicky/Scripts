@@ -886,30 +886,26 @@ end
 --[[ PRIVATE: THEME MANAGEMENT ]]
 --================================================================
 
-function Library:_ApplyTheme()
-    self.ActiveTheme.Colors.ToggleEnabledBackground = self:_DarkenColor(self.ActiveTheme.Colors.Accent, 0.3)
-    local Core = self.UI.Core
-
-    local function applyColor(obj, color)
-        if not (obj and color) then return end
-        
-        obj.TargetColor = color
-        if not obj.CurrentColor then
-            -- Если текущего цвета нет, устанавливаем его мгновенно
-            obj.CurrentColor = self:_DeepCopy(color)
-            obj.Color = {color[1], color[2], color[3]}
-            obj.Opacity = (color[4] or 255) / 255
-        end
-    end
+function Library:_applyColor(obj, color)
+    if not (obj and color) then return end
     
-    local function applyColorWithStaticOpacity(obj, color, opacity)
-        if obj and color then
-            obj.Color = {color[1], color[2], color[3]}
-            obj.Opacity = opacity
-        end
+    obj.TargetColor = color
+    if not obj.CurrentColor then
+        -- Если текущего цвета нет, устанавливаем его мгновенно
+        obj.CurrentColor = self:_DeepCopy(color)
+        obj.Color = {color[1], color[2], color[3]}
+        obj.Opacity = (color[4] or 255) / 255
     end
+end
 
-    function Library:_AnimateAllColors()
+function Library:_applyColorWithStaticOpacity(obj, color, opacity)
+    if obj and color then
+        obj.Color = {color[1], color[2], color[3]}
+        obj.Opacity = opacity
+    end
+end
+
+function Library:_AnimateAllColors()
     local speed = 0.1 -- Можно настроить скорость
     for _, obj in ipairs(self.UI.DrawingObjects) do
         if obj and obj.TargetColor and obj.CurrentColor then
@@ -923,159 +919,160 @@ function Library:_ApplyTheme()
     end
 end
 
-    self:applyColor(Core.Sidebar.Drawing, self.ActiveTheme.Colors.SidebarBackground)
-    self:applyColor(Core.RightPanel.Drawing, self.ActiveTheme.Colors.MainBackground)
-    self:applyColor(Core.VerticalSeparator, self.ActiveTheme.Colors.Separator)
-    self:applyColor(Core.SidebarHeaderSeparator, self.ActiveTheme.Colors.Separator)
-    self:applyColor(Core.RightPanelHeaderSeparator, self.ActiveTheme.Colors.Separator)
-    self:applyColor(Core.ViewESPPanel, self.ActiveTheme.Colors.MainBackground)
-    self:applyColor(Core.ViewESPPanelBorder, self.ActiveTheme.Colors.Separator)
+function Library:_ApplyTheme()
+    self.ActiveTheme.Colors.ToggleEnabledBackground = self:_DarkenColor(self.ActiveTheme.Colors.Accent, 0.3)
+    local Core = self.UI.Core
+
+    self:_applyColor(Core.Sidebar.Drawing, self.ActiveTheme.Colors.SidebarBackground)
+    self:_applyColor(Core.RightPanel.Drawing, self.ActiveTheme.Colors.MainBackground)
+    self:_applyColor(Core.VerticalSeparator, self.ActiveTheme.Colors.Separator)
+    self:_applyColor(Core.SidebarHeaderSeparator, self.ActiveTheme.Colors.Separator)
+    self:_applyColor(Core.RightPanelHeaderSeparator, self.ActiveTheme.Colors.Separator)
+    self:_applyColor(Core.ViewESPPanel, self.ActiveTheme.Colors.MainBackground)
+    self:_applyColor(Core.ViewESPPanelBorder, self.ActiveTheme.Colors.Separator)
 
     local isThemeLight = self:_IsThemeLight(self.ActiveTheme)
-    self:applyColor(Core.Title, self.ActiveTheme.Colors.TextLight)
+    self:_applyColor(Core.Title, self.ActiveTheme.Colors.TextLight)
     if not isThemeLight then
-        self:applyColor(Core.Title2, self.ActiveTheme.Colors.Accent)
-        self:applyColor(Core.Title3, self.ActiveTheme.Colors.ToggleEnabledBackground)
+        self:_applyColor(Core.Title2, self.ActiveTheme.Colors.Accent)
+        self:_applyColor(Core.Title3, self.ActiveTheme.Colors.ToggleEnabledBackground)
     end
     self:_SetVisibility(Core.Title2, not isThemeLight)
     self:_SetVisibility(Core.Title3, not isThemeLight)
 
-    self:applyColorWithStaticOpacity(Core.ActiveTabHighlight, self.ActiveTheme.Colors.Accent, self.ActiveTheme.Transparency.ActiveTabHighlight)
-    self:applyColor(Core.SidebarBottomCircle, self.ActiveTheme.Colors.Separator)
-    self:applyColor(Core.PlayerDisplayName, self.ActiveTheme.Colors.TextDark)
-    self:applyColor(Core.TillLabel, self.ActiveTheme.Colors.TextDark)
-    self:applyColor(Core.ForeverLabel, self.ActiveTheme.Colors.Accent)
+    self:_applyColorWithStaticOpacity(Core.ActiveTabHighlight, self.ActiveTheme.Colors.Accent, self.ActiveTheme.Transparency.ActiveTabHighlight)
+    self:_applyColor(Core.SidebarBottomCircle, self.ActiveTheme.Colors.Separator)
+    self:_applyColor(Core.PlayerDisplayName, self.ActiveTheme.Colors.TextDark)
+    self:_applyColor(Core.TillLabel, self.ActiveTheme.Colors.TextDark)
+    self:_applyColor(Core.ForeverLabel, self.ActiveTheme.Colors.Accent)
 
     for _, group in ipairs(self.UI.TabGroups) do
-        self:applyColor(group.Header, self.ActiveTheme.Colors.TabHeader)
+        self:_applyColor(group.Header, self.ActiveTheme.Colors.TabHeader)
     end
     
     local default_buttons = { Core.HeaderButtons.Save, Core.HeaderButtons.ViewESP }
     for _, btn in ipairs(default_buttons) do
-        self:applyColor(btn.Background, self.ActiveTheme.Colors.MainBackground)
-        self:applyColor(btn.Label, self.ActiveTheme.Colors.TextDark)
-        if btn.Icon then self:applyColor(btn.Icon, self.ActiveTheme.Colors.TextDark) end
+        self:_applyColor(btn.Background, self.ActiveTheme.Colors.MainBackground)
+        self:_applyColor(btn.Label, self.ActiveTheme.Colors.TextDark)
+        if btn.Icon then self:_applyColor(btn.Icon, self.ActiveTheme.Colors.TextDark) end
     end
     
     local create_btn = Core.HeaderButtons.CreateNew
-    self:applyColor(create_btn.Background, self.ActiveTheme.Colors.Accent)
+    self:_applyColor(create_btn.Background, self.ActiveTheme.Colors.Accent)
     local blackColor = {10, 10, 10, 255}; local whiteColor = {234, 239, 245, 255}
     local accentButtonTextColor = isThemeLight and blackColor or whiteColor
-    self:applyColor(create_btn.Label, accentButtonTextColor)
-    if create_btn.Icon then self:applyColor(create_btn.Icon, accentButtonTextColor) end
+    self:_applyColor(create_btn.Label, accentButtonTextColor)
+    if create_btn.Icon then self:_applyColor(create_btn.Icon, accentButtonTextColor) end
 
-    self:applyColor(Core.HeaderButtons.Settings.Icon, self.ActiveTheme.Colors.TextDark)
+    self:_applyColor(Core.HeaderButtons.Settings.Icon, self.ActiveTheme.Colors.TextDark)
 
     for _, section in ipairs(self.UI.Sections) do
-        self:applyColor(section.Drawing.Background, self.ActiveTheme.Colors.SectionBackground)
-        self:applyColor(section.Drawing.Border, self.ActiveTheme.Colors.Separator)
-        self:applyColor(section.Drawing.Title, self.ActiveTheme.Colors.TextLight)
-        self:applyColor(section.Drawing.Separator, self.ActiveTheme.Colors.Separator)
+        self:_applyColor(section.Drawing.Background, self.ActiveTheme.Colors.SectionBackground)
+        self:_applyColor(section.Drawing.Border, self.ActiveTheme.Colors.Separator)
+        self:_applyColor(section.Drawing.Title, self.ActiveTheme.Colors.TextLight)
+        self:_applyColor(section.Drawing.Separator, self.ActiveTheme.Colors.Separator)
         for _, el in ipairs(section.Elements) do
-            self:applyColor(el.Label, self.ActiveTheme.Colors.TextDark)
-            if el.HasSettings then self:applyColor(el.SettingsIcon, self.ActiveTheme.Colors.TextDark) end
+            self:_applyColor(el.Label, self.ActiveTheme.Colors.TextDark)
+            if el.HasSettings then self:_applyColor(el.SettingsIcon, self.ActiveTheme.Colors.TextDark) end
             if el.type == "Slider" then
-                self:applyColor(el.LeftFill, self.ActiveTheme.Colors.Accent)
-                self:applyColor(el.RightFill, self.ActiveTheme.Colors.DarkBlue)
-                self:applyColor(el.Nub, self.ActiveTheme.Colors.Accent)
-                self:applyColor(el.ValueText, self.ActiveTheme.Colors.TextLight)
+                self:_applyColor(el.LeftFill, self.ActiveTheme.Colors.Accent)
+                self:_applyColor(el.RightFill, self.ActiveTheme.Colors.DarkBlue)
+                self:_applyColor(el.Nub, self.ActiveTheme.Colors.Accent)
+                self:_applyColor(el.ValueText, self.ActiveTheme.Colors.TextLight)
             elseif el.type == "Dropdown" or el.type == "Multidropdown" then
-                self:applyColor(el.Button, self.ActiveTheme.Colors.DarkBlue)
-                self:applyColor(el.ButtonText, self.ActiveTheme.Colors.TextLight)
-                self:applyColor(el.ArrowLine1, self.ActiveTheme.Colors.TextLight)
-                self:applyColor(el.ArrowLine2, self.ActiveTheme.Colors.TextLight)
-                self:applyColor(el.OptionBackground, self.ActiveTheme.Colors.SectionBackground)
-                self:applyColor(el.BorderLeft, self.ActiveTheme.Colors.Separator)
-                self:applyColor(el.BorderRight, self.ActiveTheme.Colors.Separator)
-                self:applyColor(el.BorderBottom, self.ActiveTheme.Colors.Separator)
+                self:_applyColor(el.Button, self.ActiveTheme.Colors.DarkBlue)
+                self:_applyColor(el.ButtonText, self.ActiveTheme.Colors.TextLight)
+                self:_applyColor(el.ArrowLine1, self.ActiveTheme.Colors.TextLight)
+                self:_applyColor(el.ArrowLine2, self.ActiveTheme.Colors.TextLight)
+                self:_applyColor(el.OptionBackground, self.ActiveTheme.Colors.SectionBackground)
+                self:_applyColor(el.BorderLeft, self.ActiveTheme.Colors.Separator)
+                self:_applyColor(el.BorderRight, self.ActiveTheme.Colors.Separator)
+                self:_applyColor(el.BorderBottom, self.ActiveTheme.Colors.Separator)
             elseif el.type == "Keybind" then
-                self:applyColor(el.Button, self.ActiveTheme.Colors.Accent)
-                self:applyColor(el.ButtonText, self.ActiveTheme.Colors.TextLight)
+                self:_applyColor(el.Button, self.ActiveTheme.Colors.Accent)
+                self:_applyColor(el.ButtonText, self.ActiveTheme.Colors.TextLight)
             end
         end
     end
 
     local about = self.UI.Core.AboutWindow
-    self:applyColor(about.Background, self.ActiveTheme.Colors.SectionBackground); self:applyColor(about.Border, self.ActiveTheme.Colors.Separator); self:applyColor(about.HeaderIcon, self.ActiveTheme.Colors.TextDark); self:applyColor(about.HeaderTitle, self.ActiveTheme.Colors.TextLight); self:applyColor(about.CloseButton.Line1, self.ActiveTheme.Colors.TextDark); self:applyColor(about.CloseButton.Line2, self.ActiveTheme.Colors.TextDark); self:applyColor(about.Separator1, self.ActiveTheme.Colors.Separator); self:applyColor(about.MainTitle, self.ActiveTheme.Colors.TextLight); self:applyColor(about.Separator2, self.ActiveTheme.Colors.Separator);
-    self:applyColor(about.InfoVersionLabel, self.ActiveTheme.Colors.TextDark); self:applyColor(about.InfoVersionValue, self.ActiveTheme.Colors.Accent);
-    self:applyColor(about.InfoBuildDateLabel, self.ActiveTheme.Colors.TextDark); self:applyColor(about.InfoBuildDateValue, self.ActiveTheme.Colors.Accent);
-    self:applyColor(about.InfoBuildTypeLabel, self.ActiveTheme.Colors.TextDark); self:applyColor(about.InfoBuildTypeValue, self.ActiveTheme.Colors.Accent);
-    self:applyColor(about.InfoRegisteredToLabel, self.ActiveTheme.Colors.TextDark); self:applyColor(about.InfoRegisteredToValue, self.ActiveTheme.Colors.Accent);
-    self:applyColor(about.InfoSubscriptionLabel, self.ActiveTheme.Colors.TextDark); self:applyColor(about.InfoSubscriptionValue, self.ActiveTheme.Colors.Accent);
-    self:applyColor(about.FooterText, self.ActiveTheme.Colors.TextDark); self:applyColor(about.Separator3, self.ActiveTheme.Colors.Separator); self:applyColor(about.CreditText, self.ActiveTheme.Colors.TextDark); self:applyColor(about.StyleLabel, self.ActiveTheme.Colors.TextDark);
-    self:applyColor(about.Tooltip.Background, self.ActiveTheme.Colors.MainBackground)
-    self:applyColor(about.Tooltip.Text, self.ActiveTheme.Colors.TextLight)
+    self:_applyColor(about.Background, self.ActiveTheme.Colors.SectionBackground); self:_applyColor(about.Border, self.ActiveTheme.Colors.Separator); self:_applyColor(about.HeaderIcon, self.ActiveTheme.Colors.TextDark); self:_applyColor(about.HeaderTitle, self.ActiveTheme.Colors.TextLight); self:_applyColor(about.CloseButton.Line1, self.ActiveTheme.Colors.TextDark); self:_applyColor(about.CloseButton.Line2, self.ActiveTheme.Colors.TextDark); self:_applyColor(about.Separator1, self.ActiveTheme.Colors.Separator); self:_applyColor(about.MainTitle, self.ActiveTheme.Colors.TextLight); self:_applyColor(about.Separator2, self.ActiveTheme.Colors.Separator);
+    self:_applyColor(about.InfoVersionLabel, self.ActiveTheme.Colors.TextDark); self:_applyColor(about.InfoVersionValue, self.ActiveTheme.Colors.Accent);
+    self:_applyColor(about.InfoBuildDateLabel, self.ActiveTheme.Colors.TextDark); self:_applyColor(about.InfoBuildDateValue, self.ActiveTheme.Colors.Accent);
+    self:_applyColor(about.InfoBuildTypeLabel, self.ActiveTheme.Colors.TextDark); self:_applyColor(about.InfoBuildTypeValue, self.ActiveTheme.Colors.Accent);
+    self:_applyColor(about.InfoRegisteredToLabel, self.ActiveTheme.Colors.TextDark); self:_applyColor(about.InfoRegisteredToValue, self.ActiveTheme.Colors.Accent);
+    self:_applyColor(about.InfoSubscriptionLabel, self.ActiveTheme.Colors.TextDark); self:_applyColor(about.InfoSubscriptionValue, self.ActiveTheme.Colors.Accent);
+    self:_applyColor(about.FooterText, self.ActiveTheme.Colors.TextDark); self:_applyColor(about.Separator3, self.ActiveTheme.Colors.Separator); self:_applyColor(about.CreditText, self.ActiveTheme.Colors.TextDark); self:_applyColor(about.StyleLabel, self.ActiveTheme.Colors.TextDark);
+    self:_applyColor(about.Tooltip.Background, self.ActiveTheme.Colors.MainBackground)
+    self:_applyColor(about.Tooltip.Text, self.ActiveTheme.Colors.TextLight)
     for _, circle in ipairs(about.StyleCircles) do
-        self:applyColor(circle.Border, self.ActiveTheme.Colors.Accent)
-        if circle.PlusLine1 then self:applyColor(circle.PlusLine1, self.ActiveTheme.Colors.TextDark) end
-        if circle.PlusLine2 then self:applyColor(circle.PlusLine2, self.ActiveTheme.Colors.TextDark) end
+        self:_applyColor(circle.Border, self.ActiveTheme.Colors.Accent)
+        if circle.PlusLine1 then self:_applyColor(circle.PlusLine1, self.ActiveTheme.Colors.TextDark) end
+        if circle.PlusLine2 then self:_applyColor(circle.PlusLine2, self.ActiveTheme.Colors.TextDark) end
     end
-    self:applyColor(about.AutoSaveToggle.Label, self.ActiveTheme.Colors.TextDark)
-    local slider = about.AnimationSpeedSlider; self:applyColor(slider.Label, self.ActiveTheme.Colors.TextDark); self:applyColor(slider.LeftFill, self.ActiveTheme.Colors.Accent); self:applyColor(slider.RightFill, self.ActiveTheme.Colors.DarkBlue); self:applyColor(slider.Nub, self.ActiveTheme.Colors.Accent); self:applyColor(slider.ValueText, self.ActiveTheme.Colors.TextLight);
-    local dd = about.DpiScaleDropdown; self:applyColor(dd.Label, self.ActiveTheme.Colors.TextDark); self:applyColor(dd.Button, self.ActiveTheme.Colors.DarkBlue); self:applyColor(dd.ButtonText, self.ActiveTheme.Colors.TextLight); self:applyColor(dd.ArrowLine1, self.ActiveTheme.Colors.TextLight); self:applyColor(dd.ArrowLine2, self.ActiveTheme.Colors.TextLight); self:applyColor(dd.OptionBackground, self.ActiveTheme.Colors.SectionBackground); self:applyColor(dd.BorderLeft, self.ActiveTheme.Colors.Separator); self:applyColor(dd.BorderRight, self.ActiveTheme.Colors.Separator); self:applyColor(dd.BorderBottom, self.ActiveTheme.Colors.Separator);
+    self:_applyColor(about.AutoSaveToggle.Label, self.ActiveTheme.Colors.TextDark)
+    local slider = about.AnimationSpeedSlider; self:_applyColor(slider.Label, self.ActiveTheme.Colors.TextDark); self:_applyColor(slider.LeftFill, self.ActiveTheme.Colors.Accent); self:_applyColor(slider.RightFill, self.ActiveTheme.Colors.DarkBlue); self:_applyColor(slider.Nub, self.ActiveTheme.Colors.Accent); self:_applyColor(slider.ValueText, self.ActiveTheme.Colors.TextLight);
+    local dd = about.DpiScaleDropdown; self:_applyColor(dd.Label, self.ActiveTheme.Colors.TextDark); self:_applyColor(dd.Button, self.ActiveTheme.Colors.DarkBlue); self:_applyColor(dd.ButtonText, self.ActiveTheme.Colors.TextLight); self:_applyColor(dd.ArrowLine1, self.ActiveTheme.Colors.TextLight); self:_applyColor(dd.ArrowLine2, self.ActiveTheme.Colors.TextLight); self:_applyColor(dd.OptionBackground, self.ActiveTheme.Colors.SectionBackground); self:_applyColor(dd.BorderLeft, self.ActiveTheme.Colors.Separator); self:_applyColor(dd.BorderRight, self.ActiveTheme.Colors.Separator); self:_applyColor(dd.BorderBottom, self.ActiveTheme.Colors.Separator);
 
-    local espPopup = self.UI.Popups.PlayerESP; self:applyColor(espPopup.Background, self.ActiveTheme.Colors.SectionBackground); self:applyColor(espPopup.Border, self.ActiveTheme.Colors.Separator); self:applyColor(espPopup.Title, self.ActiveTheme.Colors.TextLight); self:applyColor(espPopup.Separator, self.ActiveTheme.Colors.Separator); self:applyColor(espPopup.BindLabel, self.ActiveTheme.Colors.TextDark); self:applyColor(espPopup.Keybind.Button, self.ActiveTheme.Colors.Accent); self:applyColor(espPopup.Keybind.ButtonText, self.ActiveTheme.Colors.TextLight);
+    local espPopup = self.UI.Popups.PlayerESP; self:_applyColor(espPopup.Background, self.ActiveTheme.Colors.SectionBackground); self:_applyColor(espPopup.Border, self.ActiveTheme.Colors.Separator); self:_applyColor(espPopup.Title, self.ActiveTheme.Colors.TextLight); self:_applyColor(espPopup.Separator, self.ActiveTheme.Colors.Separator); self:_applyColor(espPopup.BindLabel, self.ActiveTheme.Colors.TextDark); self:_applyColor(espPopup.Keybind.Button, self.ActiveTheme.Colors.Accent); self:_applyColor(espPopup.Keybind.ButtonText, self.ActiveTheme.Colors.TextLight);
 
-    local stylePopup = self.UI.Popups.EditStyle; self:applyColor(stylePopup.Background, self.ActiveTheme.Colors.SectionBackground); self:applyColor(stylePopup.Border, self.ActiveTheme.Colors.Separator); self:applyColor(stylePopup.HeaderIcon, self.ActiveTheme.Colors.Accent); self:applyColor(stylePopup.HeaderTitle, self.ActiveTheme.Colors.TextLight); self:applyColor(stylePopup.CloseButton.Line1, self.ActiveTheme.Colors.TextDark); self:applyColor(stylePopup.CloseButton.Line2, self.ActiveTheme.Colors.TextDark); self:applyColor(stylePopup.Separator1, self.ActiveTheme.Colors.Separator); self:applyColor(stylePopup.StyleNameLabel, self.ActiveTheme.Colors.TextLight); self:applyColor(stylePopup.StyleNameInputBg, self.ActiveTheme.Colors.DarkBlue); self:applyColor(stylePopup.StyleNameInputText, self.ActiveTheme.Colors.TextLight); self:applyColor(stylePopup.StyleNameInputCursor, self.ActiveTheme.Colors.TextLight); self:applyColor(stylePopup.Separator2, self.ActiveTheme.Colors.Separator); self:applyColor(stylePopup.Separator3, self.ActiveTheme.Colors.Separator);
+    local stylePopup = self.UI.Popups.EditStyle; self:_applyColor(stylePopup.Background, self.ActiveTheme.Colors.SectionBackground); self:_applyColor(stylePopup.Border, self.ActiveTheme.Colors.Separator); self:_applyColor(stylePopup.HeaderIcon, self.ActiveTheme.Colors.Accent); self:_applyColor(stylePopup.HeaderTitle, self.ActiveTheme.Colors.TextLight); self:_applyColor(stylePopup.CloseButton.Line1, self.ActiveTheme.Colors.TextDark); self:_applyColor(stylePopup.CloseButton.Line2, self.ActiveTheme.Colors.TextDark); self:_applyColor(stylePopup.Separator1, self.ActiveTheme.Colors.Separator); self:_applyColor(stylePopup.StyleNameLabel, self.ActiveTheme.Colors.TextLight); self:_applyColor(stylePopup.StyleNameInputBg, self.ActiveTheme.Colors.DarkBlue); self:_applyColor(stylePopup.StyleNameInputText, self.ActiveTheme.Colors.TextLight); self:_applyColor(stylePopup.StyleNameInputCursor, self.ActiveTheme.Colors.TextLight); self:_applyColor(stylePopup.Separator2, self.ActiveTheme.Colors.Separator); self:_applyColor(stylePopup.Separator3, self.ActiveTheme.Colors.Separator);
     for _, item in ipairs(stylePopup.ColorItems) do
-        self:applyColor(item.Label, self.ActiveTheme.Colors.TextLight)
-        self:applyColor(item.ColorBorder, self.ActiveTheme.Colors.Separator)
+        self:_applyColor(item.Label, self.ActiveTheme.Colors.TextLight)
+        self:_applyColor(item.ColorBorder, self.ActiveTheme.Colors.Separator)
     end
-    self:applyColor(stylePopup.RealTimeToggle.Label, self.ActiveTheme.Colors.TextDark)
-    self:applyColor(stylePopup.CancelButton.Background, self.ActiveTheme.Colors.SectionBackground); self:applyColor(stylePopup.CancelButton.Border, self.ActiveTheme.Colors.Accent); self:applyColor(stylePopup.CancelButton.IconLine1, self.ActiveTheme.Colors.TextLight); self:applyColor(stylePopup.CancelButton.IconLine2, self.ActiveTheme.Colors.TextLight); self:applyColor(stylePopup.CancelButton.Label, self.ActiveTheme.Colors.TextLight);
-    self:applyColor(stylePopup.SaveButton.Background, self.ActiveTheme.Colors.Accent)
+    self:_applyColor(stylePopup.RealTimeToggle.Label, self.ActiveTheme.Colors.TextDark)
+    self:_applyColor(stylePopup.CancelButton.Background, self.ActiveTheme.Colors.SectionBackground); self:_applyColor(stylePopup.CancelButton.Border, self.ActiveTheme.Colors.Accent); self:_applyColor(stylePopup.CancelButton.IconLine1, self.ActiveTheme.Colors.TextLight); self:_applyColor(stylePopup.CancelButton.IconLine2, self.ActiveTheme.Colors.TextLight); self:_applyColor(stylePopup.CancelButton.Label, self.ActiveTheme.Colors.TextLight);
+    self:_applyColor(stylePopup.SaveButton.Background, self.ActiveTheme.Colors.Accent)
     
     local saveButtonTextColor = isThemeLight and blackColor or whiteColor
-    self:applyColor(stylePopup.SaveButton.Label, saveButtonTextColor)
-    self:applyColor(stylePopup.SaveButton.Icon, saveButtonTextColor)
+    self:_applyColor(stylePopup.SaveButton.Label, saveButtonTextColor)
+    self:_applyColor(stylePopup.SaveButton.Icon, saveButtonTextColor)
     
     local tooltip = self.UI.Core.SaveTooltip
     if tooltip then
-        self:applyColor(tooltip.Background, self.ActiveTheme.Colors.SectionBackground) -- Фон как у секций
-        self:applyColor(tooltip.ConfigName, self.ActiveTheme.Colors.TextLight)       -- Основной текст светлый
-        self:applyColor(tooltip.Author, self.ActiveTheme.Colors.TextDark)          -- Второстепенный текст темнее
+        self:_applyColor(tooltip.Background, self.ActiveTheme.Colors.SectionBackground) -- Фон как у секций
+        self:_applyColor(tooltip.ConfigName, self.ActiveTheme.Colors.TextLight)       -- Основной текст светлый
+        self:_applyColor(tooltip.Author, self.ActiveTheme.Colors.TextDark)          -- Второстепенный текст темнее
     end
     
     local configsTab = self.UI.Core.ConfigsTab
     if configsTab then
-        self:applyColor(configsTab.MyItemsLabel, self.ActiveTheme.Colors.TextLight)
-        self:applyColor(configsTab.Scrollbar.Background, self.ActiveTheme.Colors.DarkBlue)
-        self:applyColor(configsTab.Scrollbar.Nub, self.ActiveTheme.Colors.Accent)
+        self:_applyColor(configsTab.MyItemsLabel, self.ActiveTheme.Colors.TextLight)
+        self:_applyColor(configsTab.Scrollbar.Background, self.ActiveTheme.Colors.DarkBlue)
+        self:_applyColor(configsTab.Scrollbar.Nub, self.ActiveTheme.Colors.Accent)
         
         local popup = configsTab.OptionsPopup
-        self:applyColor(popup.Background, self.ActiveTheme.Colors.SectionBackground)
-        self:applyColor(popup.Border, self.ActiveTheme.Colors.Separator)
-        self:applyColor(popup.IncludeStyleToggle.Label, self.ActiveTheme.Colors.TextDark)
+        self:_applyColor(popup.Background, self.ActiveTheme.Colors.SectionBackground)
+        self:_applyColor(popup.Border, self.ActiveTheme.Colors.Separator)
+        self:_applyColor(popup.IncludeStyleToggle.Label, self.ActiveTheme.Colors.TextDark)
 
         for i, item in ipairs(configsTab.Items) do
             local d = item.Drawing
-            self:applyColor(d.Background, self.ActiveTheme.Colors.SectionBackground)
-            self:applyColor(d.Border, self.ActiveTheme.Colors.Separator)
-            self:applyColor(d.Name, self.ActiveTheme.Colors.TextLight)
-            self:applyColor(d.Modified, self.ActiveTheme.Colors.TextDark)
-            self:applyColor(d.Author, self.ActiveTheme.Colors.TextDark)
-            self:applyColor(d.OptionsButton.Dot1, self.ActiveTheme.Colors.TextDark)
-            self:applyColor(d.OptionsButton.Dot2, self.ActiveTheme.Colors.TextDark)
-            self:applyColor(d.OptionsButton.Dot3, self.ActiveTheme.Colors.TextDark)
+            self:_applyColor(d.Background, self.ActiveTheme.Colors.SectionBackground)
+            self:_applyColor(d.Border, self.ActiveTheme.Colors.Separator)
+            self:_applyColor(d.Name, self.ActiveTheme.Colors.TextLight)
+            self:_applyColor(d.Modified, self.ActiveTheme.Colors.TextDark)
+            self:_applyColor(d.Author, self.ActiveTheme.Colors.TextDark)
+            self:_applyColor(d.OptionsButton.Dot1, self.ActiveTheme.Colors.TextDark)
+            self:_applyColor(d.OptionsButton.Dot2, self.ActiveTheme.Colors.TextDark)
+            self:_applyColor(d.OptionsButton.Dot3, self.ActiveTheme.Colors.TextDark)
             
-            -- [ИЗМЕНЕНО] Усиленная установка стилей для кнопок
             if d.SaveButton.Background then d.SaveButton.Background.Filled = true end
             if d.LoadButton.Background then d.LoadButton.Background.Filled = true end
             
-            self:applyColor(d.SaveButton.Background, self.ActiveTheme.Colors.SectionBackground)
-            self:applyColor(d.SaveButton.Border, self.ActiveTheme.Colors.Accent)
-            self:applyColor(d.SaveButton.Icon, self.ActiveTheme.Colors.TextLight)
-            self:applyColor(d.SaveButton.Label, self.ActiveTheme.Colors.TextLight)
+            self:_applyColor(d.SaveButton.Background, self.ActiveTheme.Colors.SectionBackground)
+            self:_applyColor(d.SaveButton.Border, self.ActiveTheme.Colors.Accent)
+            self:_applyColor(d.SaveButton.Icon, self.ActiveTheme.Colors.TextLight)
+            self:_applyColor(d.SaveButton.Label, self.ActiveTheme.Colors.TextLight)
 
-            self:applyColor(d.LoadButton.Background, self.ActiveTheme.Colors.Accent)
+            self:_applyColor(d.LoadButton.Background, self.ActiveTheme.Colors.Accent)
             local loadBtnTextColor = isThemeLight and blackColor or whiteColor
-            self:applyColor(d.LoadButton.Icon, loadBtnTextColor)
-            self:applyColor(d.LoadButton.Label, loadBtnTextColor)
-
+            self:_applyColor(d.LoadButton.Icon, loadBtnTextColor)
+            self:_applyColor(d.LoadButton.Label, loadBtnTextColor)
         end
     end
 end
-
 --================================================================
 --[[ PRIVATE: RENDERING & INPUT HANDLING ]]
 --================================================================
