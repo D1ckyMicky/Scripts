@@ -1136,104 +1136,139 @@ end
 function Library:_RenderEditStyleWindow()
     local style_window = self.UI.Popups.EditStyle
     local isVisible = style_window.IsOpen
+    local theme = self.ActiveTheme
 
+    -- Установка видимости
     self:_SetVisibility(style_window.Background, isVisible); self:_SetVisibility(style_window.Border, isVisible); self:_SetVisibility(style_window.HeaderIcon, isVisible); self:_SetVisibility(style_window.HeaderTitle, isVisible); self:_SetVisibility(style_window.CloseButton.Line1, isVisible); self:_SetVisibility(style_window.CloseButton.Line2, isVisible); self:_SetVisibility(style_window.Separator1, isVisible);
     self:_SetVisibility(style_window.StyleNameLabel, isVisible); self:_SetVisibility(style_window.StyleNameInputBg, isVisible); self:_SetVisibility(style_window.StyleNameInputText, isVisible); self:_SetVisibility(style_window.Separator2, isVisible); self:_SetVisibility(style_window.Separator3, isVisible);
     self:_SetVisibility(style_window.StyleNameInputCursor, isVisible and style_window.IsEditingName and math.sin(tick() * 5) > 0)
-
-    for _, item in ipairs(style_window.ColorItems) do
-        self:_SetVisibility(item.Label, isVisible); self:_SetVisibility(item.ColorCircle, isVisible); self:_SetVisibility(item.ColorBorder, isVisible);
-    end
+    for _, item in ipairs(style_window.ColorItems) do self:_SetVisibility(item.Label, isVisible); self:_SetVisibility(item.ColorCircle, isVisible); self:_SetVisibility(item.ColorBorder, isVisible); end
     self:_SetVisibility(style_window.RealTimeToggle.Label, isVisible); self:_SetVisibility(style_window.RealTimeToggle.Back, isVisible); self:_SetVisibility(style_window.RealTimeToggle.Nub, isVisible);
     self:_SetVisibility(style_window.CancelButton.Background, isVisible); self:_SetVisibility(style_window.CancelButton.Border, isVisible); self:_SetVisibility(style_window.CancelButton.IconLine1, isVisible); self:_SetVisibility(style_window.CancelButton.IconLine2, isVisible); self:_SetVisibility(style_window.CancelButton.Label, isVisible);
     self:_SetVisibility(style_window.SaveButton.Background, isVisible); self:_SetVisibility(style_window.SaveButton.Label, isVisible); self:_SetVisibility(style_window.SaveButton.Icon, isVisible);
-
-    if isVisible then
-        local winW, winH = 300, 540
-        local winX, winY = self.Window.X + self.Window.Width + 15, self.Window.Y
-        
-        style_window.ClickRegion = {x1 = winX, y1 = winY, x2 = winX + winW, y2 = winY + winH}
-        style_window.Background.Position = {winX, winY}; style_window.Background.Size = {winW, winH}
-        style_window.Border.Position = {winX, winY}; style_window.Border.Size = {winW, winH}
-        self:_RenderGlowEffect(style_window.Glow, winX, winY, winW, winH, style_window.Background.Rounding, self.ActiveTheme.Colors.GlowColor)
-
-        local headerY = winY + 12
-        style_window.HeaderIcon.Position = {winX + 15, headerY}
-        style_window.HeaderTitle.Position = {winX + 15 + style_window.HeaderIcon.Size.x + 8, headerY + 1}
-        
-        style_window.CloseButton.Line1.From = {winX + winW - 25, headerY}; style_window.CloseButton.Line1.To = {winX + winW - 15, headerY + 10}
-        style_window.CloseButton.Line2.From = {winX + winW - 25, headerY + 10}; style_window.CloseButton.Line2.To = {winX + winW - 15, headerY}
-        style_window.CloseButton.ClickRegion = {x1 = winX + winW - 30, y1 = winY + 10, x2 = winX + winW - 10, y2 = winY + 25}
-
-        local currentY = winY + 40
-        style_window.Separator1.From = {winX + 10, currentY}; style_window.Separator1.To = {winX + winW - 10, currentY}
-        
-        currentY = currentY + 15
-        style_window.StyleNameLabel.Position = {winX + 15, currentY}
-        local inputW = 150; local inputH = 25
-        local inputX = winX + winW - inputW - 15
-        style_window.StyleNameInputBg.Position = {inputX, currentY - 5}; style_window.StyleNameInputBg.Size = {inputW, inputH}
-        style_window.StyleNameInputText.Position = {inputX + 8, currentY - 5 + (inputH/2) - (style_window.StyleNameInputText.Size / 2)}
-        style_window.StyleNameInputClickRegion = {x1 = inputX, y1 = currentY - 5, x2 = inputX + inputW, y2 = currentY - 5 + inputH}
-        
-        if style_window.StyleNameInputText.TextBounds then
-            local cursorX = inputX + 8 + style_window.StyleNameInputText.TextBounds.x
-            local cursorY = currentY - 5 + 4
-            style_window.StyleNameInputCursor.From = {cursorX, cursorY}
-            style_window.StyleNameInputCursor.To = {cursorX, cursorY + inputH - 8}
-        end
-
-        currentY = currentY + 30
-        style_window.Separator2.From = {winX + 10, currentY}; style_window.Separator2.To = {winX + winW - 10, currentY}
-        
-        currentY = currentY + 15
-        for _, item in ipairs(style_window.ColorItems) do
-            item.Label.Position = {winX + 15, currentY}
-            local circleX = winX + winW - 30
-            
-            local c = style_window.EditingTheme.Colors[item.Name] or {255,0,255,255}
-            item.ColorCircle.Color = {c[1], c[2], c[3]}
-            item.ColorCircle.Opacity = (c[4] or 255) / 255
-
-            item.ColorCircle.Position = {circleX, currentY + 7}
-            item.ColorBorder.Position = {circleX, currentY + 7}
-            item.ClickRegion = {x1 = winX + 15, y1 = currentY, x2 = winX + winW - 15, y2 = currentY + 20}
-            currentY = currentY + 25
-        end
-        
-        currentY = currentY + 20
-        style_window.Separator3.From = {winX + 10, currentY}; style_window.Separator3.To = {winX + winW - 10, currentY}
-
-        local footerY = currentY + 15
-        local saveBtn = style_window.SaveButton; local saveBtnW, saveBtnH = 80, 28
-        local saveBtnX, saveBtnY = winX + winW - saveBtnW - 15, footerY
-        saveBtn.Background.Position = {saveBtnX, saveBtnY}; saveBtn.Background.Size = {saveBtnW, saveBtnH}
-        local saveIconX = saveBtnX + 12; local saveIconY = saveBtnY + (saveBtnH / 2) - (saveBtn.Icon.Size.y / 2)
-        saveBtn.Icon.Position = {saveIconX, saveIconY}
-        saveBtn.Label.Position = {saveIconX + saveBtn.Icon.Size.x + 8, saveBtnY + (saveBtnH / 2) - (saveBtn.Label.Size / 2)}
-        saveBtn.ClickRegion = {x1 = saveBtnX, y1 = saveBtnY, x2 = saveBtnX + saveBtnW, y2 = saveBtnY + saveBtnH}
-
-        local cancelBtn = style_window.CancelButton; local cancelBtnW, cancelBtnH = 90, 28
-        local cancelBtnX = saveBtnX - cancelBtnW - 10; local cancelBtnY = footerY
-        cancelBtn.Background.Position = {cancelBtnX, cancelBtnY}; cancelBtn.Background.Size = {cancelBtnW, cancelBtnH}
-        cancelBtn.Border.Position = {cancelBtnX, cancelBtnY}; cancelBtn.Border.Size = {cancelBtnW, cancelBtnH}
-        local cancelIconCenterX, cancelIconCenterY = cancelBtnX + 15, cancelBtnY + cancelBtnH / 2
-        cancelBtn.IconLine1.From = {cancelIconCenterX - 4, cancelIconCenterY - 4}; cancelBtn.IconLine1.To = {cancelIconCenterX + 4, cancelIconCenterY + 4}
-        cancelBtn.IconLine2.From = {cancelIconCenterX - 4, cancelIconCenterY + 4}; cancelBtn.IconLine2.To = {cancelIconCenterX + 4, cancelIconCenterY - 4}
-        cancelBtn.Label.Position = {cancelIconCenterX + 10, cancelBtnY + (cancelBtnH / 2) - (cancelBtn.Label.Size / 2)}
-        cancelBtn.ClickRegion = {x1 = cancelBtnX, y1 = cancelBtnY, x2 = cancelBtnX + cancelBtnW, y2 = cancelBtnY + cancelBtnH}
-
-        local toggleY = footerY + cancelBtnH + 15
-        local toggle = style_window.RealTimeToggle
-        toggle.Label.Position = {winX + 15, toggleY + 5}
-        local toggleBackX = winX + 15 + (toggle.Label.TextBounds and toggle.Label.TextBounds.x or 100) + 10
-        toggle.Back.Position = {toggleBackX, toggleY + 7}; toggle.Back.Size = {toggle.Size.width, toggle.Size.height}; toggle.ClickRegion = {x1 = toggleBackX, y1 = toggleY, x2 = toggleBackX + toggle.Size.width, y2 = toggleY + toggle.Size.height + 14}
-        local backColor, nubColor
-        if self.UI.Values[toggle.id] then backColor = self.ActiveTheme.Colors.ToggleEnabledBackground; nubColor = self.ActiveTheme.Colors.Accent; toggle.Nub.Position = {toggleBackX + toggle.Size.width - 5, toggleY + 7 + toggle.Size.height/2} else backColor = self.ActiveTheme.Colors.DarkGray; nubColor = self.ActiveTheme.Colors.LightGray; toggle.Nub.Position = {toggleBackX + 5, toggleY + 7 + toggle.Size.height/2} end
-        if toggle.Back then toggle.Back.Color = {backColor[1], backColor[2], backColor[3]}; toggle.Back.Opacity = (backColor[4] or 255) / 255; end
-        if toggle.Nub then toggle.Nub.Color = {nubColor[1], nubColor[2], nubColor[3]}; toggle.Nub.Opacity = (nubColor[4] or 255) / 255; end
-    else
+    
+    if not isVisible then
         self:_HideGlowEffect(style_window.Glow)
+        return
+    end
+
+    -- Анимация цветов
+    self:_AnimateAndApplyColor(style_window.Background, theme.Colors.SectionBackground)
+    self:_AnimateAndApplyColor(style_window.Border, theme.Colors.Separator)
+    self:_AnimateAndApplyColor(style_window.HeaderTitle, theme.Colors.TextLight)
+    self:_AnimateAndApplyColor(style_window.CloseButton.Line1, theme.Colors.TextDark)
+    self:_AnimateAndApplyColor(style_window.CloseButton.Line2, theme.Colors.TextDark)
+    self:_AnimateAndApplyColor(style_window.Separator1, theme.Colors.Separator)
+    self:_AnimateAndApplyColor(style_window.Separator2, theme.Colors.Separator)
+    self:_AnimateAndApplyColor(style_window.Separator3, theme.Colors.Separator)
+    self:_AnimateAndApplyColor(style_window.StyleNameLabel, theme.Colors.TextDark)
+    self:_AnimateAndApplyColor(style_window.StyleNameInputBg, theme.Colors.DarkBlue)
+    self:_AnimateAndApplyColor(style_window.StyleNameInputText, theme.Colors.TextLight)
+    self:_AnimateAndApplyColor(style_window.StyleNameInputCursor, theme.Colors.Accent)
+    for _, item in ipairs(style_window.ColorItems) do self:_AnimateAndApplyColor(item.Label, theme.Colors.TextDark); self:_AnimateAndApplyColor(item.ColorBorder, theme.Colors.LightGray); end
+    self:_AnimateAndApplyColor(style_window.RealTimeToggle.Label, theme.Colors.TextDark)
+    self:_AnimateAndApplyColor(style_window.CancelButton.Background, theme.Colors.MainBackground)
+    self:_AnimateAndApplyColor(style_window.CancelButton.Border, theme.Colors.Separator)
+    self:_AnimateAndApplyColor(style_window.CancelButton.IconLine1, theme.Colors.TextLight)
+    self:_AnimateAndApplyColor(style_window.CancelButton.IconLine2, theme.Colors.TextLight)
+    self:_AnimateAndApplyColor(style_window.CancelButton.Label, theme.Colors.TextLight)
+    self:_AnimateAndApplyColor(style_window.SaveButton.Background, theme.Colors.Accent)
+    self:_AnimateAndApplyColor(style_window.SaveButton.Label, theme.Colors.TextLight)
+    self:_AnimateAndApplyColor(style_window.SaveButton.Icon, theme.Colors.TextLight)
+
+    local winW, winH = 300, 540
+    local winX, winY = self.Window.X + self.Window.Width + 15, self.Window.Y
+    
+    style_window.ClickRegion = {x1 = winX, y1 = winY, x2 = winX + winW, y2 = winY + winH}
+    style_window.Background.Position = {winX, winY}; style_window.Background.Size = {winW, winH}
+    style_window.Border.Position = {winX, winY}; style_window.Border.Size = {winW, winH}
+    self:_RenderGlowEffect(style_window.Glow, winX, winY, winW, winH, style_window.Background.Rounding, theme.Colors.GlowColor)
+
+    local headerY = winY + 12
+    local accentIconColor = style_window.EditingTheme.Colors.Accent or {255,255,255,255}
+    self:_AnimateAndApplyColor(style_window.HeaderIcon, accentIconColor)
+    style_window.HeaderIcon.Position = {winX + 15, headerY}
+    style_window.HeaderTitle.Position = {winX + 15 + style_window.HeaderIcon.Size.x + 8, headerY + 1}
+    
+    style_window.CloseButton.Line1.From = {winX + winW - 25, headerY}; style_window.CloseButton.Line1.To = {winX + winW - 15, headerY + 10}
+    style_window.CloseButton.Line2.From = {winX + winW - 25, headerY + 10}; style_window.CloseButton.Line2.To = {winX + winW - 15, headerY}
+    style_window.CloseButton.ClickRegion = {x1 = winX + winW - 30, y1 = winY + 10, x2 = winX + winW - 10, y2 = winY + 25}
+
+    local currentY = winY + 40
+    style_window.Separator1.From = {winX + 10, currentY}; style_window.Separator1.To = {winX + winW - 10, currentY}
+    
+    currentY = currentY + 15
+    style_window.StyleNameLabel.Position = {winX + 15, currentY}
+    local inputW = 150; local inputH = 25
+    local inputX = winX + winW - inputW - 15
+    style_window.StyleNameInputBg.Position = {inputX, currentY - 5}; style_window.StyleNameInputBg.Size = {inputW, inputH}
+    style_window.StyleNameInputText.Position = {inputX + 8, currentY - 5 + (inputH/2) - (style_window.StyleNameInputText.Size / 2)}
+    style_window.StyleNameInputClickRegion = {x1 = inputX, y1 = currentY - 5, x2 = inputX + inputW, y2 = currentY - 5 + inputH}
+    
+    if style_window.StyleNameInputText.TextBounds then
+        local cursorX = inputX + 8 + style_window.StyleNameInputText.TextBounds.x
+        local cursorY = currentY - 5 + 4
+        style_window.StyleNameInputCursor.From = {cursorX, cursorY}
+        style_window.StyleNameInputCursor.To = {cursorX, cursorY + inputH - 8}
+    end
+
+    currentY = currentY + 30
+    style_window.Separator2.From = {winX + 10, currentY}; style_window.Separator2.To = {winX + winW - 10, currentY}
+    
+    currentY = currentY + 15
+    for _, item in ipairs(style_window.ColorItems) do
+        item.Label.Position = {winX + 15, currentY}
+        local circleX = winX + winW - 30
+        
+        local c = style_window.EditingTheme.Colors[item.Name] or {255,0,255,255}
+        self:_AnimateAndApplyColor(item.ColorCircle, c)
+
+        item.ColorCircle.Position = {circleX, currentY + 7}
+        item.ColorBorder.Position = {circleX, currentY + 7}
+        item.ClickRegion = {x1 = winX + 15, y1 = currentY, x2 = winX + winW - 15, y2 = currentY + 20}
+        currentY = currentY + 25
+    end
+    
+    currentY = currentY + 20
+    style_window.Separator3.From = {winX + 10, currentY}; style_window.Separator3.To = {winX + winW - 10, currentY}
+
+    local footerY = winY + winH - 70
+    local saveBtn = style_window.SaveButton; local saveBtnW, saveBtnH = 80, 28
+    local saveBtnX, saveBtnY = winX + winW - saveBtnW - 15, footerY
+    saveBtn.Background.Position = {saveBtnX, saveBtnY}; saveBtn.Background.Size = {saveBtnW, saveBtnH}
+    local saveIconX = saveBtnX + 12; local saveIconY = saveBtnY + (saveBtnH / 2) - (saveBtn.Icon.Size.y / 2)
+    saveBtn.Icon.Position = {saveIconX, saveIconY}
+    saveBtn.Label.Position = {saveIconX + saveBtn.Icon.Size.x + 8, saveBtnY + (saveBtnH / 2) - (saveBtn.Label.Size / 2)}
+    saveBtn.ClickRegion = {x1 = saveBtnX, y1 = saveBtnY, x2 = saveBtnX + saveBtnW, y2 = saveBtnY + saveBtnH}
+
+    local cancelBtn = style_window.CancelButton; local cancelBtnW, cancelBtnH = 90, 28
+    local cancelBtnX = saveBtnX - cancelBtnW - 10; local cancelBtnY = footerY
+    cancelBtn.Background.Position = {cancelBtnX, cancelBtnY}; cancelBtn.Background.Size = {cancelBtnW, cancelBtnH}
+    cancelBtn.Border.Position = {cancelBtnX, cancelBtnY}; cancelBtn.Border.Size = {cancelBtnW, cancelBtnH}
+    local cancelIconCenterX, cancelIconCenterY = cancelBtnX + 15, cancelBtnY + cancelBtnH / 2
+    cancelBtn.IconLine1.From = {cancelIconCenterX - 4, cancelIconCenterY - 4}; cancelBtn.IconLine1.To = {cancelIconCenterX + 4, cancelIconCenterY + 4}
+    cancelBtn.IconLine2.From = {cancelIconCenterX - 4, cancelIconCenterY + 4}; cancelBtn.IconLine2.To = {cancelIconCenterX + 4, cancelIconCenterY - 4}
+    cancelBtn.Label.Position = {cancelIconCenterX + 10, cancelBtnY + (cancelBtnH / 2) - (cancelBtn.Label.Size / 2)}
+    cancelBtn.ClickRegion = {x1 = cancelBtnX, y1 = cancelBtnY, x2 = cancelBtnX + cancelBtnW, y2 = cancelBtnY + cancelBtnH}
+
+    local toggleY = footerY + cancelBtnH + 15
+    local toggle = style_window.RealTimeToggle
+    toggle.Label.Position = {winX + 15, toggleY + 5}
+    if toggle.Label.TextBounds then
+      local toggleBackX = winX + 15 + toggle.Label.TextBounds.x + 10
+      toggle.Back.Position = {toggleBackX, toggleY + 7}; toggle.Back.Size = {toggle.Size.width, toggle.Size.height}; toggle.ClickRegion = {x1 = toggleBackX, y1 = toggleY, x2 = toggleBackX + toggle.Size.width, y2 = toggleY + toggle.Size.height + 14}
+      local backColor, nubColor
+      if self.UI.Values[toggle.id] then
+          backColor = theme.Colors.ToggleEnabledBackground or self:_DarkenColor(theme.Colors.Accent, 0.3)
+          nubColor = theme.Colors.Accent
+          toggle.Nub.Position = {toggleBackX + toggle.Size.width - 5, toggleY + 7 + toggle.Size.height/2}
+      else
+          backColor = theme.Colors.DarkGray
+          nubColor = theme.Colors.LightGray
+          toggle.Nub.Position = {toggleBackX + 5, toggleY + 7 + toggle.Size.height/2}
+      end
+      self:_AnimateAndApplyColor(toggle.Back, backColor)
+      self:_AnimateAndApplyColor(toggle.Nub, nubColor)
     end
 end
 
@@ -1345,18 +1380,38 @@ function Library:_RenderLoop()
     if not mouse_pos then return end
 
     local Core = self.UI.Core
+    local theme = self.ActiveTheme
+    local isThemeLight = self:_IsThemeLight(theme)
+    local accentButtonTextColor = isThemeLight and theme.Colors.TextLight or theme.Colors.TextLight -- Текст на кнопках с акцентом всегда светлый для контраста
     local windowX, windowY = self:_SafeNumber(self.Window.X, 0), self:_SafeNumber(self.Window.Y, 0)
     local sidebarWidth, headerHeight = self:_SafeNumber(self.Window.SidebarWidth, 0), self:_SafeNumber(self.Window.HeaderHeight, 0)
     local rightPanelX = windowX + sidebarWidth - self.Window.PanelOverlap
 
+    -- Установка видимости
     self:_SetVisibility(Core.Sidebar.Drawing, true); self:_SetVisibility(Core.RightPanel.Drawing, true); self:_SetVisibility(Core.VerticalSeparator, true); self:_SetVisibility(Core.SidebarHeaderSeparator, true); self:_SetVisibility(Core.RightPanelHeaderSeparator, true); self:_SetVisibility(Core.Title, true); self:_SetVisibility(Core.SidebarBottomCircle, true); if Core.SidebarAvatar then self:_SetVisibility(Core.SidebarAvatar, true) end; self:_SetVisibility(Core.PlayerDisplayName, true); self:_SetVisibility(Core.TillLabel, true); self:_SetVisibility(Core.ForeverLabel, true)
-    self:_SetVisibility(Core.Title2, not self:_IsThemeLight(self.ActiveTheme)); self:_SetVisibility(Core.Title3, not self:_IsThemeLight(self.ActiveTheme))
+    self:_SetVisibility(Core.Title2, not isThemeLight); self:_SetVisibility(Core.Title3, not isThemeLight)
 
+    -- Анимация цветов основных элементов
+    self:_AnimateAndApplyColor(Core.Sidebar.Drawing, theme.Colors.SidebarBackground)
+    self:_AnimateAndApplyColor(Core.RightPanel.Drawing, theme.Colors.MainBackground)
+    self:_AnimateAndApplyColor(Core.VerticalSeparator, theme.Colors.Separator)
+    self:_AnimateAndApplyColor(Core.SidebarHeaderSeparator, theme.Colors.Separator)
+    self:_AnimateAndApplyColor(Core.RightPanelHeaderSeparator, theme.Colors.Separator)
+    self:_AnimateAndApplyColor(Core.Title, theme.Colors.TextLight)
+    self:_AnimateAndApplyColor(Core.Title2, theme.Colors.GlowAccent)
+    self:_AnimateAndApplyColor(Core.Title3, theme.Colors.Accent)
+    self:_AnimateAndApplyColor(Core.SidebarBottomCircle, theme.Colors.Accent)
+    self:_AnimateAndApplyColor(Core.PlayerDisplayName, theme.Colors.TextLight)
+    self:_AnimateAndApplyColor(Core.TillLabel, theme.Colors.TextDark)
+    self:_AnimateAndApplyColor(Core.ForeverLabel, theme.Colors.Accent)
+    if Core.SidebarAvatar then self:_AnimateAndApplyColor(Core.SidebarAvatar, {255, 255, 255, 255}) end -- Аватар всегда без цветокоррекции
+
+    -- Позиционирование (без изменений)
     if Core.Sidebar.Drawing then Core.Sidebar.Drawing.Position = {windowX, windowY}; Core.Sidebar.Drawing.Size = {sidebarWidth, self.Window.Height}; end
     if Core.RightPanel.Drawing then Core.RightPanel.Drawing.Position = {rightPanelX, windowY}; Core.RightPanel.Drawing.Size = {self.Window.Width - sidebarWidth + self.Window.PanelOverlap, self.Window.Height}; end
     
-    self:_RenderGlowEffect(Core.Sidebar.Glow, windowX, windowY, sidebarWidth, self.Window.Height, Core.Sidebar.Drawing.Rounding, self.ActiveTheme.Colors.GlowColor, {top=true, bottom=true, left=true, right=false})
-    self:_RenderGlowEffect(Core.RightPanel.Glow, rightPanelX, windowY, self.Window.Width - sidebarWidth + self.Window.PanelOverlap, self.Window.Height, Core.RightPanel.Drawing.Rounding, self.ActiveTheme.Colors.GlowColor, {top=true, bottom=true, left=false, right=true})
+    self:_RenderGlowEffect(Core.Sidebar.Glow, windowX, windowY, sidebarWidth, self.Window.Height, Core.Sidebar.Drawing.Rounding, theme.Colors.GlowColor, {top=true, bottom=true, left=true, right=false})
+    self:_RenderGlowEffect(Core.RightPanel.Glow, rightPanelX, windowY, self.Window.Width - sidebarWidth + self.Window.PanelOverlap, self.Window.Height, Core.RightPanel.Drawing.Rounding, theme.Colors.GlowColor, {top=true, bottom=true, left=false, right=true})
 
     if Core.VerticalSeparator then Core.VerticalSeparator.Position = {rightPanelX, windowY}; Core.VerticalSeparator.Size = {4, self.Window.Height}; end
     if Core.SidebarHeaderSeparator then Core.SidebarHeaderSeparator.Position = {windowX, windowY + self.Window.Height - 100 + 14}; Core.SidebarHeaderSeparator.Size = {sidebarWidth, 4}; end
@@ -1372,11 +1427,24 @@ function Library:_RenderLoop()
 
     do
         local startX, startY = rightPanelX + 35, windowY + (headerHeight / 2)
-        local function renderHeaderButton(button, x, y, width, height, has_icon)
+        local function renderHeaderButton(button, x, y, width, height, has_icon, is_accent)
              self:_SetVisibility(button.Background, true); self:_SetVisibility(button.Border, true); self:_SetVisibility(button.Label, true); if button.Icon then self:_SetVisibility(button.Icon, button.Icon.Visible) end
-             button.Background.Position = {x, y}; button.Background.Size = {width, height}; button.Border.Position = {x, y}; button.Border.Size = {width, height}; 
-             local borderColor = (tick() - button.ClickTime < 0.1 or (button.IsOpen)) and self.ActiveTheme.Colors.Accent or self.ActiveTheme.Colors.Separator
-             if button.Border then button.Border.Color = {borderColor[1], borderColor[2], borderColor[3]}; button.Border.Opacity = (borderColor[4] or 255) / 255; end
+             
+             button.Background.Position = {x, y}; button.Background.Size = {width, height}; 
+             button.Border.Position = {x, y}; button.Border.Size = {width, height}; 
+             
+             -- Анимация цвета фона и обводки
+             local isHovered = self:_IsPointInRegion(mouse_pos.x, mouse_pos.y, button.ClickRegion)
+             local targetBgColor = isHovered and self:_DarkenColor(theme.Colors.Accent, 0.5) or (is_accent and theme.Colors.Accent or theme.Colors.MainBackground)
+             local targetBorderColor = (tick() - (button.ClickTime or 0) < 0.1 or (button.IsOpen)) and theme.Colors.Accent or theme.Colors.Separator
+             self:_AnimateAndApplyColor(button.Background, targetBgColor)
+             self:_AnimateAndApplyColor(button.Border, targetBorderColor)
+             
+             -- Анимация цвета текста и иконки
+             local targetTextColor = is_accent and accentButtonTextColor or theme.Colors.TextLight
+             self:_AnimateAndApplyColor(button.Label, targetTextColor)
+             if button.Icon then self:_AnimateAndApplyColor(button.Icon, targetTextColor) end
+
              if has_icon and button.Icon then local iconX, iconY = x + 12, y + (height / 2) - (button.Icon.Size.y / 2); button.Icon.Position = {iconX, iconY}; local labelX, labelY = iconX + button.Icon.Size.x + 5, y + (height / 2) - (button.Label.Size / 2); button.Label.Position = {labelX, labelY}; button.Label.Center = false else button.Label.Position = {x + width / 2, y + (height / 2) - (button.Label.Size / 2)}; button.Label.Center = true end
              button.ClickRegion = {x1 = x, y1 = y, x2 = x + width, y2 = y + height}
         end
@@ -1386,37 +1454,34 @@ function Library:_RenderLoop()
         local btnY = startY - (btnHeight / 2)
         local currentX = startX
 
-        -- [ИЗМЕНЕНО] Новая логика расположения кнопок
-        renderHeaderButton(Core.HeaderButtons.Save, currentX, btnY, btnWidth, btnHeight, true)
+        renderHeaderButton(Core.HeaderButtons.Save, currentX, btnY, btnWidth, btnHeight, true, false)
         currentX = currentX + btnWidth + spacing
         
-        renderHeaderButton(Core.HeaderButtons.ViewESP, currentX, btnY, btnWidth, btnHeight, false)
+        renderHeaderButton(Core.HeaderButtons.ViewESP, currentX, btnY, btnWidth, btnHeight, false, false)
         currentX = currentX + btnWidth + spacing
 
         if self.Window.ActiveTab == "Configs" then
-            renderHeaderButton(Core.HeaderButtons.CreateNew, currentX, btnY, createNewBtnWidth, btnHeight, true)
+            renderHeaderButton(Core.HeaderButtons.CreateNew, currentX, btnY, createNewBtnWidth, btnHeight, true, true)
         else
             self:_SetVisibility(Core.HeaderButtons.CreateNew.Background, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Border, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Label, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Icon, false);
         end
         
-        -- Анимация кнопки Save
-        local saveBtn = Core.HeaderButtons.Save
-        saveBtn.IsHovered = self:_IsPointInRegion(mouse_pos.x, mouse_pos.y, saveBtn.ClickRegion)
-        local targetColor = saveBtn.IsHovered and self.ActiveTheme.Colors.Accent or self.ActiveTheme.Colors.MainBackground
-        saveBtn.CurrentColor = self:_LerpColor(saveBtn.CurrentColor, targetColor, 0.1)
-        if saveBtn.Background then
-            saveBtn.Background.Color = {saveBtn.CurrentColor[1], saveBtn.CurrentColor[2], saveBtn.CurrentColor[3]}
-            saveBtn.Background.Opacity = (saveBtn.CurrentColor[4] or 255) / 255
-        end
-
         local settingsIcon = Core.HeaderButtons.Settings.Icon
         local settingsX = rightPanelX + (self.Window.Width - sidebarWidth + self.Window.PanelOverlap) - settingsIcon.Size.x - 20 - 30
         local settingsY = startY - (settingsIcon.Size.y / 2)
         self:_SetVisibility(settingsIcon, true); settingsIcon.Position = {settingsX, settingsY}; Core.HeaderButtons.Settings.ClickRegion = {x1 = settingsX, y1 = settingsY, x2 = settingsX + settingsIcon.Size.x, y2 = settingsY + settingsIcon.Size.y}
+        self:_AnimateAndApplyColor(settingsIcon, theme.Colors.TextDark)
     end
-
+    
     self:_SetVisibility(Core.ViewESPPanel, Core.HeaderButtons.ViewESP.IsOpen); self:_SetVisibility(Core.ViewESPPanelBorder, Core.HeaderButtons.ViewESP.IsOpen)
-    if Core.HeaderButtons.ViewESP.IsOpen then local panelX = windowX + self.Window.Width + 11; Core.ViewESPPanel.Position = {panelX, windowY}; Core.ViewESPPanel.Size = {200, 310}; Core.ViewESPPanelBorder.Position = {panelX, windowY}; Core.ViewESPPanelBorder.Size = {200, 310}; if Core.ViewESPImage then self:_SetVisibility(Core.ViewESPImage, true); local imageX, imageY = panelX + 3, windowY + 3; Core.ViewESPImage.Position = {imageX, imageY}; Core.ViewESPImage.Size = {194, 304}; end
+    if Core.HeaderButtons.ViewESP.IsOpen then 
+        local panelX = windowX + self.Window.Width + 11; 
+        self:_AnimateAndApplyColor(Core.ViewESPPanel, theme.Colors.SectionBackground)
+        self:_AnimateAndApplyColor(Core.ViewESPPanelBorder, theme.Colors.Separator)
+        self:_AnimateAndApplyColor(Core.ViewESPImage, {255,255,255,255})
+        Core.ViewESPPanel.Position = {panelX, windowY}; Core.ViewESPPanel.Size = {200, 310}; 
+        Core.ViewESPPanelBorder.Position = {panelX, windowY}; Core.ViewESPPanelBorder.Size = {200, 310}; 
+        if Core.ViewESPImage then self:_SetVisibility(Core.ViewESPImage, true); local imageX, imageY = panelX + 3, windowY + 3; Core.ViewESPImage.Position = {imageX, imageY}; Core.ViewESPImage.Size = {194, 304}; end
     elseif Core.ViewESPImage then self:_SetVisibility(Core.ViewESPImage, false) end
 
     self:_RenderTabs(windowX, windowY + headerHeight, sidebarWidth)
