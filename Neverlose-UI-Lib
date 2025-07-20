@@ -243,27 +243,28 @@ function Library:_RenderSaveTooltip()
 end
 
 function Library:_AnimateAndApplyColor(drawingObject, targetColor)
-    if not drawingObject then return end
+    -- Улучшенная проверка: убеждаемся, что и объект, и целевой цвет существуют и корректны
+    if not drawingObject or type(targetColor) ~= "table" then return end
 
-    -- Получаем состояние анимации для этого конкретного объекта из нашего хранилища
     local state = self.AnimationState[drawingObject]
     if not state then
-        -- Если состояния нет, создаем его и инициализируем CurrentColor
         state = { CurrentColor = self:_DeepCopy(targetColor) }
         self.AnimationState[drawingObject] = state
     end
 
-    local animationSpeed = 0.1 -- Скорость анимации
+    local animationSpeed = 0.1
 
-    -- Анимируем цвет внутри нашей таблицы состояний
+    -- Анимация цвета
     state.CurrentColor = self:_LerpColor(state.CurrentColor, targetColor, animationSpeed)
 
-    -- Применяем анимированный цвет из нашего хранилища к реальному объекту
+    -- Применение цвета с дополнительной проверкой
     local color = state.CurrentColor
     if color then
         drawingObject.Color = {color[1], color[2], color[3]}
         if color[4] then
             drawingObject.Opacity = color[4] / 255
+        else
+            drawingObject.Opacity = 1 -- По умолчанию делаем объект полностью непрозрачным
         end
     end
 end
