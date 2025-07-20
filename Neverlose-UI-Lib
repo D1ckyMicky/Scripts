@@ -191,11 +191,18 @@ function Library:_CleanupDrawingObjects(tbl)
 end
 
 -- Новая функция для плавной смены цвета (анимации)
-function Library:_LerpColor(from, to, speed)
-    local r = from[1] + (to[1] - from[1]) * speed
-    local g = from[2] + (to[2] - from[2]) * speed
-    local b = from[3] + (to[3] - from[3]) * speed
-    local a = from[4] + (to[4] - from[4]) * speed
+function Library:_LerpColor(from, to, alpha)
+    -- Проверка на случай, если одна из таблиц некорректна
+    if type(from) ~= "table" or type(to) ~= "table" then 
+        return to or from or {0, 0, 0, 255} 
+    end
+
+    -- Интерполяция с использованием значений по умолчанию для каждого канала
+    local r = (from[1] or 0) + ((to[1] or 0) - (from[1] or 0)) * alpha
+    local g = (from[2] or 0) + ((to[2] or 0) - (from[2] or 0)) * alpha
+    local b = (from[3] or 0) + ((to[3] or 0) - (from[3] or 0)) * alpha
+    local a = (from[4] or 255) + ((to[4] or 255) - (from[4] or 255)) * alpha
+    
     return {r, g, b, a}
 end
 
@@ -232,6 +239,32 @@ function Library:_RenderSaveTooltip()
         
         tooltip.ConfigName.Position = {tooltipX + (padding / 2), tooltipY + 8}
         tooltip.Author.Position = {tooltipX + (padding / 2), tooltipY + 28}
+    end
+end
+
+function Library:_AnimateAndApplyColor(drawingObject, targetColor)
+    if not drawingObject then return end
+
+    -- Получаем состояние анимации для этого конкретного объекта из нашего хранилища
+    local state = self.AnimationState[drawingObject]
+    if not state then
+        -- Если состояния нет, создаем его и инициализируем CurrentColor
+        state = { CurrentColor = self:_DeepCopy(targetColor) }
+        self.AnimationState[drawingObject] = state
+    end
+
+    local animationSpeed = 0.1 -- Скорость анимации
+
+    -- Анимируем цвет внутри нашей таблицы состояний
+    state.CurrentColor = self:_LerpColor(state.CurrentColor, targetColor, animationSpeed)
+
+    -- Применяем анимированный цвет из нашего хранилища к реальному объекту
+    local color = state.CurrentColor
+    if color then
+        drawingObject.Color = {color[1], color[2], color[3]}
+        if color[4] then
+            drawingObject.Opacity = color[4] / 255
+        end
     end
 end
 
