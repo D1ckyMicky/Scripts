@@ -691,7 +691,8 @@ function Library:_InitializeConfigsTab()
     local configs = {}; self.UI.Core.ConfigsTab = configs; local z = 4
     
     configs.LoadedConfigName = ""
-    configs.Items = {} -- Will be populated by _RefreshConfigList
+    configs.Items = {}
+    configs.ScrollOffset = 0 -- ДОБАВЛЕНО: хранит смещение в пикселях
 
     configs.MyItemsLabel = self:_CreateDrawingObject("Text")
     if configs.MyItemsLabel then
@@ -1404,12 +1405,10 @@ function Library:_RenderLoop()
     local sidebarWidth, headerHeight = self:_SafeNumber(self.Window.SidebarWidth, 0), self:_SafeNumber(self.Window.HeaderHeight, 0)
     local rightPanelX = windowX + sidebarWidth - self.Window.PanelOverlap
 
+    -- ... (код до вызова _RenderTabs/_RenderSections остаётся без изменений, здесь он пропущен для краткости) ...
     self:_SetVisibility(Core.Sidebar.Drawing, true); self:_SetVisibility(Core.RightPanel.Drawing, true); self:_SetVisibility(Core.VerticalSeparator, true); self:_SetVisibility(Core.SidebarHeaderSeparator, true); self:_SetVisibility(Core.RightPanelHeaderSeparator, true); self:_SetVisibility(Core.Title, true); self:_SetVisibility(Core.SidebarBottomCircle, true); if Core.SidebarAvatar then self:_SetVisibility(Core.SidebarAvatar, true) end; self:_SetVisibility(Core.PlayerDisplayName, true); self:_SetVisibility(Core.TillLabel, true); self:_SetVisibility(Core.ForeverLabel, true)
-    
-    -- ИСПОЛЬЗУЕМ НОВУЮ ФУНКЦИЮ ЗДЕСЬ
     local isThemeLight = self:_IsColorLight(theme.Colors.MainBackground)
     self:_SetVisibility(Core.Title2, not isThemeLight); self:_SetVisibility(Core.Title3, not isThemeLight)
-
     self:_AnimateAndApplyColor(Core.Sidebar.Drawing, theme.Colors.SidebarBackground)
     self:_AnimateAndApplyColor(Core.RightPanel.Drawing, theme.Colors.MainBackground)
     self:_AnimateAndApplyColor(Core.VerticalSeparator, theme.Colors.Separator)
@@ -1418,23 +1417,16 @@ function Library:_RenderLoop()
     self:_AnimateAndApplyColor(Core.Title, theme.Colors.TextLight)
     if not isThemeLight then
         self:_AnimateAndApplyColor(Core.Title2, theme.Colors.Accent)
-        if theme.Colors.ToggleEnabledBackground then 
-            self:_AnimateAndApplyColor(Core.Title3, theme.Colors.ToggleEnabledBackground)
-        else
-            self:_AnimateAndApplyColor(Core.Title3, self:_DarkenColor(theme.Colors.Accent, 0.3))
-        end
+        if theme.Colors.ToggleEnabledBackground then self:_AnimateAndApplyColor(Core.Title3, theme.Colors.ToggleEnabledBackground) else self:_AnimateAndApplyColor(Core.Title3, self:_DarkenColor(theme.Colors.Accent, 0.3)) end
     end
     self:_AnimateAndApplyColor(Core.SidebarBottomCircle, theme.Colors.Separator)
     self:_AnimateAndApplyColor(Core.PlayerDisplayName, theme.Colors.TextDark)
     self:_AnimateAndApplyColor(Core.TillLabel, theme.Colors.TextDark)
     self:_AnimateAndApplyColor(Core.ForeverLabel, theme.Colors.Accent)
-    
     if Core.Sidebar.Drawing then Core.Sidebar.Drawing.Position = {windowX, windowY}; Core.Sidebar.Drawing.Size = {sidebarWidth, self.Window.Height}; end
     if Core.RightPanel.Drawing then Core.RightPanel.Drawing.Position = {rightPanelX, windowY}; Core.RightPanel.Drawing.Size = {self.Window.Width - sidebarWidth + self.Window.PanelOverlap, self.Window.Height}; end
-    
     if Core.Sidebar.Drawing and Core.Sidebar.Glow then self:_RenderGlowEffect(Core.Sidebar.Glow, windowX, windowY, sidebarWidth, self.Window.Height, Core.Sidebar.Drawing.Rounding, theme.Colors.GlowColor, {top=true, bottom=true, left=true, right=false}) end
     if Core.RightPanel.Drawing and Core.RightPanel.Glow then self:_RenderGlowEffect(Core.RightPanel.Glow, rightPanelX, windowY, self.Window.Width - sidebarWidth + self.Window.PanelOverlap, self.Window.Height, Core.RightPanel.Drawing.Rounding, theme.Colors.GlowColor, {top=true, bottom=true, left=false, right=true}) end
-
     if Core.VerticalSeparator then Core.VerticalSeparator.Position = {rightPanelX, windowY}; Core.VerticalSeparator.Size = {4, self.Window.Height}; end
     if Core.SidebarHeaderSeparator then Core.SidebarHeaderSeparator.Position = {windowX, windowY + self.Window.Height - 100 + 14}; Core.SidebarHeaderSeparator.Size = {sidebarWidth, 4}; end
     if Core.RightPanelHeaderSeparator then Core.RightPanelHeaderSeparator.Position = {rightPanelX, windowY + headerHeight}; Core.RightPanelHeaderSeparator.Size = {self.Window.Width - sidebarWidth + self.Window.PanelOverlap, 4}; end
@@ -1443,27 +1435,18 @@ function Library:_RenderLoop()
     if Core.Title3 then Core.Title3.Position = {windowX + 7, windowY + 24}; end
     if Core.SidebarBottomCircle then local circleX = windowX + 8 + Core.SidebarBottomCircle.Radius; local circleY = windowY + self.Window.Height - 44; Core.SidebarBottomCircle.Position = {circleX, circleY}; end
     if Core.SidebarAvatar then local avatarSize = 56; local avatarX = windowX + 8; local avatarY = windowY + self.Window.Height - 44 - avatarSize / 2; Core.SidebarAvatar.Position = {avatarX, avatarY}; Core.SidebarAvatar.Size = {avatarSize, avatarSize}; end
-    
     if Core.PlayerDisplayName and Core.TillLabel and Core.ForeverLabel and Core.SidebarBottomCircle then
         local textX = windowX + 15 + Core.SidebarBottomCircle.Radius * 2 + 5
         Core.PlayerDisplayName.Position = {textX, windowY + self.Window.Height - 56}
         Core.TillLabel.Position = {textX, windowY + self.Window.Height - 40}
-        
-        if Core.TillLabel.TextBounds and Core.TillLabel.TextBounds.x then
-            Core.ForeverLabel.Position = {textX + Core.TillLabel.TextBounds.x, windowY + self.Window.Height - 40}
-        else
-            Core.ForeverLabel.Position = {textX + 30, windowY + self.Window.Height - 40}
-        end
+        if Core.TillLabel.TextBounds and Core.TillLabel.TextBounds.x then Core.ForeverLabel.Position = {textX + Core.TillLabel.TextBounds.x, windowY + self.Window.Height - 40} else Core.ForeverLabel.Position = {textX + 30, windowY + self.Window.Height - 40} end
     end
-
     do
         local startX, startY = rightPanelX + 35, windowY + (headerHeight / 2)
         local function renderHeaderButton(button, x, y, width, height, has_icon, is_accent)
             self:_SetVisibility(button.Background, true); self:_SetVisibility(button.Border, true); self:_SetVisibility(button.Label, true); 
             if button.Icon then self:_SetVisibility(button.Icon, button.Icon.Visible) end
-            
             if is_accent then
-                -- ИСПОЛЬЗУЕМ НОВУЮ ФУНКЦИЮ ЗДЕСЬ, для цвета Accent
                 local accentTextColor = self:_IsColorLight(theme.Colors.Accent) and {10, 10, 10, 255} or {234, 239, 245, 255}
                 self:_AnimateAndApplyColor(button.Background, theme.Colors.Accent)
                 self:_AnimateAndApplyColor(button.Label, accentTextColor)
@@ -1472,42 +1455,24 @@ function Library:_RenderLoop()
                 self:_AnimateAndApplyColor(button.Label, theme.Colors.TextDark)
                 if button.Icon then self:_AnimateAndApplyColor(button.Icon, theme.Colors.TextDark) end
             end
-
             if button == Core.HeaderButtons.Save then
                 local targetColor = button.IsHovered and theme.Colors.Accent or theme.Colors.MainBackground
                 button.CurrentColor = self:_LerpColor(button.CurrentColor, targetColor, 0.15)
                 self:_AnimateAndApplyColor(button.Background, button.CurrentColor)
-            elseif not is_accent then
-                 self:_AnimateAndApplyColor(button.Background, theme.Colors.MainBackground)
-            end
-
+            elseif not is_accent then self:_AnimateAndApplyColor(button.Background, theme.Colors.MainBackground) end
             button.Background.Position = {x, y}; button.Background.Size = {width, height}; button.Border.Position = {x, y}; button.Border.Size = {width, height}; 
             local borderColor = (tick() - button.ClickTime < 0.1 or (button.IsOpen)) and theme.Colors.Accent or theme.Colors.Separator
             self:_AnimateAndApplyColor(button.Border, borderColor)
-            
             if has_icon and button.Icon and button.Icon.Size and button.Label and button.Label.Size then local iconX, iconY = x + 12, y + (height / 2) - (button.Icon.Size.y / 2); button.Icon.Position = {iconX, iconY}; local labelX, labelY = iconX + button.Icon.Size.x + 5, y + (height / 2) - (button.Label.Size / 2); button.Label.Position = {labelX, labelY}; button.Label.Center = false else if button.Label and button.Label.Size then button.Label.Position = {x + width / 2, y + (height / 2) - (button.Label.Size / 2)}; button.Label.Center = true end end
             button.ClickRegion = {x1 = x, y1 = y, x2 = x + width, y2 = y + height}
         end
-
-        local btnWidth, btnHeight, spacing = 75, 30, 15
-        local createNewBtnWidth = 120
-        local btnY = startY - (btnHeight / 2)
-        local currentX = startX
-
+        local btnWidth, btnHeight, spacing = 75, 30, 15; local createNewBtnWidth = 120; local btnY = startY - (btnHeight / 2); local currentX = startX
         renderHeaderButton(Core.HeaderButtons.Save, currentX, btnY, btnWidth, btnHeight, true, false)
         currentX = currentX + btnWidth + spacing
-        
         renderHeaderButton(Core.HeaderButtons.ViewESP, currentX, btnY, btnWidth, btnHeight, false, false)
         currentX = currentX + btnWidth + spacing
-
-        if self.Window.ActiveTab == "Configs" then
-            renderHeaderButton(Core.HeaderButtons.CreateNew, currentX, btnY, createNewBtnWidth, btnHeight, true, true)
-        else
-            if Core.HeaderButtons.CreateNew.Background then self:_SetVisibility(Core.HeaderButtons.CreateNew.Background, false) end; if Core.HeaderButtons.CreateNew.Border then self:_SetVisibility(Core.HeaderButtons.CreateNew.Border, false) end; if Core.HeaderButtons.CreateNew.Label then self:_SetVisibility(Core.HeaderButtons.CreateNew.Label, false) end; if Core.HeaderButtons.CreateNew.Icon then self:_SetVisibility(Core.HeaderButtons.CreateNew.Icon, false) end;
-        end
-        
+        if self.Window.ActiveTab == "Configs" then renderHeaderButton(Core.HeaderButtons.CreateNew, currentX, btnY, createNewBtnWidth, btnHeight, true, true) else if Core.HeaderButtons.CreateNew.Background then self:_SetVisibility(Core.HeaderButtons.CreateNew.Background, false) end; if Core.HeaderButtons.CreateNew.Border then self:_SetVisibility(Core.HeaderButtons.CreateNew.Border, false) end; if Core.HeaderButtons.CreateNew.Label then self:_SetVisibility(Core.HeaderButtons.CreateNew.Label, false) end; if Core.HeaderButtons.CreateNew.Icon then self:_SetVisibility(Core.HeaderButtons.CreateNew.Icon, false) end; end
         Core.HeaderButtons.Save.IsHovered = self:_IsPointInRegion(mouse_pos.x, mouse_pos.y, Core.HeaderButtons.Save.ClickRegion)
-
         local settingsIcon = Core.HeaderButtons.Settings.Icon
         if settingsIcon and settingsIcon.Size then
             local settingsX = rightPanelX + (self.Window.Width - sidebarWidth + self.Window.PanelOverlap) - settingsIcon.Size.x - 20
@@ -1516,7 +1481,6 @@ function Library:_RenderLoop()
             self:_AnimateAndApplyColor(settingsIcon, theme.Colors.TextDark)
         end
     end
-
     self:_SetVisibility(Core.ViewESPPanel, Core.HeaderButtons.ViewESP.IsOpen); self:_SetVisibility(Core.ViewESPPanelBorder, Core.HeaderButtons.ViewESP.IsOpen)
     if Core.HeaderButtons.ViewESP.IsOpen then 
         self:_AnimateAndApplyColor(Core.ViewESPPanel, theme.Colors.MainBackground)
@@ -1527,10 +1491,14 @@ function Library:_RenderLoop()
         if Core.ViewESPImage then self:_SetVisibility(Core.ViewESPImage, true); local imageX, imageY = panelX + 3, windowY + 3; Core.ViewESPImage.Position = {imageX, imageY}; Core.ViewESPImage.Size = {194, 304}; end
     elseif Core.ViewESPImage then self:_SetVisibility(Core.ViewESPImage, false) end
 
+    -- ================== НАЧАЛО ИСПРАВЛЕНИЯ ==================
     self:_RenderTabs(windowX, windowY + headerHeight, sidebarWidth)
     
     if self.Window.ActiveTab == "Configs" then
+        -- Показываем вкладку конфигов
         self:_RenderConfigsTab(rightPanelX, windowY, headerHeight)
+        
+        -- ЯВНО СКРЫВАЕМ СЕКЦИИ
         for _, section in ipairs(self.UI.Sections) do
             for _, obj in pairs(section.Drawing) do self:_SetVisibility(obj, false) end
             for _, el in ipairs(section.Elements) do 
@@ -1540,7 +1508,10 @@ function Library:_RenderLoop()
             end
         end
     else
+        -- Показываем секции
         self:_RenderSections(rightPanelX, windowY, headerHeight)
+
+        -- ЯВНО СКРЫВАЕМ ВКЛАДКУ КОНФИГОВ
         local configsTab = self.UI.Core.ConfigsTab
         self:_SetVisibility(configsTab.MyItemsLabel, false)
         self:_SetVisibility(configsTab.Scrollbar.Background, false)
@@ -1556,6 +1527,7 @@ function Library:_RenderLoop()
         local popup = configsTab.OptionsPopup
         if popup.IsOpen then popup.IsOpen = false end
     end
+    -- =================== КОНЕЦ ИСПРАВЛЕНИЯ ===================
     
     self:_RenderSaveTooltip()
     self:_RenderConfigOptionsPopup()
@@ -1761,12 +1733,12 @@ end
 function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
     local configs = self.UI.Core.ConfigsTab
     local theme = self.ActiveTheme
-    local isThemeLight = self:_IsThemeLight(theme)
+    local isThemeLight = self:_IsColorLight(theme.Colors.MainBackground)
     local accentButtonTextColor = isThemeLight and {10, 10, 10, 255} or {234, 239, 245, 255}
 
     self:_SetVisibility(configs.MyItemsLabel, true)
-    self:_SetVisibility(configs.Scrollbar.Background, true)
-    self:_SetVisibility(configs.Scrollbar.Nub, true)
+    -- self:_SetVisibility(configs.Scrollbar.Background, true) -- Пока скрываем сам скроллбар
+    -- self:_SetVisibility(configs.Scrollbar.Nub, true)
     self:_AnimateAndApplyColor(configs.MyItemsLabel, theme.Colors.TextLight)
     self:_AnimateAndApplyColor(configs.Scrollbar.Background, theme.Colors.DarkBlue)
     self:_AnimateAndApplyColor(configs.Scrollbar.Nub, theme.Colors.Accent)
@@ -1774,15 +1746,7 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
     for _, item in ipairs(configs.Items) do
         local d = item.Drawing
         self:_SetVisibility(d.Background, true); self:_SetVisibility(d.Border, true); self:_SetVisibility(d.Name, true); self:_SetVisibility(d.Modified, true); self:_SetVisibility(d.Author, true); self:_SetVisibility(d.OptionsButton.Dot1, true); self:_SetVisibility(d.OptionsButton.Dot2, true); self:_SetVisibility(d.OptionsButton.Dot3, true)
-        
-        self:_AnimateAndApplyColor(d.Background, theme.Colors.SectionBackground)
-        self:_AnimateAndApplyColor(d.Border, theme.Colors.Separator)
-        self:_AnimateAndApplyColor(d.Name, theme.Colors.TextLight)
-        self:_AnimateAndApplyColor(d.Modified, theme.Colors.TextDark)
-        self:_AnimateAndApplyColor(d.Author, theme.Colors.TextDark)
-        self:_AnimateAndApplyColor(d.OptionsButton.Dot1, theme.Colors.TextDark)
-        self:_AnimateAndApplyColor(d.OptionsButton.Dot2, theme.Colors.TextDark)
-        self:_AnimateAndApplyColor(d.OptionsButton.Dot3, theme.Colors.TextDark)
+        self:_AnimateAndApplyColor(d.Background, theme.Colors.SectionBackground); self:_AnimateAndApplyColor(d.Border, theme.Colors.Separator); self:_AnimateAndApplyColor(d.Name, theme.Colors.TextLight); self:_AnimateAndApplyColor(d.Modified, theme.Colors.TextDark); self:_AnimateAndApplyColor(d.Author, theme.Colors.TextDark); self:_AnimateAndApplyColor(d.OptionsButton.Dot1, theme.Colors.TextDark); self:_AnimateAndApplyColor(d.OptionsButton.Dot2, theme.Colors.TextDark); self:_AnimateAndApplyColor(d.OptionsButton.Dot3, theme.Colors.TextDark)
     end
 
     local startX = panelX + 20
@@ -1791,7 +1755,10 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
     local scrollbarWidth = 6
     local contentAreaWidth = contentWidth - scrollbarWidth - 10
     configs.MyItemsLabel.Position = {startX, startY}
-    local currentY = startY + 25
+    
+    -- Учитываем смещение при расчете Y
+    local currentY = startY + 25 - configs.ScrollOffset
+
     local itemHeight = 60
     local itemSpacing = 10
 
@@ -1817,36 +1784,18 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
         
         if isLoaded then
             local saveBtn = d.SaveButton
-            self:_AnimateAndApplyColor(saveBtn.Background, theme.Colors.SectionBackground)
-            self:_AnimateAndApplyColor(saveBtn.Border, theme.Colors.Accent)
-            self:_AnimateAndApplyColor(saveBtn.Icon, theme.Colors.TextLight)
-            self:_AnimateAndApplyColor(saveBtn.Label, theme.Colors.TextLight)
-            saveBtn.Background.Position = {btnX, btnY}; saveBtn.Background.Size = {btnWidth, btnHeight}
-            saveBtn.Border.Position = {btnX, btnY}; saveBtn.Border.Size = {btnWidth, btnHeight}
-            local iconX = btnX + 15
-            saveBtn.Icon.Position = {iconX, btnY + (btnHeight / 2) - (saveBtn.Icon.Size.y / 2)}
-            saveBtn.Label.Position = {iconX + saveBtn.Icon.Size.x + 8, btnY + (btnHeight / 2) - (saveBtn.Label.Size / 2)}
-            saveBtn.ClickRegion = {x1 = btnX, y1 = btnY, x2 = btnX + btnWidth, y2 = btnY + btnHeight}
+            self:_AnimateAndApplyColor(saveBtn.Background, theme.Colors.SectionBackground); self:_AnimateAndApplyColor(saveBtn.Border, theme.Colors.Accent); self:_AnimateAndApplyColor(saveBtn.Icon, theme.Colors.TextLight); self:_AnimateAndApplyColor(saveBtn.Label, theme.Colors.TextLight)
+            saveBtn.Background.Position = {btnX, btnY}; saveBtn.Background.Size = {btnWidth, btnHeight}; saveBtn.Border.Position = {btnX, btnY}; saveBtn.Border.Size = {btnWidth, btnHeight}
+            local iconX = btnX + 15; saveBtn.Icon.Position = {iconX, btnY + (btnHeight / 2) - (saveBtn.Icon.Size.y / 2)}; saveBtn.Label.Position = {iconX + saveBtn.Icon.Size.x + 8, btnY + (btnHeight / 2) - (saveBtn.Label.Size / 2)}; saveBtn.ClickRegion = {x1 = btnX, y1 = btnY, x2 = btnX + btnWidth, y2 = btnY + btnHeight}
         else
             local loadBtn = d.LoadButton
-            self:_AnimateAndApplyColor(loadBtn.Background, theme.Colors.Accent)
-            self:_AnimateAndApplyColor(loadBtn.Icon, accentButtonTextColor)
-            self:_AnimateAndApplyColor(loadBtn.Label, accentButtonTextColor)
+            self:_AnimateAndApplyColor(loadBtn.Background, theme.Colors.Accent); self:_AnimateAndApplyColor(loadBtn.Icon, accentButtonTextColor); self:_AnimateAndApplyColor(loadBtn.Label, accentButtonTextColor)
             loadBtn.Background.Position = {btnX, btnY}; loadBtn.Background.Size = {btnWidth, btnHeight}
-            local iconX = btnX + 15
-            loadBtn.Icon.Position = {iconX, btnY + (btnHeight / 2) - (loadBtn.Icon.Size.y / 2)}
-            loadBtn.Label.Position = {iconX + loadBtn.Icon.Size.x + 8, btnY + (btnHeight / 2) - (loadBtn.Label.Size / 2)}
-            loadBtn.ClickRegion = {x1 = btnX, y1 = btnY, x2 = btnX + btnWidth, y2 = btnY + btnHeight}
+            local iconX = btnX + 15; loadBtn.Icon.Position = {iconX, btnY + (btnHeight / 2) - (loadBtn.Icon.Size.y / 2)}; loadBtn.Label.Position = {iconX + loadBtn.Icon.Size.x + 8, btnY + (btnHeight / 2) - (loadBtn.Label.Size / 2)}; loadBtn.ClickRegion = {x1 = btnX, y1 = btnY, x2 = btnX + btnWidth, y2 = btnY + btnHeight}
         end
         currentY = currentY + itemHeight + itemSpacing
     end
-    local scrollbarX = startX + contentAreaWidth + 5
-    local scrollbarHeight = self.Window.Height - headerHeight - 40
-    configs.Scrollbar.Background.Position = {scrollbarX, startY}
-    configs.Scrollbar.Background.Size = {scrollbarWidth, scrollbarHeight}
-    local nubHeight = 80
-    configs.Scrollbar.Nub.Position = {scrollbarX, startY}
-    configs.Scrollbar.Nub.Size = {scrollbarWidth, nubHeight}
+    -- ... (старый код отрисовки скроллбара пока не нужен) ...
 end
 
 function Library:_RenderConfigOptionsPopup()
