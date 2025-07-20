@@ -590,7 +590,8 @@ end
 function Library:_SaveConfig(name)
     local configData = {
         Values = {},
-        Themes = {}
+        Themes = {},
+        ActiveThemeName = self.ActiveTheme.Name -- Запоминаем имя активной темы
     }
 
     -- 1. Собираем все значения элементов UI
@@ -601,21 +602,21 @@ function Library:_SaveConfig(name)
         end
     end
 
-    -- 2. Собираем все кастомные темы (пока неактивно, но структура готова)
-    -- if self.UI.Values["ConfigIncludeStyle"] then
-    --     for themeName, themeData in pairs(self.Themes) do
-    --         if not themeData.IsPreset then
-    --             configData.Themes[themeName] = themeData
-    --         end
-    --     end
-    -- end
+    -- 2. Собираем все кастомные темы, если включена опция
+    if self.UI.Values["ConfigIncludeStyle"] then
+        for themeName, themeData in pairs(self.Themes) do
+            if not themeData.IsPreset then
+                configData.Themes[themeName] = themeData
+            end
+        end
+    end
 
     -- 3. Кодируем в JSON и сохраняем в файл
     local success, encodedData = pcall(JSONEncode, configData)
     if success then
         writefile(self:_GetConfigPath(name), encodedData)
         print(SCRIPT_PREFIX .. "Config '" .. name .. "' saved successfully.")
-        self:_RefreshConfigList() -- Обновляем список, чтобы показать актуальную дату
+        self:_RefreshConfigList() 
     else
         warn(SCRIPT_PREFIX .. "Failed to encode config data for '" .. name .. "'.")
     end
@@ -649,17 +650,23 @@ function Library:_LoadConfig(name)
         end
     end
 
-    -- Применяем темы (пока неактивно)
-    -- if decodedData.Themes then
-    --     for themeName, themeData in pairs(decodedData.Themes) do
-    --         self.Themes[themeName] = themeData
-    --     end
-    --     self:_RebuildStyleCircles()
-    -- end
+    -- Загружаем и применяем темы
+    if decodedData.Themes then
+        for themeName, themeData in pairs(decodedData.Themes) do
+            self.Themes[themeName] = themeData -- Добавляем кастомные темы в библиотеку
+        end
+        self:_RebuildStyleCircles() -- Обновляем кружочки выбора тем
+    end
+
+    -- Устанавливаем активную тему из конфига, если она есть
+    if decodedData.ActiveThemeName and self.Themes[decodedData.ActiveThemeName] then
+        self.ActiveTheme = self.Themes[decodedData.ActiveThemeName]
+        self.UI.Values.AboutSelectedStyle = decodedData.ActiveThemeName
+    end
 
     self.UI.Core.ConfigsTab.LoadedConfigName = name
     print(SCRIPT_PREFIX .. "Config '" .. name .. "' loaded successfully.")
-    self:_ApplyTheme() -- Применяем тему на случай, если она была загружена
+    self:_ApplyTheme() -- Применяем тему, чтобы все цвета и элементы обновились
 end
 
 function Library:_RefreshConfigList()
