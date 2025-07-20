@@ -391,6 +391,7 @@ function Library:_InitializeCoreUI()
     end
     
     UI.Core.HeaderButtons.Save.CurrentColor = self:_DeepCopy(self.ActiveTheme.Colors.MainBackground)
+    self:_ApplyTheme()
 end
 
 function Library:_InitializeAboutWindow()
@@ -2364,7 +2365,6 @@ function Library:_Internal_CreateKeybind(options)
     if keybind.ButtonText then keybind.ButtonText.Font = self.ActiveTheme.Fonts.Main; keybind.ButtonText.Size = self.ActiveTheme.Fonts.Size; keybind.ButtonText.Text = self.UI.Values[keybind.id]; keybind.ButtonText.Center = false; keybind.ButtonText.Outline = false; keybind.ButtonText.zIndex = z + 1; end
     return keybind
 end
-
 --================================================================
 --[[ PUBLIC API ]]
 --================================================================
