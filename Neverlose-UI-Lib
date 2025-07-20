@@ -287,7 +287,7 @@ function Library:_Internal_CreateGlowSet(zIndex, count)
     return glowSet
 end
 
-function Library:_RenderGlowEffect(glowSet, x, y, width, height, targetColor, sides)
+function Library:_RenderGlowEffect(glowSet, x, y, width, height, rounding, targetColor, sides)
     if not glowSet or #glowSet == 0 or not targetColor then return end
     
     -- Используем первый квадрат в наборе как ключ для нашего хранилища состояний
@@ -303,7 +303,7 @@ function Library:_RenderGlowEffect(glowSet, x, y, width, height, targetColor, si
     -- Анимируем цвет
     state.CurrentColor = self:_LerpColor(state.CurrentColor, targetColor, 0.1)
     local animatedColor = state.CurrentColor
-
+    
     sides = sides or {top=true, bottom=true, left=true, right=true}
     local glowColorRGB = {animatedColor[1], animatedColor[2], animatedColor[3]}
     local glowOpacity = (animatedColor[4] or 255) / 255
@@ -320,7 +320,7 @@ function Library:_RenderGlowEffect(glowSet, x, y, width, height, targetColor, si
         
         glowSquare.Position = {glowX, glowY}
         glowSquare.Size = {glowW, glowH}
-        glowSquare.Rounding = rounding + spread
+        glowSquare.Rounding = rounding + spread -- Теперь 'rounding' это корректное число
         glowSquare.Color = glowColorRGB
         glowSquare.Opacity = glowOpacity * alpha_factor
         self:_SetVisibility(glowSquare, true)
