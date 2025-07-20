@@ -19,6 +19,8 @@ local Library = {}
 --[[ PRIVATE: CORE PROPERTIES & CONFIGURATION ]]
 --================================================================
 
+Library.AnimationState = {} -- Хранилище для состояний анимации
+
 Library.Window = {
     Visible = true, X = 400, Y = 200, Width = 750, Height = 620,
     SidebarWidth = 187, HeaderHeight = 65, IsDragging = false,
@@ -251,34 +253,36 @@ function Library:_Internal_CreateGlowSet(zIndex, count)
     return glowSet
 end
 
-function Library:_RenderGlowEffect(glowSet, x, y, width, height, rounding, color, sides)
-    if not glowSet or not color then return end
-    sides = sides or {top=true, bottom=true, left=true, right=true}
+function Library:_RenderGlowEffect(glowSet, x, y, width, height, targetColor, sides)
+    if not glowSet or #glowSet == 0 or not targetColor then return end
     
-    local glowColorRGB = {color[1], color[2], color[3]}
-    local glowOpacity = (color[4] or 255) / 255
+    -- Используем первый квадрат в наборе как ключ для нашего хранилища состояний
+    local stateHolder = glowSet[1]
+
+    -- Получаем или создаем состояние для этого ключа
+    local state = self.AnimationState[stateHolder]
+    if not state then
+        state = { CurrentColor = self:_DeepCopy(targetColor) }
+        self.AnimationState[stateHolder] = state
+    end
+    
+    -- Анимируем цвет
+    state.CurrentColor = self:_LerpColor(state.CurrentColor, targetColor, 0.1)
+    local animatedColor = state.CurrentColor
+
+    sides = sides or {top=true, bottom=true, left=true, right=true}
+    local glowColorRGB = {animatedColor[1], animatedColor[2], animatedColor[3]}
+    local glowOpacity = (animatedColor[4] or 255) / 255
 
     for i, glowSquare in ipairs(glowSet) do
         local alpha_factor = 0.24 * math.exp(-0.24 * i)
         local spread = i * 0.6
+        local glowX, glowY, glowW, glowH = x, y, width, height
 
-        local glowX, glowY = x, y
-        local glowW, glowH = width, height
-
-        if sides.left then
-            glowX = x - spread
-            glowW = glowW + spread
-        end
-        if sides.right then
-            glowW = glowW + spread
-        end
-        if sides.top then
-            glowY = y - spread
-            glowH = glowH + spread
-        end
-        if sides.bottom then
-            glowH = glowH + spread
-        end
+        if sides.left then glowX = x - spread; glowW = glowW + spread; end
+        if sides.right then glowW = glowW + spread; end
+        if sides.top then glowY = y - spread; glowH = glowH + spread; end
+        if sides.bottom then glowH = glowH + spread; end
         
         glowSquare.Position = {glowX, glowY}
         glowSquare.Size = {glowW, glowH}
@@ -391,7 +395,6 @@ function Library:_InitializeCoreUI()
     end
     
     UI.Core.HeaderButtons.Save.CurrentColor = self:_DeepCopy(self.ActiveTheme.Colors.MainBackground)
-    self:_ApplyTheme()
 end
 
 function Library:_InitializeAboutWindow()
@@ -758,7 +761,6 @@ function Library:_LoadConfig(name)
 
     self.UI.Core.ConfigsTab.LoadedConfigName = name
     print(SCRIPT_PREFIX .. "Config '" .. name .. "' loaded successfully.")
-    self:_ApplyTheme()
 end
 
 function Library:_InitializeConfigsTab()
@@ -879,183 +881,13 @@ function Library:_RefreshConfigList()
             table.insert(configs.Items, item)
         end
     end
-    self:_ApplyTheme()
 end
 
 --================================================================
 --[[ PRIVATE: THEME MANAGEMENT ]]
 --================================================================
 
-function Library:_ApplyTheme()
-    self.ActiveTheme.Colors.ToggleEnabledBackground = self:_DarkenColor(self.ActiveTheme.Colors.Accent, 0.3)
-    local Core = self.UI.Core
 
-    local function applyColor(obj, color)
-        if obj and color then
-            obj.Color = {color[1], color[2], color[3]}
-            obj.Opacity = (color[4] or 255) / 255
-        end
-    end
-    
-    local function applyColorWithStaticOpacity(obj, color, opacity)
-        if obj and color then
-            obj.Color = {color[1], color[2], color[3]}
-            obj.Opacity = opacity
-        end
-    end
-
-    applyColor(Core.Sidebar.Drawing, self.ActiveTheme.Colors.SidebarBackground)
-    applyColor(Core.RightPanel.Drawing, self.ActiveTheme.Colors.MainBackground)
-    applyColor(Core.VerticalSeparator, self.ActiveTheme.Colors.Separator)
-    applyColor(Core.SidebarHeaderSeparator, self.ActiveTheme.Colors.Separator)
-    applyColor(Core.RightPanelHeaderSeparator, self.ActiveTheme.Colors.Separator)
-    applyColor(Core.ViewESPPanel, self.ActiveTheme.Colors.MainBackground)
-    applyColor(Core.ViewESPPanelBorder, self.ActiveTheme.Colors.Separator)
-
-    local isThemeLight = self:_IsThemeLight(self.ActiveTheme)
-    applyColor(Core.Title, self.ActiveTheme.Colors.TextLight)
-    if not isThemeLight then
-        applyColor(Core.Title2, self.ActiveTheme.Colors.Accent)
-        applyColor(Core.Title3, self.ActiveTheme.Colors.ToggleEnabledBackground)
-    end
-    self:_SetVisibility(Core.Title2, not isThemeLight)
-    self:_SetVisibility(Core.Title3, not isThemeLight)
-
-    applyColorWithStaticOpacity(Core.ActiveTabHighlight, self.ActiveTheme.Colors.Accent, self.ActiveTheme.Transparency.ActiveTabHighlight)
-    applyColor(Core.SidebarBottomCircle, self.ActiveTheme.Colors.Separator)
-    applyColor(Core.PlayerDisplayName, self.ActiveTheme.Colors.TextDark)
-    applyColor(Core.TillLabel, self.ActiveTheme.Colors.TextDark)
-    applyColor(Core.ForeverLabel, self.ActiveTheme.Colors.Accent)
-
-    for _, group in ipairs(self.UI.TabGroups) do
-        applyColor(group.Header, self.ActiveTheme.Colors.TabHeader)
-    end
-    
-    local default_buttons = { Core.HeaderButtons.Save, Core.HeaderButtons.ViewESP }
-    for _, btn in ipairs(default_buttons) do
-        applyColor(btn.Background, self.ActiveTheme.Colors.MainBackground)
-        applyColor(btn.Label, self.ActiveTheme.Colors.TextDark)
-        if btn.Icon then applyColor(btn.Icon, self.ActiveTheme.Colors.TextDark) end
-    end
-    
-    local create_btn = Core.HeaderButtons.CreateNew
-    applyColor(create_btn.Background, self.ActiveTheme.Colors.Accent)
-    local blackColor = {10, 10, 10, 255}; local whiteColor = {234, 239, 245, 255}
-    local accentButtonTextColor = isThemeLight and blackColor or whiteColor
-    applyColor(create_btn.Label, accentButtonTextColor)
-    if create_btn.Icon then applyColor(create_btn.Icon, accentButtonTextColor) end
-
-    applyColor(Core.HeaderButtons.Settings.Icon, self.ActiveTheme.Colors.TextDark)
-
-    for _, section in ipairs(self.UI.Sections) do
-        applyColor(section.Drawing.Background, self.ActiveTheme.Colors.SectionBackground)
-        applyColor(section.Drawing.Border, self.ActiveTheme.Colors.Separator)
-        applyColor(section.Drawing.Title, self.ActiveTheme.Colors.TextLight)
-        applyColor(section.Drawing.Separator, self.ActiveTheme.Colors.Separator)
-        for _, el in ipairs(section.Elements) do
-            applyColor(el.Label, self.ActiveTheme.Colors.TextDark)
-            if el.HasSettings then applyColor(el.SettingsIcon, self.ActiveTheme.Colors.TextDark) end
-            if el.type == "Slider" then
-                applyColor(el.LeftFill, self.ActiveTheme.Colors.Accent)
-                applyColor(el.RightFill, self.ActiveTheme.Colors.DarkBlue)
-                applyColor(el.Nub, self.ActiveTheme.Colors.Accent)
-                applyColor(el.ValueText, self.ActiveTheme.Colors.TextLight)
-            elseif el.type == "Dropdown" or el.type == "Multidropdown" then
-                applyColor(el.Button, self.ActiveTheme.Colors.DarkBlue)
-                applyColor(el.ButtonText, self.ActiveTheme.Colors.TextLight)
-                applyColor(el.ArrowLine1, self.ActiveTheme.Colors.TextLight)
-                applyColor(el.ArrowLine2, self.ActiveTheme.Colors.TextLight)
-                applyColor(el.OptionBackground, self.ActiveTheme.Colors.SectionBackground)
-                applyColor(el.BorderLeft, self.ActiveTheme.Colors.Separator)
-                applyColor(el.BorderRight, self.ActiveTheme.Colors.Separator)
-                applyColor(el.BorderBottom, self.ActiveTheme.Colors.Separator)
-            elseif el.type == "Keybind" then
-                applyColor(el.Button, self.ActiveTheme.Colors.Accent)
-                applyColor(el.ButtonText, self.ActiveTheme.Colors.TextLight)
-            end
-        end
-    end
-
-    local about = self.UI.Core.AboutWindow
-    applyColor(about.Background, self.ActiveTheme.Colors.SectionBackground); applyColor(about.Border, self.ActiveTheme.Colors.Separator); applyColor(about.HeaderIcon, self.ActiveTheme.Colors.TextDark); applyColor(about.HeaderTitle, self.ActiveTheme.Colors.TextLight); applyColor(about.CloseButton.Line1, self.ActiveTheme.Colors.TextDark); applyColor(about.CloseButton.Line2, self.ActiveTheme.Colors.TextDark); applyColor(about.Separator1, self.ActiveTheme.Colors.Separator); applyColor(about.MainTitle, self.ActiveTheme.Colors.TextLight); applyColor(about.Separator2, self.ActiveTheme.Colors.Separator);
-    applyColor(about.InfoVersionLabel, self.ActiveTheme.Colors.TextDark); applyColor(about.InfoVersionValue, self.ActiveTheme.Colors.Accent);
-    applyColor(about.InfoBuildDateLabel, self.ActiveTheme.Colors.TextDark); applyColor(about.InfoBuildDateValue, self.ActiveTheme.Colors.Accent);
-    applyColor(about.InfoBuildTypeLabel, self.ActiveTheme.Colors.TextDark); applyColor(about.InfoBuildTypeValue, self.ActiveTheme.Colors.Accent);
-    applyColor(about.InfoRegisteredToLabel, self.ActiveTheme.Colors.TextDark); applyColor(about.InfoRegisteredToValue, self.ActiveTheme.Colors.Accent);
-    applyColor(about.InfoSubscriptionLabel, self.ActiveTheme.Colors.TextDark); applyColor(about.InfoSubscriptionValue, self.ActiveTheme.Colors.Accent);
-    applyColor(about.FooterText, self.ActiveTheme.Colors.TextDark); applyColor(about.Separator3, self.ActiveTheme.Colors.Separator); applyColor(about.CreditText, self.ActiveTheme.Colors.TextDark); applyColor(about.StyleLabel, self.ActiveTheme.Colors.TextDark);
-    applyColor(about.Tooltip.Background, self.ActiveTheme.Colors.MainBackground)
-    applyColor(about.Tooltip.Text, self.ActiveTheme.Colors.TextLight)
-    for _, circle in ipairs(about.StyleCircles) do
-        applyColor(circle.Border, self.ActiveTheme.Colors.Accent)
-        if circle.PlusLine1 then applyColor(circle.PlusLine1, self.ActiveTheme.Colors.TextDark) end
-        if circle.PlusLine2 then applyColor(circle.PlusLine2, self.ActiveTheme.Colors.TextDark) end
-    end
-    applyColor(about.AutoSaveToggle.Label, self.ActiveTheme.Colors.TextDark)
-    local slider = about.AnimationSpeedSlider; applyColor(slider.Label, self.ActiveTheme.Colors.TextDark); applyColor(slider.LeftFill, self.ActiveTheme.Colors.Accent); applyColor(slider.RightFill, self.ActiveTheme.Colors.DarkBlue); applyColor(slider.Nub, self.ActiveTheme.Colors.Accent); applyColor(slider.ValueText, self.ActiveTheme.Colors.TextLight);
-    local dd = about.DpiScaleDropdown; applyColor(dd.Label, self.ActiveTheme.Colors.TextDark); applyColor(dd.Button, self.ActiveTheme.Colors.DarkBlue); applyColor(dd.ButtonText, self.ActiveTheme.Colors.TextLight); applyColor(dd.ArrowLine1, self.ActiveTheme.Colors.TextLight); applyColor(dd.ArrowLine2, self.ActiveTheme.Colors.TextLight); applyColor(dd.OptionBackground, self.ActiveTheme.Colors.SectionBackground); applyColor(dd.BorderLeft, self.ActiveTheme.Colors.Separator); applyColor(dd.BorderRight, self.ActiveTheme.Colors.Separator); applyColor(dd.BorderBottom, self.ActiveTheme.Colors.Separator);
-
-    local espPopup = self.UI.Popups.PlayerESP; applyColor(espPopup.Background, self.ActiveTheme.Colors.SectionBackground); applyColor(espPopup.Border, self.ActiveTheme.Colors.Separator); applyColor(espPopup.Title, self.ActiveTheme.Colors.TextLight); applyColor(espPopup.Separator, self.ActiveTheme.Colors.Separator); applyColor(espPopup.BindLabel, self.ActiveTheme.Colors.TextDark); applyColor(espPopup.Keybind.Button, self.ActiveTheme.Colors.Accent); applyColor(espPopup.Keybind.ButtonText, self.ActiveTheme.Colors.TextLight);
-
-    local stylePopup = self.UI.Popups.EditStyle; applyColor(stylePopup.Background, self.ActiveTheme.Colors.SectionBackground); applyColor(stylePopup.Border, self.ActiveTheme.Colors.Separator); applyColor(stylePopup.HeaderIcon, self.ActiveTheme.Colors.Accent); applyColor(stylePopup.HeaderTitle, self.ActiveTheme.Colors.TextLight); applyColor(stylePopup.CloseButton.Line1, self.ActiveTheme.Colors.TextDark); applyColor(stylePopup.CloseButton.Line2, self.ActiveTheme.Colors.TextDark); applyColor(stylePopup.Separator1, self.ActiveTheme.Colors.Separator); applyColor(stylePopup.StyleNameLabel, self.ActiveTheme.Colors.TextLight); applyColor(stylePopup.StyleNameInputBg, self.ActiveTheme.Colors.DarkBlue); applyColor(stylePopup.StyleNameInputText, self.ActiveTheme.Colors.TextLight); applyColor(stylePopup.StyleNameInputCursor, self.ActiveTheme.Colors.TextLight); applyColor(stylePopup.Separator2, self.ActiveTheme.Colors.Separator); applyColor(stylePopup.Separator3, self.ActiveTheme.Colors.Separator);
-    for _, item in ipairs(stylePopup.ColorItems) do
-        applyColor(item.Label, self.ActiveTheme.Colors.TextLight)
-        applyColor(item.ColorBorder, self.ActiveTheme.Colors.Separator)
-    end
-    applyColor(stylePopup.RealTimeToggle.Label, self.ActiveTheme.Colors.TextDark)
-    applyColor(stylePopup.CancelButton.Background, self.ActiveTheme.Colors.SectionBackground); applyColor(stylePopup.CancelButton.Border, self.ActiveTheme.Colors.Accent); applyColor(stylePopup.CancelButton.IconLine1, self.ActiveTheme.Colors.TextLight); applyColor(stylePopup.CancelButton.IconLine2, self.ActiveTheme.Colors.TextLight); applyColor(stylePopup.CancelButton.Label, self.ActiveTheme.Colors.TextLight);
-    applyColor(stylePopup.SaveButton.Background, self.ActiveTheme.Colors.Accent)
-    
-    local saveButtonTextColor = isThemeLight and blackColor or whiteColor
-    applyColor(stylePopup.SaveButton.Label, saveButtonTextColor)
-    applyColor(stylePopup.SaveButton.Icon, saveButtonTextColor)
-    
-    local tooltip = self.UI.Core.SaveTooltip
-    if tooltip then
-        applyColor(tooltip.Background, self.ActiveTheme.Colors.SectionBackground) -- Фон как у секций
-        applyColor(tooltip.ConfigName, self.ActiveTheme.Colors.TextLight)       -- Основной текст светлый
-        applyColor(tooltip.Author, self.ActiveTheme.Colors.TextDark)          -- Второстепенный текст темнее
-    end
-    
-    local configsTab = self.UI.Core.ConfigsTab
-    if configsTab then
-        applyColor(configsTab.MyItemsLabel, self.ActiveTheme.Colors.TextLight)
-        applyColor(configsTab.Scrollbar.Background, self.ActiveTheme.Colors.DarkBlue)
-        applyColor(configsTab.Scrollbar.Nub, self.ActiveTheme.Colors.Accent)
-        
-        local popup = configsTab.OptionsPopup
-        applyColor(popup.Background, self.ActiveTheme.Colors.SectionBackground)
-        applyColor(popup.Border, self.ActiveTheme.Colors.Separator)
-        applyColor(popup.IncludeStyleToggle.Label, self.ActiveTheme.Colors.TextDark)
-
-        for i, item in ipairs(configsTab.Items) do
-            local d = item.Drawing
-            applyColor(d.Background, self.ActiveTheme.Colors.SectionBackground)
-            applyColor(d.Border, self.ActiveTheme.Colors.Separator)
-            applyColor(d.Name, self.ActiveTheme.Colors.TextLight)
-            applyColor(d.Modified, self.ActiveTheme.Colors.TextDark)
-            applyColor(d.Author, self.ActiveTheme.Colors.TextDark)
-            applyColor(d.OptionsButton.Dot1, self.ActiveTheme.Colors.TextDark)
-            applyColor(d.OptionsButton.Dot2, self.ActiveTheme.Colors.TextDark)
-            applyColor(d.OptionsButton.Dot3, self.ActiveTheme.Colors.TextDark)
-            
-            -- [ИЗМЕНЕНО] Усиленная установка стилей для кнопок
-            if d.SaveButton.Background then d.SaveButton.Background.Filled = true end
-            if d.LoadButton.Background then d.LoadButton.Background.Filled = true end
-            
-            applyColor(d.SaveButton.Background, self.ActiveTheme.Colors.SectionBackground)
-            applyColor(d.SaveButton.Border, self.ActiveTheme.Colors.Accent)
-            applyColor(d.SaveButton.Icon, self.ActiveTheme.Colors.TextLight)
-            applyColor(d.SaveButton.Label, self.ActiveTheme.Colors.TextLight)
-
-            applyColor(d.LoadButton.Background, self.ActiveTheme.Colors.Accent)
-            local loadBtnTextColor = isThemeLight and blackColor or whiteColor
-            applyColor(d.LoadButton.Icon, loadBtnTextColor)
-            applyColor(d.LoadButton.Label, loadBtnTextColor)
-
-        end
-    end
-end
 
 --================================================================
 --[[ PRIVATE: RENDERING & INPUT HANDLING ]]
@@ -1600,30 +1432,30 @@ function Library:_RenderTabs(x, y, width)
     local currentY = y + 25
     local highlightY = 0
     for _, group in ipairs(self.UI.TabGroups) do
-        if group.Header then group.Header.Position = {x + 25, currentY}; self:_SetVisibility(group.Header, true); end
+        if group.Header then
+            group.Header.Position = {x + 25, currentY}
+            self:_SetVisibility(group.Header, true)
+            self:_AnimateAndApplyColor(group.Header, self.ActiveTheme.Colors.TabHeader) -- Анимация
+        end
         currentY = currentY + self.ActiveTheme.Fonts.TabHeaderSize + 10
         for _, tab in ipairs(group.Tabs) do
             local tabHeight = self.ActiveTheme.Fonts.TabSize + 10
             local is_active = (self.Window.ActiveTab == tab.Name)
-            local text_color = is_active and self.ActiveTheme.Colors.TextLight or self.ActiveTheme.Colors.TextDark
+            local target_text_color = is_active and self.ActiveTheme.Colors.TextLight or self.ActiveTheme.Colors.TextDark
             local startX = x + 25
 
             if tab.Icon then
                 self:_SetVisibility(tab.Icon, true)
                 tab.Icon.Position = {startX, currentY + (tabHeight / 2) - (self.ActiveTheme.IconSize / 2)}
-                local iconColor = text_color
-                if tab.Name == "Players" or tab.Name == "Configs" then
-                    iconColor = self.ActiveTheme.Colors.Accent
-                end
-                if tab.Icon.Color then tab.Icon.Color = {iconColor[1], iconColor[2], iconColor[3]}; tab.Icon.Opacity = (iconColor[4] or 255) / 255; end
+                local iconColor = (tab.Name == "Players" or tab.Name == "Configs") and self.ActiveTheme.Colors.Accent or target_text_color
+                self:_AnimateAndApplyColor(tab.Icon, iconColor) -- Анимация
                 startX = startX + self.ActiveTheme.IconSize + 8
             end
 
-            if tab.Text then 
+            if tab.Text then
                 self:_SetVisibility(tab.Text, true)
                 tab.Text.Position = {startX, currentY + (tabHeight / 2) - (tab.Text.Size / 2)}
-                tab.Text.Color = {text_color[1], text_color[2], text_color[3]}
-                tab.Text.Opacity = (text_color[4] or 255) / 255
+                self:_AnimateAndApplyColor(tab.Text, target_text_color) -- Анимация
             end
 
             tab.ClickRegion = {x1 = x + 10, y1 = currentY, x2 = x + width - 10, y2 = currentY + tabHeight}
@@ -1635,6 +1467,16 @@ function Library:_RenderTabs(x, y, width)
     if highlightY > 0 and self.UI.Core.ActiveTabHighlight then
         self.UI.Core.ActiveTabHighlight.Position = {x + 10, highlightY}; self.UI.Core.ActiveTabHighlight.Size = {self.Window.SidebarWidth - 20, self.ActiveTheme.Fonts.TabSize + 10};
         self:_SetVisibility(self.UI.Core.ActiveTabHighlight, true)
+        -- Анимация подсветки активной вкладки
+        local targetColor = self.ActiveTheme.Colors.Accent
+        local animatedColor = self:_LerpColor(
+            self.UI.Core.ActiveTabHighlight.CurrentColor or targetColor, 
+            targetColor, 
+            self.ActiveTheme.Transparency.ActiveTabHighlight
+        )
+        self.UI.Core.ActiveTabHighlight.CurrentColor = animatedColor
+        self.UI.Core.ActiveTabHighlight.Color = {animatedColor[1], animatedColor[2], animatedColor[3]}
+        self.UI.Core.ActiveTabHighlight.Opacity = self.ActiveTheme.Transparency.ActiveTabHighlight
     else
         self:_SetVisibility(self.UI.Core.ActiveTabHighlight, false)
     end
@@ -1647,13 +1489,6 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
     local columnWidth = ((self.Window.Width - self.Window.SidebarWidth + self.Window.PanelOverlap) - (columnSpacing * 3)) / 2
     local leftColumnX = panelX + columnSpacing
     local rightColumnX = leftColumnX + columnWidth + columnSpacing
-    local animationSpeed = 0.15 -- Общая скорость анимации
-
-    local function applyAnimatedColor(drawingObj, newColor)
-        if not drawingObj then return end
-        drawingObj.Color = {newColor[1], newColor[2], newColor[3]}
-        drawingObj.Opacity = newColor[4] / 255
-    end
 
     for _, section in ipairs(self.UI.Sections) do
         local isVisible = section.ParentTab == self.Window.ActiveTab
@@ -1664,16 +1499,26 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
             if section.Side == "Left" then sectionX, sectionY = leftColumnX, leftColumnY else sectionX, sectionY = rightColumnX, rightColumnY end
 
             local sDrawing = section.Drawing
-            sDrawing.Background.Position = {sectionX, sectionY};
-            sDrawing.Border.Position = {sectionX, sectionY};
-            sDrawing.Title.Position = {sectionX + 10, sectionY + 8};
+            -- Анимация цветов секции
+            self:_AnimateAndApplyColor(sDrawing.Background, self.ActiveTheme.Colors.SectionBackground)
+            self:_AnimateAndApplyColor(sDrawing.Border, self.ActiveTheme.Colors.Separator)
+            self:_AnimateAndApplyColor(sDrawing.Title, self.ActiveTheme.Colors.TextLight)
+            self:_AnimateAndApplyColor(sDrawing.Separator, self.ActiveTheme.Colors.Separator)
+
+            sDrawing.Background.Position = {sectionX, sectionY}
+            sDrawing.Border.Position = {sectionX, sectionY}
+            sDrawing.Title.Position = {sectionX + 10, sectionY + 8}
             local separatorY = sDrawing.Title.Position.y + sDrawing.Title.Size + 5
             sDrawing.Separator.From = {sectionX + 10, separatorY}; sDrawing.Separator.To = {sectionX + columnWidth - 10, separatorY};
 
             local elementY = separatorY + 15
             for _, el in ipairs(section.Elements) do
                 -- Устанавливаем видимость для всех частей элемента
-                self:_SetVisibility(el.Label, true); if el.Back then self:_SetVisibility(el.Back, true) end; if el.Nub then self:_SetVisibility(el.Nub, true) end; if el.Button then self:_SetVisibility(el.Button, true) end; if el.ButtonText then self:_SetVisibility(el.ButtonText, true) end; if el.LeftFill then self:_SetVisibility(el.LeftFill, true) end; if el.RightFill then self:_SetVisibility(el.RightFill, true) end; if el.ValueText then self:_SetVisibility(el.ValueText, true) end; if el.ArrowLine1 then self:_SetVisibility(el.ArrowLine1, true) end; if el.ArrowLine2 then self:_SetVisibility(el.ArrowLine2, true) end; if el.SettingsIcon then self:_SetVisibility(el.SettingsIcon, true) end
+                self:_SetVisibility(el.Label, true); if el.Back then self:_SetVisibility(el.Back, true) end; if el.Nub then self:_SetVisibility(el.Nub, true) end; if el.Button then self:_SetVisibility(el.Button, true) end; if el.ButtonText then self:_SetVisibility(el.ButtonText, true) end; if el.LeftFill then self:_SetVisibility(el.LeftFill, true) end; if el.RightFill then self:_SetVisibility(el.RightFill, true) end; if el.ValueText then self:_SetVisibility(el.ValueText, true) end; if el.ArrowLine1 then self:_SetVisibility(el.ArrowLine1, true) end; if el.ArrowLine2 then self:_SetVisibility(el.ArrowLine2, true) end; if el.HasSettings and el.SettingsIcon then self:_SetVisibility(el.SettingsIcon, true) end
+
+                -- Анимация общих элементов
+                self:_AnimateAndApplyColor(el.Label, self.ActiveTheme.Colors.TextDark)
+                if el.HasSettings then self:_AnimateAndApplyColor(el.SettingsIcon, self.ActiveTheme.Colors.TextDark) end
 
                 if el.type == "Toggle" then
                     el.Label.Position = {sectionX + 10, elementY};
@@ -1682,21 +1527,27 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
 
                     local targetBackColor, targetNubColor
                     if self.UI.Values[el.id] then
-                        targetBackColor = self.ActiveTheme.Colors.ToggleEnabledBackground; targetNubColor = self.ActiveTheme.Colors.Accent; el.Nub.Position = {toggleBackX + el.Size.width - 5, elementY + 2 + el.Size.height/2}
+                        targetBackColor = self.ActiveTheme.Colors.Accent
+                        targetNubColor = {234, 239, 245, 255} -- TextLight
+                        el.Nub.Position = {toggleBackX + el.Size.width - 5, elementY + 2 + el.Size.height/2}
                     else
-                        targetBackColor = self.ActiveTheme.Colors.DarkGray; targetNubColor = self.ActiveTheme.Colors.LightGray; el.Nub.Position = {toggleBackX + 5, elementY + 2 + el.Size.height/2}
+                        targetBackColor = self.ActiveTheme.Colors.DarkGray
+                        targetNubColor = self.ActiveTheme.Colors.LightGray
+                        el.Nub.Position = {toggleBackX + 5, elementY + 2 + el.Size.height/2}
                     end
 
-                    el.CurrentBackColor = self:_LerpColor(el.CurrentBackColor, targetBackColor, animationSpeed)
-                    el.CurrentNubColor = self:_LerpColor(el.CurrentNubColor, targetNubColor, animationSpeed)
-
-                    applyAnimatedColor(el.Back, el.CurrentBackColor)
-                    applyAnimatedColor(el.Nub, el.CurrentNubColor)
+                    self:_AnimateAndApplyColor(el.Back, targetBackColor)
+                    self:_AnimateAndApplyColor(el.Nub, targetNubColor)
 
                     if el.HasSettings and el.SettingsIcon then local iconX = toggleBackX - el.SettingsIcon.Size.x - 10; el.SettingsIcon.Position = {iconX, elementY}; el.SettingsClickRegion = {x1 = iconX, y1 = elementY, x2 = iconX + el.SettingsIcon.Size.x, y2 = elementY + el.SettingsIcon.Size.y} end
                     elementY = elementY + 35
 
                 elseif el.type == "Slider" then
+                    self:_AnimateAndApplyColor(el.LeftFill, self.ActiveTheme.Colors.Accent)
+                    self:_AnimateAndApplyColor(el.RightFill, self.ActiveTheme.Colors.DarkBlue)
+                    self:_AnimateAndApplyColor(el.Nub, self.ActiveTheme.Colors.Accent)
+                    self:_AnimateAndApplyColor(el.ValueText, self.ActiveTheme.Colors.TextLight)
+
                     el.Label.Position = {sectionX + 10, elementY};
                     local sliderBackX = sectionX + 100; local sliderBackWidth = columnWidth - 110 - 50
                     el.Back.Position = {sliderBackX, elementY + 8}; el.Back.Size = {sliderBackWidth, 2}; el.ClickRegion = { x1 = sliderBackX, y1 = elementY + 8 - 10, x2 = sliderBackX + sliderBackWidth, y2 = elementY + 8 + 10 };
@@ -1704,16 +1555,10 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
                     el.LeftFill.Position = {sliderBackX, elementY + 8}; el.LeftFill.Size = {nubX - sliderBackX, 2};
                     el.RightFill.Position = {nubX, elementY + 8}; el.RightFill.Size = {sliderBackX + sliderBackWidth - nubX, 2};
                     el.Nub.Position = {nubX, elementY + 9};
-                    
-                    el.CurrentFillColor = self:_LerpColor(el.CurrentFillColor, self.ActiveTheme.Colors.Accent, animationSpeed)
-                    el.CurrentNubColor = self:_LerpColor(el.CurrentNubColor, self.ActiveTheme.Colors.Accent, animationSpeed)
-
-                    applyAnimatedColor(el.LeftFill, el.CurrentFillColor)
-                    applyAnimatedColor(el.Nub, el.CurrentNubColor)
 
                     local glowWidth = nubX - sliderBackX; local glowHeight = 8
                     if glowWidth > 0 then
-                        self:_RenderGlowEffect(el.Glow, sliderBackX, elementY + 9 - (glowHeight / 2), glowWidth, glowHeight, el.LeftFill.Rounding, self.ActiveTheme.Colors.GlowAccent, {top=true, bottom=true, left=true, right=false})
+                        self:_RenderGlowEffect(el.Glow, sliderBackX, elementY + 9 - (glowHeight / 2), glowWidth, glowHeight, self.ActiveTheme.Colors.GlowAccent, {top=true, bottom=true, left=true, right=false})
                     else
                         self:_HideGlowEffect(el.Glow)
                     end
@@ -1723,12 +1568,18 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
                     elementY = elementY + 35
 
                 elseif el.type == "Dropdown" or el.type == "Multidropdown" then
+                    self:_AnimateAndApplyColor(el.Button, self.ActiveTheme.Colors.DarkBlue)
+                    self:_AnimateAndApplyColor(el.ButtonText, self.ActiveTheme.Colors.TextLight)
+                    self:_AnimateAndApplyColor(el.ArrowLine1, self.ActiveTheme.Colors.TextLight)
+                    self:_AnimateAndApplyColor(el.ArrowLine2, self.ActiveTheme.Colors.TextLight)
+                    self:_AnimateAndApplyColor(el.OptionBackground, self.ActiveTheme.Colors.SectionBackground)
+                    self:_AnimateAndApplyColor(el.BorderLeft, self.ActiveTheme.Colors.Separator)
+                    self:_AnimateAndApplyColor(el.BorderRight, self.ActiveTheme.Colors.Separator)
+                    self:_AnimateAndApplyColor(el.BorderBottom, self.ActiveTheme.Colors.Separator)
+
                     el.Label.Position = {sectionX + 10, elementY + 5};
                     local dropdownButtonX, dropdownButtonY = sectionX + columnWidth - el.Size.width - 15, elementY
                     el.Button.Position = {dropdownButtonX, dropdownButtonY}; el.Button.Size = {el.Size.width, el.Size.height}
-
-                    el.CurrentButtonColor = self:_LerpColor(el.CurrentButtonColor, self.ActiveTheme.Colors.DarkBlue, animationSpeed)
-                    applyAnimatedColor(el.Button, el.CurrentButtonColor)
 
                     local textToShow = (el.type == "Dropdown") and self.UI.Values[el.id] or (#self.UI.Values[el.id] == 0 and "..." or table.concat(self.UI.Values[el.id], ", ")); if #textToShow > 11 then textToShow = string.sub(textToShow, 1, 10) .. "..." end
                     el.ButtonText.Position = { dropdownButtonX + 5, dropdownButtonY + el.Size.height / 2 - el.ButtonText.Size / 2 }; el.ButtonText.Text = textToShow;
@@ -1740,16 +1591,15 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
                         local optionListHeight = #el.Options * 20 + 5; local bgX, bgY, bgW, bgH = dropdownButtonX, dropdownButtonY + el.Size.height, el.Size.width, optionListHeight
                         self:_SetVisibility(el.OptionBackground, true); el.OptionBackground.Position = {bgX, bgY}; el.OptionBackground.Size = {bgW, bgH};
                         el.BorderLeft.From = {bgX, bgY}; el.BorderLeft.To = {bgX, bgY + bgH}; el.BorderRight.From = {bgX + bgW, bgY}; el.BorderRight.To = {bgX + bgW, bgY + bgH}; el.BorderBottom.From = {bgX, bgY + bgH}; el.BorderBottom.To = {bgX + bgW, bgY + bgH};
-                        
-                        self:_RenderGlowEffect(el.Glow, bgX, bgY, bgW, bgH, el.OptionBackground.Rounding, self.ActiveTheme.Colors.GlowColor, {top=false, bottom=true, left=true, right=true})
+
+                        self:_RenderGlowEffect(el.Glow, bgX, bgY, bgW, bgH, self.ActiveTheme.Colors.GlowColor, {top=false, bottom=true, left=true, right=true})
 
                         local optionY = dropdownButtonY + el.Size.height + 5
                         for i, option in ipairs(el.OptionList) do 
                             self:_SetVisibility(option, true); option.Position = {dropdownButtonX + 5, optionY}; option.Text = el.Options[i]; 
                             local isSelected = (el.type == "Dropdown" and self.UI.Values[el.id] == el.Options[i]) or (el.type == "Multidropdown" and table.find(self.UI.Values[el.id], el.Options[i])); 
-                            local optColor = isSelected and self.ActiveTheme.Colors.Accent or self.ActiveTheme.Colors.TextLight
-                            option.Color = {optColor[1], optColor[2], optColor[3]}
-                            option.Opacity = (optColor[4] or 255) / 255
+                            local targetOptColor = isSelected and self.ActiveTheme.Colors.Accent or self.ActiveTheme.Colors.TextLight
+                            self:_AnimateAndApplyColor(option, targetOptColor) -- Анимация
                             optionY = optionY + 20 
                         end
                     else
@@ -2011,7 +1861,6 @@ function Library:_InputLoop()
 
         if self.UI.Values.EditStyleRealTime and self.TempTheme then
              self.TempTheme.Colors[picker.EditingColorName] = new_color
-             self:_ApplyTheme()
         end
     end
 
@@ -2062,7 +1911,6 @@ function Library:_InputLoop()
                 if self.UI.Values.EditStyleRealTime and self.PreEditThemeName then
                     self.ActiveTheme = self.Themes[self.PreEditThemeName] or self.Themes.Blue
                     self.UI.Values.AboutSelectedStyle = self.ActiveTheme.Name
-                    self:_ApplyTheme()
                 end
                 self.TempTheme = nil
                 self.PreEditThemeName = nil
@@ -2117,7 +1965,6 @@ function Library:_InputLoop()
                     self:_RebuildStyleCircles()
                     self.UI.Values.AboutSelectedStyle = newTheme.Name
                     self.ActiveTheme = newTheme
-                    self:_ApplyTheme()
                     
                     self.TempTheme = nil
                     self.PreEditThemeName = nil
@@ -2130,11 +1977,9 @@ function Library:_InputLoop()
                         self.PreEditThemeName = self.ActiveTheme.Name
                         self.TempTheme = self:_DeepCopy(style_window.EditingTheme)
                         self.ActiveTheme = self.TempTheme
-                        self:_ApplyTheme()
                     else
                         self.ActiveTheme = self.Themes[self.PreEditThemeName] or self.Themes.Blue
                         self.UI.Values.AboutSelectedStyle = self.ActiveTheme.Name
-                        self:_ApplyTheme()
                         self.TempTheme = nil
                         self.PreEditThemeName = nil
                     end
@@ -2195,7 +2040,6 @@ function Library:_InputLoop()
                             else
                                 self.UI.Values.AboutSelectedStyle = circle.Name
                                 self.ActiveTheme = self.Themes[circle.Name]
-                                self:_ApplyTheme()
                             end
                             break
                         end
@@ -2385,7 +2229,6 @@ function Library:_MainLoop()
     while self.Window.Visible do
         if is_first_frame then
             self:_AddPresetsTab()
-            self:_ApplyTheme()
             is_first_frame = false
         end
         pcall(function() self:_InputLoop(); self:_RenderLoop() end)
@@ -2583,6 +2426,7 @@ end
 
 function Library:Create()
     self:_InitializeCoreUI()
+    setmetatable(self.AnimationState, {__mode = "k"}) -- Делаем ключи слабыми для авто-очистки
     
     -- Config System Initialization
     if not checkfolder(self.ConfigFolderPath) then
