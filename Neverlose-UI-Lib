@@ -1647,6 +1647,13 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
     local columnWidth = ((self.Window.Width - self.Window.SidebarWidth + self.Window.PanelOverlap) - (columnSpacing * 3)) / 2
     local leftColumnX = panelX + columnSpacing
     local rightColumnX = leftColumnX + columnWidth + columnSpacing
+    local animationSpeed = 0.15 -- Общая скорость анимации
+
+    local function applyAnimatedColor(drawingObj, newColor)
+        if not drawingObj then return end
+        drawingObj.Color = {newColor[1], newColor[2], newColor[3]}
+        drawingObj.Opacity = newColor[4] / 255
+    end
 
     for _, section in ipairs(self.UI.Sections) do
         local isVisible = section.ParentTab == self.Window.ActiveTab
@@ -1665,44 +1672,30 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
 
             local elementY = separatorY + 15
             for _, el in ipairs(section.Elements) do
+                -- Устанавливаем видимость для всех частей элемента
                 self:_SetVisibility(el.Label, true); if el.Back then self:_SetVisibility(el.Back, true) end; if el.Nub then self:_SetVisibility(el.Nub, true) end; if el.Button then self:_SetVisibility(el.Button, true) end; if el.ButtonText then self:_SetVisibility(el.ButtonText, true) end; if el.LeftFill then self:_SetVisibility(el.LeftFill, true) end; if el.RightFill then self:_SetVisibility(el.RightFill, true) end; if el.ValueText then self:_SetVisibility(el.ValueText, true) end; if el.ArrowLine1 then self:_SetVisibility(el.ArrowLine1, true) end; if el.ArrowLine2 then self:_SetVisibility(el.ArrowLine2, true) end; if el.SettingsIcon then self:_SetVisibility(el.SettingsIcon, true) end
 
                 if el.type == "Toggle" then
                     el.Label.Position = {sectionX + 10, elementY};
                     local toggleBackX = sectionX + columnWidth - el.Size.width - 15
                     el.Back.Position = {toggleBackX, elementY + 2}; el.Back.Size = {el.Size.width, el.Size.height}; el.ClickRegion = {x1 = toggleBackX, y1 = elementY, x2 = toggleBackX + el.Size.width, y2 = elementY + el.Size.height + 4}
-                local targetBackColor, targetNubColor
+
+                    local targetBackColor, targetNubColor
                     if self.UI.Values[el.id] then
-                        targetBackColor = self.ActiveTheme.Colors.ToggleEnabledBackground
-                        targetNubColor = self.ActiveTheme.Colors.Accent
-                        el.Nub.Position = {toggleBackX + el.Size.width - 5, elementY + 2 + el.Size.height/2}
+                        targetBackColor = self.ActiveTheme.Colors.ToggleEnabledBackground; targetNubColor = self.ActiveTheme.Colors.Accent; el.Nub.Position = {toggleBackX + el.Size.width - 5, elementY + 2 + el.Size.height/2}
                     else
-                        targetBackColor = self.ActiveTheme.Colors.DarkGray
-                        targetNubColor = self.ActiveTheme.Colors.LightGray
-                        el.Nub.Position = {toggleBackX + 5, elementY + 2 + el.Size.height/2}
+                        targetBackColor = self.ActiveTheme.Colors.DarkGray; targetNubColor = self.ActiveTheme.Colors.LightGray; el.Nub.Position = {toggleBackX + 5, elementY + 2 + el.Size.height/2}
                     end
 
-                    -- Анимируем цвета с помощью Lerp
-                    local speed = 0.15 -- Скорость анимации, можешь настроить
-                    el.CurrentBackColor = self:_LerpColor(el.CurrentBackColor, targetBackColor, speed)
-                    el.CurrentNubColor = self:_LerpColor(el.CurrentNubColor, targetNubColor, speed)
+                    el.CurrentBackColor = self:_LerpColor(el.CurrentBackColor, targetBackColor, animationSpeed)
+                    el.CurrentNubColor = self:_LerpColor(el.CurrentNubColor, targetNubColor, animationSpeed)
 
-                    -- Применяем плавно измененные цвета
-                    if el.Back then
-                        el.Back.Color = {el.CurrentBackColor[1], el.CurrentBackColor[2], el.CurrentBackColor[3]}
-                        el.Back.Opacity = el.CurrentBackColor[4] / 255
-                    end
-                    if el.Nub then
-                        el.Nub.Color = {el.CurrentNubColor[1], el.CurrentNubColor[2], el.CurrentNubColor[3]}
-                        el.Nub.Opacity = el.CurrentNubColor[4] / 255
-                    end
-                    -- [КОНЕЦ НОВОГО БЛОКА]
+                    applyAnimatedColor(el.Back, el.CurrentBackColor)
+                    applyAnimatedColor(el.Nub, el.CurrentNubColor)
 
                     if el.HasSettings and el.SettingsIcon then local iconX = toggleBackX - el.SettingsIcon.Size.x - 10; el.SettingsIcon.Position = {iconX, elementY}; el.SettingsClickRegion = {x1 = iconX, y1 = elementY, x2 = iconX + el.SettingsIcon.Size.x, y2 = elementY + el.SettingsIcon.Size.y} end
                     elementY = elementY + 35
-                
-                    if el.HasSettings and el.SettingsIcon then local iconX = toggleBackX - el.SettingsIcon.Size.x - 10; el.SettingsIcon.Position = {iconX, elementY}; el.SettingsClickRegion = {x1 = iconX, y1 = elementY, x2 = iconX + el.SettingsIcon.Size.x, y2 = elementY + el.SettingsIcon.Size.y} end
-                    elementY = elementY + 35
+
                 elseif el.type == "Slider" then
                     el.Label.Position = {sectionX + 10, elementY};
                     local sliderBackX = sectionX + 100; local sliderBackWidth = columnWidth - 110 - 50
@@ -1712,8 +1705,13 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
                     el.RightFill.Position = {nubX, elementY + 8}; el.RightFill.Size = {sliderBackX + sliderBackWidth - nubX, 2};
                     el.Nub.Position = {nubX, elementY + 9};
                     
-                    local glowWidth = nubX - sliderBackX
-                    local glowHeight = 8
+                    el.CurrentFillColor = self:_LerpColor(el.CurrentFillColor, self.ActiveTheme.Colors.Accent, animationSpeed)
+                    el.CurrentNubColor = self:_LerpColor(el.CurrentNubColor, self.ActiveTheme.Colors.Accent, animationSpeed)
+
+                    applyAnimatedColor(el.LeftFill, el.CurrentFillColor)
+                    applyAnimatedColor(el.Nub, el.CurrentNubColor)
+
+                    local glowWidth = nubX - sliderBackX; local glowHeight = 8
                     if glowWidth > 0 then
                         self:_RenderGlowEffect(el.Glow, sliderBackX, elementY + 9 - (glowHeight / 2), glowWidth, glowHeight, el.LeftFill.Rounding, self.ActiveTheme.Colors.GlowAccent, {top=true, bottom=true, left=true, right=false})
                     else
@@ -1723,10 +1721,15 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
                     local valueText = tostring(math.floor(self.UI.Values[el.id])); local valueTextX = sectionX + columnWidth - 40
                     el.ValueText.Text = valueText; el.ValueText.Position = {valueTextX, elementY};
                     elementY = elementY + 35
+
                 elseif el.type == "Dropdown" or el.type == "Multidropdown" then
                     el.Label.Position = {sectionX + 10, elementY + 5};
                     local dropdownButtonX, dropdownButtonY = sectionX + columnWidth - el.Size.width - 15, elementY
                     el.Button.Position = {dropdownButtonX, dropdownButtonY}; el.Button.Size = {el.Size.width, el.Size.height}
+
+                    el.CurrentButtonColor = self:_LerpColor(el.CurrentButtonColor, self.ActiveTheme.Colors.DarkBlue, animationSpeed)
+                    applyAnimatedColor(el.Button, el.CurrentButtonColor)
+
                     local textToShow = (el.type == "Dropdown") and self.UI.Values[el.id] or (#self.UI.Values[el.id] == 0 and "..." or table.concat(self.UI.Values[el.id], ", ")); if #textToShow > 11 then textToShow = string.sub(textToShow, 1, 10) .. "..." end
                     el.ButtonText.Position = { dropdownButtonX + 5, dropdownButtonY + el.Size.height / 2 - el.ButtonText.Size / 2 }; el.ButtonText.Text = textToShow;
                     local arrowX, arrowY = dropdownButtonX + el.Size.width - 15, dropdownButtonY + el.Size.height / 2
@@ -2394,17 +2397,41 @@ end
 --[[ PRIVATE: INTERNAL ELEMENT CREATORS ]]
 --================================================================
 
+--================================================================
+--[[ PRIVATE: INTERNAL ELEMENT CREATORS ]]
+--================================================================
+
 function Library:_Internal_CreateToggle(options)
-    -- [ИЗМЕНЕНО] Приоритет значениям из загруженного конфига
     if self.UI.Values[options.id] == nil then
         self.UI.Values[options.id] = options.Default or false
     end
     local z = options.zIndex or 4
-    local toggle = { id = options.id, type = "Toggle", Name = options.Name, Size = {width = 35, height = 12}, HasSettings = options.HasSettings or false, Callback = options.Callback, Label = self:_CreateDrawingObject("Text"), Back = self:_CreateDrawingObject("Square"), Nub = self:_CreateDrawingObject("Circle"), ClickRegion = {}, SettingsClickRegion = {}, SettingsIcon = nil }
-    if toggle.HasSettings then toggle.SettingsIcon = self:_CreateDrawingObject("Image"); if toggle.SettingsIcon then toggle.SettingsIcon.Url = "https://s6.imgcdn.dev/Y4Skk8.png"; toggle.SettingsIcon.Size = {16, 16}; toggle.SettingsIcon.zIndex = z + 1; end end
-    if toggle.Label then toggle.Label.Font = self.ActiveTheme.Fonts.Main; toggle.Label.Size = self.ActiveTheme.Fonts.Size + 2; toggle.Label.Text = toggle.Name; toggle.Label.Center = false; toggle.Label.Outline = false; toggle.Label.zIndex = z; end
-    if toggle.Back then toggle.Back.Filled = true; toggle.Back.zIndex = z; toggle.Back.Rounding = 6; end
-    if toggle.Nub then toggle.Nub.Filled = true; toggle.Nub.zIndex = z + 1; toggle.Nub.Radius = 9; end
+    local toggle = {
+        id = options.id, type = "Toggle", Name = options.Name, Size = {width = 35, height = 12},
+        HasSettings = options.HasSettings or false, Callback = options.Callback,
+        Label = self:_CreateDrawingObject("Text"), Back = self:_CreateDrawingObject("Square"),
+        Nub = self:_CreateDrawingObject("Circle"), ClickRegion = {}, SettingsClickRegion = {},
+        SettingsIcon = nil,
+        CurrentBackColor = {0,0,0,0}, -- Текущий цвет фона
+        CurrentNubColor = {0,0,0,0}   -- Текущий цвет ползунка
+    }
+    if toggle.HasSettings then
+        toggle.SettingsIcon = self:_CreateDrawingObject("Image")
+        if toggle.SettingsIcon then
+            toggle.SettingsIcon.Url = "https://s6.imgcdn.dev/Y4Skk8.png"
+            toggle.SettingsIcon.Size = {16, 16}
+            toggle.SettingsIcon.zIndex = z + 1
+        end
+    end
+    if toggle.Label then
+        toggle.Label.Font = self.ActiveTheme.Fonts.Main; toggle.Label.Size = self.ActiveTheme.Fonts.Size + 2; toggle.Label.Text = toggle.Name; toggle.Label.Center = false; toggle.Label.Outline = false; toggle.Label.zIndex = z;
+    end
+    if toggle.Back then
+        toggle.Back.Filled = true; toggle.Back.zIndex = z; toggle.Back.Rounding = 6;
+    end
+    if toggle.Nub then
+        toggle.Nub.Filled = true; toggle.Nub.zIndex = z + 1; toggle.Nub.Radius = 9;
+    end
     return toggle
 end
 
@@ -2413,7 +2440,15 @@ function Library:_Internal_CreateSlider(options)
         self.UI.Values[options.id] = options.Default or options.Min or 0
     end
     local z = options.zIndex or 4
-    local slider = { id = options.id, type = "Slider", Name = options.Name, Min = options.Min or 0, Max = options.Max or 100, Increment = options.Increment or 1, IsDragging = false, Callback = options.Callback, Label = self:_CreateDrawingObject("Text"), Back = self:_CreateDrawingObject("Square"), LeftFill = self:_CreateDrawingObject("Square"), RightFill = self:_CreateDrawingObject("Square"), Nub = self:_CreateDrawingObject("Circle"), ValueText = self:_CreateDrawingObject("Text"), ClickRegion = {}, Glow = self:_Internal_CreateGlowSet(z) }
+    local slider = {
+        id = options.id, type = "Slider", Name = options.Name, Min = options.Min or 0, Max = options.Max or 100,
+        Increment = options.Increment or 1, IsDragging = false, Callback = options.Callback,
+        Label = self:_CreateDrawingObject("Text"), Back = self:_CreateDrawingObject("Square"),
+        LeftFill = self:_CreateDrawingObject("Square"), RightFill = self:_CreateDrawingObject("Square"),
+        Nub = self:_CreateDrawingObject("Circle"), ValueText = self:_CreateDrawingObject("Text"),
+        ClickRegion = {}, Glow = self:_Internal_CreateGlowSet(z),
+        CurrentNubColor = {0,0,0,0}, CurrentFillColor = {0,0,0,0} -- Цвета для анимации
+    }
     if slider.Label then slider.Label.Font = self.ActiveTheme.Fonts.Main; slider.Label.Size = self.ActiveTheme.Fonts.Size + 2; slider.Label.Text = slider.Name; slider.Label.Center = false; slider.Label.Outline = false; slider.Label.zIndex = z; end
     if slider.Back then slider.Back.Filled = true; slider.Back.zIndex = z; slider.Back.Rounding = 1; end
     if slider.LeftFill then slider.LeftFill.Filled = true; slider.LeftFill.zIndex = z + 1; slider.LeftFill.Rounding = 1; end
@@ -2428,7 +2463,17 @@ function Library:_Internal_CreateDropdown(options)
         self.UI.Values[options.id] = options.Default or options.Options[1]
     end
     local z = options.zIndex or 4
-    local dropdown = { id = options.id, type = "Dropdown", Name = options.Name, Options = options.Options, IsOpen = false, Size = options.Size or {width = 120, height = 25}, Callback = options.Callback, Label = self:_CreateDrawingObject("Text"), Button = self:_CreateDrawingObject("Square"), ButtonText = self:_CreateDrawingObject("Text"), OptionList = {}, OptionBackground = self:_CreateDrawingObject("Square"), ArrowLine1 = self:_CreateDrawingObject("Line"), ArrowLine2 = self:_CreateDrawingObject("Line"), ClickRegion = {}, BorderLeft = self:_CreateDrawingObject("Line"), BorderRight = self:_CreateDrawingObject("Line"), BorderBottom = self:_CreateDrawingObject("Line"), Glow = self:_Internal_CreateGlowSet(z + 8) }
+    local dropdown = {
+        id = options.id, type = "Dropdown", Name = options.Name, Options = options.Options,
+        IsOpen = false, Size = options.Size or {width = 120, height = 25}, Callback = options.Callback,
+        Label = self:_CreateDrawingObject("Text"), Button = self:_CreateDrawingObject("Square"),
+        ButtonText = self:_CreateDrawingObject("Text"), OptionList = {},
+        OptionBackground = self:_CreateDrawingObject("Square"), ArrowLine1 = self:_CreateDrawingObject("Line"),
+        ArrowLine2 = self:_CreateDrawingObject("Line"), ClickRegion = {},
+        BorderLeft = self:_CreateDrawingObject("Line"), BorderRight = self:_CreateDrawingObject("Line"),
+        BorderBottom = self:_CreateDrawingObject("Line"), Glow = self:_Internal_CreateGlowSet(z + 8),
+        CurrentButtonColor = {0,0,0,0} -- Цвет для анимации
+    }
     if dropdown.Label then dropdown.Label.Font = self.ActiveTheme.Fonts.Main; dropdown.Label.Size = self.ActiveTheme.Fonts.Size + 2; dropdown.Label.Text = dropdown.Name; dropdown.Label.Center = false; dropdown.Label.Outline = false; dropdown.Label.zIndex = z; end
     if dropdown.Button then dropdown.Button.Filled = true; dropdown.Button.zIndex = z; dropdown.Button.Rounding = self.ActiveTheme.Rounding.Element; end
     if dropdown.ButtonText then dropdown.ButtonText.Font = self.ActiveTheme.Fonts.Main; dropdown.ButtonText.Size = self.ActiveTheme.Fonts.Size + 3; dropdown.ButtonText.Text = self.UI.Values[dropdown.id]; dropdown.ButtonText.Center = false; dropdown.ButtonText.Outline = false; dropdown.ButtonText.zIndex = z + 1; end
@@ -2447,7 +2492,17 @@ function Library:_Internal_CreateMultidropdown(options)
         self.UI.Values[options.id] = options.Default or {}
     end
     local z = options.zIndex or 4
-    local multidropdown = { id = options.id, type = "Multidropdown", Name = options.Name, Options = options.Options, IsOpen = false, Size = {width = 120, height = 25}, Callback = options.Callback, Label = self:_CreateDrawingObject("Text"), Button = self:_CreateDrawingObject("Square"), ButtonText = self:_CreateDrawingObject("Text"), OptionList = {}, OptionBackground = self:_CreateDrawingObject("Square"), ArrowLine1 = self:_CreateDrawingObject("Line"), ArrowLine2 = self:_CreateDrawingObject("Line"), ClickRegion = {}, BorderLeft = self:_CreateDrawingObject("Line"), BorderRight = self:_CreateDrawingObject("Line"), BorderBottom = self:_CreateDrawingObject("Line"), Glow = self:_Internal_CreateGlowSet(z + 8) }
+    local multidropdown = {
+        id = options.id, type = "Multidropdown", Name = options.Name, Options = options.Options,
+        IsOpen = false, Size = {width = 120, height = 25}, Callback = options.Callback,
+        Label = self:_CreateDrawingObject("Text"), Button = self:_CreateDrawingObject("Square"),
+        ButtonText = self:_CreateDrawingObject("Text"), OptionList = {},
+        OptionBackground = self:_CreateDrawingObject("Square"), ArrowLine1 = self:_CreateDrawingObject("Line"),
+        ArrowLine2 = self:_CreateDrawingObject("Line"), ClickRegion = {},
+        BorderLeft = self:_CreateDrawingObject("Line"), BorderRight = self:_CreateDrawingObject("Line"),
+        BorderBottom = self:_CreateDrawingObject("Line"), Glow = self:_Internal_CreateGlowSet(z + 8),
+        CurrentButtonColor = {0,0,0,0} -- Цвет для анимации
+    }
     if multidropdown.Label then multidropdown.Label.Font = self.ActiveTheme.Fonts.Main; multidropdown.Label.Size = self.ActiveTheme.Fonts.Size + 2; multidropdown.Label.Text = multidropdown.Name; multidropdown.Label.Center = false; multidropdown.Label.Outline = false; multidropdown.Label.zIndex = z; end
     if multidropdown.Button then multidropdown.Button.Filled = true; multidropdown.Button.zIndex = z; multidropdown.Button.Rounding = self.ActiveTheme.Rounding.Element; end
     if multidropdown.ButtonText then multidropdown.ButtonText.Font = self.ActiveTheme.Fonts.Main; multidropdown.ButtonText.Size = self.ActiveTheme.Fonts.Size + 3; multidropdown.ButtonText.Text = ""; multidropdown.ButtonText.Center = false; multidropdown.ButtonText.Outline = false; multidropdown.ButtonText.zIndex = z + 1; end
