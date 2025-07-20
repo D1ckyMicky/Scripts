@@ -147,11 +147,10 @@ function Library:_DarkenColor(color, factor)
     return { math.max(0, math.floor(color[1] * factor)), math.max(0, math.floor(color[2] * factor)), math.max(0, math.floor(color[3] * factor)), color[4] or 255 }
 end
 
-function Library:_IsThemeLight(theme)
-    local bg = theme.Colors.MainBackground
-    if not bg then return false end
+function Library:_IsColorLight(color)
+    if not color or #color < 3 then return false end
     -- Using luminance formula to determine brightness
-    local brightness = (bg[1] * 0.299 + bg[2] * 0.587 + bg[3] * 0.114)
+    local brightness = (color[1] * 0.299 + color[2] * 0.587 + color[3] * 0.114)
     return brightness > 150 -- Threshold for what is considered a "light" background
 end
 
@@ -214,14 +213,16 @@ function Library:_RenderSaveTooltip()
     local theme = self.ActiveTheme
 
     self:_SetVisibility(tooltip.Background, isVisible)
+    self:_SetVisibility(tooltip.Border, isVisible) -- ДОБАВЛЕНО
     self:_SetVisibility(tooltip.ConfigName, isVisible)
     self:_SetVisibility(tooltip.Author, isVisible)
 
     if isVisible then
         self:_AnimateAndApplyColor(tooltip.Background, theme.Colors.SectionBackground)
+        self:_AnimateAndApplyColor(tooltip.Border, theme.Colors.Separator) -- ДОБАВЛЕНО
         self:_AnimateAndApplyColor(tooltip.ConfigName, theme.Colors.TextLight)
         self:_AnimateAndApplyColor(tooltip.Author, theme.Colors.TextDark)
-    
+
         local configName = self.UI.Core.ConfigsTab.LoadedConfigName
         if configName == "" then configName = "default" end
         tooltip.ConfigName.Text = "Config \"" .. configName .. "\""
@@ -238,8 +239,24 @@ function Library:_RenderSaveTooltip()
 
         tooltip.Background.Position = {tooltipX, tooltipY}
         tooltip.Background.Size = {tooltipW, tooltipH}
+
+        if tooltip.Border then -- ДОБАВЛЕНО
+            tooltip.Border.Filled = false
+            tooltip.Border.Thickness = 1
+            tooltip.Border.Rounding = tooltip.Background.Rounding
+            tooltip.Border.zIndex = tooltip.Background.zIndex + 1
+            tooltip.Border.Position = {tooltipX, tooltipY}
+            tooltip.Border.Size = {tooltipW, tooltipH}
+        end
+
+        if tooltip.Glow then -- ДОБАВЛЕНО
+            self:_RenderGlowEffect(tooltip.Glow, tooltipX, tooltipY, tooltipW, tooltipH, tooltip.Background.Rounding, theme.Colors.GlowAccent)
+        end
+
         tooltip.ConfigName.Position = {tooltipX + (padding / 2), tooltipY + 8}
         tooltip.Author.Position = {tooltipX + (padding / 2), tooltipY + 28}
+    else
+        if tooltip.Glow then self:_HideGlowEffect(tooltip.Glow) end
     end
 end
 
@@ -378,6 +395,8 @@ function Library:_InitializeCoreUI()
     UI.Core.SaveTooltip = {
         Background = self:_CreateDrawingObject("Square"),
         ConfigName = self:_CreateDrawingObject("Text"),
+        Border = self:_CreateDrawingObject("Square"), -- ДОБАВЛЕНО
+        Glow = self:_Internal_CreateGlowSet(49),
         Author = self:_CreateDrawingObject("Text")
     }
     
@@ -1381,13 +1400,14 @@ function Library:_RenderLoop()
 
     local Core = self.UI.Core
     local theme = self.ActiveTheme
-    local isThemeLight = self:_IsThemeLight(theme)
-    local accentButtonTextColor = {234, 239, 245, 255} -- Текст на кнопках с акцентом всегда светлый для контраста
     local windowX, windowY = self:_SafeNumber(self.Window.X, 0), self:_SafeNumber(self.Window.Y, 0)
     local sidebarWidth, headerHeight = self:_SafeNumber(self.Window.SidebarWidth, 0), self:_SafeNumber(self.Window.HeaderHeight, 0)
     local rightPanelX = windowX + sidebarWidth - self.Window.PanelOverlap
 
     self:_SetVisibility(Core.Sidebar.Drawing, true); self:_SetVisibility(Core.RightPanel.Drawing, true); self:_SetVisibility(Core.VerticalSeparator, true); self:_SetVisibility(Core.SidebarHeaderSeparator, true); self:_SetVisibility(Core.RightPanelHeaderSeparator, true); self:_SetVisibility(Core.Title, true); self:_SetVisibility(Core.SidebarBottomCircle, true); if Core.SidebarAvatar then self:_SetVisibility(Core.SidebarAvatar, true) end; self:_SetVisibility(Core.PlayerDisplayName, true); self:_SetVisibility(Core.TillLabel, true); self:_SetVisibility(Core.ForeverLabel, true)
+    
+    -- ИСПОЛЬЗУЕМ НОВУЮ ФУНКЦИЮ ЗДЕСЬ
+    local isThemeLight = self:_IsColorLight(theme.Colors.MainBackground)
     self:_SetVisibility(Core.Title2, not isThemeLight); self:_SetVisibility(Core.Title3, not isThemeLight)
 
     self:_AnimateAndApplyColor(Core.Sidebar.Drawing, theme.Colors.SidebarBackground)
@@ -1396,19 +1416,25 @@ function Library:_RenderLoop()
     self:_AnimateAndApplyColor(Core.SidebarHeaderSeparator, theme.Colors.Separator)
     self:_AnimateAndApplyColor(Core.RightPanelHeaderSeparator, theme.Colors.Separator)
     self:_AnimateAndApplyColor(Core.Title, theme.Colors.TextLight)
-    self:_AnimateAndApplyColor(Core.Title2, theme.Colors.GlowAccent)
-    self:_AnimateAndApplyColor(Core.Title3, theme.Colors.Accent)
-    self:_AnimateAndApplyColor(Core.PlayerDisplayName, theme.Colors.TextLight)
+    if not isThemeLight then
+        self:_AnimateAndApplyColor(Core.Title2, theme.Colors.Accent)
+        if theme.Colors.ToggleEnabledBackground then 
+            self:_AnimateAndApplyColor(Core.Title3, theme.Colors.ToggleEnabledBackground)
+        else
+            self:_AnimateAndApplyColor(Core.Title3, self:_DarkenColor(theme.Colors.Accent, 0.3))
+        end
+    end
+    self:_AnimateAndApplyColor(Core.SidebarBottomCircle, theme.Colors.Separator)
+    self:_AnimateAndApplyColor(Core.PlayerDisplayName, theme.Colors.TextDark)
     self:_AnimateAndApplyColor(Core.TillLabel, theme.Colors.TextDark)
     self:_AnimateAndApplyColor(Core.ForeverLabel, theme.Colors.Accent)
-    if Core.SidebarAvatar then self:_AnimateAndApplyColor(Core.SidebarAvatar, {255, 255, 255, 255}) end
-    -- [ИЗМЕНЕНО] Цвет обводки аватара теперь Separator
-    self:_AnimateAndApplyColor(Core.SidebarBottomCircle, theme.Colors.Separator) 
-
+    
     if Core.Sidebar.Drawing then Core.Sidebar.Drawing.Position = {windowX, windowY}; Core.Sidebar.Drawing.Size = {sidebarWidth, self.Window.Height}; end
     if Core.RightPanel.Drawing then Core.RightPanel.Drawing.Position = {rightPanelX, windowY}; Core.RightPanel.Drawing.Size = {self.Window.Width - sidebarWidth + self.Window.PanelOverlap, self.Window.Height}; end
-    self:_RenderGlowEffect(Core.Sidebar.Glow, windowX, windowY, sidebarWidth, self.Window.Height, Core.Sidebar.Drawing.Rounding, theme.Colors.GlowColor, {top=true, bottom=true, left=true, right=false})
-    self:_RenderGlowEffect(Core.RightPanel.Glow, rightPanelX, windowY, self.Window.Width - sidebarWidth + self.Window.PanelOverlap, self.Window.Height, Core.RightPanel.Drawing.Rounding, theme.Colors.GlowColor, {top=true, bottom=true, left=false, right=true})
+    
+    if Core.Sidebar.Drawing and Core.Sidebar.Glow then self:_RenderGlowEffect(Core.Sidebar.Glow, windowX, windowY, sidebarWidth, self.Window.Height, Core.Sidebar.Drawing.Rounding, theme.Colors.GlowColor, {top=true, bottom=true, left=true, right=false}) end
+    if Core.RightPanel.Drawing and Core.RightPanel.Glow then self:_RenderGlowEffect(Core.RightPanel.Glow, rightPanelX, windowY, self.Window.Width - sidebarWidth + self.Window.PanelOverlap, self.Window.Height, Core.RightPanel.Drawing.Rounding, theme.Colors.GlowColor, {top=true, bottom=true, left=false, right=true}) end
+
     if Core.VerticalSeparator then Core.VerticalSeparator.Position = {rightPanelX, windowY}; Core.VerticalSeparator.Size = {4, self.Window.Height}; end
     if Core.SidebarHeaderSeparator then Core.SidebarHeaderSeparator.Position = {windowX, windowY + self.Window.Height - 100 + 14}; Core.SidebarHeaderSeparator.Size = {sidebarWidth, 4}; end
     if Core.RightPanelHeaderSeparator then Core.RightPanelHeaderSeparator.Position = {rightPanelX, windowY + headerHeight}; Core.RightPanelHeaderSeparator.Size = {self.Window.Width - sidebarWidth + self.Window.PanelOverlap, 4}; end
@@ -1417,40 +1443,50 @@ function Library:_RenderLoop()
     if Core.Title3 then Core.Title3.Position = {windowX + 7, windowY + 24}; end
     if Core.SidebarBottomCircle then local circleX = windowX + 8 + Core.SidebarBottomCircle.Radius; local circleY = windowY + self.Window.Height - 44; Core.SidebarBottomCircle.Position = {circleX, circleY}; end
     if Core.SidebarAvatar then local avatarSize = 56; local avatarX = windowX + 8; local avatarY = windowY + self.Window.Height - 44 - avatarSize / 2; Core.SidebarAvatar.Position = {avatarX, avatarY}; Core.SidebarAvatar.Size = {avatarSize, avatarSize}; end
-    if Core.PlayerDisplayName then local textX = windowX + 15 + Core.SidebarBottomCircle.Radius * 2 + 5; local textY = windowY + self.Window.Height - 56; Core.PlayerDisplayName.Position = {textX, textY}; end
-    if Core.TillLabel then local textX = windowX + 15 + Core.SidebarBottomCircle.Radius * 2 + 5; local textY = windowY + self.Window.Height - 40; Core.TillLabel.Position = {textX, textY}; end
-    if Core.ForeverLabel then local textX = windowX + 8 + Core.SidebarBottomCircle.Radius * 2 + 30; local textY = windowY + self.Window.Height - 40; Core.ForeverLabel.Position = {textX, textY}; end
+    
+    if Core.PlayerDisplayName and Core.TillLabel and Core.ForeverLabel and Core.SidebarBottomCircle then
+        local textX = windowX + 15 + Core.SidebarBottomCircle.Radius * 2 + 5
+        Core.PlayerDisplayName.Position = {textX, windowY + self.Window.Height - 56}
+        Core.TillLabel.Position = {textX, windowY + self.Window.Height - 40}
+        
+        if Core.TillLabel.TextBounds and Core.TillLabel.TextBounds.x then
+            Core.ForeverLabel.Position = {textX + Core.TillLabel.TextBounds.x, windowY + self.Window.Height - 40}
+        else
+            Core.ForeverLabel.Position = {textX + 30, windowY + self.Window.Height - 40}
+        end
+    end
 
     do
         local startX, startY = rightPanelX + 35, windowY + (headerHeight / 2)
         local function renderHeaderButton(button, x, y, width, height, has_icon, is_accent)
-             self:_SetVisibility(button.Background, true); self:_SetVisibility(button.Border, true); self:_SetVisibility(button.Label, true); if button.Icon then self:_SetVisibility(button.Icon, button.Icon.Visible) end
-             
-             button.Background.Position = {x, y}; button.Background.Size = {width, height}; 
-             button.Border.Position = {x, y}; button.Border.Size = {width, height}; 
-             
-             local isHovered = self:_IsPointInRegion(mouse_pos.x, mouse_pos.y, button.ClickRegion)
-             local targetBgColor, targetTextColor
-             
-             if is_accent then
-                 local color = self:_DeepCopy(theme.Colors.Accent)
-                 color[4] = isHovered and 255 or 128 -- 100% opacity on hover, 50% otherwise
-                 targetBgColor = color
-                 targetTextColor = accentButtonTextColor
-             else
-                 targetBgColor = isHovered and theme.Colors.Accent or theme.Colors.MainBackground
-                 targetTextColor = theme.Colors.TextLight
-             end
-             
-             local targetBorderColor = (tick() - (button.ClickTime or 0) < 0.1 or (button.IsOpen)) and theme.Colors.Accent or theme.Colors.Separator
-             
-             self:_AnimateAndApplyColor(button.Background, targetBgColor)
-             self:_AnimateAndApplyColor(button.Border, targetBorderColor)
-             self:_AnimateAndApplyColor(button.Label, targetTextColor)
-             if button.Icon then self:_AnimateAndApplyColor(button.Icon, targetTextColor) end
+            self:_SetVisibility(button.Background, true); self:_SetVisibility(button.Border, true); self:_SetVisibility(button.Label, true); 
+            if button.Icon then self:_SetVisibility(button.Icon, button.Icon.Visible) end
+            
+            if is_accent then
+                -- ИСПОЛЬЗУЕМ НОВУЮ ФУНКЦИЮ ЗДЕСЬ, для цвета Accent
+                local accentTextColor = self:_IsColorLight(theme.Colors.Accent) and {10, 10, 10, 255} or {234, 239, 245, 255}
+                self:_AnimateAndApplyColor(button.Background, theme.Colors.Accent)
+                self:_AnimateAndApplyColor(button.Label, accentTextColor)
+                if button.Icon then self:_AnimateAndApplyColor(button.Icon, accentTextColor) end
+            else
+                self:_AnimateAndApplyColor(button.Label, theme.Colors.TextDark)
+                if button.Icon then self:_AnimateAndApplyColor(button.Icon, theme.Colors.TextDark) end
+            end
 
-             if has_icon and button.Icon then local iconX, iconY = x + 12, y + (height / 2) - (button.Icon.Size.y / 2); button.Icon.Position = {iconX, iconY}; local labelX, labelY = iconX + button.Icon.Size.x + 5, y + (height / 2) - (button.Label.Size / 2); button.Label.Position = {labelX, labelY}; button.Label.Center = false else button.Label.Position = {x + width / 2, y + (height / 2) - (button.Label.Size / 2)}; button.Label.Center = true end
-             button.ClickRegion = {x1 = x, y1 = y, x2 = x + width, y2 = y + height}
+            if button == Core.HeaderButtons.Save then
+                local targetColor = button.IsHovered and theme.Colors.Accent or theme.Colors.MainBackground
+                button.CurrentColor = self:_LerpColor(button.CurrentColor, targetColor, 0.15)
+                self:_AnimateAndApplyColor(button.Background, button.CurrentColor)
+            elseif not is_accent then
+                 self:_AnimateAndApplyColor(button.Background, theme.Colors.MainBackground)
+            end
+
+            button.Background.Position = {x, y}; button.Background.Size = {width, height}; button.Border.Position = {x, y}; button.Border.Size = {width, height}; 
+            local borderColor = (tick() - button.ClickTime < 0.1 or (button.IsOpen)) and theme.Colors.Accent or theme.Colors.Separator
+            self:_AnimateAndApplyColor(button.Border, borderColor)
+            
+            if has_icon and button.Icon and button.Icon.Size and button.Label and button.Label.Size then local iconX, iconY = x + 12, y + (height / 2) - (button.Icon.Size.y / 2); button.Icon.Position = {iconX, iconY}; local labelX, labelY = iconX + button.Icon.Size.x + 5, y + (height / 2) - (button.Label.Size / 2); button.Label.Position = {labelX, labelY}; button.Label.Center = false else if button.Label and button.Label.Size then button.Label.Position = {x + width / 2, y + (height / 2) - (button.Label.Size / 2)}; button.Label.Center = true end end
+            button.ClickRegion = {x1 = x, y1 = y, x2 = x + width, y2 = y + height}
         end
 
         local btnWidth, btnHeight, spacing = 75, 30, 15
@@ -1467,22 +1503,25 @@ function Library:_RenderLoop()
         if self.Window.ActiveTab == "Configs" then
             renderHeaderButton(Core.HeaderButtons.CreateNew, currentX, btnY, createNewBtnWidth, btnHeight, true, true)
         else
-            self:_SetVisibility(Core.HeaderButtons.CreateNew.Background, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Border, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Label, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Icon, false);
+            if Core.HeaderButtons.CreateNew.Background then self:_SetVisibility(Core.HeaderButtons.CreateNew.Background, false) end; if Core.HeaderButtons.CreateNew.Border then self:_SetVisibility(Core.HeaderButtons.CreateNew.Border, false) end; if Core.HeaderButtons.CreateNew.Label then self:_SetVisibility(Core.HeaderButtons.CreateNew.Label, false) end; if Core.HeaderButtons.CreateNew.Icon then self:_SetVisibility(Core.HeaderButtons.CreateNew.Icon, false) end;
         end
         
+        Core.HeaderButtons.Save.IsHovered = self:_IsPointInRegion(mouse_pos.x, mouse_pos.y, Core.HeaderButtons.Save.ClickRegion)
+
         local settingsIcon = Core.HeaderButtons.Settings.Icon
-        local settingsX = rightPanelX + (self.Window.Width - sidebarWidth + self.Window.PanelOverlap) - settingsIcon.Size.x - 20 - 30
-        local settingsY = startY - (settingsIcon.Size.y / 2)
-        self:_SetVisibility(settingsIcon, true); settingsIcon.Position = {settingsX, settingsY}; Core.HeaderButtons.Settings.ClickRegion = {x1 = settingsX, y1 = settingsY, x2 = settingsX + settingsIcon.Size.x, y2 = settingsY + settingsIcon.Size.y}
-        self:_AnimateAndApplyColor(settingsIcon, theme.Colors.TextDark)
+        if settingsIcon and settingsIcon.Size then
+            local settingsX = rightPanelX + (self.Window.Width - sidebarWidth + self.Window.PanelOverlap) - settingsIcon.Size.x - 20
+            local settingsY = startY - (settingsIcon.Size.y / 2)
+            self:_SetVisibility(settingsIcon, true); settingsIcon.Position = {settingsX, settingsY}; Core.HeaderButtons.Settings.ClickRegion = {x1 = settingsX - 5, y1 = settingsY - 5, x2 = settingsX + settingsIcon.Size.x + 5, y2 = settingsY + settingsIcon.Size.y + 5}
+            self:_AnimateAndApplyColor(settingsIcon, theme.Colors.TextDark)
+        end
     end
-    
+
     self:_SetVisibility(Core.ViewESPPanel, Core.HeaderButtons.ViewESP.IsOpen); self:_SetVisibility(Core.ViewESPPanelBorder, Core.HeaderButtons.ViewESP.IsOpen)
     if Core.HeaderButtons.ViewESP.IsOpen then 
-        local panelX = windowX + self.Window.Width + 11; 
-        self:_AnimateAndApplyColor(Core.ViewESPPanel, theme.Colors.SectionBackground)
+        self:_AnimateAndApplyColor(Core.ViewESPPanel, theme.Colors.MainBackground)
         self:_AnimateAndApplyColor(Core.ViewESPPanelBorder, theme.Colors.Separator)
-        self:_AnimateAndApplyColor(Core.ViewESPImage, {255,255,255,255})
+        local panelX = windowX + self.Window.Width + 11; 
         Core.ViewESPPanel.Position = {panelX, windowY}; Core.ViewESPPanel.Size = {200, 310}; 
         Core.ViewESPPanelBorder.Position = {panelX, windowY}; Core.ViewESPPanelBorder.Size = {200, 310}; 
         if Core.ViewESPImage then self:_SetVisibility(Core.ViewESPImage, true); local imageX, imageY = panelX + 3, windowY + 3; Core.ViewESPImage.Position = {imageX, imageY}; Core.ViewESPImage.Size = {194, 304}; end
@@ -1517,9 +1556,6 @@ function Library:_RenderLoop()
         local popup = configsTab.OptionsPopup
         if popup.IsOpen then popup.IsOpen = false end
     end
-    
-    -- [ИЗМЕНЕНО] Обновляем состояние IsHovered для кнопки Save, чтобы тултип работал
-    Core.HeaderButtons.Save.IsHovered = self:_IsPointInRegion(mouse_pos.x, mouse_pos.y, Core.HeaderButtons.Save.ClickRegion)
     
     self:_RenderSaveTooltip()
     self:_RenderConfigOptionsPopup()
