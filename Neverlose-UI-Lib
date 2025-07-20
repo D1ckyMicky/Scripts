@@ -1403,9 +1403,11 @@ function Library:_RenderLoop()
     local sidebarWidth, headerHeight = self:_SafeNumber(self.Window.SidebarWidth, 0), self:_SafeNumber(self.Window.HeaderHeight, 0)
     local rightPanelX = windowX + sidebarWidth - self.Window.PanelOverlap
 
+    -- Visibility of core components
     self:_SetVisibility(Core.Sidebar.Drawing, true); self:_SetVisibility(Core.RightPanel.Drawing, true); self:_SetVisibility(Core.VerticalSeparator, true); self:_SetVisibility(Core.SidebarHeaderSeparator, true); self:_SetVisibility(Core.RightPanelHeaderSeparator, true); self:_SetVisibility(Core.Title, true); self:_SetVisibility(Core.SidebarBottomCircle, true); if Core.SidebarAvatar then self:_SetVisibility(Core.SidebarAvatar, true) end; self:_SetVisibility(Core.PlayerDisplayName, true); self:_SetVisibility(Core.TillLabel, true); self:_SetVisibility(Core.ForeverLabel, true)
     self:_SetVisibility(Core.Title2, not self:_IsThemeLight(self.ActiveTheme)); self:_SetVisibility(Core.Title3, not self:_IsThemeLight(self.ActiveTheme))
 
+    -- Positioning of core components
     if Core.Sidebar.Drawing then Core.Sidebar.Drawing.Position = {windowX, windowY}; Core.Sidebar.Drawing.Size = {sidebarWidth, self.Window.Height}; end
     if Core.RightPanel.Drawing then Core.RightPanel.Drawing.Position = {rightPanelX, windowY}; Core.RightPanel.Drawing.Size = {self.Window.Width - sidebarWidth + self.Window.PanelOverlap, self.Window.Height}; end
     
@@ -1424,15 +1426,16 @@ function Library:_RenderLoop()
     if Core.TillLabel then local textX = windowX + 15 + Core.SidebarBottomCircle.Radius * 2 + 5; local textY = windowY + self.Window.Height - 40; Core.TillLabel.Position = {textX, textY}; end
     if Core.ForeverLabel then local textX = windowX + 8 + Core.SidebarBottomCircle.Radius * 2 + 30; local textY = windowY + self.Window.Height - 40; Core.ForeverLabel.Position = {textX, textY}; end
 
+    -- ## HEADER BUTTON RENDERING LOGIC ##
     do
         local startX, startY = rightPanelX + 35, windowY + (headerHeight / 2)
         local function renderHeaderButton(button, x, y, width, height, has_icon)
-            self:_SetVisibility(button.Background, true); self:_SetVisibility(button.Border, true); self:_SetVisibility(button.Label, true); if button.Icon then self:_SetVisibility(button.Icon, button.Icon.Visible) end
-            button.Background.Position = {x, y}; button.Background.Size = {width, height}; button.Border.Position = {x, y}; button.Border.Size = {width, height}; 
-            local borderColor = (tick() - button.ClickTime < 0.1 or (button.IsOpen)) and self.ActiveTheme.Colors.Accent or self.ActiveTheme.Colors.Separator
-            if button.Border then button.Border.Color = {borderColor[1], borderColor[2], borderColor[3]}; button.Border.Opacity = (borderColor[4] or 255) / 255; end
-            if has_icon and button.Icon then local iconX, iconY = x + 12, y + (height / 2) - (button.Icon.Size.y / 2); button.Icon.Position = {iconX, iconY}; local labelX, labelY = iconX + button.Icon.Size.x + 5, y + (height / 2) - (button.Label.Size / 2); button.Label.Position = {labelX, labelY}; button.Label.Center = false else button.Label.Position = {x + width / 2, y + (height / 2) - (button.Label.Size / 2)}; button.Label.Center = true end
-            button.ClickRegion = {x1 = x, y1 = y, x2 = x + width, y2 = y + height}
+             self:_SetVisibility(button.Background, true); self:_SetVisibility(button.Border, true); self:_SetVisibility(button.Label, true); if button.Icon then self:_SetVisibility(button.Icon, button.Icon.Visible) end
+             button.Background.Position = {x, y}; button.Background.Size = {width, height}; button.Border.Position = {x, y}; button.Border.Size = {width, height}; 
+             local borderColor = (tick() - button.ClickTime < 0.1 or (button.IsOpen)) and self.ActiveTheme.Colors.Accent or self.ActiveTheme.Colors.Separator
+             if button.Border then button.Border.Color = {borderColor[1], borderColor[2], borderColor[3]}; button.Border.Opacity = (borderColor[4] or 255) / 255; end
+             if has_icon and button.Icon then local iconX, iconY = x + 12, y + (height / 2) - (button.Icon.Size.y / 2); button.Icon.Position = {iconX, iconY}; local labelX, labelY = iconX + button.Icon.Size.x + 5, y + (height / 2) - (button.Label.Size / 2); button.Label.Position = {labelX, labelY}; button.Label.Center = false else button.Label.Position = {x + width / 2, y + (height / 2) - (button.Label.Size / 2)}; button.Label.Center = true end
+             button.ClickRegion = {x1 = x, y1 = y, x2 = x + width, y2 = y + height}
         end
 
         local btnWidth, btnHeight, spacing = 75, 30, 15
@@ -1443,18 +1446,15 @@ function Library:_RenderLoop()
         local settingsY = startY - (settingsIcon.Size.y / 2)
 
         if self.Window.ActiveTab == "Configs" then
-            -- [ИЗМЕНЕНО] Показываем только кнопку "Create new"
             renderHeaderButton(Core.HeaderButtons.CreateNew, startX, btnY, createNewBtnWidth, btnHeight, true)
             self:_SetVisibility(Core.HeaderButtons.Save.Background, false); self:_SetVisibility(Core.HeaderButtons.Save.Border, false); self:_SetVisibility(Core.HeaderButtons.Save.Label, false); self:_SetVisibility(Core.HeaderButtons.Save.Icon, false);
             self:_SetVisibility(Core.HeaderButtons.ViewESP.Background, false); self:_SetVisibility(Core.HeaderButtons.ViewESP.Border, false); self:_SetVisibility(Core.HeaderButtons.ViewESP.Label, false);
         else
-            -- [ИЗМЕНЕНО] Показываем "Save" и "View ESP"
             renderHeaderButton(Core.HeaderButtons.Save, startX, btnY, btnWidth, btnHeight, true)
             renderHeaderButton(Core.HeaderButtons.ViewESP, startX + btnWidth + spacing, btnY, btnWidth, btnHeight, false)
             self:_SetVisibility(Core.HeaderButtons.CreateNew.Background, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Border, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Label, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Icon, false);
         end
         
-        -- Отрисовываем иконку настроек всегда
         self:_SetVisibility(settingsIcon, true); settingsIcon.Position = {settingsX, settingsY}; Core.HeaderButtons.Settings.ClickRegion = {x1 = settingsX, y1 = settingsY, x2 = settingsX + settingsIcon.Size.x, y2 = settingsY + settingsIcon.Size.y}
     end
 
@@ -1464,8 +1464,10 @@ function Library:_RenderLoop()
 
     self:_RenderTabs(windowX, windowY + headerHeight, sidebarWidth)
     
+    -- ## TAB CONTENT RENDERING LOGIC ##
     if self.Window.ActiveTab == "Configs" then
         self:_RenderConfigsTab(rightPanelX, windowY, headerHeight)
+        -- Hide elements from other tabs
         for _, section in ipairs(self.UI.Sections) do
             for _, obj in pairs(section.Drawing) do self:_SetVisibility(obj, false) end
             for _, el in ipairs(section.Elements) do 
@@ -1477,16 +1479,23 @@ function Library:_RenderLoop()
     else
         self:_RenderSections(rightPanelX, windowY, headerHeight)
         local configsTab = self.UI.Core.ConfigsTab
+        -- [ИЗМЕНЕНО] Прячем элементы вкладки Configs, а не уничтожаем их
         self:_SetVisibility(configsTab.MyItemsLabel, false)
         self:_SetVisibility(configsTab.Scrollbar.Background, false)
         self:_SetVisibility(configsTab.Scrollbar.Nub, false)
         for _, item in ipairs(configsTab.Items) do
-            self:_CleanupDrawingObjects(item.Drawing) -- Используем безопасную очистку
+            for _, obj in pairs(item.Drawing) do
+                 if type(obj) == 'table' then
+                     for _, sub_obj in pairs(obj) do if type(sub_obj) == 'table' and sub_obj.Visible ~= nil then self:_SetVisibility(sub_obj, false) end end
+                     if obj.Visible ~= nil then self:_SetVisibility(obj, false) end
+                 end
+            end
         end
         local popup = configsTab.OptionsPopup
         if popup.IsOpen then popup.IsOpen = false end
     end
     
+    -- Render popups on top
     self:_RenderConfigOptionsPopup()
     self:_RenderPlayerESPSettingsPopup()
     self:_RenderAboutWindow(mouse_pos)
