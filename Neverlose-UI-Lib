@@ -126,25 +126,12 @@ function Library:_CreateDrawingObject(class)
     local success, object = pcall(Drawing.new, class)
     if not success then warn(SCRIPT_PREFIX .. "Failed to create Drawing object of type:", class); return nil end
     
-    -- [ИСПРАВЛЕНО] Создаем обертку для хранения состояния анимации
-    local objectWrapper = {
-        -- Base properties that mirror the original object for convenience
-        __index = object, 
-        Remove = function(self) object:Remove() end,
-        
-        -- The actual drawing object
-        _instance = object,
-        
-        -- Animation state
-        CurrentColor = {255, 255, 255, 255}, -- Default white
-        TargetColor = {255, 255, 255, 255}
-    }
+    -- [ДОБАВЛЕНО] Инициализируем свойства для анимации цвета
+    object.CurrentColor = {0, 0, 0, 0}
+    object.TargetColor = {0, 0, 0, 0}
     
-    -- This allows us to still do 'object.Visible = true' etc.
-    setmetatable(objectWrapper, objectWrapper)
-    
-    table.insert(self.UI.DrawingObjects, objectWrapper)
-    return objectWrapper
+    table.insert(self.UI.DrawingObjects, object)
+    return object
 end
 
 function Library:_DeepCopy(original)
@@ -409,7 +396,7 @@ function Library:_InitializeAboutWindow()
     about.Background = self:_CreateDrawingObject("Square"); if about.Background then about.Background.Filled = true; about.Background.zIndex = 30; about.Background.Rounding = self.ActiveTheme.Rounding.Section; end
     about.Border = self:_CreateDrawingObject("Square"); if about.Border then about.Border.Filled = false; about.Border.Thickness = 1; about.Border.zIndex = 31; about.Border.Rounding = self.ActiveTheme.Rounding.Section; end
     about.Glow = self:_Internal_CreateGlowSet(29)
-    about.HeaderIcon = self:_CreateDrawingObject("Image"); if about.HeaderIcon then about.HeaderIcon.Url = "[https://s6.imgcdn.dev/Y4SCjT.png](https://s6.imgcdn.dev/Y4SCjT.png)"; about.HeaderIcon.Size = {16, 16}; about.HeaderIcon.zIndex = about_z; end
+    about.HeaderIcon = self:_CreateDrawingObject("Image"); if about.HeaderIcon then about.HeaderIcon.Url = "https://s6.imgcdn.dev/Y4SCjT.png"; about.HeaderIcon.Size = {16, 16}; about.HeaderIcon.zIndex = about_z; end
     about.HeaderTitle = self:_CreateDrawingObject("Text"); if about.HeaderTitle then about.HeaderTitle.Font = self.ActiveTheme.Fonts.Main; about.HeaderTitle.Size = self.ActiveTheme.Fonts.Size + 2; about.HeaderTitle.Text = "About Neverlose"; about.HeaderTitle.Center = false; about.HeaderTitle.zIndex = about_z; end
     about.CloseButton = { Line1 = self:_CreateDrawingObject("Line"), Line2 = self:_CreateDrawingObject("Line"), ClickRegion = {} }; if about.CloseButton.Line1 then about.CloseButton.Line1.Thickness = 2; about.CloseButton.Line1.zIndex = about_z; end; if about.CloseButton.Line2 then about.CloseButton.Line2.Thickness = 2; about.CloseButton.Line2.zIndex = about_z; end
 
@@ -436,12 +423,11 @@ function Library:_InitializeAboutWindow()
 
     about.AutoSaveToggle = self:_Internal_CreateToggle({ id = "AboutAutoSave", Name = "Auto Save", Default = false, zIndex = about_z });
     about.DpiScaleDropdown = self:_Internal_CreateDropdown({ id = "AboutDpiScale", Name = "Dpi Scale", Options = {"100%", "125%", "150%"}, Default = "100%", Size = {width = 100, height = 25}, zIndex = about_z });
-    
-    -- [ИЗМЕНЕНО] Обновляем значения слайдера
-    about.AnimationSpeedSlider = self:_Internal_CreateSlider({ id = "AboutAnimationSpeed", Name = "Animation Speed", Min = 0.1, Max = 3, Default = 1.6, Increment = 0.1, zIndex = about_z });
+    about.AnimationSpeedSlider = self:_Internal_CreateSlider({ id = "AboutAnimationSpeed", Name = "Animation Speed", Min = 0, Max = 5, Default = 1.6, Increment = 0.1, zIndex = about_z });
 
     about.StyleLabel, _ = setupInfoText("Style", "");
 
+    -- Tooltip initialization
     local tooltip_z = 60
     about.Tooltip = {
         Background = self:_CreateDrawingObject("Square"),
@@ -452,106 +438,6 @@ function Library:_InitializeAboutWindow()
 
     self:_RebuildStyleCircles()
     self.UI.Values["AboutSelectedStyle"] = "Blue"
-end
-
-function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
-    local configs = self.UI.Core.ConfigsTab
-    local theme = self.ActiveTheme
-
-    self:_SetVisibility(configs.MyItemsLabel, true)
-    self:_SetVisibility(configs.Scrollbar.Background, true)
-    self:_SetVisibility(configs.Scrollbar.Nub, true)
-    for _, item in ipairs(configs.Items) do
-        local d = item.Drawing
-        self:_SetVisibility(d.Background, true)
-        self:_SetVisibility(d.Border, true)
-        self:_SetVisibility(d.Name, true)
-        self:_SetVisibility(d.Modified, true)
-        self:_SetVisibility(d.Author, true)
-        self:_SetVisibility(d.OptionsButton.Dot1, true)
-        self:_SetVisibility(d.OptionsButton.Dot2, true)
-        self:_SetVisibility(d.OptionsButton.Dot3, true)
-    end
-
-    local startX = panelX + 20
-    local startY = panelY + headerHeight + 20
-    local contentWidth = (self.Window.Width - self.Window.SidebarWidth + self.Window.PanelOverlap) - 40
-    local scrollbarWidth = 6
-    local contentAreaWidth = contentWidth - scrollbarWidth - 10
-
-    configs.MyItemsLabel.Position = {startX, startY}
-
-    local currentY = startY + 25
-    local itemHeight = 60
-    local itemSpacing = 10
-
-    for i, item in ipairs(configs.Items) do
-        local d = item.Drawing
-        d.Background.Position = {startX, currentY}
-        d.Background.Size = {contentAreaWidth, itemHeight}
-        d.Border.Position = {startX, currentY}
-        d.Border.Size = {contentAreaWidth, itemHeight}
-
-        d.Name.Text = item.Name
-        d.Name.Position = {startX + 15, currentY + 12}
-
-        d.Modified.Text = "Modified: " .. item.Modified
-        d.Modified.Position = {startX + 15, currentY + 35}
-
-        if d.Modified._instance.TextBounds then
-            d.Author.Text = "Author: " .. item.Author
-            d.Author.Position = {startX + 15 + d.Modified._instance.TextBounds.x + 10, currentY + 35}
-        end
-        
-        local btnWidth, btnHeight = 85, 28
-        local btnX = startX + contentAreaWidth - btnWidth - 15
-        local btnY = currentY + (itemHeight / 2) - (btnHeight / 2)
-
-        local optionsBtnX = btnX - 25
-        local optionsBtnY = currentY + (itemHeight / 2)
-        d.OptionsButton.Dot1.Position = {optionsBtnX - 6, optionsBtnY}
-        d.OptionsButton.Dot2.Position = {optionsBtnX, optionsBtnY}
-        d.OptionsButton.Dot3.Position = {optionsBtnX + 6, optionsBtnY}
-        d.OptionsButton.ClickRegion = {x1 = optionsBtnX - 10, y1 = optionsBtnY - 10, x2 = optionsBtnX + 10, y2 = optionsBtnY + 10}
-
-        local isLoaded = (configs.LoadedConfigName == item.Name)
-        self:_SetVisibility(d.SaveButton.Background, isLoaded)
-        self:_SetVisibility(d.SaveButton.Border, isLoaded)
-        self:_SetVisibility(d.SaveButton.Icon, isLoaded)
-        self:_SetVisibility(d.SaveButton.Label, isLoaded)
-        self:_SetVisibility(d.LoadButton.Background, not isLoaded)
-        self:_SetVisibility(d.LoadButton.Icon, not isLoaded)
-        self:_SetVisibility(d.LoadButton.Label, not isLoaded)
-
-        if isLoaded then
-            local saveBtn = d.SaveButton
-            saveBtn.Background.Position = {btnX, btnY}; saveBtn.Background.Size = {btnWidth, btnHeight}
-            saveBtn.Border.Position = {btnX, btnY}; saveBtn.Border.Size = {btnWidth, btnHeight}
-            local iconX = btnX + 15
-            saveBtn.Icon.Position = {iconX, btnY + (btnHeight / 2) - (saveBtn.Icon._instance.Size.y / 2)}
-            saveBtn.Label.Position = {iconX + saveBtn.Icon._instance.Size.x + 8, btnY + (btnHeight / 2) - (saveBtn.Label._instance.Size / 2)}
-            saveBtn.ClickRegion = {x1 = btnX, y1 = btnY, x2 = btnX + btnWidth, y2 = btnY + btnHeight}
-        else
-            local loadBtn = d.LoadButton
-            -- [ИСПРАВЛЕНО] Упрощенная и надежная отрисовка фона
-            loadBtn.Background.Position = {btnX, btnY}; loadBtn.Background.Size = {btnWidth, btnHeight}
-            local iconX = btnX + 15
-            loadBtn.Icon.Position = {iconX, btnY + (btnHeight / 2) - (loadBtn.Icon._instance.Size.y / 2)}
-            loadBtn.Label.Position = {iconX + loadBtn.Icon._instance.Size.x + 8, btnY + (btnHeight / 2) - (loadBtn.Label._instance.Size / 2)}
-            loadBtn.ClickRegion = {x1 = btnX, y1 = btnY, x2 = btnX + btnWidth, y2 = btnY + btnHeight}
-        end
-
-        currentY = currentY + itemHeight + itemSpacing
-    end
-    
-    local scrollbarX = startX + contentAreaWidth + 5
-    local scrollbarHeight = self.Window.Height - headerHeight - 40
-    configs.Scrollbar.Background.Position = {scrollbarX, startY}
-    configs.Scrollbar.Background.Size = {scrollbarWidth, scrollbarHeight}
-    
-    local nubHeight = 80
-    configs.Scrollbar.Nub.Position = {scrollbarX, startY}
-    configs.Scrollbar.Nub.Size = {scrollbarWidth, nubHeight}
 end
 
 function Library:_RebuildStyleCircles()
@@ -999,21 +885,17 @@ function Library:_ApplyTheme()
     self.ActiveTheme.Colors.ToggleEnabledBackground = self:_DarkenColor(self.ActiveTheme.Colors.Accent, 0.3)
     local Core = self.UI.Core
 
+    -- [ИЗМЕНЕНО] Эта функция теперь задает ЦЕЛЕВОЙ цвет для анимации
     local function applyColor(obj, color)
         if obj and color then
             obj.TargetColor = color
-            -- [ИСПРАВЛЕНО] Устанавливаем CurrentColor, чтобы избежать анимации при первой загрузке
-            if not obj.HasBeenThemed then
-                obj.CurrentColor = self:_DeepCopy(color)
-                obj.HasBeenThemed = true
-            end
         end
     end
     
     local function applyColorWithStaticOpacity(obj, color, opacity)
         if obj and color then
             local target = {color[1], color[2], color[3], opacity * 255}
-            applyColor(obj, target)
+            obj.TargetColor = target
         end
     end
 
@@ -1031,8 +913,8 @@ function Library:_ApplyTheme()
         applyColor(Core.Title2, self.ActiveTheme.Colors.Accent)
         applyColor(Core.Title3, self.ActiveTheme.Colors.ToggleEnabledBackground)
     end
-    self:_SetVisibility(Core.Title2._instance, not isThemeLight)
-    self:_SetVisibility(Core.Title3._instance, not isThemeLight)
+    self:_SetVisibility(Core.Title2, not isThemeLight)
+    self:_SetVisibility(Core.Title3, not isThemeLight)
 
     applyColorWithStaticOpacity(Core.ActiveTabHighlight, self.ActiveTheme.Colors.Accent, self.ActiveTheme.Transparency.ActiveTabHighlight)
     applyColor(Core.SidebarBottomCircle, self.ActiveTheme.Colors.Separator)
@@ -1044,7 +926,7 @@ function Library:_ApplyTheme()
         applyColor(group.Header, self.ActiveTheme.Colors.TabHeader)
     end
     
-    local default_buttons = { Core.HeaderButtons.ViewESP }
+    local default_buttons = { Core.HeaderButtons.ViewESP } -- Save теперь анимируется отдельно
     for _, btn in ipairs(default_buttons) do
         applyColor(btn.Background, self.ActiveTheme.Colors.MainBackground)
         applyColor(btn.Label, self.ActiveTheme.Colors.TextDark)
@@ -1063,6 +945,7 @@ function Library:_ApplyTheme()
 
     applyColor(Core.HeaderButtons.Settings.Icon, self.ActiveTheme.Colors.TextDark)
     
+    -- [ИСПРАВЛЕНО] Добавлено применение цвета для подсказки
     local tooltip = Core.SaveTooltip
     applyColor(tooltip.Background, self.ActiveTheme.Colors.SectionBackground)
     applyColor(tooltip.ConfigName, self.ActiveTheme.Colors.TextLight)
@@ -1166,24 +1049,6 @@ function Library:_ApplyTheme()
             local loadBtnTextColor = isThemeLight and blackColor or whiteColor
             applyColor(d.LoadButton.Icon, loadBtnTextColor)
             applyColor(d.LoadButton.Label, loadBtnTextColor)
-        end
-    end
-end
-
-function Library:_UpdateColorAnimations()
-    -- [ИЗМЕНЕНО] Используем значение из слайдера
-    local speed = self.UI.Values.AboutAnimationSpeed / 20 
-    for _, wrapper in ipairs(self.UI.DrawingObjects) do
-        if wrapper and wrapper.CurrentColor and wrapper.TargetColor then
-            if wrapper.CurrentColor[1] ~= wrapper.TargetColor[1] or wrapper.CurrentColor[2] ~= wrapper.TargetColor[2] or wrapper.CurrentColor[3] ~= wrapper.TargetColor[3] or wrapper.CurrentColor[4] ~= wrapper.TargetColor[4] then
-                wrapper.CurrentColor = self:_LerpColor(wrapper.CurrentColor, wrapper.TargetColor, speed)
-                
-                local obj = wrapper._instance
-                if obj and obj.Color then
-                    obj.Color = {wrapper.CurrentColor[1], wrapper.CurrentColor[2], wrapper.CurrentColor[3]}
-                    obj.Opacity = wrapper.CurrentColor[4] / 255
-                end
-            end
         end
     end
 end
