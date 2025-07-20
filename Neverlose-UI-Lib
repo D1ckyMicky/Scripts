@@ -286,19 +286,25 @@ function Library:_InitializeCoreUI()
     UI.Core.HeaderButtons = {
         Save = { Background = self:_CreateDrawingObject("Square"), Border = self:_CreateDrawingObject("Square"), Label = self:_CreateDrawingObject("Text"), Icon = self:_CreateDrawingObject("Image"), ClickRegion = {}, ClickTime = 0 },
         ViewESP = { Background = self:_CreateDrawingObject("Square"), Border = self:_CreateDrawingObject("Square"), Label = self:_CreateDrawingObject("Text"), ClickRegion = {}, ClickTime = 0, IsOpen = false },
+        -- [ДОБАВЛЕНО] Новая кнопка
+        CreateNew = { Background = self:_CreateDrawingObject("Square"), Border = self:_CreateDrawingObject("Square"), Label = self:_CreateDrawingObject("Text"), Icon = self:_CreateDrawingObject("Image"), ClickRegion = {}, ClickTime = 0 },
         Settings = { Icon = self:_CreateDrawingObject("Image"), ClickRegion = {} }
     }
     self.UI.Popups.About = { IsOpen = false }
 
-    local function setupHeaderButton(button, text)
+    local function setupHeaderButton(button, text, has_icon)
         if button.Background then button.Background.Filled = true; button.Background.zIndex = 2; button.Background.Rounding = self.ActiveTheme.Rounding.Button; end
         if button.Border then button.Border.Filled = false; button.Border.Thickness = 1; button.Border.zIndex = 3; button.Border.Rounding = self.ActiveTheme.Rounding.Button; end
         if button.Label then button.Label.Font = self.ActiveTheme.Fonts.Main; button.Label.Size = self.ActiveTheme.Fonts.Size; button.Label.Text = text; button.Label.Center = false; button.Label.Outline = false; button.Label.zIndex = 4; end
-        if button.Icon then button.Icon.Size = {13.33, 13.33}; button.Icon.zIndex = 5; button.Icon.Visible = false; end
+        if button.Icon and has_icon then button.Icon.Size = {13.33, 13.33}; button.Icon.zIndex = 5; button.Icon.Visible = true;
+        else if button.Icon then button.Icon.Visible = false end end
     end
-    setupHeaderButton(UI.Core.HeaderButtons.Save, " Save")
-    setupHeaderButton(UI.Core.HeaderButtons.ViewESP, "View ESP")
-    if UI.Core.HeaderButtons.Save.Icon then UI.Core.HeaderButtons.Save.Icon.Url = "https://s6.imgcdn.dev/Y4Sudt.png"; UI.Core.HeaderButtons.Save.Icon.Visible = true; end
+    setupHeaderButton(UI.Core.HeaderButtons.Save, " Save", true)
+    setupHeaderButton(UI.Core.HeaderButtons.ViewESP, "View ESP", false)
+    setupHeaderButton(UI.Core.HeaderButtons.CreateNew, " Create new", true) -- Настраиваем новую кнопку
+    
+    if UI.Core.HeaderButtons.Save.Icon then UI.Core.HeaderButtons.Save.Icon.Url = "https://s6.imgcdn.dev/Y4Sudt.png"; end
+    if UI.Core.HeaderButtons.CreateNew.Icon then UI.Core.HeaderButtons.CreateNew.Icon.Url = "https://i.imgur.com/plus-sign-icon.png"; end -- ЗАМЕНИТЬ НА СВОЮ ИКОНКУ ПЛЮСА
     if UI.Core.HeaderButtons.Settings.Icon then UI.Core.HeaderButtons.Settings.Icon.Url = "https://s6.imgcdn.dev/Y4SCjT.png"; UI.Core.HeaderButtons.Settings.Icon.Size = {20, 20}; UI.Core.HeaderButtons.Settings.Icon.zIndex = 5; end
 
     UI.Core.ViewESPPanel = self:_CreateDrawingObject("Square"); if UI.Core.ViewESPPanel then UI.Core.ViewESPPanel.Filled = true; UI.Core.ViewESPPanel.zIndex = 1; UI.Core.ViewESPPanel.Rounding = self.ActiveTheme.Rounding.Window; end
@@ -729,7 +735,6 @@ end
 function Library:_RefreshConfigList()
     local configs = self.UI.Core.ConfigsTab
     
-    -- [ИЗМЕНЕНО] Используем новую функцию для полной очистки
     for _, item in ipairs(configs.Items) do
         self:_CleanupDrawingObjects(item.Drawing)
     end
@@ -738,7 +743,7 @@ function Library:_RefreshConfigList()
     local files = listfiles(self.ConfigFolderPath)
     if not files then return end
 
-    local localPlayerName = "user" -- Имя по умолчанию
+    local localPlayerName = "user"
     local p = game:FindService("Players")
     if p and p.localPlayer then
         localPlayerName = p.localPlayer.Name
@@ -749,10 +754,11 @@ function Library:_RefreshConfigList()
             local configName = string.sub(fileName, 1, -5)
             local item = {
                 Name = configName,
-                Modified = "N/A", 
+                Modified = "N/A",
                 Author = localPlayerName,
                 Drawing = {
                     Background = self:_CreateDrawingObject("Square"),
+                    Border = self:_CreateDrawingObject("Square"), -- [ДОБАВЛЕНО] Объект для обводки
                     Name = self:_CreateDrawingObject("Text"),
                     Modified = self:_CreateDrawingObject("Text"),
                     Author = self:_CreateDrawingObject("Text"),
@@ -776,15 +782,21 @@ function Library:_RefreshConfigList()
             
             local d = item.Drawing; local z = 4
             if d.Background then d.Background.Filled = true; d.Background.zIndex = z; d.Background.Rounding = self.ActiveTheme.Rounding.Section; end
+            -- [ДОБАВЛЕНО] Настройка обводки
+            if d.Border then d.Border.Filled = false; d.Border.Thickness = 1; d.Border.zIndex = z + 1; d.Border.Rounding = self.ActiveTheme.Rounding.Section; end
+            
             if d.Name then d.Name.Font = self.ActiveTheme.Fonts.Main; d.Name.Size = self.ActiveTheme.Fonts.Size + 2; d.Name.Center = false; d.Name.zIndex = z + 1; end
             if d.Modified then d.Modified.Font = self.ActiveTheme.Fonts.Main; d.Modified.Size = self.ActiveTheme.Fonts.Size; d.Modified.Center = false; d.Modified.zIndex = z + 1; end
             if d.Author then d.Author.Font = self.ActiveTheme.Fonts.Main; d.Author.Size = self.ActiveTheme.Fonts.Size; d.Author.Center = false; d.Author.zIndex = z + 1; end
+            
             if d.OptionsButton.Dot1 then d.OptionsButton.Dot1.Filled = true; d.OptionsButton.Dot1.Radius = 1.5; d.OptionsButton.Dot1.zIndex = z + 2; end
             if d.OptionsButton.Dot2 then d.OptionsButton.Dot2.Filled = true; d.OptionsButton.Dot2.Radius = 1.5; d.OptionsButton.Dot2.zIndex = z + 2; end
             if d.OptionsButton.Dot3 then d.OptionsButton.Dot3.Filled = true; d.OptionsButton.Dot3.Radius = 1.5; d.OptionsButton.Dot3.zIndex = z + 2; end
+
             if d.LoadButton.Background then d.LoadButton.Filled = true; d.LoadButton.zIndex = z + 2; d.LoadButton.Rounding = self.ActiveTheme.Rounding.Button; end
             if d.LoadButton.Icon then d.LoadButton.Icon.Size = {14, 14}; d.LoadButton.Icon.zIndex = z + 3; d.LoadButton.Icon.Url = "https://s6.imgcdn.dev/Y4v6tt.png"; end
             if d.LoadButton.Label then d.LoadButton.Label.Font = self.ActiveTheme.Fonts.Main; d.LoadButton.Label.Size = self.ActiveTheme.Fonts.Size; d.LoadButton.Label.Text = "Load"; d.LoadButton.Label.Center = false; d.LoadButton.Label.zIndex = z + 3; end
+
             if d.SaveButton.Background then d.SaveButton.Filled = true; d.SaveButton.zIndex = z + 2; d.SaveButton.Rounding = self.ActiveTheme.Rounding.Button; end
             if d.SaveButton.Border then d.SaveButton.Border.Filled = false; d.SaveButton.Border.Thickness = 1; d.SaveButton.Border.zIndex = z + 3; d.SaveButton.Border.Rounding = self.ActiveTheme.Rounding.Button; end
             if d.SaveButton.Icon then d.SaveButton.Icon.Size = {13.33, 13.33}; d.SaveButton.Icon.zIndex = z + 3; d.SaveButton.Icon.Url = "https://s6.imgcdn.dev/Y4Sudt.png"; end
@@ -844,16 +856,16 @@ function Library:_ApplyTheme()
     for _, group in ipairs(self.UI.TabGroups) do
         applyColor(group.Header, self.ActiveTheme.Colors.TabHeader)
     end
-
-    local saveBtn = Core.HeaderButtons.Save
-    applyColor(saveBtn.Background, self.ActiveTheme.Colors.MainBackground)
-    applyColor(saveBtn.Label, self.ActiveTheme.Colors.TextDark)
-    applyColor(saveBtn.Icon, self.ActiveTheme.Colors.TextDark)
     
-    local viewEspBtn = Core.HeaderButtons.ViewESP
-    applyColor(viewEspBtn.Background, self.ActiveTheme.Colors.MainBackground)
-    applyColor(viewEspBtn.Label, self.ActiveTheme.Colors.TextDark)
+    -- [ИЗМЕНЕНО] Применяем стили ко всем кнопкам в шапке
+    local header_buttons = { Core.HeaderButtons.Save, Core.HeaderButtons.ViewESP, Core.HeaderButtons.CreateNew }
+    for _, btn in ipairs(header_buttons) do
+        applyColor(btn.Background, self.ActiveTheme.Colors.MainBackground)
+        applyColor(btn.Label, self.ActiveTheme.Colors.TextDark)
+        if btn.Icon then applyColor(btn.Icon, self.ActiveTheme.Colors.TextDark) end
+    end
     applyColor(Core.HeaderButtons.Settings.Icon, self.ActiveTheme.Colors.TextDark)
+
 
     for _, section in ipairs(self.UI.Sections) do
         applyColor(section.Drawing.Background, self.ActiveTheme.Colors.SectionBackground)
@@ -934,6 +946,7 @@ function Library:_ApplyTheme()
         for i, item in ipairs(configsTab.Items) do
             local d = item.Drawing
             applyColor(d.Background, self.ActiveTheme.Colors.SectionBackground)
+            applyColor(d.Border, self.ActiveTheme.Colors.Separator) -- [ДОБАВЛЕНО] Цвет для обводки
             applyColor(d.Name, self.ActiveTheme.Colors.TextLight)
             applyColor(d.Modified, self.ActiveTheme.Colors.TextDark)
             applyColor(d.Author, self.ActiveTheme.Colors.TextDark)
@@ -1373,7 +1386,6 @@ end
 function Library:_RenderLoop()
     if not self.Window.Visible then return end
 
-    -- [ДОБАВЛЕНО] Проверяем, нужно ли обновить список конфигов
     if self.UI.Core.ConfigsTab.NeedsRefresh then
         self:_RefreshConfigList()
         self.UI.Core.ConfigsTab.NeedsRefresh = false
@@ -1410,17 +1422,29 @@ function Library:_RenderLoop()
 
     do
         local startX, startY = rightPanelX + 35, windowY + (headerHeight / 2)
-        local function renderHeaderButton(button, x, y, width, height, isSaveButton)
+        local function renderHeaderButton(button, x, y, width, height, has_icon)
              self:_SetVisibility(button.Background, true); self:_SetVisibility(button.Border, true); self:_SetVisibility(button.Label, true); if button.Icon then self:_SetVisibility(button.Icon, button.Icon.Visible) end
              button.Background.Position = {x, y}; button.Background.Size = {width, height}; button.Border.Position = {x, y}; button.Border.Size = {width, height}; 
              local borderColor = (tick() - button.ClickTime < 0.1 or (button.IsOpen)) and self.ActiveTheme.Colors.Accent or self.ActiveTheme.Colors.Separator
              if button.Border then button.Border.Color = {borderColor[1], borderColor[2], borderColor[3]}; button.Border.Opacity = (borderColor[4] or 255) / 255; end
-             if isSaveButton and button.Icon then local iconX, iconY = x + 12, y + (height / 2) - (button.Icon.Size.y / 2); button.Icon.Position = {iconX, iconY}; local labelX, labelY = iconX + button.Icon.Size.x + 5, y + (height / 2) - (button.Label.Size / 2); button.Label.Position = {labelX, labelY}; button.Label.Center = false else button.Label.Position = {x + width / 2, y + (height / 2) - (button.Label.Size / 2)}; button.Label.Center = true end
+             if has_icon and button.Icon then local iconX, iconY = x + 12, y + (height / 2) - (button.Icon.Size.y / 2); button.Icon.Position = {iconX, iconY}; local labelX, labelY = iconX + button.Icon.Size.x + 5, y + (height / 2) - (button.Label.Size / 2); button.Label.Position = {labelX, labelY}; button.Label.Center = false else button.Label.Position = {x + width / 2, y + (height / 2) - (button.Label.Size / 2)}; button.Label.Center = true end
              button.ClickRegion = {x1 = x, y1 = y, x2 = x + width, y2 = y + height}
         end
-        local btnWidth, btnHeight, spacing = 75, 30, 15; local btnY = startY - (btnHeight / 2)
-        renderHeaderButton(Core.HeaderButtons.Save, startX, btnY, btnWidth, btnHeight, true)
+        local btnWidth, btnHeight, spacing = 75, 30, 15
+        local createNewBtnWidth = 120
+        local btnY = startY - (btnHeight / 2)
+        
+        -- [ИЗМЕНЕНО] Показываем кнопку Save или CreateNew в зависимости от вкладки
+        if self.Window.ActiveTab == "Configs" then
+             renderHeaderButton(Core.HeaderButtons.CreateNew, startX + btnWidth + spacing, btnY, createNewBtnWidth, btnHeight, true)
+             self:_SetVisibility(Core.HeaderButtons.Save.Background, false); self:_SetVisibility(Core.HeaderButtons.Save.Border, false); self:_SetVisibility(Core.HeaderButtons.Save.Label, false); self:_SetVisibility(Core.HeaderButtons.Save.Icon, false);
+        else
+             renderHeaderButton(Core.HeaderButtons.Save, startX, btnY, btnWidth, btnHeight, true)
+             self:_SetVisibility(Core.HeaderButtons.CreateNew.Background, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Border, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Label, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Icon, false);
+        end
+        
         renderHeaderButton(Core.HeaderButtons.ViewESP, startX + btnWidth + spacing, btnY, btnWidth, btnHeight, false)
+
         local settingsIcon = Core.HeaderButtons.Settings.Icon; local settingsX = rightPanelX + (self.Window.Width - sidebarWidth + self.Window.PanelOverlap) - settingsIcon.Size.x - 20 - 30; local settingsY = startY - (settingsIcon.Size.y / 2)
         self:_SetVisibility(settingsIcon, true); settingsIcon.Position = {settingsX, settingsY}; Core.HeaderButtons.Settings.ClickRegion = {x1 = settingsX, y1 = settingsY, x2 = settingsX + settingsIcon.Size.x, y2 = settingsY + settingsIcon.Size.y}
     end
@@ -1626,6 +1650,7 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
     for _, item in ipairs(configs.Items) do
         local d = item.Drawing
         self:_SetVisibility(d.Background, true)
+        self:_SetVisibility(d.Border, true) -- [ДОБАВЛЕНО] Показываем обводку
         self:_SetVisibility(d.Name, true)
         self:_SetVisibility(d.Modified, true)
         self:_SetVisibility(d.Author, true)
@@ -1650,6 +1675,8 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
         local d = item.Drawing
         d.Background.Position = {startX, currentY}
         d.Background.Size = {contentAreaWidth, itemHeight}
+        d.Border.Position = {startX, currentY} -- [ДОБАВЛЕНО] Позиционируем обводку
+        d.Border.Size = {contentAreaWidth, itemHeight} -- [ДОБАВЛЕНО] Задаем размер обводки
 
         d.Name.Text = item.Name
         d.Name.Position = {startX + 15, currentY + 12}
@@ -1792,7 +1819,7 @@ function Library:_InputLoop()
                  end
                  if not started_slider_drag then
                     local header_drag_region = {x1 = self.Window.X, y1 = self.Window.Y, x2 = self.Window.X + self.Window.Width, y2 = self.Window.Y + self.Window.HeaderHeight}
-                    local on_header_button = self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.Save.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.ViewESP.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.Settings.ClickRegion)
+                    local on_header_button = self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.Save.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.ViewESP.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.CreateNew.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.Settings.ClickRegion)
                     if self:_IsPointInRegion(mouse_x, mouse_y, header_drag_region) and not on_header_button then
                         self.Window.IsDragging = true; drag_offset = {x = mouse_x - self.Window.X, y = mouse_y - self.Window.Y}
                     else
@@ -1868,7 +1895,6 @@ function Library:_InputLoop()
         update_color_picker()
     end
     
-    -- About window tooltip hover logic
     if about_window and self.UI.Popups.About.IsOpen then
         local is_hovering_any_circle = false
         for _, circle in ipairs(about_window.StyleCircles) do
@@ -1935,12 +1961,10 @@ function Library:_InputLoop()
                     
                     if newName == "" then newName = "Custom" end
 
-                    -- If name changed, remove old theme if it was a custom one
                     if newName ~= originalName and self.Themes[originalName] and not self.Themes[originalName].IsPreset then
                         self.Themes[originalName] = nil
                     end
                     
-                    -- If a theme with the new name already exists (and it's not the one we were editing), add a suffix
                     if self.Themes[newName] and newName ~= originalName then
                         local i = 1
                         while self.Themes[newName .. " (" .. i .. ")"] do i = i + 1 end
@@ -2026,7 +2050,7 @@ function Library:_InputLoop()
                                 self.CustomThemeCounter = self.CustomThemeCounter + 1
                                 local newName = "Custom " .. self.CustomThemeCounter
                                 style_window.EditingTheme = self:_DeepCopy(self.ActiveTheme)
-                                style_window.EditingThemeName = newName -- Store original name for potential rename
+                                style_window.EditingThemeName = newName
                                 style_window.StyleNameInputText.Text = newName
                                 style_window.IsOpen = true
                             else
@@ -2099,9 +2123,18 @@ function Library:_InputLoop()
                 end
 
                 if not click_was_handled then
-                    if self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.Save.ClickRegion) then click_was_handled = true; print(SCRIPT_PREFIX .. "Save button clicked!"); self.UI.Core.HeaderButtons.Save.ClickTime = tick();
-                    elseif self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.ViewESP.ClickRegion) then click_was_handled = true; self.UI.Core.HeaderButtons.ViewESP.IsOpen = not self.UI.Core.HeaderButtons.ViewESP.IsOpen; self.UI.Core.HeaderButtons.ViewESP.ClickTime = tick();
-                    elseif self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.Settings.ClickRegion) then click_was_handled = true; self.UI.Popups.About.IsOpen = not self.UI.Popups.About.IsOpen;
+                    -- [ИЗМЕНЕНО] Добавлен обработчик для новой кнопки
+                    if self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.CreateNew.ClickRegion) and self.Window.ActiveTab == "Configs" then
+                        click_was_handled = true;
+                        self.UI.Core.HeaderButtons.CreateNew.ClickTime = tick()
+                        self:_CreateNewConfig()
+                    elseif self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.Save.ClickRegion) and self.Window.ActiveTab ~= "Configs" then
+                        click_was_handled = true; self.UI.Core.HeaderButtons.Save.ClickTime = tick();
+                        if configsTab.LoadedConfigName ~= "" then self:_SaveConfig(configsTab.LoadedConfigName) end
+                    elseif self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.ViewESP.ClickRegion) then 
+                        click_was_handled = true; self.UI.Core.HeaderButtons.ViewESP.IsOpen = not self.UI.Core.HeaderButtons.ViewESP.IsOpen; self.UI.Core.HeaderButtons.ViewESP.ClickTime = tick();
+                    elseif self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.Settings.ClickRegion) then 
+                        click_was_handled = true; self.UI.Popups.About.IsOpen = not self.UI.Popups.About.IsOpen;
                     else
                         for _, group in ipairs(self.UI.TabGroups) do for _, tab in ipairs(group.Tabs) do if self:_IsPointInRegion(mouse_x, mouse_y, tab.ClickRegion) then self.Window.ActiveTab = tab.Name; click_was_handled = true; break; end end if click_was_handled then break; end end
                         if not click_was_handled then
@@ -2130,14 +2163,12 @@ function Library:_InputLoop()
         end
     end
 
-    -- Keybind listening logic
     local popupKeybind = self.UI.Popups.PlayerESP.Keybind
     if popupKeybind.IsListening then
         local key = getpressedkey()
         if key and key ~= "None" then if self.UI.Values[popupKeybind.id] ~= key then self.UI.Values[popupKeybind.id] = key; end; popupKeybind.IsListening = false; end
     end
     
-    -- Style name text input logic
     if style_window.IsEditingName then
         local key = getpressedkey()
         if key and key ~= "None" and key ~= style_window.last_key_pressed and (tick() - style_window.last_key_press_time > style_window.key_press_delay) then
@@ -2146,7 +2177,7 @@ function Library:_InputLoop()
                 if #current_text > 0 then style_window.StyleNameInputText.Text = string.sub(current_text, 1, -2) end
             elseif key == "Space" then
                 if #current_text < 20 then style_window.StyleNameInputText.Text = current_text .. " " end
-            elseif string.len(key) == 1 and string.match(key, "%w") then -- Allow alphanumeric characters
+            elseif string.len(key) == 1 and string.match(key, "%w") then
                 if #current_text < 20 then style_window.StyleNameInputText.Text = current_text .. key end
             end
             style_window.last_key_press_time = tick()
@@ -2156,7 +2187,6 @@ function Library:_InputLoop()
         end
     end
 
-    -- ESP toggle via keybind
     local esp_bind = self.UI.Values["PlayerESPBind"]
     if esp_bind and esp_bind ~= "none" then
         local currentTime = tick()
