@@ -1494,7 +1494,7 @@ function Library:_RenderTabs(x, y, width)
         if group.Header then
             group.Header.Position = {x + 25, currentY}
             self:_SetVisibility(group.Header, true)
-            self:_AnimateAndApplyColor(group.Header, self.ActiveTheme.Colors.TabHeader) -- Анимация
+            self:_AnimateAndApplyColor(group.Header, self.ActiveTheme.Colors.TabHeader)
         end
         currentY = currentY + self.ActiveTheme.Fonts.TabHeaderSize + 10
         for _, tab in ipairs(group.Tabs) do
@@ -1507,14 +1507,14 @@ function Library:_RenderTabs(x, y, width)
                 self:_SetVisibility(tab.Icon, true)
                 tab.Icon.Position = {startX, currentY + (tabHeight / 2) - (self.ActiveTheme.IconSize / 2)}
                 local iconColor = (tab.Name == "Players" or tab.Name == "Configs") and self.ActiveTheme.Colors.Accent or target_text_color
-                self:_AnimateAndApplyColor(tab.Icon, iconColor) -- Анимация
+                self:_AnimateAndApplyColor(tab.Icon, iconColor)
                 startX = startX + self.ActiveTheme.IconSize + 8
             end
 
             if tab.Text then
                 self:_SetVisibility(tab.Text, true)
                 tab.Text.Position = {startX, currentY + (tabHeight / 2) - (tab.Text.Size / 2)}
-                self:_AnimateAndApplyColor(tab.Text, target_text_color) -- Анимация
+                self:_AnimateAndApplyColor(tab.Text, target_text_color)
             end
 
             tab.ClickRegion = {x1 = x + 10, y1 = currentY, x2 = x + width - 10, y2 = currentY + tabHeight}
@@ -1523,22 +1523,33 @@ function Library:_RenderTabs(x, y, width)
         end
         currentY = currentY + 15
     end
+
+    -- ================== [ НАЧАЛО ИСПРАВЛЕНИЯ ] ==================
     if highlightY > 0 and self.UI.Core.ActiveTabHighlight then
-        self.UI.Core.ActiveTabHighlight.Position = {x + 10, highlightY}; self.UI.Core.ActiveTabHighlight.Size = {self.Window.SidebarWidth - 20, self.ActiveTheme.Fonts.TabSize + 10};
-        self:_SetVisibility(self.UI.Core.ActiveTabHighlight, true)
-        -- Анимация подсветки активной вкладки
+        local highlightObject = self.UI.Core.ActiveTabHighlight
+        self:_SetVisibility(highlightObject, true)
+        highlightObject.Position = {x + 10, highlightY}
+        highlightObject.Size = {self.Window.SidebarWidth - 20, self.ActiveTheme.Fonts.TabSize + 10}
+        
+        -- Используем безопасный метод анимации через AnimationState
         local targetColor = self.ActiveTheme.Colors.Accent
-        local animatedColor = self:_LerpColor(
-            self.UI.Core.ActiveTabHighlight.CurrentColor or targetColor, 
-            targetColor, 
-            self.ActiveTheme.Transparency.ActiveTabHighlight
-        )
-        self.UI.Core.ActiveTabHighlight.CurrentColor = animatedColor
-        self.UI.Core.ActiveTabHighlight.Color = {animatedColor[1], animatedColor[2], animatedColor[3]}
-        self.UI.Core.ActiveTabHighlight.Opacity = self.ActiveTheme.Transparency.ActiveTabHighlight
+        local state = self.AnimationState[highlightObject]
+        if not state then
+            state = { CurrentColor = self:_DeepCopy(targetColor) }
+            self.AnimationState[highlightObject] = state
+        end
+        
+        state.CurrentColor = self:_LerpColor(state.CurrentColor, targetColor, 0.1)
+        
+        local animatedColor = state.CurrentColor
+        highlightObject.Color = {animatedColor[1], animatedColor[2], animatedColor[3]}
+        highlightObject.Opacity = self.ActiveTheme.Transparency.ActiveTabHighlight -- Используем фиксированную прозрачность из темы
     else
-        self:_SetVisibility(self.UI.Core.ActiveTabHighlight, false)
+        if self.UI.Core.ActiveTabHighlight then
+            self:_SetVisibility(self.UI.Core.ActiveTabHighlight, false)
+        end
     end
+    -- =================== [ КОНЕЦ ИСПРАВЛЕНИЯ ] ===================
 end
 
 function Library:_RenderSections(panelX, panelY, headerHeight)
@@ -2283,16 +2294,15 @@ end
 
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started in DEBUG MODE. 3")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started.")
     local is_first_frame = true
     while self.Window.Visible do
         if is_first_frame then
             self:_AddPresetsTab()
             is_first_frame = false
         end
-        -- Временно вызываем только RenderLoop напрямую для диагностики
-        self:_RenderLoop()
-        -- pcall(function() self:_InputLoop(); self:_RenderLoop() end) -- Старый код закомментирован
+        -- Возвращаем pcall и вызов _InputLoop для полной функциональности
+        pcall(function() self:_InputLoop(); self:_RenderLoop() end)
         wait(0.01)
     end
 end
