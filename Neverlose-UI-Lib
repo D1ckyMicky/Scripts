@@ -201,25 +201,35 @@ end
 function Library:_RenderSaveTooltip()
     local tooltip = self.UI.Core.SaveTooltip
     local saveBtn = self.UI.Core.HeaderButtons.Save
-    self:_SetVisibility(tooltip.Background, saveBtn.IsHovered)
-    self:_SetVisibility(tooltip.ConfigName, saveBtn.IsHovered)
-    self:_SetVisibility(tooltip.Author, saveBtn.IsHovered)
+    local isVisible = saveBtn.IsHovered
 
-    if saveBtn.IsHovered then
+    self:_SetVisibility(tooltip.Background, isVisible)
+    self:_SetVisibility(tooltip.ConfigName, isVisible)
+    self:_SetVisibility(tooltip.Author, isVisible)
+
+    if isVisible then
+        -- Задаем текст
+        local configName = self.UI.Core.ConfigsTab.LoadedConfigName
+        if configName == "" then configName = "default" end
+        tooltip.ConfigName.Text = "Config \"" .. configName .. "\""
+        tooltip.Author.Text = "Author: " .. (self.UI.Core.PlayerDisplayName.Text or "user")
+
+        -- Динамически вычисляем ширину
+        local padding = 16 -- Отступы по бокам
+        local configNameWidth = tooltip.ConfigName.TextBounds and tooltip.ConfigName.TextBounds.x or 100
+        local authorWidth = tooltip.Author.TextBounds and tooltip.Author.TextBounds.x or 100
+        local tooltipW = math.max(configNameWidth, authorWidth) + padding
+        local tooltipH = 50
+
+        -- Позиционируем
         local btnRegion = saveBtn.ClickRegion
-        local tooltipW, tooltipH = 150, 50
         local tooltipX, tooltipY = btnRegion.x2 + 10, btnRegion.y1
 
         tooltip.Background.Position = {tooltipX, tooltipY}
         tooltip.Background.Size = {tooltipW, tooltipH}
         
-        local configName = self.UI.Core.ConfigsTab.LoadedConfigName
-        if configName == "" then configName = "default" end
-        tooltip.ConfigName.Text = "Config \"" .. configName .. "\""
-        tooltip.ConfigName.Position = {tooltipX + 10, tooltipY + 8}
-
-        tooltip.Author.Text = "Author: " .. self.UI.Core.PlayerDisplayName.Text
-        tooltip.Author.Position = {tooltipX + 10, tooltipY + 28}
+        tooltip.ConfigName.Position = {tooltipX + (padding / 2), tooltipY + 8}
+        tooltip.Author.Position = {tooltipX + (padding / 2), tooltipY + 28}
     end
 end
 
@@ -857,7 +867,7 @@ function Library:_RefreshConfigList()
             if d.OptionsButton.Dot2 then d.OptionsButton.Dot2.Filled = true; d.OptionsButton.Dot2.Radius = 1.5; d.OptionsButton.Dot2.zIndex = z + 2; end
             if d.OptionsButton.Dot3 then d.OptionsButton.Dot3.Filled = true; d.OptionsButton.Dot3.Radius = 1.5; d.OptionsButton.Dot3.zIndex = z + 2; end
 
-            if d.LoadButton.Background then d.LoadButton.Filled = true; d.LoadButton.zIndex = z + 2; d.LoadButton.Rounding = self.ActiveTheme.Rounding.Button; end
+            if d.LoadButton.Background then d.LoadButton.Background.Filled = true; d.LoadButton.Background.zIndex = z + 2; d.LoadButton.Background.Rounding = self.ActiveTheme.Rounding.Button; end
             if d.LoadButton.Icon then d.LoadButton.Icon.Size = {14, 14}; d.LoadButton.Icon.zIndex = z + 3; d.LoadButton.Icon.Url = "https://s6.imgcdn.dev/Y4v6tt.png"; end
             if d.LoadButton.Label then d.LoadButton.Label.Font = self.ActiveTheme.Fonts.Main; d.LoadButton.Label.Size = self.ActiveTheme.Fonts.Size; d.LoadButton.Label.Text = "Load"; d.LoadButton.Label.Center = false; d.LoadButton.Label.zIndex = z + 3; end
 
@@ -1661,15 +1671,36 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
                     el.Label.Position = {sectionX + 10, elementY};
                     local toggleBackX = sectionX + columnWidth - el.Size.width - 15
                     el.Back.Position = {toggleBackX, elementY + 2}; el.Back.Size = {el.Size.width, el.Size.height}; el.ClickRegion = {x1 = toggleBackX, y1 = elementY, x2 = toggleBackX + el.Size.width, y2 = elementY + el.Size.height + 4}
-                    local backColor, nubColor
+                local targetBackColor, targetNubColor
                     if self.UI.Values[el.id] then
-                        backColor = self.ActiveTheme.Colors.ToggleEnabledBackground; nubColor = self.ActiveTheme.Colors.Accent; el.Nub.Position = {toggleBackX + el.Size.width - 5, elementY + 2 + el.Size.height/2}
+                        targetBackColor = self.ActiveTheme.Colors.ToggleEnabledBackground
+                        targetNubColor = self.ActiveTheme.Colors.Accent
+                        el.Nub.Position = {toggleBackX + el.Size.width - 5, elementY + 2 + el.Size.height/2}
                     else
-                        backColor = self.ActiveTheme.Colors.DarkGray; nubColor = self.ActiveTheme.Colors.LightGray; el.Nub.Position = {toggleBackX + 5, elementY + 2 + el.Size.height/2}
+                        targetBackColor = self.ActiveTheme.Colors.DarkGray
+                        targetNubColor = self.ActiveTheme.Colors.LightGray
+                        el.Nub.Position = {toggleBackX + 5, elementY + 2 + el.Size.height/2}
                     end
-                    if el.Back then el.Back.Color = {backColor[1], backColor[2], backColor[3]}; el.Back.Opacity = (backColor[4] or 255) / 255; end
-                    if el.Nub then el.Nub.Color = {nubColor[1], nubColor[2], nubColor[3]}; el.Nub.Opacity = (nubColor[4] or 255) / 255; end
 
+                    -- Анимируем цвета с помощью Lerp
+                    local speed = 0.15 -- Скорость анимации, можешь настроить
+                    el.CurrentBackColor = self:_LerpColor(el.CurrentBackColor, targetBackColor, speed)
+                    el.CurrentNubColor = self:_LerpColor(el.CurrentNubColor, targetNubColor, speed)
+
+                    -- Применяем плавно измененные цвета
+                    if el.Back then
+                        el.Back.Color = {el.CurrentBackColor[1], el.CurrentBackColor[2], el.CurrentBackColor[3]}
+                        el.Back.Opacity = el.CurrentBackColor[4] / 255
+                    end
+                    if el.Nub then
+                        el.Nub.Color = {el.CurrentNubColor[1], el.CurrentNubColor[2], el.CurrentNubColor[3]}
+                        el.Nub.Opacity = el.CurrentNubColor[4] / 255
+                    end
+                    -- [КОНЕЦ НОВОГО БЛОКА]
+
+                    if el.HasSettings and el.SettingsIcon then local iconX = toggleBackX - el.SettingsIcon.Size.x - 10; el.SettingsIcon.Position = {iconX, elementY}; el.SettingsClickRegion = {x1 = iconX, y1 = elementY, x2 = iconX + el.SettingsIcon.Size.x, y2 = elementY + el.SettingsIcon.Size.y} end
+                    elementY = elementY + 35
+                
                     if el.HasSettings and el.SettingsIcon then local iconX = toggleBackX - el.SettingsIcon.Size.x - 10; el.SettingsIcon.Position = {iconX, elementY}; el.SettingsClickRegion = {x1 = iconX, y1 = elementY, x2 = iconX + el.SettingsIcon.Size.x, y2 = elementY + el.SettingsIcon.Size.y} end
                     elementY = elementY + 35
                 elseif el.type == "Slider" then
