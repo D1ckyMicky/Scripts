@@ -1,14 +1,16 @@
 --[[
     Neverlose.cc Style UI Library for Severe
-    Version: 17.0 (Advanced Configs & UI Polish)
+    Version: 16.1 (Config System - Hotfix)
     Developer: Gemini AI & Dicky_Micky_
 
-    - [NEW] Added a "Create Config" button to the header to instantly save the current setup to a new file (e.g., Config_1.cfg, Config_2.cfg).
-    - [NEW] The main "Save" button in the header now shows the name of the currently loaded config and its author.
-    - [UPDATE] The main "Save" button now has a smooth color transition animation on hover.
-    - [UPDATE] Custom themes are now correctly saved into the config file when the "Include Style" option is enabled.
-    - [FIX] Resolved a critical bug where loading a config only applied keybinds. Now all values (sliders, dropdowns, toggles) are correctly applied and their callbacks are triggered.
-    - [FIX] Fixed a rendering issue where the config list would appear to freeze or duplicate after saving a config. The list now refreshes correctly.
+    - [FIX] Changed config file extension from .json to .cfg to avoid 'banned file extension' error in Severe.
+    - [NEW] Implemented the core config saving/loading system using the file system.
+    - [NEW] The library now automatically creates a 'NL_Configs' folder on startup.
+    - [NEW] On first launch (or if no configs exist), a 'default.cfg' config is created with the default values of all UI elements.
+    - [NEW] The 'Configs' tab now dynamically loads and displays all .cfg files found in the 'NL_Configs' folder.
+    - [UPDATE] The 'Save' button now saves the current UI values to the selected config file.
+    - [UPDATE] The 'Load' button now loads UI values from the selected config file.
+    - [INTERNAL] Removed 'DummyData' in favor of the new dynamic system.
 ]]
 
 local Library = {}
@@ -23,7 +25,7 @@ Library.Window = {
     ActiveTab = "", PanelOverlap = 4
 }
 
-Library.ConfigFolderPath = "NL_Configs"
+Library.ConfigFolderPath = "NL_Configs" -- Новая папка для конфигов
 
 Library.Themes = {
     Blue = {
@@ -138,18 +140,6 @@ function Library:_DeepCopy(original)
     return copy
 end
 
-function Library:_Lerp(a, b, t)
-    return a + (b - a) * t
-end
-
-function Library:_LerpColor(c1, c2, t)
-    local r = self:_Lerp(c1[1], c2[1], t)
-    local g = self:_Lerp(c1[2], c2[2], t)
-    local b = self:_Lerp(c1[3], c2[3], t)
-    local a = self:_Lerp(c1[4] or 255, c2[4] or 255, t)
-    return {r, g, b, a}
-end
-
 function Library:_DarkenColor(color, factor)
     factor = factor or 0.3
     return { math.max(0, math.floor(color[1] * factor)), math.max(0, math.floor(color[2] * factor)), math.max(0, math.floor(color[3] * factor)), color[4] or 255 }
@@ -158,8 +148,9 @@ end
 function Library:_IsThemeLight(theme)
     local bg = theme.Colors.MainBackground
     if not bg then return false end
+    -- Using luminance formula to determine brightness
     local brightness = (bg[1] * 0.299 + bg[2] * 0.587 + bg[3] * 0.114)
-    return brightness > 150
+    return brightness > 150 -- Threshold for what is considered a "light" background
 end
 
 function Library:_getAvatarThumbnail(userId)
@@ -214,10 +205,20 @@ function Library:_RenderGlowEffect(glowSet, x, y, width, height, rounding, color
         local glowX, glowY = x, y
         local glowW, glowH = width, height
 
-        if sides.left then glowX = x - spread; glowW = glowW + spread; end
-        if sides.right then glowW = glowW + spread; end
-        if sides.top then glowY = y - spread; glowH = glowH + spread; end
-        if sides.bottom then glowH = glowH + spread; end
+        if sides.left then
+            glowX = x - spread
+            glowW = glowW + spread
+        end
+        if sides.right then
+            glowW = glowW + spread
+        end
+        if sides.top then
+            glowY = y - spread
+            glowH = glowH + spread
+        end
+        if sides.bottom then
+            glowH = glowH + spread
+        end
         
         glowSquare.Position = {glowX, glowY}
         glowSquare.Size = {glowW, glowH}
@@ -268,13 +269,10 @@ function Library:_InitializeCoreUI()
     UI.Core.ForeverLabel = self:_CreateDrawingObject("Text"); if UI.Core.ForeverLabel then UI.Core.ForeverLabel.Font = self.ActiveTheme.Fonts.Main; UI.Core.ForeverLabel.Size = self.ActiveTheme.Fonts.Size; UI.Core.ForeverLabel.Text = " Forever"; UI.Core.ForeverLabel.Center = false; UI.Core.ForeverLabel.Outline = false; UI.Core.ForeverLabel.zIndex = 7; end
 
     UI.Core.HeaderButtons = {
-        Save = { Background = self:_CreateDrawingObject("Square"), Border = self:_CreateDrawingObject("Square"), Label = self:_CreateDrawingObject("Text"), Icon = self:_CreateDrawingObject("Image"), ClickRegion = {}, ClickTime = 0, HoverAmount = 0 },
+        Save = { Background = self:_CreateDrawingObject("Square"), Border = self:_CreateDrawingObject("Square"), Label = self:_CreateDrawingObject("Text"), Icon = self:_CreateDrawingObject("Image"), ClickRegion = {}, ClickTime = 0 },
         ViewESP = { Background = self:_CreateDrawingObject("Square"), Border = self:_CreateDrawingObject("Square"), Label = self:_CreateDrawingObject("Text"), ClickRegion = {}, ClickTime = 0, IsOpen = false },
-        CreateConfig = { Background = self:_CreateDrawingObject("Square"), Label = self:_CreateDrawingObject("Text"), ClickRegion = {} },
         Settings = { Icon = self:_CreateDrawingObject("Image"), ClickRegion = {} }
     }
-    UI.Core.LoadedConfigInfo = self:_CreateDrawingObject("Text")
-    UI.Core.LoadedConfigAuthor = self:_CreateDrawingObject("Text")
     self.UI.Popups.About = { IsOpen = false }
 
     local function setupHeaderButton(button, text)
@@ -283,14 +281,10 @@ function Library:_InitializeCoreUI()
         if button.Label then button.Label.Font = self.ActiveTheme.Fonts.Main; button.Label.Size = self.ActiveTheme.Fonts.Size; button.Label.Text = text; button.Label.Center = false; button.Label.Outline = false; button.Label.zIndex = 4; end
         if button.Icon then button.Icon.Size = {13.33, 13.33}; button.Icon.zIndex = 5; button.Icon.Visible = false; end
     end
-    setupHeaderButton(UI.Core.HeaderButtons.Save, "Save")
+    setupHeaderButton(UI.Core.HeaderButtons.Save, " Save")
     setupHeaderButton(UI.Core.HeaderButtons.ViewESP, "View ESP")
-    setupHeaderButton(UI.Core.HeaderButtons.CreateConfig, "Create config")
-
     if UI.Core.HeaderButtons.Save.Icon then UI.Core.HeaderButtons.Save.Icon.Url = "https://s6.imgcdn.dev/Y4Sudt.png"; UI.Core.HeaderButtons.Save.Icon.Visible = true; end
     if UI.Core.HeaderButtons.Settings.Icon then UI.Core.HeaderButtons.Settings.Icon.Url = "https://s6.imgcdn.dev/Y4SCjT.png"; UI.Core.HeaderButtons.Settings.Icon.Size = {20, 20}; UI.Core.HeaderButtons.Settings.Icon.zIndex = 5; end
-    if UI.Core.LoadedConfigInfo then UI.Core.LoadedConfigInfo.Font = self.ActiveTheme.Fonts.Main; UI.Core.LoadedConfigInfo.Size = self.ActiveTheme.Fonts.Size + 2; UI.Core.LoadedConfigInfo.Center = false; UI.Core.LoadedConfigInfo.zIndex = 4; end
-    if UI.Core.LoadedConfigAuthor then UI.Core.LoadedConfigAuthor.Font = self.ActiveTheme.Fonts.Main; UI.Core.LoadedConfigAuthor.Size = self.ActiveTheme.Fonts.Size; UI.Core.LoadedConfigAuthor.Center = false; UI.Core.LoadedConfigAuthor.zIndex = 4; end
 
     UI.Core.ViewESPPanel = self:_CreateDrawingObject("Square"); if UI.Core.ViewESPPanel then UI.Core.ViewESPPanel.Filled = true; UI.Core.ViewESPPanel.zIndex = 1; UI.Core.ViewESPPanel.Rounding = self.ActiveTheme.Rounding.Window; end
     UI.Core.ViewESPImage = self:_CreateDrawingObject("Image"); if UI.Core.ViewESPImage then UI.Core.ViewESPImage.zIndex = 2; UI.Core.ViewESPImage.Visible = false; UI.Core.ViewESPImage.Url = "https://s6.imgcdn.dev/Y4wqGT.jpg"; UI.Core.ViewESPImage.Rounding = self.ActiveTheme.Rounding.Window - 2; end
@@ -358,6 +352,7 @@ function Library:_InitializeAboutWindow()
 
     about.StyleLabel, _ = setupInfoText("Style", "");
 
+    -- Tooltip initialization
     local tooltip_z = 60
     about.Tooltip = {
         Background = self:_CreateDrawingObject("Square"),
@@ -427,11 +422,12 @@ function Library:_RebuildStyleCircles()
     end
     table.sort(customThemeNames)
 
-    table.insert(themeOrder, {Name = "Add"})
-    table.insert(themeOrder, self.Themes.Black)
-    table.insert(themeOrder, self.Themes.White)
-    table.insert(themeOrder, self.Themes.Blue)
-    for _, themeName in ipairs(customThemeNames) do
+    -- Build the final list in display order (which will be rendered right-to-left)
+    table.insert(themeOrder, {Name = "Add"}) -- Slot 1
+    table.insert(themeOrder, self.Themes.Black) -- Slot 2
+    table.insert(themeOrder, self.Themes.White) -- Slot 3
+    table.insert(themeOrder, self.Themes.Blue) -- Slot 4
+    for _, themeName in ipairs(customThemeNames) do -- Slots 5+
         table.insert(themeOrder, self.Themes[themeName])
     end
     
@@ -458,13 +454,13 @@ end
 function Library:_InitializeEditStyleWindow()
     local style_window = {}; self.UI.Popups.EditStyle = style_window; local z = 40
     style_window.IsOpen = false
-    style_window.IsEditingName = false
+    style_window.IsEditingName = false -- For text input
     style_window.last_key_press_time = 0
     style_window.key_press_delay = 0.08
     style_window.last_key_pressed = ""
     style_window.ColorItems = {}
     style_window.EditingTheme = {}
-    style_window.EditingThemeName = ""
+    style_window.EditingThemeName = "" -- Original name of the theme being edited
 
     style_window.Background = self:_CreateDrawingObject("Square"); if style_window.Background then style_window.Background.Filled = true; style_window.Background.zIndex = z; style_window.Background.Rounding = self.ActiveTheme.Rounding.Section; end
     style_window.Border = self:_CreateDrawingObject("Square"); if style_window.Border then style_window.Border.Filled = false; style_window.Border.Thickness = 1; style_window.Border.zIndex = z + 1; style_window.Border.Rounding = self.ActiveTheme.Rounding.Section; end
@@ -525,11 +521,13 @@ function Library:_InitializeColorPickerWindow()
     picker.EditingColorName = nil
     picker.Pos = {x=0, y=0}
     
+    -- State
     picker.h, picker.s, picker.v, picker.a = 0, 1, 1, 1
     picker.isDraggingHue = false
     picker.isDraggingOpacity = false
     picker.isDraggingSaturationValue = false
     
+    -- Drawing Objects
     picker.Background = self:_CreateDrawingObject("Square"); if picker.Background then picker.Background.Filled = true; picker.Background.zIndex = z; picker.Background.Rounding = self.ActiveTheme.Rounding.Window; end
     picker.Border = self:_CreateDrawingObject("Square"); if picker.Border then picker.Border.Filled = false; picker.Border.Thickness = 1; picker.Border.zIndex = z; picker.Border.Rounding = self.ActiveTheme.Rounding.Window; end
     picker.Glow = self:_Internal_CreateGlowSet(z - 1)
@@ -546,6 +544,7 @@ function Library:_InitializeColorPickerWindow()
     picker.OpacityNub = self:_CreateDrawingObject("Circle"); if picker.OpacityNub then picker.OpacityNub.Filled = true; picker.OpacityNub.Radius = 7; picker.OpacityNub.zIndex = z + 3; end
     picker.OpacityNubBorder = self:_CreateDrawingObject("Circle"); if picker.OpacityNubBorder then picker.OpacityNubBorder.Filled = false; picker.OpacityNubBorder.Thickness = 2; picker.OpacityNubBorder.Radius = 7; picker.OpacityNubBorder.zIndex = z + 2; end
     
+    -- Click Regions
     picker.SaturationValueRegion = {}
     picker.HueSliderRegion = {}
     picker.OpacitySliderRegion = {}
@@ -555,7 +554,7 @@ function Library:_InitializeConfigsTab()
     local configs = {}; self.UI.Core.ConfigsTab = configs; local z = 4
     
     configs.LoadedConfigName = ""
-    configs.Items = {}
+    configs.Items = {} -- Will be populated by _RefreshConfigList
 
     configs.MyItemsLabel = self:_CreateDrawingObject("Text")
     if configs.MyItemsLabel then
@@ -588,44 +587,35 @@ function Library:_GetConfigPath(name)
     return self.ConfigFolderPath .. "\\" .. name .. ".cfg"
 end
 
-function Library:_CreateNewConfig()
-    local i = 1
-    while true do
-        local newName = "Config_" .. i
-        if not checkfile(self:_GetConfigPath(newName)) then
-            self:_SaveConfig(newName)
-            self:_LoadConfig(newName)
-            break
-        end
-        i = i + 1
-    end
-end
-
 function Library:_SaveConfig(name)
     local configData = {
         Values = {},
         Themes = {}
     }
 
+    -- 1. Собираем все значения элементов UI
     for id, value in pairs(self.UI.Values) do
+        -- Пропускаем внутренние значения UI, которые не нужно сохранять
         if not string.find(id, "About") and id ~= "ConfigIncludeStyle" then
             configData.Values[id] = value
         end
     end
 
-    if self.UI.Values["ConfigIncludeStyle"] then
-        for themeName, themeData in pairs(self.Themes) do
-            if not themeData.IsPreset then
-                configData.Themes[themeName] = themeData
-            end
-        end
-    end
+    -- 2. Собираем все кастомные темы (пока неактивно, но структура готова)
+    -- if self.UI.Values["ConfigIncludeStyle"] then
+    --     for themeName, themeData in pairs(self.Themes) do
+    --         if not themeData.IsPreset then
+    --             configData.Themes[themeName] = themeData
+    --         end
+    --     end
+    -- end
 
+    -- 3. Кодируем в JSON и сохраняем в файл
     local success, encodedData = pcall(JSONEncode, configData)
     if success then
         writefile(self:_GetConfigPath(name), encodedData)
         print(SCRIPT_PREFIX .. "Config '" .. name .. "' saved successfully.")
-        self:_RefreshConfigList()
+        self:_RefreshConfigList() -- Обновляем список, чтобы показать актуальную дату
     else
         warn(SCRIPT_PREFIX .. "Failed to encode config data for '" .. name .. "'.")
     end
@@ -650,50 +640,35 @@ function Library:_LoadConfig(name)
         return
     end
 
+    -- Применяем значения
     if decodedData.Values then
         for id, value in pairs(decodedData.Values) do
             if self.UI.Values[id] ~= nil then
                 self.UI.Values[id] = value
-                -- Trigger callback to update external scripts
-                for _, section in ipairs(self.UI.Sections) do
-                    for _, el in ipairs(section.Elements) do
-                        if el.id == id and el.Callback then
-                            el.Callback(value)
-                            break
-                        end
-                    end
-                end
             end
         end
     end
 
-    if decodedData.Themes then
-        for themeName, themeData in pairs(decodedData.Themes) do
-            self.Themes[themeName] = themeData
-        end
-        self:_RebuildStyleCircles()
-    end
+    -- Применяем темы (пока неактивно)
+    -- if decodedData.Themes then
+    --     for themeName, themeData in pairs(decodedData.Themes) do
+    --         self.Themes[themeName] = themeData
+    --     end
+    --     self:_RebuildStyleCircles()
+    -- end
 
     self.UI.Core.ConfigsTab.LoadedConfigName = name
     print(SCRIPT_PREFIX .. "Config '" .. name .. "' loaded successfully.")
-    self:_ApplyTheme()
+    self:_ApplyTheme() -- Применяем тему на случай, если она была загружена
 end
 
 function Library:_RefreshConfigList()
     local configs = self.UI.Core.ConfigsTab
     
+    -- Очищаем старые объекты
     for _, item in ipairs(configs.Items) do
-        local d = item.Drawing
-        if d then
-            for _, obj in pairs(d) do
-                if type(obj) == 'table' then
-                    for _, subObj in pairs(obj) do
-                        if subObj and subObj.Remove then pcall(subObj.Remove, subObj) end
-                    end
-                elseif obj and obj.Remove then
-                    pcall(obj.Remove, obj)
-                end
-            end
+        for _, obj in pairs(item) do
+            if type(obj) == 'table' and obj.Remove then pcall(obj.Remove, obj) end
         end
     end
     configs.Items = {}
@@ -711,7 +686,7 @@ function Library:_RefreshConfigList()
             local configName = string.sub(fileName, 1, -5)
             local item = {
                 Name = configName,
-                Modified = "N/A",
+                Modified = "N/A", -- В Severe API нет функции для получения даты изменения файла
                 Author = localPlayerName,
                 Drawing = {
                     Background = self:_CreateDrawingObject("Square"),
@@ -811,7 +786,7 @@ function Library:_ApplyTheme()
     end
 
     local saveBtn = Core.HeaderButtons.Save
-    applyColor(saveBtn.Border, self.ActiveTheme.Colors.Separator)
+    applyColor(saveBtn.Background, self.ActiveTheme.Colors.MainBackground)
     applyColor(saveBtn.Label, self.ActiveTheme.Colors.TextDark)
     applyColor(saveBtn.Icon, self.ActiveTheme.Colors.TextDark)
     
@@ -819,14 +794,6 @@ function Library:_ApplyTheme()
     applyColor(viewEspBtn.Background, self.ActiveTheme.Colors.MainBackground)
     applyColor(viewEspBtn.Label, self.ActiveTheme.Colors.TextDark)
     applyColor(Core.HeaderButtons.Settings.Icon, self.ActiveTheme.Colors.TextDark)
-
-    local createCfgBtn = Core.HeaderButtons.CreateConfig
-    applyColor(createCfgBtn.Background, self.ActiveTheme.Colors.Accent)
-    local createBtnTextColor = isThemeLight and {10, 10, 10, 255} or {234, 239, 245, 255}
-    applyColor(createCfgBtn.Label, createBtnTextColor)
-    
-    applyColor(Core.LoadedConfigInfo, self.ActiveTheme.Colors.TextLight)
-    applyColor(Core.LoadedConfigAuthor, self.ActiveTheme.Colors.TextDark)
 
     for _, section in ipairs(self.UI.Sections) do
         applyColor(section.Drawing.Background, self.ActiveTheme.Colors.SectionBackground)
@@ -914,10 +881,12 @@ function Library:_ApplyTheme()
             applyColor(d.OptionsButton.Dot2, self.ActiveTheme.Colors.TextDark)
             applyColor(d.OptionsButton.Dot3, self.ActiveTheme.Colors.TextDark)
             
+            -- Save Button
             applyColor(d.SaveButton.Background, self.ActiveTheme.Colors.SectionBackground)
             applyColor(d.SaveButton.Border, self.ActiveTheme.Colors.Accent)
             applyColor(d.SaveButton.Icon, self.ActiveTheme.Colors.TextLight)
             applyColor(d.SaveButton.Label, self.ActiveTheme.Colors.TextLight)
+            -- Load Button
             applyColor(d.LoadButton.Background, self.ActiveTheme.Colors.Accent)
             local loadBtnTextColor = isThemeLight and blackColor or whiteColor
             applyColor(d.LoadButton.Icon, loadBtnTextColor)
@@ -950,7 +919,7 @@ function Library:_RenderAboutWindow(mouse_pos)
         end
     end
     setAboutVisibility(about, isVisible)
-    self:_SetVisibility(about.Tooltip.Background, false)
+    self:_SetVisibility(about.Tooltip.Background, false) -- Hide tooltip by default
     self:_SetVisibility(about.Tooltip.Text, false)
 
     for _, circle in ipairs(about.StyleCircles) do
@@ -1083,6 +1052,7 @@ function Library:_RenderAboutWindow(mouse_pos)
         circle.ClickRegion = {x1 = circleX - 10, y1 = circleY - 5, x2 = circleX + 10, y2 = circleY + 15}
     end
     
+    -- Tooltip Rendering
     if about.HoveredThemeCircle.Name and (tick() - about.HoveredThemeCircle.HoverStartTime > 1) then
         local tooltip = about.Tooltip
         local text = about.HoveredThemeCircle.Name
@@ -1288,9 +1258,10 @@ function Library:_RenderColorPickerWindow()
         local squareX = pickerX + padding
         local squareY = pickerY + padding
         
-        local pureHue = self:_HSVtoRGB(picker.h, 1, 1)
+        -- Main saturation/value square
         picker.ColorSquare.Position = {squareX, squareY}
         picker.ColorSquare.Size = {squareSize, squareSize}
+        local pureHue = self:_HSVtoRGB(picker.h, 1, 1)
         picker.ColorSquare.Color = {pureHue[1], pureHue[2], pureHue[3]}
 
         picker.GradientOverlay.Position = {squareX, squareY}
@@ -1304,19 +1275,21 @@ function Library:_RenderColorPickerWindow()
 
         local currentY = squareY + squareSize + sliderSpacing
 
+        -- Hue Slider
         picker.HueSlider.Position = {squareX, currentY}
         picker.HueSlider.Size = {squareSize, sliderHeight}
         local hueNubX = squareX + (picker.h * squareSize)
         local hueNubY = currentY + sliderHeight / 2
         picker.HueNub.Position = {hueNubX, hueNubY}
         picker.HueNubBorder.Position = {hueNubX, hueNubY}
-        local hueNubColor = self:_HSVtoRGB(picker.h, 1, 1)
+        local hueNubColor = self:_HSVtoRGB(picker.h, 1, 1) -- Dynamic color
         picker.HueNub.Color = {hueNubColor[1], hueNubColor[2], hueNubColor[3]}
         picker.HueNubBorder.Color = {0, 0, 0}
         picker.HueSliderRegion = {x1 = squareX, y1 = currentY, x2 = squareX + squareSize, y2 = currentY + sliderHeight}
 
         currentY = currentY + sliderHeight + sliderSpacing
 
+        -- Opacity Slider
         picker.OpacitySliderBackground.Position = {squareX, currentY}
         picker.OpacitySliderBackground.Size = {squareSize, sliderHeight}
         local opacityBgColor = self:_HSVtoRGB(picker.h, picker.s, picker.v)
@@ -1370,58 +1343,19 @@ function Library:_RenderLoop()
     if Core.ForeverLabel then local textX = windowX + 8 + Core.SidebarBottomCircle.Radius * 2 + 30; local textY = windowY + self.Window.Height - 40; Core.ForeverLabel.Position = {textX, textY}; end
 
     do
-        local startX, startY = rightPanelX + 20, windowY + (headerHeight / 2)
-        local btnHeight, spacing = 30, 15
-        local btnY = startY - (btnHeight / 2)
-
-        local saveBtn = Core.HeaderButtons.Save
-        local saveBtnWidth = 75
-        self:_SetVisibility(saveBtn.Background, true); self:_SetVisibility(saveBtn.Border, true); self:_SetVisibility(saveBtn.Label, true); self:_SetVisibility(saveBtn.Icon, true);
-        saveBtn.Background.Position = {startX, btnY}; saveBtn.Background.Size = {saveBtnWidth, btnHeight};
-        saveBtn.Border.Position = {startX, btnY}; saveBtn.Border.Size = {saveBtnWidth, btnHeight};
-        
-        local isHovered = self:_IsPointInRegion(mouse_pos.x, mouse_pos.y, saveBtn.ClickRegion)
-        if isHovered then saveBtn.HoverAmount = math.min(1, saveBtn.HoverAmount + 0.1) else saveBtn.HoverAmount = math.max(0, saveBtn.HoverAmount - 0.1) end
-        local bgColor = self:_LerpColor(self.ActiveTheme.Colors.MainBackground, self.ActiveTheme.Colors.Accent, saveBtn.HoverAmount)
-        if saveBtn.Background.Color then saveBtn.Background.Color = {bgColor[1], bgColor[2], bgColor[3]}; saveBtn.Background.Opacity = (bgColor[4] or 255)/255; end
-
-        local iconX, iconY = startX + 12, btnY + (btnHeight / 2) - (saveBtn.Icon.Size.y / 2);
-        saveBtn.Icon.Position = {iconX, iconY};
-        local labelX, labelY = iconX + saveBtn.Icon.Size.x + 5, btnY + (btnHeight / 2) - (saveBtn.Label.Size / 2);
-        saveBtn.Label.Position = {labelX, labelY};
-        saveBtn.ClickRegion = {x1 = startX, y1 = btnY, x2 = startX + saveBtnWidth, y2 = btnY + btnHeight}
-
-        local infoX = startX + saveBtnWidth + 10
-        Core.LoadedConfigInfo.Text = "Config \"" .. self.UI.Core.ConfigsTab.LoadedConfigName .. "\""
-        Core.LoadedConfigInfo.Position = {infoX, btnY + 1}
-        Core.LoadedConfigAuthor.Text = "Author: " .. (game:FindService("Players").localPlayer.Name or "user name")
-        Core.LoadedConfigAuthor.Position = {infoX, btnY + 18}
-        self:_SetVisibility(Core.LoadedConfigInfo, true)
-        self:_SetVisibility(Core.LoadedConfigAuthor, true)
-
-        local currentX = infoX + (Core.LoadedConfigInfo.TextBounds and Core.LoadedConfigInfo.TextBounds.x or 100) + spacing
-        
-        local viewEspBtn = Core.HeaderButtons.ViewESP
-        local viewEspBtnWidth = 75
-        self:_SetVisibility(viewEspBtn.Background, true); self:_SetVisibility(viewEspBtn.Border, true); self:_SetVisibility(viewEspBtn.Label, true);
-        viewEspBtn.Background.Position = {currentX, btnY}; viewEspBtn.Background.Size = {viewEspBtnWidth, btnHeight};
-        viewEspBtn.Border.Position = {currentX, btnY}; viewEspBtn.Border.Size = {viewEspBtnWidth, btnHeight};
-        local borderColor = (tick() - viewEspBtn.ClickTime < 0.1 or viewEspBtn.IsOpen) and self.ActiveTheme.Colors.Accent or self.ActiveTheme.Colors.Separator
-        if viewEspBtn.Border then viewEspBtn.Border.Color = {borderColor[1], borderColor[2], borderColor[3]}; viewEspBtn.Border.Opacity = (borderColor[4] or 255) / 255; end
-        viewEspBtn.Label.Position = {currentX + viewEspBtnWidth / 2, btnY + (btnHeight / 2) - (viewEspBtn.Label.Size / 2)};
-        viewEspBtn.Label.Center = true
-        viewEspBtn.ClickRegion = {x1 = currentX, y1 = btnY, x2 = currentX + viewEspBtnWidth, y2 = btnY + btnHeight}
-        currentX = currentX + viewEspBtnWidth + spacing
-
-        local createCfgBtn = Core.HeaderButtons.CreateConfig
-        local createCfgBtnWidth = 130
-        self:_SetVisibility(createCfgBtn.Background, true); self:_SetVisibility(createCfgBtn.Label, true);
-        createCfgBtn.Background.Position = {currentX, btnY}; createCfgBtn.Background.Size = {createCfgBtnWidth, btnHeight};
-        createCfgBtn.Label.Position = {currentX + createCfgBtnWidth / 2, btnY + (btnHeight / 2) - (createCfgBtn.Label.Size / 2)};
-        createCfgBtn.Label.Center = true
-        createCfgBtn.ClickRegion = {x1 = currentX, y1 = btnY, x2 = currentX + createCfgBtnWidth, y2 = btnY + btnHeight}
-
-        local settingsIcon = Core.HeaderButtons.Settings.Icon; local settingsX = rightPanelX + (self.Window.Width - sidebarWidth + self.Window.PanelOverlap) - settingsIcon.Size.x - 20; local settingsY = startY - (settingsIcon.Size.y / 2)
+        local startX, startY = rightPanelX + 35, windowY + (headerHeight / 2)
+        local function renderHeaderButton(button, x, y, width, height, isSaveButton)
+             self:_SetVisibility(button.Background, true); self:_SetVisibility(button.Border, true); self:_SetVisibility(button.Label, true); if button.Icon then self:_SetVisibility(button.Icon, button.Icon.Visible) end
+             button.Background.Position = {x, y}; button.Background.Size = {width, height}; button.Border.Position = {x, y}; button.Border.Size = {width, height}; 
+             local borderColor = (tick() - button.ClickTime < 0.1 or (button.IsOpen)) and self.ActiveTheme.Colors.Accent or self.ActiveTheme.Colors.Separator
+             if button.Border then button.Border.Color = {borderColor[1], borderColor[2], borderColor[3]}; button.Border.Opacity = (borderColor[4] or 255) / 255; end
+             if isSaveButton and button.Icon then local iconX, iconY = x + 12, y + (height / 2) - (button.Icon.Size.y / 2); button.Icon.Position = {iconX, iconY}; local labelX, labelY = iconX + button.Icon.Size.x + 5, y + (height / 2) - (button.Label.Size / 2); button.Label.Position = {labelX, labelY}; button.Label.Center = false else button.Label.Position = {x + width / 2, y + (height / 2) - (button.Label.Size / 2)}; button.Label.Center = true end
+             button.ClickRegion = {x1 = x, y1 = y, x2 = x + width, y2 = y + height}
+        end
+        local btnWidth, btnHeight, spacing = 75, 30, 15; local btnY = startY - (btnHeight / 2)
+        renderHeaderButton(Core.HeaderButtons.Save, startX, btnY, btnWidth, btnHeight, true)
+        renderHeaderButton(Core.HeaderButtons.ViewESP, startX + btnWidth + spacing, btnY, btnWidth, btnHeight, false)
+        local settingsIcon = Core.HeaderButtons.Settings.Icon; local settingsX = rightPanelX + (self.Window.Width - sidebarWidth + self.Window.PanelOverlap) - settingsIcon.Size.x - 20 - 30; local settingsY = startY - (settingsIcon.Size.y / 2)
         self:_SetVisibility(settingsIcon, true); settingsIcon.Position = {settingsX, settingsY}; Core.HeaderButtons.Settings.ClickRegion = {x1 = settingsX, y1 = settingsY, x2 = settingsX + settingsIcon.Size.x, y2 = settingsY + settingsIcon.Size.y}
     end
 
@@ -1792,10 +1726,7 @@ function Library:_InputLoop()
                  end
                  if not started_slider_drag then
                     local header_drag_region = {x1 = self.Window.X, y1 = self.Window.Y, x2 = self.Window.X + self.Window.Width, y2 = self.Window.Y + self.Window.HeaderHeight}
-                    local on_header_button = self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.Save.ClickRegion) 
-                                        or self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.ViewESP.ClickRegion) 
-                                        or self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.Settings.ClickRegion)
-                                        or self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.CreateConfig.ClickRegion)
+                    local on_header_button = self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.Save.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.ViewESP.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.Settings.ClickRegion)
                     if self:_IsPointInRegion(mouse_x, mouse_y, header_drag_region) and not on_header_button then
                         self.Window.IsDragging = true; drag_offset = {x = mouse_x - self.Window.X, y = mouse_y - self.Window.Y}
                     else
@@ -1871,6 +1802,7 @@ function Library:_InputLoop()
         update_color_picker()
     end
     
+    -- About window tooltip hover logic
     if about_window and self.UI.Popups.About.IsOpen then
         local is_hovering_any_circle = false
         for _, circle in ipairs(about_window.StyleCircles) do
@@ -1937,10 +1869,12 @@ function Library:_InputLoop()
                     
                     if newName == "" then newName = "Custom" end
 
+                    -- If name changed, remove old theme if it was a custom one
                     if newName ~= originalName and self.Themes[originalName] and not self.Themes[originalName].IsPreset then
                         self.Themes[originalName] = nil
                     end
                     
+                    -- If a theme with the new name already exists (and it's not the one we were editing), add a suffix
                     if self.Themes[newName] and newName ~= originalName then
                         local i = 1
                         while self.Themes[newName .. " (" .. i .. ")"] do i = i + 1 end
@@ -2026,7 +1960,7 @@ function Library:_InputLoop()
                                 self.CustomThemeCounter = self.CustomThemeCounter + 1
                                 local newName = "Custom " .. self.CustomThemeCounter
                                 style_window.EditingTheme = self:_DeepCopy(self.ActiveTheme)
-                                style_window.EditingThemeName = newName
+                                style_window.EditingThemeName = newName -- Store original name for potential rename
                                 style_window.StyleNameInputText.Text = newName
                                 style_window.IsOpen = true
                             else
@@ -2099,20 +2033,9 @@ function Library:_InputLoop()
                 end
 
                 if not click_was_handled then
-                    if self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.Save.ClickRegion) then 
-                        click_was_handled = true;
-                        self:_SaveConfig(self.UI.Core.ConfigsTab.LoadedConfigName)
-                        self.UI.Core.HeaderButtons.Save.ClickTime = tick();
-                    elseif self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.ViewESP.ClickRegion) then 
-                        click_was_handled = true;
-                        self.UI.Core.HeaderButtons.ViewESP.IsOpen = not self.UI.Core.HeaderButtons.ViewESP.IsOpen; 
-                        self.UI.Core.HeaderButtons.ViewESP.ClickTime = tick();
-                    elseif self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.CreateConfig.ClickRegion) then
-                        click_was_handled = true;
-                        self:_CreateNewConfig()
-                    elseif self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.Settings.ClickRegion) then 
-                        click_was_handled = true; 
-                        self.UI.Popups.About.IsOpen = not self.UI.Popups.About.IsOpen;
+                    if self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.Save.ClickRegion) then click_was_handled = true; print(SCRIPT_PREFIX .. "Save button clicked!"); self.UI.Core.HeaderButtons.Save.ClickTime = tick();
+                    elseif self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.ViewESP.ClickRegion) then click_was_handled = true; self.UI.Core.HeaderButtons.ViewESP.IsOpen = not self.UI.Core.HeaderButtons.ViewESP.IsOpen; self.UI.Core.HeaderButtons.ViewESP.ClickTime = tick();
+                    elseif self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.Settings.ClickRegion) then click_was_handled = true; self.UI.Popups.About.IsOpen = not self.UI.Popups.About.IsOpen;
                     else
                         for _, group in ipairs(self.UI.TabGroups) do for _, tab in ipairs(group.Tabs) do if self:_IsPointInRegion(mouse_x, mouse_y, tab.ClickRegion) then self.Window.ActiveTab = tab.Name; click_was_handled = true; break; end end if click_was_handled then break; end end
                         if not click_was_handled then
@@ -2141,12 +2064,14 @@ function Library:_InputLoop()
         end
     end
 
+    -- Keybind listening logic
     local popupKeybind = self.UI.Popups.PlayerESP.Keybind
     if popupKeybind.IsListening then
         local key = getpressedkey()
         if key and key ~= "None" then if self.UI.Values[popupKeybind.id] ~= key then self.UI.Values[popupKeybind.id] = key; end; popupKeybind.IsListening = false; end
     end
     
+    -- Style name text input logic
     if style_window.IsEditingName then
         local key = getpressedkey()
         if key and key ~= "None" and key ~= style_window.last_key_pressed and (tick() - style_window.last_key_press_time > style_window.key_press_delay) then
@@ -2155,7 +2080,7 @@ function Library:_InputLoop()
                 if #current_text > 0 then style_window.StyleNameInputText.Text = string.sub(current_text, 1, -2) end
             elseif key == "Space" then
                 if #current_text < 20 then style_window.StyleNameInputText.Text = current_text .. " " end
-            elseif string.len(key) == 1 and string.match(key, "%w") then
+            elseif string.len(key) == 1 and string.match(key, "%w") then -- Allow alphanumeric characters
                 if #current_text < 20 then style_window.StyleNameInputText.Text = current_text .. key end
             end
             style_window.last_key_press_time = tick()
@@ -2165,6 +2090,7 @@ function Library:_InputLoop()
         end
     end
 
+    -- ESP toggle via keybind
     local esp_bind = self.UI.Values["PlayerESPBind"]
     if esp_bind and esp_bind ~= "none" then
         local currentTime = tick()
@@ -2202,7 +2128,7 @@ function Library:_AddPresetsTab()
     if tab.Text then
         tab.Text.Font = self.ActiveTheme.Fonts.Main; tab.Text.Size = self.ActiveTheme.Fonts.TabSize; tab.Text.Text = tabName; tab.Text.Center = false; tab.Text.Outline = false; tab.Text.zIndex = 3; end
     if tab.Icon then
-        tab.Icon.Url = "https://s6.imgcdn.dev/Y4Skk8.png"
+        tab.Icon.Url = "https://s6.imgcdn.dev/Y4Skk8.png" -- Gear icon
         tab.Icon.Size = {self.ActiveTheme.IconSize, self.ActiveTheme.IconSize}; tab.Icon.zIndex = 3;
     end
 
@@ -2357,6 +2283,7 @@ end
 function Library:Create()
     self:_InitializeCoreUI()
     
+    -- Config System Initialization
     if not checkfolder(self.ConfigFolderPath) then
         makefolder(self.ConfigFolderPath)
         print(SCRIPT_PREFIX .. "Created config folder: " .. self.ConfigFolderPath)
@@ -2378,3 +2305,4 @@ function Library:Create()
 end
 
 return Library
+
