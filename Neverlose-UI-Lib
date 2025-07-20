@@ -211,32 +211,33 @@ function Library:_RenderSaveTooltip()
     local tooltip = self.UI.Core.SaveTooltip
     local saveBtn = self.UI.Core.HeaderButtons.Save
     local isVisible = saveBtn.IsHovered
+    local theme = self.ActiveTheme
 
     self:_SetVisibility(tooltip.Background, isVisible)
     self:_SetVisibility(tooltip.ConfigName, isVisible)
     self:_SetVisibility(tooltip.Author, isVisible)
 
     if isVisible then
-        -- Задаем текст
+        self:_AnimateAndApplyColor(tooltip.Background, theme.Colors.SectionBackground)
+        self:_AnimateAndApplyColor(tooltip.ConfigName, theme.Colors.TextLight)
+        self:_AnimateAndApplyColor(tooltip.Author, theme.Colors.TextDark)
+    
         local configName = self.UI.Core.ConfigsTab.LoadedConfigName
         if configName == "" then configName = "default" end
         tooltip.ConfigName.Text = "Config \"" .. configName .. "\""
         tooltip.Author.Text = "Author: " .. (self.UI.Core.PlayerDisplayName.Text or "user")
 
-        -- Динамически вычисляем ширину
-        local padding = 16 -- Отступы по бокам
+        local padding = 16
         local configNameWidth = tooltip.ConfigName.TextBounds and tooltip.ConfigName.TextBounds.x or 100
         local authorWidth = tooltip.Author.TextBounds and tooltip.Author.TextBounds.x or 100
         local tooltipW = math.max(configNameWidth, authorWidth) + padding
         local tooltipH = 50
 
-        -- Позиционируем
         local btnRegion = saveBtn.ClickRegion
         local tooltipX, tooltipY = btnRegion.x2 + 10, btnRegion.y1
 
         tooltip.Background.Position = {tooltipX, tooltipY}
         tooltip.Background.Size = {tooltipW, tooltipH}
-        
         tooltip.ConfigName.Position = {tooltipX + (padding / 2), tooltipY + 8}
         tooltip.Author.Position = {tooltipX + (padding / 2), tooltipY + 28}
     end
@@ -1553,7 +1554,7 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
                 self:_SetVisibility(el.Label, true); if el.Back then self:_SetVisibility(el.Back, true) end; if el.Nub then self:_SetVisibility(el.Nub, true) end; if el.Button then self:_SetVisibility(el.Button, true) end; if el.ButtonText then self:_SetVisibility(el.ButtonText, true) end; if el.LeftFill then self:_SetVisibility(el.LeftFill, true) end; if el.RightFill then self:_SetVisibility(el.RightFill, true) end; if el.ValueText then self:_SetVisibility(el.ValueText, true) end; if el.ArrowLine1 then self:_SetVisibility(el.ArrowLine1, true) end; if el.ArrowLine2 then self:_SetVisibility(el.ArrowLine2, true) end; if el.HasSettings and el.SettingsIcon then self:_SetVisibility(el.SettingsIcon, true) end
                 
                 self:_AnimateAndApplyColor(el.Label, theme.Colors.TextDark)
-                if el.HasSettings then self:_AnimateAndApplyColor(el.SettingsIcon, theme.Colors.TextDark) end
+                if el.HasSettings and el.SettingsIcon then self:_AnimateAndApplyColor(el.SettingsIcon, theme.Colors.TextDark) end
 
                 if el.type == "Toggle" then
                     el.Label.Position = {sectionX + 10, elementY};
@@ -1562,8 +1563,7 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
 
                     local targetBackColor, targetNubColor
                     if self.UI.Values[el.id] then
-                        -- Возвращаем правильные цвета для переключателя
-                        targetBackColor = self:_DarkenColor(theme.Colors.Accent, 0.3)
+                        targetBackColor = theme.Colors.ToggleEnabledBackground or self:_DarkenColor(theme.Colors.Accent, 0.3)
                         targetNubColor = theme.Colors.Accent
                         el.Nub.Position = {toggleBackX + el.Size.width - 5, elementY + 2 + el.Size.height/2}
                     else
@@ -1745,6 +1745,7 @@ function Library:_RenderConfigOptionsPopup()
     local configs = self.UI.Core.ConfigsTab
     local popup = configs.OptionsPopup
     local isVisible = popup.IsOpen
+    local theme = self.ActiveTheme
 
     self:_SetVisibility(popup.Background, isVisible)
     self:_SetVisibility(popup.Border, isVisible)
@@ -1753,30 +1754,39 @@ function Library:_RenderConfigOptionsPopup()
     self:_SetVisibility(popup.IncludeStyleToggle.Nub, isVisible)
 
     if not isVisible then
-        self:_HideGlowEffect(popup.Glow)
+        if popup.Glow then self:_HideGlowEffect(popup.Glow) end
         return
     end
 
+    self:_AnimateAndApplyColor(popup.Background, theme.Colors.SectionBackground)
+    self:_AnimateAndApplyColor(popup.Border, theme.Colors.Separator)
+    self:_AnimateAndApplyColor(popup.IncludeStyleToggle.Label, theme.Colors.TextDark)
+    
     local pW, pH = 150, 50
     local pX, pY = popup.Pos.x, popup.Pos.y
     popup.ClickRegion = {x1=pX, y1=pY, x2=pX+pW, y2=pY+pH}
     popup.Background.Position = {pX, pY}; popup.Background.Size = {pW, pH}
     popup.Border.Position = {pX, pY}; popup.Border.Size = {pW, pH}
-    self:_RenderGlowEffect(popup.Glow, pX, pY, pW, pH, popup.Background.Rounding, self.ActiveTheme.Colors.GlowColor)
+    if popup.Glow then self:_RenderGlowEffect(popup.Glow, pX, pY, pW, pH, popup.Background.Rounding, theme.Colors.GlowColor) end
 
     local toggle = popup.IncludeStyleToggle
     local toggleY = pY + (pH / 2) - (toggle.Label.Size / 2)
     toggle.Label.Position = {pX + 10, toggleY}
     local toggleBackX = pX + pW - toggle.Size.width - 15
     toggle.Back.Position = {toggleBackX, toggleY + 2}; toggle.Back.Size = {toggle.Size.width, toggle.Size.height}; toggle.ClickRegion = {x1 = toggleBackX, y1 = toggleY, x2 = toggleBackX + toggle.Size.width, y2 = toggleY + toggle.Size.height + 4}
-    local backColor, nubColor
+    
+    local targetBackColor, targetNubColor
     if self.UI.Values[toggle.id] then
-        backColor = self.ActiveTheme.Colors.ToggleEnabledBackground; nubColor = self.ActiveTheme.Colors.Accent; toggle.Nub.Position = {toggleBackX + toggle.Size.width - 5, toggleY + 2 + toggle.Size.height/2}
+        targetBackColor = theme.Colors.ToggleEnabledBackground or self:_DarkenColor(theme.Colors.Accent, 0.3)
+        targetNubColor = theme.Colors.Accent
+        toggle.Nub.Position = {toggleBackX + toggle.Size.width - 5, toggleY + 2 + toggle.Size.height/2}
     else
-        backColor = self.ActiveTheme.Colors.DarkGray; nubColor = self.ActiveTheme.Colors.LightGray; toggle.Nub.Position = {toggleBackX + 5, toggleY + 2 + toggle.Size.height/2}
+        targetBackColor = theme.Colors.DarkGray
+        targetNubColor = theme.Colors.LightGray
+        toggle.Nub.Position = {toggleBackX + 5, toggleY + 2 + toggle.Size.height/2}
     end
-    if toggle.Back then toggle.Back.Color = {backColor[1], backColor[2], backColor[3]}; toggle.Back.Opacity = (backColor[4] or 255) / 255; end
-    if toggle.Nub then toggle.Nub.Color = {nubColor[1], nubColor[2], nubColor[3]}; toggle.Nub.Opacity = (nubColor[4] or 255) / 255; end
+    self:_AnimateAndApplyColor(toggle.Back, targetBackColor)
+    self:_AnimateAndApplyColor(toggle.Nub, targetNubColor)
 end
 
 function Library:_InputLoop()
