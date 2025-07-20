@@ -2259,7 +2259,7 @@ end
 
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started in DEBUG MODE.")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started in DEBUG MODE 1.")
     local is_first_frame = true
     while self.Window.Visible do
         if is_first_frame then
