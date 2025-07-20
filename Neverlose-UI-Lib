@@ -125,6 +125,11 @@ end
 function Library:_CreateDrawingObject(class)
     local success, object = pcall(Drawing.new, class)
     if not success then warn(SCRIPT_PREFIX .. "Failed to create Drawing object of type:", class); return nil end
+    
+    -- [ДОБАВЛЕНО] Инициализируем свойства для анимации цвета
+    object.CurrentColor = {0, 0, 0, 0}
+    object.TargetColor = {0, 0, 0, 0}
+    
     table.insert(self.UI.DrawingObjects, object)
     return object
 end
@@ -880,17 +885,17 @@ function Library:_ApplyTheme()
     self.ActiveTheme.Colors.ToggleEnabledBackground = self:_DarkenColor(self.ActiveTheme.Colors.Accent, 0.3)
     local Core = self.UI.Core
 
+    -- [ИЗМЕНЕНО] Эта функция теперь задает ЦЕЛЕВОЙ цвет для анимации
     local function applyColor(obj, color)
         if obj and color then
-            obj.Color = {color[1], color[2], color[3]}
-            obj.Opacity = (color[4] or 255) / 255
+            obj.TargetColor = color
         end
     end
     
     local function applyColorWithStaticOpacity(obj, color, opacity)
         if obj and color then
-            obj.Color = {color[1], color[2], color[3]}
-            obj.Opacity = opacity
+            local target = {color[1], color[2], color[3], opacity * 255}
+            obj.TargetColor = target
         end
     end
 
@@ -921,12 +926,15 @@ function Library:_ApplyTheme()
         applyColor(group.Header, self.ActiveTheme.Colors.TabHeader)
     end
     
-    local default_buttons = { Core.HeaderButtons.Save, Core.HeaderButtons.ViewESP }
+    local default_buttons = { Core.HeaderButtons.ViewESP } -- Save теперь анимируется отдельно
     for _, btn in ipairs(default_buttons) do
         applyColor(btn.Background, self.ActiveTheme.Colors.MainBackground)
         applyColor(btn.Label, self.ActiveTheme.Colors.TextDark)
         if btn.Icon then applyColor(btn.Icon, self.ActiveTheme.Colors.TextDark) end
     end
+    Core.HeaderButtons.Save.TargetColor = self.ActiveTheme.Colors.MainBackground
+    applyColor(Core.HeaderButtons.Save.Label, self.ActiveTheme.Colors.TextDark)
+    if Core.HeaderButtons.Save.Icon then applyColor(Core.HeaderButtons.Save.Icon, self.ActiveTheme.Colors.TextDark) end
     
     local create_btn = Core.HeaderButtons.CreateNew
     applyColor(create_btn.Background, self.ActiveTheme.Colors.Accent)
@@ -936,6 +944,13 @@ function Library:_ApplyTheme()
     if create_btn.Icon then applyColor(create_btn.Icon, accentButtonTextColor) end
 
     applyColor(Core.HeaderButtons.Settings.Icon, self.ActiveTheme.Colors.TextDark)
+    
+    -- [ИСПРАВЛЕНО] Добавлено применение цвета для подсказки
+    local tooltip = Core.SaveTooltip
+    applyColor(tooltip.Background, self.ActiveTheme.Colors.SectionBackground)
+    applyColor(tooltip.ConfigName, self.ActiveTheme.Colors.TextLight)
+    applyColor(tooltip.Author, self.ActiveTheme.Colors.TextDark)
+
 
     for _, section in ipairs(self.UI.Sections) do
         applyColor(section.Drawing.Background, self.ActiveTheme.Colors.SectionBackground)
@@ -1022,7 +1037,6 @@ function Library:_ApplyTheme()
             applyColor(d.OptionsButton.Dot2, self.ActiveTheme.Colors.TextDark)
             applyColor(d.OptionsButton.Dot3, self.ActiveTheme.Colors.TextDark)
             
-            -- [ИЗМЕНЕНО] Усиленная установка стилей для кнопок
             if d.SaveButton.Background then d.SaveButton.Background.Filled = true end
             if d.LoadButton.Background then d.LoadButton.Background.Filled = true end
             
@@ -1217,6 +1231,23 @@ function Library:_RenderAboutWindow(mouse_pos)
     end
 
     about.CreditText.Position = {winX + winW / 2, winY + winH - 25}
+end
+-- Новая функция для глобальной анимации цветов
+function Library:_UpdateColorAnimations()
+    local speed = 0.08 -- Скорость анимации, можете настроить
+    for _, obj in ipairs(self.UI.DrawingObjects) do
+        if obj and obj.CurrentColor and obj.TargetColor then
+            -- Проверяем, нужно ли анимировать
+            if obj.CurrentColor[1] ~= obj.TargetColor[1] or obj.CurrentColor[2] ~= obj.TargetColor[2] or obj.CurrentColor[3] ~= obj.TargetColor[3] or obj.CurrentColor[4] ~= obj.TargetColor[4] then
+                obj.CurrentColor = self:_LerpColor(obj.CurrentColor, obj.TargetColor, speed)
+                -- Применяем анимированный цвет
+                if obj.Color then
+                    obj.Color = {obj.CurrentColor[1], obj.CurrentColor[2], obj.CurrentColor[3]}
+                    obj.Opacity = obj.CurrentColor[4] / 255
+                end
+            end
+        end
+    end
 end
 
 function Library:_RenderPlayerESPSettingsPopup()
@@ -1457,6 +1488,8 @@ end
 function Library:_RenderLoop()
     if not self.Window.Visible then return end
 
+    self:_UpdateColorAnimations() -- [ДОБАВЛЕНО] Вызываем новую функцию анимации каждый кадр
+
     if self.UI.Core.ConfigsTab.NeedsRefresh then
         self:_RefreshConfigList()
         self.UI.Core.ConfigsTab.NeedsRefresh = false
@@ -1497,7 +1530,7 @@ function Library:_RenderLoop()
              self:_SetVisibility(button.Background, true); self:_SetVisibility(button.Border, true); self:_SetVisibility(button.Label, true); if button.Icon then self:_SetVisibility(button.Icon, button.Icon.Visible) end
              button.Background.Position = {x, y}; button.Background.Size = {width, height}; button.Border.Position = {x, y}; button.Border.Size = {width, height}; 
              local borderColor = (tick() - button.ClickTime < 0.1 or (button.IsOpen)) and self.ActiveTheme.Colors.Accent or self.ActiveTheme.Colors.Separator
-             if button.Border then button.Border.Color = {borderColor[1], borderColor[2], borderColor[3]}; button.Border.Opacity = (borderColor[4] or 255) / 255; end
+             if button.Border and button.Border.TargetColor then button.Border.TargetColor = borderColor end
              if has_icon and button.Icon then local iconX, iconY = x + 12, y + (height / 2) - (button.Icon.Size.y / 2); button.Icon.Position = {iconX, iconY}; local labelX, labelY = iconX + button.Icon.Size.x + 5, y + (height / 2) - (button.Label.Size / 2); button.Label.Position = {labelX, labelY}; button.Label.Center = false else button.Label.Position = {x + width / 2, y + (height / 2) - (button.Label.Size / 2)}; button.Label.Center = true end
              button.ClickRegion = {x1 = x, y1 = y, x2 = x + width, y2 = y + height}
         end
@@ -1507,7 +1540,6 @@ function Library:_RenderLoop()
         local btnY = startY - (btnHeight / 2)
         local currentX = startX
 
-        -- [ИЗМЕНЕНО] Новая логика расположения кнопок
         renderHeaderButton(Core.HeaderButtons.Save, currentX, btnY, btnWidth, btnHeight, true)
         currentX = currentX + btnWidth + spacing
         
@@ -1520,14 +1552,13 @@ function Library:_RenderLoop()
             self:_SetVisibility(Core.HeaderButtons.CreateNew.Background, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Border, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Label, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Icon, false);
         end
         
-        -- Анимация кнопки Save
+        -- [ИЗМЕНЕНО] Интегрируем анимацию в новую систему
         local saveBtn = Core.HeaderButtons.Save
         saveBtn.IsHovered = self:_IsPointInRegion(mouse_pos.x, mouse_pos.y, saveBtn.ClickRegion)
-        local targetColor = saveBtn.IsHovered and self.ActiveTheme.Colors.Accent or self.ActiveTheme.Colors.MainBackground
-        saveBtn.CurrentColor = self:_LerpColor(saveBtn.CurrentColor, targetColor, 0.1)
-        if saveBtn.Background then
-            saveBtn.Background.Color = {saveBtn.CurrentColor[1], saveBtn.CurrentColor[2], saveBtn.CurrentColor[3]}
-            saveBtn.Background.Opacity = (saveBtn.CurrentColor[4] or 255) / 255
+        if saveBtn.IsHovered then
+            saveBtn.TargetColor = self.ActiveTheme.Colors.Accent
+        else
+            saveBtn.TargetColor = self.ActiveTheme.Colors.MainBackground
         end
 
         local settingsIcon = Core.HeaderButtons.Settings.Icon
@@ -1809,14 +1840,17 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
             saveBtn.ClickRegion = {x1 = btnX, y1 = btnY, x2 = btnX + btnWidth, y2 = btnY + btnHeight}
         else
             local loadBtn = d.LoadButton
-            -- [ИЗМЕНЕНО] Принудительно устанавливаем свойства фона прямо здесь
+            -- [ИСПРАВЛЕНО] Усиленный метод для отрисовки фона
+            if not loadBtn.Background then
+                loadBtn.Background = self:_CreateDrawingObject("Square")
+                self:_ApplyTheme() -- Переприменяем тему, чтобы новый объект получил цвет
+            end
             if loadBtn.Background then
                 loadBtn.Background.Filled = true
-                local c = theme.Colors.Accent
-                loadBtn.Background.Color = {c[1], c[2], c[3]}
-                loadBtn.Background.Opacity = (c[4] or 255) / 255
+                loadBtn.Background.Position = {btnX, btnY}
+                loadBtn.Background.Size = {btnWidth, btnHeight}
             end
-            loadBtn.Background.Position = {btnX, btnY}; loadBtn.Background.Size = {btnWidth, btnHeight}
+
             local iconX = btnX + 15
             loadBtn.Icon.Position = {iconX, btnY + (btnHeight / 2) - (loadBtn.Icon.Size.y / 2)}
             loadBtn.Label.Position = {iconX + loadBtn.Icon.Size.x + 8, btnY + (btnHeight / 2) - (loadBtn.Label.Size / 2)}
