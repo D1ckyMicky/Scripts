@@ -591,32 +591,37 @@ function Library:_SaveConfig(name)
     local configData = {
         Values = {},
         Themes = {},
-        ActiveThemeName = self.ActiveTheme.Name -- Запоминаем имя активной темы
+        ActiveThemeName = self.ActiveTheme.Name
     }
 
-    -- 1. Собираем все значения элементов UI
+    -- 1. Собираем значения
     for id, value in pairs(self.UI.Values) do
-        -- Пропускаем внутренние значения UI, которые не нужно сохранять
         if not string.find(id, "About") and id ~= "ConfigIncludeStyle" then
             configData.Values[id] = value
         end
     end
 
-    -- 2. Собираем все кастомные темы, если включена опция
+    -- 2. Собираем кастомные темы без лишних полей
     if self.UI.Values["ConfigIncludeStyle"] then
         for themeName, themeData in pairs(self.Themes) do
             if not themeData.IsPreset then
-                configData.Themes[themeName] = themeData
+                local sanitizedTheme = {
+                    Colors = self:_DeepCopy(themeData.Colors),
+                    Rounding = self:_DeepCopy(themeData.Rounding),
+                    Transparency = self:_DeepCopy(themeData.Transparency),
+                    IconSize = themeData.IconSize
+                }
+                configData.Themes[themeName] = sanitizedTheme
             end
         end
     end
 
-    -- 3. Кодируем в JSON и сохраняем в файл
+    -- 3. Сохраняем в файл
     local success, encodedData = pcall(JSONEncode, configData)
     if success then
         writefile(self:_GetConfigPath(name), encodedData)
         print(SCRIPT_PREFIX .. "Config '" .. name .. "' saved successfully.")
-        self:_RefreshConfigList() 
+        self.UI.Core.ConfigsTab.NeedsRefresh = true -- [ИЗМЕНЕНО] Выставляем флаг вместо прямого вызова
     else
         warn(SCRIPT_PREFIX .. "Failed to encode config data for '" .. name .. "'.")
     end
@@ -624,41 +629,47 @@ end
 
 function Library:_LoadConfig(name)
     local filePath = self:_GetConfigPath(name)
-    if not checkfile(filePath) then
-        warn(SCRIPT_PREFIX .. "Config file not found: " .. name)
-        return
-    end
-
+    if not checkfile(filePath) then warn(SCRIPT_PREFIX .. "Config file not found: " .. name); return end
     local success, fileContent = pcall(readfile, filePath)
-    if not success or not fileContent then
-        warn(SCRIPT_PREFIX .. "Failed to read config file: " .. name)
-        return
-    end
-
+    if not success or not fileContent then warn(SCRIPT_PREFIX .. "Failed to read config file: " .. name); return end
     local success, decodedData = pcall(JSONDecode, fileContent)
-    if not success or not decodedData then
-        warn(SCRIPT_PREFIX .. "Failed to decode config JSON: " .. name)
-        return
+    if not success or not decodedData then warn(SCRIPT_PREFIX .. "Failed to decode config JSON: " .. name); return end
+
+    -- Загружаем темы, восстанавливая их полную структуру
+    if decodedData.Themes then
+        for themeName, savedThemeData in pairs(decodedData.Themes) do
+            local fullTheme = {
+                Name = themeName,
+                IsPreset = false,
+                Colors = savedThemeData.Colors,
+                Rounding = savedThemeData.Rounding,
+                Transparency = savedThemeData.Transparency,
+                IconSize = savedThemeData.IconSize,
+                Fonts = self:_DeepCopy(self.Themes.Blue.Fonts) -- Используем шрифты из темы по умолчанию
+            }
+            self.Themes[themeName] = fullTheme
+        end
+        self:_RebuildStyleCircles()
     end
 
-    -- Применяем значения
+    -- Применяем значения и вызываем коллбэки для обновления
     if decodedData.Values then
         for id, value in pairs(decodedData.Values) do
             if self.UI.Values[id] ~= nil then
                 self.UI.Values[id] = value
+                -- [ДОБАВЛЕНО] Ищем элемент и вызываем его коллбэк для обновления
+                for _, section in ipairs(self.UI.Sections) do
+                    for _, element in ipairs(section.Elements) do
+                        if element.id == id and element.Callback then
+                            pcall(element.Callback, value)
+                            break
+                        end
+                    end
+                end
             end
         end
     end
-
-    -- Загружаем и применяем темы
-    if decodedData.Themes then
-        for themeName, themeData in pairs(decodedData.Themes) do
-            self.Themes[themeName] = themeData -- Добавляем кастомные темы в библиотеку
-        end
-        self:_RebuildStyleCircles() -- Обновляем кружочки выбора тем
-    end
-
-    -- Устанавливаем активную тему из конфига, если она есть
+    
     if decodedData.ActiveThemeName and self.Themes[decodedData.ActiveThemeName] then
         self.ActiveTheme = self.Themes[decodedData.ActiveThemeName]
         self.UI.Values.AboutSelectedStyle = decodedData.ActiveThemeName
@@ -666,7 +677,37 @@ function Library:_LoadConfig(name)
 
     self.UI.Core.ConfigsTab.LoadedConfigName = name
     print(SCRIPT_PREFIX .. "Config '" .. name .. "' loaded successfully.")
-    self:_ApplyTheme() -- Применяем тему, чтобы все цвета и элементы обновились
+    self:_ApplyTheme()
+end
+
+function Library:_InitializeConfigsTab()
+    local configs = {}; self.UI.Core.ConfigsTab = configs; local z = 4
+    
+    configs.LoadedConfigName = ""
+    configs.Items = {} -- Will be populated by _RefreshConfigList
+    configs.NeedsRefresh = false -- [ДОБАВЛЕНО] Флаг для отложенного обновления
+
+    configs.MyItemsLabel = self:_CreateDrawingObject("Text")
+    if configs.MyItemsLabel then
+        configs.MyItemsLabel.Font = self.ActiveTheme.Fonts.Main; configs.MyItemsLabel.Size = self.ActiveTheme.Fonts.Size + 2; configs.MyItemsLabel.Text = "- My items"; configs.MyItemsLabel.Center = false; configs.MyItemsLabel.zIndex = z;
+    end
+
+    configs.Scrollbar = {
+        Background = self:_CreateDrawingObject("Square"),
+        Nub = self:_CreateDrawingObject("Square")
+    }
+    if configs.Scrollbar.Background then configs.Scrollbar.Background.Filled = true; configs.Scrollbar.Background.zIndex = z + 2; configs.Scrollbar.Background.Rounding = 2; end
+    if configs.Scrollbar.Nub then configs.Scrollbar.Nub.Filled = true; configs.Scrollbar.Nub.zIndex = z + 3; configs.Scrollbar.Nub.Rounding = 2; end
+
+    configs.OptionsPopup = {
+        IsOpen = false, ItemIndex = nil, Pos = {x=0, y=0}, ClickRegion = {},
+        Background = self:_CreateDrawingObject("Square"),
+        Border = self:_CreateDrawingObject("Square"),
+        Glow = self:_Internal_CreateGlowSet(z + 10),
+        IncludeStyleToggle = self:_Internal_CreateToggle({ id = "ConfigIncludeStyle", Name = "Include Style", Default = true, zIndex = z + 12 })
+    }
+    if configs.OptionsPopup.Background then configs.OptionsPopup.Background.Filled = true; configs.OptionsPopup.Background.zIndex = z + 11; configs.OptionsPopup.Background.Rounding = self.ActiveTheme.Rounding.Section; end
+    if configs.OptionsPopup.Border then configs.OptionsPopup.Border.Filled = false; configs.OptionsPopup.Border.Thickness = 1; configs.OptionsPopup.Border.zIndex = z + 12; configs.OptionsPopup.Border.Rounding = self.ActiveTheme.Rounding.Section; end
 end
 
 function Library:_RefreshConfigList()
@@ -1319,6 +1360,12 @@ end
 
 function Library:_RenderLoop()
     if not self.Window.Visible then return end
+
+    -- [ДОБАВЛЕНО] Проверяем, нужно ли обновить список конфигов
+    if self.UI.Core.ConfigsTab.NeedsRefresh then
+        self:_RefreshConfigList()
+        self.UI.Core.ConfigsTab.NeedsRefresh = false
+    end
 
     local mouse_pos = getmouseposition()
     if not mouse_pos then return end
@@ -2312,4 +2359,3 @@ function Library:Create()
 end
 
 return Library
-
