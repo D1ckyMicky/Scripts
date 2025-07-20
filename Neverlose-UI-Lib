@@ -287,7 +287,7 @@ function Library:_Internal_CreateGlowSet(zIndex, count)
     return glowSet
 end
 
-function Library:_RenderGlowEffect(glowSet, x, y, width, height, targetColor, sides)
+function Library:_RenderGlowEffect(glowSet, x, y, width, height, rounding, targetColor, sides)
     if not glowSet or #glowSet == 0 or not targetColor then return end
     
     -- Используем первый квадрат в наборе как ключ для нашего хранилища состояний
@@ -303,7 +303,7 @@ function Library:_RenderGlowEffect(glowSet, x, y, width, height, targetColor, si
     -- Анимируем цвет
     state.CurrentColor = self:_LerpColor(state.CurrentColor, targetColor, 0.1)
     local animatedColor = state.CurrentColor
-
+    
     sides = sides or {top=true, bottom=true, left=true, right=true}
     local glowColorRGB = {animatedColor[1], animatedColor[2], animatedColor[3]}
     local glowOpacity = (animatedColor[4] or 255) / 255
@@ -320,7 +320,7 @@ function Library:_RenderGlowEffect(glowSet, x, y, width, height, targetColor, si
         
         glowSquare.Position = {glowX, glowY}
         glowSquare.Size = {glowW, glowH}
-        glowSquare.Rounding = rounding + spread
+        glowSquare.Rounding = rounding + spread -- Теперь 'rounding' не будет nil
         glowSquare.Color = glowColorRGB
         glowSquare.Opacity = glowOpacity * alpha_factor
         self:_SetVisibility(glowSquare, true)
@@ -1343,13 +1343,11 @@ function Library:_RenderLoop()
     local sidebarWidth, headerHeight = self:_SafeNumber(self.Window.SidebarWidth, 0), self:_SafeNumber(self.Window.HeaderHeight, 0)
     local rightPanelX = windowX + sidebarWidth - self.Window.PanelOverlap
 
-    -- Устанавливаем видимость
+    -- ... (код до вызова _RenderGlowEffect остается без изменений) ...
+
     self:_SetVisibility(Core.Sidebar.Drawing, true); self:_SetVisibility(Core.RightPanel.Drawing, true); self:_SetVisibility(Core.VerticalSeparator, true); self:_SetVisibility(Core.SidebarHeaderSeparator, true); self:_SetVisibility(Core.RightPanelHeaderSeparator, true); self:_SetVisibility(Core.Title, true); self:_SetVisibility(Core.SidebarBottomCircle, true); if Core.SidebarAvatar then self:_SetVisibility(Core.SidebarAvatar, true) end; self:_SetVisibility(Core.PlayerDisplayName, true); self:_SetVisibility(Core.TillLabel, true); self:_SetVisibility(Core.ForeverLabel, true)
-    
     local isThemeLight = self:_IsThemeLight(theme)
     self:_SetVisibility(Core.Title2, not isThemeLight); self:_SetVisibility(Core.Title3, not isThemeLight)
-
-    -- Анимируем цвета основных элементов
     self:_AnimateAndApplyColor(Core.Sidebar.Drawing, theme.Colors.SidebarBackground)
     self:_AnimateAndApplyColor(Core.RightPanel.Drawing, theme.Colors.MainBackground)
     self:_AnimateAndApplyColor(Core.VerticalSeparator, theme.Colors.Separator)
@@ -1364,13 +1362,14 @@ function Library:_RenderLoop()
     self:_AnimateAndApplyColor(Core.PlayerDisplayName, theme.Colors.TextDark)
     self:_AnimateAndApplyColor(Core.TillLabel, theme.Colors.TextDark)
     self:_AnimateAndApplyColor(Core.ForeverLabel, theme.Colors.Accent)
-    
-    -- Устанавливаем позиции
     if Core.Sidebar.Drawing then Core.Sidebar.Drawing.Position = {windowX, windowY}; Core.Sidebar.Drawing.Size = {sidebarWidth, self.Window.Height}; end
     if Core.RightPanel.Drawing then Core.RightPanel.Drawing.Position = {rightPanelX, windowY}; Core.RightPanel.Drawing.Size = {self.Window.Width - sidebarWidth + self.Window.PanelOverlap, self.Window.Height}; end
     
-    self:_RenderGlowEffect(Core.Sidebar.Glow, windowX, windowY, sidebarWidth, self.Window.Height, theme.Colors.GlowColor, {top=true, bottom=true, left=true, right=false})
-    self:_RenderGlowEffect(Core.RightPanel.Glow, rightPanelX, windowY, self.Window.Width - sidebarWidth + self.Window.PanelOverlap, self.Window.Height, theme.Colors.GlowColor, {top=true, bottom=true, left=false, right=true})
+    -- ================== [ НАЧАЛО ИСПРАВЛЕНИЯ ] ==================
+    -- Исправляем вызовы, добавляя Core.Sidebar.Drawing.Rounding и Core.RightPanel.Drawing.Rounding
+    self:_RenderGlowEffect(Core.Sidebar.Glow, windowX, windowY, sidebarWidth, self.Window.Height, Core.Sidebar.Drawing.Rounding, theme.Colors.GlowColor, {top=true, bottom=true, left=true, right=false})
+    self:_RenderGlowEffect(Core.RightPanel.Glow, rightPanelX, windowY, self.Window.Width - sidebarWidth + self.Window.PanelOverlap, self.Window.Height, Core.RightPanel.Drawing.Rounding, theme.Colors.GlowColor, {top=true, bottom=true, left=false, right=true})
+    -- =================== [ КОНЕЦ ИСПРАВЛЕНИЯ ] ===================
 
     if Core.VerticalSeparator then Core.VerticalSeparator.Position = {rightPanelX, windowY}; Core.VerticalSeparator.Size = {4, self.Window.Height}; end
     if Core.SidebarHeaderSeparator then Core.SidebarHeaderSeparator.Position = {windowX, windowY + self.Window.Height - 100 + 14}; Core.SidebarHeaderSeparator.Size = {sidebarWidth, 4}; end
@@ -1380,28 +1379,26 @@ function Library:_RenderLoop()
     if Core.Title3 then Core.Title3.Position = {windowX + 7, windowY + 24}; end
     if Core.SidebarBottomCircle then local circleX = windowX + 8 + Core.SidebarBottomCircle.Radius; local circleY = windowY + self.Window.Height - 44; Core.SidebarBottomCircle.Position = {circleX, circleY}; end
     if Core.SidebarAvatar then local avatarSize = 56; local avatarX = windowX + 8; local avatarY = windowY + self.Window.Height - 44 - avatarSize / 2; Core.SidebarAvatar.Position = {avatarX, avatarY}; Core.SidebarAvatar.Size = {avatarSize, avatarSize}; end
-    
     if Core.PlayerDisplayName and Core.TillLabel and Core.ForeverLabel and Core.SidebarBottomCircle then
         local textX = windowX + 15 + Core.SidebarBottomCircle.Radius * 2 + 5
         Core.PlayerDisplayName.Position = {textX, windowY + self.Window.Height - 56}
         Core.TillLabel.Position = {textX, windowY + self.Window.Height - 40}
-        
         if Core.TillLabel.TextBounds and Core.TillLabel.TextBounds.x then
             Core.ForeverLabel.Position = {textX + Core.TillLabel.TextBounds.x, windowY + self.Window.Height - 40}
         else
             Core.ForeverLabel.Position = {textX + 30, windowY + self.Window.Height - 40}
         end
     end
-
+	
+    -- ... (остальной код функции остается без изменений) ...
+	
     do
         local startX, startY = rightPanelX + 35, windowY + (headerHeight / 2)
         local function renderHeaderButton(button, x, y, width, height, has_icon, is_accent)
             self:_SetVisibility(button.Background, true); self:_SetVisibility(button.Border, true); self:_SetVisibility(button.Label, true); 
             if button.Icon then self:_SetVisibility(button.Icon, button.Icon.Visible) end
-            
             local isThemeLight = self:_IsThemeLight(theme)
             local accentButtonTextColor = isThemeLight and {10, 10, 10, 255} or {234, 239, 245, 255}
-            
             if is_accent then
                 self:_AnimateAndApplyColor(button.Background, theme.Colors.Accent)
                 self:_AnimateAndApplyColor(button.Label, accentButtonTextColor)
@@ -1410,7 +1407,6 @@ function Library:_RenderLoop()
                 self:_AnimateAndApplyColor(button.Label, theme.Colors.TextDark)
                 if button.Icon then self:_AnimateAndApplyColor(button.Icon, theme.Colors.TextDark) end
             end
-
             if button == Core.HeaderButtons.Save then
                 local targetColor = button.IsHovered and theme.Colors.Accent or theme.Colors.MainBackground
                 button.CurrentColor = self:_LerpColor(button.CurrentColor, targetColor, 0.15)
@@ -1418,34 +1414,26 @@ function Library:_RenderLoop()
             elseif not is_accent then
                  self:_AnimateAndApplyColor(button.Background, theme.Colors.MainBackground)
             end
-
             button.Background.Position = {x, y}; button.Background.Size = {width, height}; button.Border.Position = {x, y}; button.Border.Size = {width, height}; 
             local borderColor = (tick() - button.ClickTime < 0.1 or (button.IsOpen)) and theme.Colors.Accent or theme.Colors.Separator
             self:_AnimateAndApplyColor(button.Border, borderColor)
-            
             if has_icon and button.Icon and button.Icon.Size then local iconX, iconY = x + 12, y + (height / 2) - (button.Icon.Size.y / 2); button.Icon.Position = {iconX, iconY}; local labelX, labelY = iconX + button.Icon.Size.x + 5, y + (height / 2) - (button.Label.Size / 2); button.Label.Position = {labelX, labelY}; button.Label.Center = false else button.Label.Position = {x + width / 2, y + (height / 2) - (button.Label.Size / 2)}; button.Label.Center = true end
             button.ClickRegion = {x1 = x, y1 = y, x2 = x + width, y2 = y + height}
         end
-
         local btnWidth, btnHeight, spacing = 75, 30, 15
         local createNewBtnWidth = 120
         local btnY = startY - (btnHeight / 2)
         local currentX = startX
-
         renderHeaderButton(Core.HeaderButtons.Save, currentX, btnY, btnWidth, btnHeight, true, false)
         currentX = currentX + btnWidth + spacing
-        
         renderHeaderButton(Core.HeaderButtons.ViewESP, currentX, btnY, btnWidth, btnHeight, false, false)
         currentX = currentX + btnWidth + spacing
-
         if self.Window.ActiveTab == "Configs" then
             renderHeaderButton(Core.HeaderButtons.CreateNew, currentX, btnY, createNewBtnWidth, btnHeight, true, true)
         else
             self:_SetVisibility(Core.HeaderButtons.CreateNew.Background, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Border, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Label, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Icon, false);
         end
-        
         Core.HeaderButtons.Save.IsHovered = self:_IsPointInRegion(mouse_pos.x, mouse_pos.y, Core.HeaderButtons.Save.ClickRegion)
-
         local settingsIcon = Core.HeaderButtons.Settings.Icon
         if settingsIcon and settingsIcon.Size then
             local settingsX = rightPanelX + (self.Window.Width - sidebarWidth + self.Window.PanelOverlap) - settingsIcon.Size.x - 20
@@ -1454,7 +1442,6 @@ function Library:_RenderLoop()
             self:_AnimateAndApplyColor(settingsIcon, theme.Colors.TextDark)
         end
     end
-
     self:_SetVisibility(Core.ViewESPPanel, Core.HeaderButtons.ViewESP.IsOpen); self:_SetVisibility(Core.ViewESPPanelBorder, Core.HeaderButtons.ViewESP.IsOpen)
     if Core.HeaderButtons.ViewESP.IsOpen then 
         self:_AnimateAndApplyColor(Core.ViewESPPanel, theme.Colors.MainBackground)
@@ -1464,9 +1451,7 @@ function Library:_RenderLoop()
         Core.ViewESPPanelBorder.Position = {panelX, windowY}; Core.ViewESPPanelBorder.Size = {200, 310}; 
         if Core.ViewESPImage then self:_SetVisibility(Core.ViewESPImage, true); local imageX, imageY = panelX + 3, windowY + 3; Core.ViewESPImage.Position = {imageX, imageY}; Core.ViewESPImage.Size = {194, 304}; end
     elseif Core.ViewESPImage then self:_SetVisibility(Core.ViewESPImage, false) end
-
     self:_RenderTabs(windowX, windowY + headerHeight, sidebarWidth)
-    
     if self.Window.ActiveTab == "Configs" then
         self:_RenderConfigsTab(rightPanelX, windowY, headerHeight)
         for _, section in ipairs(self.UI.Sections) do
@@ -1494,7 +1479,6 @@ function Library:_RenderLoop()
         local popup = configsTab.OptionsPopup
         if popup.IsOpen then popup.IsOpen = false end
     end
-    
     self:_RenderSaveTooltip()
     self:_RenderConfigOptionsPopup()
     self:_RenderPlayerESPSettingsPopup()
@@ -2299,7 +2283,7 @@ end
 
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started in DEBUG MODE. 2")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started in DEBUG MODE. 3")
     local is_first_frame = true
     while self.Window.Visible do
         if is_first_frame then
