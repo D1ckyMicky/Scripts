@@ -857,15 +857,22 @@ function Library:_ApplyTheme()
         applyColor(group.Header, self.ActiveTheme.Colors.TabHeader)
     end
     
-    -- [ИЗМЕНЕНО] Применяем стили ко всем кнопкам в шапке
-    local header_buttons = { Core.HeaderButtons.Save, Core.HeaderButtons.ViewESP, Core.HeaderButtons.CreateNew }
-    for _, btn in ipairs(header_buttons) do
+    -- [ИЗМЕНЕНО] Применяем стили к кнопкам в шапке более гранулярно
+    local default_buttons = { Core.HeaderButtons.Save, Core.HeaderButtons.ViewESP }
+    for _, btn in ipairs(default_buttons) do
         applyColor(btn.Background, self.ActiveTheme.Colors.MainBackground)
         applyColor(btn.Label, self.ActiveTheme.Colors.TextDark)
         if btn.Icon then applyColor(btn.Icon, self.ActiveTheme.Colors.TextDark) end
     end
-    applyColor(Core.HeaderButtons.Settings.Icon, self.ActiveTheme.Colors.TextDark)
+    
+    local create_btn = Core.HeaderButtons.CreateNew
+    applyColor(create_btn.Background, self.ActiveTheme.Colors.Accent)
+    local blackColor = {10, 10, 10, 255}; local whiteColor = {234, 239, 245, 255}
+    local accentButtonTextColor = isThemeLight and blackColor or whiteColor
+    applyColor(create_btn.Label, accentButtonTextColor)
+    if create_btn.Icon then applyColor(create_btn.Icon, accentButtonTextColor) end
 
+    applyColor(Core.HeaderButtons.Settings.Icon, self.ActiveTheme.Colors.TextDark)
 
     for _, section in ipairs(self.UI.Sections) do
         applyColor(section.Drawing.Background, self.ActiveTheme.Colors.SectionBackground)
@@ -926,8 +933,6 @@ function Library:_ApplyTheme()
     applyColor(stylePopup.CancelButton.Background, self.ActiveTheme.Colors.SectionBackground); applyColor(stylePopup.CancelButton.Border, self.ActiveTheme.Colors.Accent); applyColor(stylePopup.CancelButton.IconLine1, self.ActiveTheme.Colors.TextLight); applyColor(stylePopup.CancelButton.IconLine2, self.ActiveTheme.Colors.TextLight); applyColor(stylePopup.CancelButton.Label, self.ActiveTheme.Colors.TextLight);
     applyColor(stylePopup.SaveButton.Background, self.ActiveTheme.Colors.Accent)
     
-    local blackColor = {10, 10, 10, 255}
-    local whiteColor = {234, 239, 245, 255}
     local saveButtonTextColor = isThemeLight and blackColor or whiteColor
     applyColor(stylePopup.SaveButton.Label, saveButtonTextColor)
     applyColor(stylePopup.SaveButton.Icon, saveButtonTextColor)
@@ -946,7 +951,7 @@ function Library:_ApplyTheme()
         for i, item in ipairs(configsTab.Items) do
             local d = item.Drawing
             applyColor(d.Background, self.ActiveTheme.Colors.SectionBackground)
-            applyColor(d.Border, self.ActiveTheme.Colors.Separator) -- [ДОБАВЛЕНО] Цвет для обводки
+            applyColor(d.Border, self.ActiveTheme.Colors.Separator)
             applyColor(d.Name, self.ActiveTheme.Colors.TextLight)
             applyColor(d.Modified, self.ActiveTheme.Colors.TextDark)
             applyColor(d.Author, self.ActiveTheme.Colors.TextDark)
@@ -954,12 +959,11 @@ function Library:_ApplyTheme()
             applyColor(d.OptionsButton.Dot2, self.ActiveTheme.Colors.TextDark)
             applyColor(d.OptionsButton.Dot3, self.ActiveTheme.Colors.TextDark)
             
-            -- Save Button
             applyColor(d.SaveButton.Background, self.ActiveTheme.Colors.SectionBackground)
             applyColor(d.SaveButton.Border, self.ActiveTheme.Colors.Accent)
             applyColor(d.SaveButton.Icon, self.ActiveTheme.Colors.TextLight)
             applyColor(d.SaveButton.Label, self.ActiveTheme.Colors.TextLight)
-            -- Load Button
+
             applyColor(d.LoadButton.Background, self.ActiveTheme.Colors.Accent)
             local loadBtnTextColor = isThemeLight and blackColor or whiteColor
             applyColor(d.LoadButton.Icon, loadBtnTextColor)
@@ -1423,29 +1427,34 @@ function Library:_RenderLoop()
     do
         local startX, startY = rightPanelX + 35, windowY + (headerHeight / 2)
         local function renderHeaderButton(button, x, y, width, height, has_icon)
-             self:_SetVisibility(button.Background, true); self:_SetVisibility(button.Border, true); self:_SetVisibility(button.Label, true); if button.Icon then self:_SetVisibility(button.Icon, button.Icon.Visible) end
-             button.Background.Position = {x, y}; button.Background.Size = {width, height}; button.Border.Position = {x, y}; button.Border.Size = {width, height}; 
-             local borderColor = (tick() - button.ClickTime < 0.1 or (button.IsOpen)) and self.ActiveTheme.Colors.Accent or self.ActiveTheme.Colors.Separator
-             if button.Border then button.Border.Color = {borderColor[1], borderColor[2], borderColor[3]}; button.Border.Opacity = (borderColor[4] or 255) / 255; end
-             if has_icon and button.Icon then local iconX, iconY = x + 12, y + (height / 2) - (button.Icon.Size.y / 2); button.Icon.Position = {iconX, iconY}; local labelX, labelY = iconX + button.Icon.Size.x + 5, y + (height / 2) - (button.Label.Size / 2); button.Label.Position = {labelX, labelY}; button.Label.Center = false else button.Label.Position = {x + width / 2, y + (height / 2) - (button.Label.Size / 2)}; button.Label.Center = true end
-             button.ClickRegion = {x1 = x, y1 = y, x2 = x + width, y2 = y + height}
+            self:_SetVisibility(button.Background, true); self:_SetVisibility(button.Border, true); self:_SetVisibility(button.Label, true); if button.Icon then self:_SetVisibility(button.Icon, button.Icon.Visible) end
+            button.Background.Position = {x, y}; button.Background.Size = {width, height}; button.Border.Position = {x, y}; button.Border.Size = {width, height}; 
+            local borderColor = (tick() - button.ClickTime < 0.1 or (button.IsOpen)) and self.ActiveTheme.Colors.Accent or self.ActiveTheme.Colors.Separator
+            if button.Border then button.Border.Color = {borderColor[1], borderColor[2], borderColor[3]}; button.Border.Opacity = (borderColor[4] or 255) / 255; end
+            if has_icon and button.Icon then local iconX, iconY = x + 12, y + (height / 2) - (button.Icon.Size.y / 2); button.Icon.Position = {iconX, iconY}; local labelX, labelY = iconX + button.Icon.Size.x + 5, y + (height / 2) - (button.Label.Size / 2); button.Label.Position = {labelX, labelY}; button.Label.Center = false else button.Label.Position = {x + width / 2, y + (height / 2) - (button.Label.Size / 2)}; button.Label.Center = true end
+            button.ClickRegion = {x1 = x, y1 = y, x2 = x + width, y2 = y + height}
         end
+
         local btnWidth, btnHeight, spacing = 75, 30, 15
         local createNewBtnWidth = 120
         local btnY = startY - (btnHeight / 2)
-        
-        -- [ИЗМЕНЕНО] Показываем кнопку Save или CreateNew в зависимости от вкладки
+        local settingsIcon = Core.HeaderButtons.Settings.Icon
+        local settingsX = rightPanelX + (self.Window.Width - sidebarWidth + self.Window.PanelOverlap) - settingsIcon.Size.x - 20 - 30
+        local settingsY = startY - (settingsIcon.Size.y / 2)
+
         if self.Window.ActiveTab == "Configs" then
-             renderHeaderButton(Core.HeaderButtons.CreateNew, startX + btnWidth + spacing, btnY, createNewBtnWidth, btnHeight, true)
-             self:_SetVisibility(Core.HeaderButtons.Save.Background, false); self:_SetVisibility(Core.HeaderButtons.Save.Border, false); self:_SetVisibility(Core.HeaderButtons.Save.Label, false); self:_SetVisibility(Core.HeaderButtons.Save.Icon, false);
+            -- [ИЗМЕНЕНО] Показываем только кнопку "Create new"
+            renderHeaderButton(Core.HeaderButtons.CreateNew, startX, btnY, createNewBtnWidth, btnHeight, true)
+            self:_SetVisibility(Core.HeaderButtons.Save.Background, false); self:_SetVisibility(Core.HeaderButtons.Save.Border, false); self:_SetVisibility(Core.HeaderButtons.Save.Label, false); self:_SetVisibility(Core.HeaderButtons.Save.Icon, false);
+            self:_SetVisibility(Core.HeaderButtons.ViewESP.Background, false); self:_SetVisibility(Core.HeaderButtons.ViewESP.Border, false); self:_SetVisibility(Core.HeaderButtons.ViewESP.Label, false);
         else
-             renderHeaderButton(Core.HeaderButtons.Save, startX, btnY, btnWidth, btnHeight, true)
-             self:_SetVisibility(Core.HeaderButtons.CreateNew.Background, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Border, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Label, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Icon, false);
+            -- [ИЗМЕНЕНО] Показываем "Save" и "View ESP"
+            renderHeaderButton(Core.HeaderButtons.Save, startX, btnY, btnWidth, btnHeight, true)
+            renderHeaderButton(Core.HeaderButtons.ViewESP, startX + btnWidth + spacing, btnY, btnWidth, btnHeight, false)
+            self:_SetVisibility(Core.HeaderButtons.CreateNew.Background, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Border, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Label, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Icon, false);
         end
         
-        renderHeaderButton(Core.HeaderButtons.ViewESP, startX + btnWidth + spacing, btnY, btnWidth, btnHeight, false)
-
-        local settingsIcon = Core.HeaderButtons.Settings.Icon; local settingsX = rightPanelX + (self.Window.Width - sidebarWidth + self.Window.PanelOverlap) - settingsIcon.Size.x - 20 - 30; local settingsY = startY - (settingsIcon.Size.y / 2)
+        -- Отрисовываем иконку настроек всегда
         self:_SetVisibility(settingsIcon, true); settingsIcon.Position = {settingsX, settingsY}; Core.HeaderButtons.Settings.ClickRegion = {x1 = settingsX, y1 = settingsY, x2 = settingsX + settingsIcon.Size.x, y2 = settingsY + settingsIcon.Size.y}
     end
 
@@ -1472,10 +1481,7 @@ function Library:_RenderLoop()
         self:_SetVisibility(configsTab.Scrollbar.Background, false)
         self:_SetVisibility(configsTab.Scrollbar.Nub, false)
         for _, item in ipairs(configsTab.Items) do
-            for _, obj in pairs(item.Drawing) do if type(obj) == 'table' and obj.Visible ~= nil then self:_SetVisibility(obj, false) end end
-            for _, obj in pairs(item.Drawing.OptionsButton) do if type(obj) == 'table' and obj.Visible ~= nil then self:_SetVisibility(obj, false) end end
-            for _, obj in pairs(item.Drawing.LoadButton) do if type(obj) == 'table' and obj.Visible ~= nil then self:_SetVisibility(obj, false) end end
-            for _, obj in pairs(item.Drawing.SaveButton) do if type(obj) == 'table' and obj.Visible ~= nil then self:_SetVisibility(obj, false) end end
+            self:_CleanupDrawingObjects(item.Drawing) -- Используем безопасную очистку
         end
         local popup = configsTab.OptionsPopup
         if popup.IsOpen then popup.IsOpen = false end
