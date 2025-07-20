@@ -454,10 +454,6 @@ function Library:_InitializeAboutWindow()
     self.UI.Values["AboutSelectedStyle"] = "Blue"
 end
 
-#### 5. `_RenderConfigsTab`
-This function is now much simpler and finally fixes the "Load" button background.
-
-```lua
 function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
     local configs = self.UI.Core.ConfigsTab
     local theme = self.ActiveTheme
