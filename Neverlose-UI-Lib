@@ -188,6 +188,41 @@ function Library:_CleanupDrawingObjects(tbl)
     end
 end
 
+-- Новая функция для плавной смены цвета (анимации)
+function Library:_LerpColor(from, to, speed)
+    local r = from[1] + (to[1] - from[1]) * speed
+    local g = from[2] + (to[2] - from[2]) * speed
+    local b = from[3] + (to[3] - from[3]) * speed
+    local a = from[4] + (to[4] - from[4]) * speed
+    return {r, g, b, a}
+end
+
+-- Новая функция для отрисовки подсказки у кнопки Save
+function Library:_RenderSaveTooltip()
+    local tooltip = self.UI.Core.SaveTooltip
+    local saveBtn = self.UI.Core.HeaderButtons.Save
+    self:_SetVisibility(tooltip.Background, saveBtn.IsHovered)
+    self:_SetVisibility(tooltip.ConfigName, saveBtn.IsHovered)
+    self:_SetVisibility(tooltip.Author, saveBtn.IsHovered)
+
+    if saveBtn.IsHovered then
+        local btnRegion = saveBtn.ClickRegion
+        local tooltipW, tooltipH = 150, 50
+        local tooltipX, tooltipY = btnRegion.x2 + 10, btnRegion.y1
+
+        tooltip.Background.Position = {tooltipX, tooltipY}
+        tooltip.Background.Size = {tooltipW, tooltipH}
+        
+        local configName = self.UI.Core.ConfigsTab.LoadedConfigName
+        if configName == "" then configName = "default" end
+        tooltip.ConfigName.Text = "Config \"" .. configName .. "\""
+        tooltip.ConfigName.Position = {tooltipX + 10, tooltipY + 8}
+
+        tooltip.Author.Text = "Author: " .. self.UI.Core.PlayerDisplayName.Text
+        tooltip.Author.Position = {tooltipX + 10, tooltipY + 28}
+    end
+end
+
 --================================================================
 --[[ PRIVATE: GLOW EFFECT HELPERS ]]
 --================================================================
@@ -284,12 +319,19 @@ function Library:_InitializeCoreUI()
     UI.Core.ForeverLabel = self:_CreateDrawingObject("Text"); if UI.Core.ForeverLabel then UI.Core.ForeverLabel.Font = self.ActiveTheme.Fonts.Main; UI.Core.ForeverLabel.Size = self.ActiveTheme.Fonts.Size; UI.Core.ForeverLabel.Text = " Forever"; UI.Core.ForeverLabel.Center = false; UI.Core.ForeverLabel.Outline = false; UI.Core.ForeverLabel.zIndex = 7; end
 
     UI.Core.HeaderButtons = {
-        Save = { Background = self:_CreateDrawingObject("Square"), Border = self:_CreateDrawingObject("Square"), Label = self:_CreateDrawingObject("Text"), Icon = self:_CreateDrawingObject("Image"), ClickRegion = {}, ClickTime = 0 },
+        Save = { Background = self:_CreateDrawingObject("Square"), Border = self:_CreateDrawingObject("Square"), Label = self:_CreateDrawingObject("Text"), Icon = self:_CreateDrawingObject("Image"), ClickRegion = {}, ClickTime = 0, IsHovered = false, CurrentColor = {0,0,0,0} },
         ViewESP = { Background = self:_CreateDrawingObject("Square"), Border = self:_CreateDrawingObject("Square"), Label = self:_CreateDrawingObject("Text"), ClickRegion = {}, ClickTime = 0, IsOpen = false },
-        -- [ДОБАВЛЕНО] Новая кнопка
         CreateNew = { Background = self:_CreateDrawingObject("Square"), Border = self:_CreateDrawingObject("Square"), Label = self:_CreateDrawingObject("Text"), Icon = self:_CreateDrawingObject("Image"), ClickRegion = {}, ClickTime = 0 },
         Settings = { Icon = self:_CreateDrawingObject("Image"), ClickRegion = {} }
     }
+    
+    -- [ДОБАВЛЕНО] Объекты для всплывающей подсказки
+    UI.Core.SaveTooltip = {
+        Background = self:_CreateDrawingObject("Square"),
+        ConfigName = self:_CreateDrawingObject("Text"),
+        Author = self:_CreateDrawingObject("Text")
+    }
+    
     self.UI.Popups.About = { IsOpen = false }
 
     local function setupHeaderButton(button, text, has_icon)
@@ -301,11 +343,17 @@ function Library:_InitializeCoreUI()
     end
     setupHeaderButton(UI.Core.HeaderButtons.Save, " Save", true)
     setupHeaderButton(UI.Core.HeaderButtons.ViewESP, "View ESP", false)
-    setupHeaderButton(UI.Core.HeaderButtons.CreateNew, " Create new", true) -- Настраиваем новую кнопку
+    setupHeaderButton(UI.Core.HeaderButtons.CreateNew, " Create new", true)
     
     if UI.Core.HeaderButtons.Save.Icon then UI.Core.HeaderButtons.Save.Icon.Url = "https://s6.imgcdn.dev/Y4Sudt.png"; end
-    if UI.Core.HeaderButtons.CreateNew.Icon then UI.Core.HeaderButtons.CreateNew.Icon.Url = "https://i.imgur.com/plus-sign-icon.png"; end -- ЗАМЕНИТЬ НА СВОЮ ИКОНКУ ПЛЮСА
+    if UI.Core.HeaderButtons.CreateNew.Icon then UI.Core.HeaderButtons.CreateNew.Icon.Url = "https://i.imgur.com/plus-sign-icon.png"; end
     if UI.Core.HeaderButtons.Settings.Icon then UI.Core.HeaderButtons.Settings.Icon.Url = "https://s6.imgcdn.dev/Y4SCjT.png"; UI.Core.HeaderButtons.Settings.Icon.Size = {20, 20}; UI.Core.HeaderButtons.Settings.Icon.zIndex = 5; end
+
+    local tooltip = UI.Core.SaveTooltip
+    if tooltip.Background then tooltip.Background.Filled = true; tooltip.Background.zIndex = 50; tooltip.Background.Rounding = self.ActiveTheme.Rounding.Element; end
+    if tooltip.ConfigName then tooltip.ConfigName.Font = self.ActiveTheme.Fonts.Main; tooltip.ConfigName.Size = self.ActiveTheme.Fonts.Size + 2; tooltip.ConfigName.zIndex = 51; end
+    if tooltip.Author then tooltip.Author.Font = self.ActiveTheme.Fonts.Main; tooltip.Author.Size = self.ActiveTheme.Fonts.Size; tooltip.Author.zIndex = 51; end
+
 
     UI.Core.ViewESPPanel = self:_CreateDrawingObject("Square"); if UI.Core.ViewESPPanel then UI.Core.ViewESPPanel.Filled = true; UI.Core.ViewESPPanel.zIndex = 1; UI.Core.ViewESPPanel.Rounding = self.ActiveTheme.Rounding.Window; end
     UI.Core.ViewESPImage = self:_CreateDrawingObject("Image"); if UI.Core.ViewESPImage then UI.Core.ViewESPImage.zIndex = 2; UI.Core.ViewESPImage.Visible = false; UI.Core.ViewESPImage.Url = "https://s6.imgcdn.dev/Y4wqGT.jpg"; UI.Core.ViewESPImage.Rounding = self.ActiveTheme.Rounding.Window - 2; end
@@ -332,6 +380,7 @@ function Library:_InitializeCoreUI()
         end
     end
     
+    UI.Core.HeaderButtons.Save.CurrentColor = self:_DeepCopy(self.ActiveTheme.Colors.MainBackground)
     self:_ApplyTheme()
 end
 
@@ -1421,11 +1470,9 @@ function Library:_RenderLoop()
     local sidebarWidth, headerHeight = self:_SafeNumber(self.Window.SidebarWidth, 0), self:_SafeNumber(self.Window.HeaderHeight, 0)
     local rightPanelX = windowX + sidebarWidth - self.Window.PanelOverlap
 
-    -- Visibility of core components
     self:_SetVisibility(Core.Sidebar.Drawing, true); self:_SetVisibility(Core.RightPanel.Drawing, true); self:_SetVisibility(Core.VerticalSeparator, true); self:_SetVisibility(Core.SidebarHeaderSeparator, true); self:_SetVisibility(Core.RightPanelHeaderSeparator, true); self:_SetVisibility(Core.Title, true); self:_SetVisibility(Core.SidebarBottomCircle, true); if Core.SidebarAvatar then self:_SetVisibility(Core.SidebarAvatar, true) end; self:_SetVisibility(Core.PlayerDisplayName, true); self:_SetVisibility(Core.TillLabel, true); self:_SetVisibility(Core.ForeverLabel, true)
     self:_SetVisibility(Core.Title2, not self:_IsThemeLight(self.ActiveTheme)); self:_SetVisibility(Core.Title3, not self:_IsThemeLight(self.ActiveTheme))
 
-    -- Positioning of core components
     if Core.Sidebar.Drawing then Core.Sidebar.Drawing.Position = {windowX, windowY}; Core.Sidebar.Drawing.Size = {sidebarWidth, self.Window.Height}; end
     if Core.RightPanel.Drawing then Core.RightPanel.Drawing.Position = {rightPanelX, windowY}; Core.RightPanel.Drawing.Size = {self.Window.Width - sidebarWidth + self.Window.PanelOverlap, self.Window.Height}; end
     
@@ -1458,20 +1505,30 @@ function Library:_RenderLoop()
         local btnWidth, btnHeight, spacing = 75, 30, 15
         local createNewBtnWidth = 120
         local btnY = startY - (btnHeight / 2)
-        
-        -- [ИЗМЕНЕНО] Рендерим ВСЕ кнопки, но управляем их видимостью
         local currentX = startX
-        if self.Window.ActiveTab == "Configs" then
-            renderHeaderButton(Core.HeaderButtons.CreateNew, currentX, btnY, createNewBtnWidth, btnHeight, true)
-            currentX = currentX + createNewBtnWidth + spacing
-        else
-            self:_SetVisibility(Core.HeaderButtons.CreateNew.Background, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Border, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Label, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Icon, false);
-        end
-        
+
+        -- [ИЗМЕНЕНО] Новая логика расположения кнопок
         renderHeaderButton(Core.HeaderButtons.Save, currentX, btnY, btnWidth, btnHeight, true)
         currentX = currentX + btnWidth + spacing
         
         renderHeaderButton(Core.HeaderButtons.ViewESP, currentX, btnY, btnWidth, btnHeight, false)
+        currentX = currentX + btnWidth + spacing
+
+        if self.Window.ActiveTab == "Configs" then
+            renderHeaderButton(Core.HeaderButtons.CreateNew, currentX, btnY, createNewBtnWidth, btnHeight, true)
+        else
+            self:_SetVisibility(Core.HeaderButtons.CreateNew.Background, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Border, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Label, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Icon, false);
+        end
+        
+        -- Анимация кнопки Save
+        local saveBtn = Core.HeaderButtons.Save
+        saveBtn.IsHovered = self:_IsPointInRegion(mouse_pos.x, mouse_pos.y, saveBtn.ClickRegion)
+        local targetColor = saveBtn.IsHovered and self.ActiveTheme.Colors.Accent or self.ActiveTheme.Colors.MainBackground
+        saveBtn.CurrentColor = self:_LerpColor(saveBtn.CurrentColor, targetColor, 0.1)
+        if saveBtn.Background then
+            saveBtn.Background.Color = {saveBtn.CurrentColor[1], saveBtn.CurrentColor[2], saveBtn.CurrentColor[3]}
+            saveBtn.Background.Opacity = (saveBtn.CurrentColor[4] or 255) / 255
+        end
 
         local settingsIcon = Core.HeaderButtons.Settings.Icon
         local settingsX = rightPanelX + (self.Window.Width - sidebarWidth + self.Window.PanelOverlap) - settingsIcon.Size.x - 20 - 30
@@ -1513,6 +1570,7 @@ function Library:_RenderLoop()
         if popup.IsOpen then popup.IsOpen = false end
     end
     
+    self:_RenderSaveTooltip()
     self:_RenderConfigOptionsPopup()
     self:_RenderPlayerESPSettingsPopup()
     self:_RenderAboutWindow(mouse_pos)
@@ -1682,7 +1740,7 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
     for _, item in ipairs(configs.Items) do
         local d = item.Drawing
         self:_SetVisibility(d.Background, true)
-        self:_SetVisibility(d.Border, true) -- [ДОБАВЛЕНО] Показываем обводку
+        self:_SetVisibility(d.Border, true)
         self:_SetVisibility(d.Name, true)
         self:_SetVisibility(d.Modified, true)
         self:_SetVisibility(d.Author, true)
@@ -1707,8 +1765,8 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
         local d = item.Drawing
         d.Background.Position = {startX, currentY}
         d.Background.Size = {contentAreaWidth, itemHeight}
-        d.Border.Position = {startX, currentY} -- [ДОБАВЛЕНО] Позиционируем обводку
-        d.Border.Size = {contentAreaWidth, itemHeight} -- [ДОБАВЛЕНО] Задаем размер обводки
+        d.Border.Position = {startX, currentY}
+        d.Border.Size = {contentAreaWidth, itemHeight}
 
         d.Name.Text = item.Name
         d.Name.Position = {startX + 15, currentY + 12}
@@ -1751,6 +1809,13 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
             saveBtn.ClickRegion = {x1 = btnX, y1 = btnY, x2 = btnX + btnWidth, y2 = btnY + btnHeight}
         else
             local loadBtn = d.LoadButton
+            -- [ИЗМЕНЕНО] Принудительно устанавливаем свойства фона прямо здесь
+            if loadBtn.Background then
+                loadBtn.Background.Filled = true
+                local c = theme.Colors.Accent
+                loadBtn.Background.Color = {c[1], c[2], c[3]}
+                loadBtn.Background.Opacity = (c[4] or 255) / 255
+            end
             loadBtn.Background.Position = {btnX, btnY}; loadBtn.Background.Size = {btnWidth, btnHeight}
             local iconX = btnX + 15
             loadBtn.Icon.Position = {iconX, btnY + (btnHeight / 2) - (loadBtn.Icon.Size.y / 2)}
