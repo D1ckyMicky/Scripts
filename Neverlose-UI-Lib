@@ -1407,7 +1407,7 @@ function Library:_RenderLoop()
     local sidebarWidth, headerHeight = self:_SafeNumber(self.Window.SidebarWidth, 0), self:_SafeNumber(self.Window.HeaderHeight, 0)
     local rightPanelX = windowX + sidebarWidth - self.Window.PanelOverlap
 
-    -- Обновление базовых элементов (они видны всегда)
+    -- 1. Отрисовка статичных элементов и фона
     self:_SetVisibility(Core.Sidebar.Drawing, true); self:_SetVisibility(Core.RightPanel.Drawing, true); self:_SetVisibility(Core.VerticalSeparator, true); self:_SetVisibility(Core.SidebarHeaderSeparator, true); self:_SetVisibility(Core.RightPanelHeaderSeparator, true); self:_SetVisibility(Core.Title, true); self:_SetVisibility(Core.SidebarBottomCircle, true); if Core.SidebarAvatar then self:_SetVisibility(Core.SidebarAvatar, true) end; self:_SetVisibility(Core.PlayerDisplayName, true); self:_SetVisibility(Core.TillLabel, true); self:_SetVisibility(Core.ForeverLabel, true)
     self:_SetVisibility(Core.Title2, not isThemeLight); self:_SetVisibility(Core.Title3, not isThemeLight)
     self:_AnimateAndApplyColor(Core.Sidebar.Drawing, theme.Colors.SidebarBackground)
@@ -1439,85 +1439,74 @@ function Library:_RenderLoop()
     if Core.TillLabel then local textX = windowX + 15 + Core.SidebarBottomCircle.Radius * 2 + 5; local textY = windowY + self.Window.Height - 40; Core.TillLabel.Position = {textX, textY}; end
     if Core.ForeverLabel then local textX = windowX + 8 + Core.SidebarBottomCircle.Radius * 2 + 30; local textY = windowY + self.Window.Height - 40; Core.ForeverLabel.Position = {textX, textY}; end
 
-    -- Отрисовка кнопок в шапке
+    -- 2. Единый блок для отрисовки ВСЕХ кнопок в шапке
     do
         local startX, startY = rightPanelX + 35, windowY + (headerHeight / 2)
+        local btnWidth, btnHeight, spacing = 75, 30, 15
+        local createNewBtnWidth = 120
+        local btnY = startY - (btnHeight / 2)
+        local currentX = startX
+
         local function renderHeaderButton(button, x, y, width, height, has_icon, is_accent)
-             self:_SetVisibility(button.Background, true); self:_SetVisibility(button.Border, true); self:_SetVisibility(button.Label, true); if button.Icon then self:_SetVisibility(button.Icon, button.Icon.Visible) end
-             button.Background.Position = {x, y}; button.Background.Size = {width, height}; 
-             button.Border.Position = {x, y}; button.Border.Size = {width, height}; 
-             local isHovered = self:_IsPointInRegion(mouse_pos.x, mouse_pos.y, button.ClickRegion)
-             local targetBgColor, targetTextColor
-             if is_accent then
-                 local color = self:_DeepCopy(theme.Colors.Accent)
-                 color[4] = isHovered and 255 or 128
-                 targetBgColor = color
-                 targetTextColor = accentButtonTextColor
-             else
-                 targetBgColor = isHovered and theme.Colors.Accent or theme.Colors.MainBackground
-                 targetTextColor = isHovered and accentButtonTextColor or theme.Colors.TextLight
-             end
-             local targetBorderColor = (tick() - (button.ClickTime or 0) < 0.1 or (button.IsOpen)) and theme.Colors.Accent or theme.Colors.Separator
-             self:_AnimateAndApplyColor(button.Background, targetBgColor)
-             self:_AnimateAndApplyColor(button.Border, targetBorderColor)
-             self:_AnimateAndApplyColor(button.Label, targetTextColor)
-             if button.Icon then self:_AnimateAndApplyColor(button.Icon, targetTextColor) end
-             if has_icon and button.Icon then local iconX, iconY = x + 12, y + (height / 2) - (button.Icon.Size.y / 2); button.Icon.Position = {iconX, iconY}; local labelX, labelY = iconX + button.Icon.Size.x + 5, y + (height / 2) - (button.Label.Size / 2); button.Label.Position = {labelX, labelY}; button.Label.Center = false else button.Label.Position = {x + width / 2, y + (height / 2) - (button.Label.Size / 2)}; button.Label.Center = true end
-             button.ClickRegion = {x1 = x, y1 = y, x2 = x + width, y2 = y + height}
+            self:_SetVisibility(button.Background, true); self:_SetVisibility(button.Border, true); self:_SetVisibility(button.Label, true); if button.Icon and has_icon then self:_SetVisibility(button.Icon, true) else if button.Icon then self:_SetVisibility(button.Icon, false) end end
+            button.Background.Position = {x, y}; button.Background.Size = {width, height};
+            button.Border.Position = {x, y}; button.Border.Size = {width, height};
+            local isHovered = self:_IsPointInRegion(mouse_pos.x, mouse_pos.y, button.ClickRegion)
+            local targetBgColor, targetTextColor
+
+            if is_accent then
+                local color = self:_DeepCopy(theme.Colors.Accent)
+                color[4] = isHovered and 255 or 128
+                targetBgColor = color
+                targetTextColor = accentButtonTextColor
+            else
+                targetBgColor = isHovered and theme.Colors.Accent or theme.Colors.MainBackground
+                targetTextColor = isHovered and accentButtonTextColor or theme.Colors.TextLight
+            end
+            
+            local targetBorderColor = (tick() - (button.ClickTime or 0) < 0.1 or button.IsOpen) and theme.Colors.Accent or theme.Colors.Separator
+            self:_AnimateAndApplyColor(button.Background, targetBgColor)
+            self:_AnimateAndApplyColor(button.Border, targetBorderColor)
+            self:_AnimateAndApplyColor(button.Label, targetTextColor)
+            if button.Icon and has_icon then self:_AnimateAndApplyColor(button.Icon, targetTextColor) end
+
+            if has_icon and button.Icon then local iconX, iconY = x + 12, y + (height / 2) - (button.Icon.Size.y / 2); button.Icon.Position = {iconX, iconY}; local labelX, labelY = iconX + button.Icon.Size.x + 5, y + (height / 2) - (button.Label.Size / 2); button.Label.Position = {labelX, labelY}; button.Label.Center = false else button.Label.Position = {x + width / 2, y + (height / 2) - (button.Label.Size / 2)}; button.Label.Center = true end
+            button.ClickRegion = {x1 = x, y1 = y, x2 = x + width, y2 = y + height}
         end
-        local btnWidth, btnHeight, spacing = 75, 30, 15; local createNewBtnWidth = 120
-        local btnY = startY - (btnHeight / 2); local currentX = startX
+
+        -- Отрисовка постоянных кнопок
         renderHeaderButton(Core.HeaderButtons.Save, currentX, btnY, btnWidth, btnHeight, true, false)
         currentX = currentX + btnWidth + spacing
         renderHeaderButton(Core.HeaderButtons.ViewESP, currentX, btnY, btnWidth, btnHeight, false, false)
         currentX = currentX + btnWidth + spacing
+
+        -- Отрисовка кнопки "Create new" только для вкладки "Configs"
+        if self.Window.ActiveTab == "Configs" then
+            renderHeaderButton(Core.HeaderButtons.CreateNew, currentX, btnY, createNewBtnWidth, btnHeight, true, true)
+        else
+            self:_SetVisibility(Core.HeaderButtons.CreateNew.Background, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Border, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Label, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Icon, false);
+        end
+        
+        -- Отрисовка иконки настроек (шестерёнки)
         local settingsIcon = Core.HeaderButtons.Settings.Icon
         local settingsX = rightPanelX + (self.Window.Width - sidebarWidth + self.Window.PanelOverlap) - settingsIcon.Size.x - 20 - 30
         local settingsY = startY - (settingsIcon.Size.y / 2)
         self:_SetVisibility(settingsIcon, true); settingsIcon.Position = {settingsX, settingsY}; Core.HeaderButtons.Settings.ClickRegion = {x1 = settingsX, y1 = settingsY, x2 = settingsX + settingsIcon.Size.x, y2 = settingsY + settingsIcon.Size.y}
         self:_AnimateAndApplyColor(settingsIcon, theme.Colors.TextDark)
-        Core.HeaderButtons.Save.IsHovered = self:_IsPointInRegion(mouse_pos.x, mouse_pos.y, Core.HeaderButtons.Save.ClickRegion)
     end
     
-    -- [ИЗМЕНЕНО] Новая, более надёжная логика рендеринга
-    -- 1. Сначала скрываем всё, что может быть на правой панели.
-    local configsTab = self.UI.Core.ConfigsTab
-    self:_SetVisibility(configsTab.MyItemsLabel, false)
-    self:_SetVisibility(configsTab.Scrollbar.Background, false)
-    self:_SetVisibility(configsTab.Scrollbar.Nub, false)
-    for _, item in ipairs(configsTab.Items) do
-        for _, obj in pairs(item.Drawing) do
-             if type(obj) == 'table' then
-                 for _, sub_obj in pairs(obj) do if type(sub_obj) == 'table' and sub_obj.Visible ~= nil then self:_SetVisibility(sub_obj, false) end end
-                 if obj.Visible ~= nil then self:_SetVisibility(obj, false) end
-             end
-        end
-    end
-    for _, section in ipairs(self.UI.Sections) do
-        for _, obj in pairs(section.Drawing) do self:_SetVisibility(obj, false) end
-        for _, el in ipairs(section.Elements) do 
-            for _, obj in pairs(el) do if type(obj) == 'table' and obj.Visible ~= nil then self:_SetVisibility(obj, false) end end 
-            if el.OptionList then for _, opt in ipairs(el.OptionList) do self:_SetVisibility(opt, false) end end
-            if el.Glow then self:_HideGlowEffect(el.Glow) end
-        end
-    end
-    self:_SetVisibility(Core.HeaderButtons.CreateNew.Background, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Border, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Label, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Icon, false);
+    -- Обновление состояния для тултипа ПОСЛЕ отрисовки кнопки
+    Core.HeaderButtons.Save.IsHovered = self:_IsPointInRegion(mouse_pos.x, mouse_pos.y, Core.HeaderButtons.Save.ClickRegion)
 
-    -- 2. Теперь отрисовываем только контент активной вкладки.
+    -- 3. Отрисовка основного контента (вкладок и правой панели)
     self:_RenderTabs(windowX, windowY + headerHeight, sidebarWidth)
     if self.Window.ActiveTab == "Configs" then
         self:_RenderConfigsTab(rightPanelX, windowY, headerHeight)
-        -- Показываем кнопку "Create new" только здесь
-        local btnWidth, btnHeight, spacing = 75, 30, 15; local createNewBtnWidth = 120
-        local startX, startY = rightPanelX + 35, windowY + (headerHeight / 2)
-        local btnY = startY - (btnHeight / 2)
-        local createNewX = startX + (btnWidth * 2) + (spacing * 2)
-        renderHeaderButton(Core.HeaderButtons.CreateNew, createNewX, btnY, createNewBtnWidth, btnHeight, true, true)
     else
         self:_RenderSections(rightPanelX, windowY, headerHeight)
     end
     
-    -- 3. Отрисовываем все всплывающие окна поверх
+    -- 4. Отрисовка всех всплывающих окон поверх
     self:_SetVisibility(Core.ViewESPPanel, Core.HeaderButtons.ViewESP.IsOpen); self:_SetVisibility(Core.ViewESPPanelBorder, Core.HeaderButtons.ViewESP.IsOpen)
     if Core.HeaderButtons.ViewESP.IsOpen then 
         local panelX = windowX + self.Window.Width + 11; 
