@@ -1382,16 +1382,15 @@ function Library:_RenderLoop()
     if Core.SidebarAvatar then local avatarSize = 56; local avatarX = windowX + 8; local avatarY = windowY + self.Window.Height - 44 - avatarSize / 2; Core.SidebarAvatar.Position = {avatarX, avatarY}; Core.SidebarAvatar.Size = {avatarSize, avatarSize}; end
     
     -- ================== [ НАЧАЛО ИСПРАВЛЕНИЯ ] ==================
-    if Core.PlayerDisplayName and Core.TillLabel and Core.ForeverLabel then
+    -- Добавляем проверку на существование Core.SidebarBottomCircle
+    if Core.PlayerDisplayName and Core.TillLabel and Core.ForeverLabel and Core.SidebarBottomCircle then
         local textX = windowX + 15 + Core.SidebarBottomCircle.Radius * 2 + 5
         Core.PlayerDisplayName.Position = {textX, windowY + self.Window.Height - 56}
         Core.TillLabel.Position = {textX, windowY + self.Window.Height - 40}
         
-        -- Проверяем, что TextBounds существует, прежде чем его использовать
         if Core.TillLabel.TextBounds and Core.TillLabel.TextBounds.x then
             Core.ForeverLabel.Position = {textX + Core.TillLabel.TextBounds.x, windowY + self.Window.Height - 40}
         else
-            -- Временное положение, пока TextBounds не рассчитан
             Core.ForeverLabel.Position = {textX + 30, windowY + self.Window.Height - 40}
         end
     end
