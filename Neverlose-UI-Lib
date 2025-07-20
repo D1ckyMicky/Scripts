@@ -1474,20 +1474,17 @@ function Library:_RenderLoop()
             button.ClickRegion = {x1 = x, y1 = y, x2 = x + width, y2 = y + height}
         end
 
-        -- Отрисовка постоянных кнопок
         renderHeaderButton(Core.HeaderButtons.Save, currentX, btnY, btnWidth, btnHeight, true, false)
         currentX = currentX + btnWidth + spacing
         renderHeaderButton(Core.HeaderButtons.ViewESP, currentX, btnY, btnWidth, btnHeight, false, false)
         currentX = currentX + btnWidth + spacing
 
-        -- Отрисовка кнопки "Create new" только для вкладки "Configs"
         if self.Window.ActiveTab == "Configs" then
             renderHeaderButton(Core.HeaderButtons.CreateNew, currentX, btnY, createNewBtnWidth, btnHeight, true, true)
         else
             self:_SetVisibility(Core.HeaderButtons.CreateNew.Background, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Border, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Label, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Icon, false);
         end
         
-        -- Отрисовка иконки настроек (шестерёнки)
         local settingsIcon = Core.HeaderButtons.Settings.Icon
         local settingsX = rightPanelX + (self.Window.Width - sidebarWidth + self.Window.PanelOverlap) - settingsIcon.Size.x - 20 - 30
         local settingsY = startY - (settingsIcon.Size.y / 2)
@@ -1495,15 +1492,31 @@ function Library:_RenderLoop()
         self:_AnimateAndApplyColor(settingsIcon, theme.Colors.TextDark)
     end
     
-    -- Обновление состояния для тултипа ПОСЛЕ отрисовки кнопки
     Core.HeaderButtons.Save.IsHovered = self:_IsPointInRegion(mouse_pos.x, mouse_pos.y, Core.HeaderButtons.Save.ClickRegion)
 
-    -- 3. Отрисовка основного контента (вкладок и правой панели)
+    -- 3. Упрощенная логика отрисовки основного контента
     self:_RenderTabs(windowX, windowY + headerHeight, sidebarWidth)
+    
+    -- Функция RenderSections сама управляет видимостью своих элементов в зависимости от активной вкладки
+    self:_RenderSections(rightPanelX, windowY, headerHeight)
+    
+    -- Вкладка конфигов рисуется поверх, только если она активна
     if self.Window.ActiveTab == "Configs" then
         self:_RenderConfigsTab(rightPanelX, windowY, headerHeight)
     else
-        self:_RenderSections(rightPanelX, windowY, headerHeight)
+        -- Если вкладка конфигов не активна, принудительно скрываем её элементы
+        local configsTab = self.UI.Core.ConfigsTab
+        self:_SetVisibility(configsTab.MyItemsLabel, false)
+        self:_SetVisibility(configsTab.Scrollbar.Background, false)
+        self:_SetVisibility(configsTab.Scrollbar.Nub, false)
+        for _, item in ipairs(configsTab.Items) do
+            for _, obj in pairs(item.Drawing) do
+                 if type(obj) == 'table' then
+                     for _, sub_obj in pairs(obj) do if type(sub_obj) == 'table' and sub_obj.Visible ~= nil then self:_SetVisibility(sub_obj, false) end end
+                     if obj.Visible ~= nil then self:_SetVisibility(obj, false) end
+                 end
+            end
+        end
     end
     
     -- 4. Отрисовка всех всплывающих окон поверх
