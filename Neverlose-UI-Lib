@@ -1000,6 +1000,13 @@ function Library:_ApplyTheme()
     applyColor(stylePopup.SaveButton.Label, saveButtonTextColor)
     applyColor(stylePopup.SaveButton.Icon, saveButtonTextColor)
     
+    local tooltip = self.UI.Core.SaveTooltip
+    if tooltip then
+        applyColor(tooltip.Background, self.ActiveTheme.Colors.SectionBackground) -- Фон как у секций
+        applyColor(tooltip.ConfigName, self.ActiveTheme.Colors.TextLight)       -- Основной текст светлый
+        applyColor(tooltip.Author, self.ActiveTheme.Colors.TextDark)          -- Второстепенный текст темнее
+    end
+    
     local configsTab = self.UI.Core.ConfigsTab
     if configsTab then
         applyColor(configsTab.MyItemsLabel, self.ActiveTheme.Colors.TextLight)
@@ -1035,6 +1042,7 @@ function Library:_ApplyTheme()
             local loadBtnTextColor = isThemeLight and blackColor or whiteColor
             applyColor(d.LoadButton.Icon, loadBtnTextColor)
             applyColor(d.LoadButton.Label, loadBtnTextColor)
+
         end
     end
 end
