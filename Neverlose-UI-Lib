@@ -1330,19 +1330,17 @@ function Library:_RenderLoop()
     if not self.Window.Visible then return end
     
     local Core = self.UI.Core
+    local theme = self.ActiveTheme
     local windowX, windowY = self:_SafeNumber(self.Window.X, 0), self:_SafeNumber(self.Window.Y, 0)
     local sidebarWidth = self:_SafeNumber(self.Window.SidebarWidth, 0)
     local rightPanelX = windowX + sidebarWidth - self.Window.PanelOverlap
-
-    -- === ОТЛАДОЧНЫЙ БЛОК ОТРИСОВКИ ===
 
     -- 1. Отрисовка сайдбара (левая панель)
     if Core.Sidebar.Drawing then
         self:_SetVisibility(Core.Sidebar.Drawing, true)
         Core.Sidebar.Drawing.Position = {windowX, windowY}
         Core.Sidebar.Drawing.Size = {sidebarWidth, self.Window.Height}
-        Core.Sidebar.Drawing.Color = {11, 20, 33} -- Жёстко заданный цвет
-        Core.Sidebar.Drawing.Opacity = 204 / 255
+        self:_AnimateAndApplyColor(Core.Sidebar.Drawing, theme.Colors.SidebarBackground)
     end
 
     -- 2. Отрисовка главной панели (правая панель)
@@ -1350,17 +1348,55 @@ function Library:_RenderLoop()
         self:_SetVisibility(Core.RightPanel.Drawing, true)
         Core.RightPanel.Drawing.Position = {rightPanelX, windowY}
         Core.RightPanel.Drawing.Size = {self.Window.Width - sidebarWidth + self.Window.PanelOverlap, self.Window.Height}
-        Core.RightPanel.Drawing.Color = {6, 9, 17} -- Жёстко заданный цвет
-        Core.RightPanel.Drawing.Opacity = 245 / 255
+        self:_AnimateAndApplyColor(Core.RightPanel.Drawing, theme.Colors.MainBackground)
     end
     
     -- 3. Отрисовка заголовка "NEVERLOSE"
     if Core.Title then
         self:_SetVisibility(Core.Title, true)
         Core.Title.Position = {windowX + 11, windowY + 25}
-        Core.Title.Color = {234, 239, 245} -- Жёстко заданный цвет
-        Core.Title.Opacity = 1
+        self:_AnimateAndApplyColor(Core.Title, theme.Colors.TextLight)
     end
+
+    -- ================== [ ВОЗВРАЩАЕМ БЛОК #1 ] ==================
+    -- 4. Отрисовка нижней части сайдбара (Аватар, Имя)
+    if Core.SidebarBottomCircle then
+        self:_SetVisibility(Core.SidebarBottomCircle, true)
+        local circleX = windowX + 8 + Core.SidebarBottomCircle.Radius
+        local circleY = windowY + self.Window.Height - 44
+        Core.SidebarBottomCircle.Position = {circleX, circleY}
+        self:_AnimateAndApplyColor(Core.SidebarBottomCircle, theme.Colors.Separator)
+    end
+
+    if Core.SidebarAvatar then
+        self:_SetVisibility(Core.SidebarAvatar, true)
+        local avatarSize = 56
+        local avatarX = windowX + 8
+        local avatarY = windowY + self.Window.Height - 44 - avatarSize / 2
+        Core.SidebarAvatar.Position = {avatarX, avatarY}
+        Core.SidebarAvatar.Size = {avatarSize, avatarSize}
+    end
+
+    if Core.PlayerDisplayName and Core.TillLabel and Core.ForeverLabel and Core.SidebarBottomCircle then
+        self:_SetVisibility(Core.PlayerDisplayName, true)
+        self:_SetVisibility(Core.TillLabel, true)
+        self:_SetVisibility(Core.ForeverLabel, true)
+
+        local textX = windowX + 15 + Core.SidebarBottomCircle.Radius * 2 + 5
+        Core.PlayerDisplayName.Position = {textX, windowY + self.Window.Height - 56}
+        Core.TillLabel.Position = {textX, windowY + self.Window.Height - 40}
+        
+        if Core.TillLabel.TextBounds and Core.TillLabel.TextBounds.x then
+            Core.ForeverLabel.Position = {textX + Core.TillLabel.TextBounds.x, windowY + self.Window.Height - 40}
+        else
+            Core.ForeverLabel.Position = {textX + 30, windowY + self.Window.Height - 40}
+        end
+
+        self:_AnimateAndApplyColor(Core.PlayerDisplayName, theme.Colors.TextDark)
+        self:_AnimateAndApplyColor(Core.TillLabel, theme.Colors.TextDark)
+        self:_AnimateAndApplyColor(Core.ForeverLabel, theme.Colors.Accent)
+    end
+    -- ==========================================================
 end
 
 function Library:_RenderTabs(x, y, width)
