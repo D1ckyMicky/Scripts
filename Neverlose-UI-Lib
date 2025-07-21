@@ -1648,8 +1648,25 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
     local elementY_offset = (separatorY_abs - animatedY) + 15
     
     for _, el in ipairs(section.Elements) do
-        for k, v in pairs(el) do if type(v) == 'table' and v.Visible ~= nil then self:_SetVisibility(v, true) end end
-        if el.OptionList then for i, opt in ipairs(el.OptionList) do self:_SetVisibility(opt, el.IsOpen) end end
+        -- [[ ИСПРАВЛЕНИЕ: Управляем видимостью базовых частей элемента здесь ]]
+        self:_SetVisibility(el.Label, true)
+        if el.type == "Toggle" then
+            self:_SetVisibility(el.Back, true)
+            self:_SetVisibility(el.Nub, true)
+            if el.HasSettings and el.SettingsIcon then self:_SetVisibility(el.SettingsIcon, true) end
+        elseif el.type == "Slider" then
+            self:_SetVisibility(el.Back, true)
+            self:_SetVisibility(el.LeftFill, true)
+            self:_SetVisibility(el.RightFill, true)
+            self:_SetVisibility(el.Nub, true)
+            self:_SetVisibility(el.ValueText, true)
+        elseif el.type == "Dropdown" or el.type == "Multidropdown" then
+            self:_SetVisibility(el.Button, true)
+            self:_SetVisibility(el.ButtonText, true)
+            self:_SetVisibility(el.ArrowLine1, true)
+            self:_SetVisibility(el.ArrowLine2, true)
+        end
+        -- Конец блока видимости
 
         local currentElementY = animatedY + elementY_offset
         self:_AnimateAndApplyColor(el.Label, theme.Colors.TextSecondary, masterOpacity)
@@ -1701,6 +1718,13 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
             elementY_offset = elementY_offset + 35
             
             if el.IsOpen then
+                -- [[ ИСПРАВЛЕНИЕ: Явно устанавливаем видимость для открытого списка ]]
+                self:_SetVisibility(el.OptionBackground, true)
+                self:_SetVisibility(el.BorderLeft, true)
+                self:_SetVisibility(el.BorderRight, true)
+                self:_SetVisibility(el.BorderBottom, true)
+                for _, option in ipairs(el.OptionList) do self:_SetVisibility(option, true) end
+                
                 local optionListHeight = #el.Options * 20 + 5
                 local bgX, bgY, bgW, bgH = dropdownButtonX, dropdownButtonY + el.Size.height, el.Size.width, optionListHeight
                 
@@ -1724,17 +1748,27 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
                     optionY_abs = optionY_abs + 20 
                 end
             else
-                -- [[ FIX: Скрываем все элементы списка, когда он закрыт ]]
+                -- [[ ИСПРАВЛЕНИЕ: Явно скрываем все части списка ]]
                 self:_HideGlowEffect(el.Glow)
                 self:_SetVisibility(el.OptionBackground, false)
                 self:_SetVisibility(el.BorderLeft, false)
                 self:_SetVisibility(el.BorderRight, false)
                 self:_SetVisibility(el.BorderBottom, false)
+                for _, option in ipairs(el.OptionList) do self:_SetVisibility(option, false) end
             end
         end
     end
     
     local sectionHeight = elementY_offset - ((separatorY_abs - animatedY) + 15) + 45
+    
+    -- [[ НОВОЕ: Корректировка высоты секции ]]
+    if #section.Elements > 0 then
+        local lastElement = section.Elements[#section.Elements]
+        if lastElement.type == "Dropdown" or lastElement.type == "Multidropdown" then
+            sectionHeight = sectionHeight + 13
+        end
+    end
+
     sDrawing.Background.Size = {columnWidth, sectionHeight}
     sDrawing.Border.Size = {columnWidth, sectionHeight}
     
@@ -2449,7 +2483,7 @@ end
 
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 31")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3x1")
     local is_first_frame = true
     while self.Window.Visible do
         if is_first_frame then
