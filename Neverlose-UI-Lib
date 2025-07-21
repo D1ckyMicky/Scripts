@@ -1574,7 +1574,7 @@ function Library:_RenderLoop()
     end
     
     self:_RenderSaveTooltip()
-    self:_RenderConfigOptionsPopup()
+    self:_RenderConfigOptionsPopup(mouse_pos)
     self:_RenderPlayerESPSettingsPopup()
     self:_RenderAboutWindow(mouse_pos)
     self:_RenderEditStyleWindow()
@@ -1865,7 +1865,7 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
     configs.Scrollbar.Nub.Size = {scrollbarWidth, nubHeight}
 end
 
-function Library:_RenderConfigOptionsPopup()
+function Library:_RenderConfigOptionsPopup(mouse_pos) -- Добавлен аргумент mouse_pos
     local configs = self.UI.Core.ConfigsTab
     local popup = configs.OptionsPopup
     local isVisible = popup.IsOpen
@@ -1925,7 +1925,6 @@ function Library:_RenderConfigOptionsPopup()
 
     local delBtnY = separatorY + 7
     delBtn.ClickRegion = {x1 = pX + 5, y1 = separatorY + 2, x2 = pX + pW - 5, y2 = pY + pH - 5}
-    local mouse_pos = getmouseposition()
     local isHovered = mouse_pos and self:_IsPointInRegion(mouse_pos.x, mouse_pos.y, delBtn.ClickRegion)
 
     local bgColorTable = self:_IsThemeLight(theme) and {0,0,0} or {255,255,255}
