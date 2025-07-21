@@ -1865,23 +1865,25 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
     configs.Scrollbar.Nub.Size = {scrollbarWidth, nubHeight}
 end
 
-function Library:_RenderConfigOptionsPopup(mouse_pos) -- Добавлен аргумент mouse_pos
+function Library:_RenderConfigOptionsPopup(mouse_pos)
     local configs = self.UI.Core.ConfigsTab
     local popup = configs.OptionsPopup
     local isVisible = popup.IsOpen
     local theme = self.ActiveTheme
 
+    -- Устанавливаем видимость только для базовых элементов
     self:_SetVisibility(popup.Background, isVisible)
     self:_SetVisibility(popup.Border, isVisible)
-    self:_SetVisibility(popup.Separator, isVisible)
     self:_SetVisibility(popup.IncludeStyleToggle.Label, isVisible)
     self:_SetVisibility(popup.IncludeStyleToggle.Back, isVisible)
     self:_SetVisibility(popup.IncludeStyleToggle.Nub, isVisible)
     
+    -- Прячем все элементы кнопки удаления на время теста
     local delBtn = popup.DeleteButton
-    self:_SetVisibility(delBtn.Background, isVisible)
-    self:_SetVisibility(delBtn.Icon, isVisible)
-    self:_SetVisibility(delBtn.Label, isVisible)
+    self:_SetVisibility(delBtn.Background, false)
+    self:_SetVisibility(delBtn.Icon, false)
+    self:_SetVisibility(delBtn.Label, false)
+    self:_SetVisibility(popup.Separator, false)
 
     if not isVisible then
         if popup.Glow then self:_HideGlowEffect(popup.Glow) end
@@ -1891,9 +1893,9 @@ function Library:_RenderConfigOptionsPopup(mouse_pos) -- Добавлен арг
     self:_AnimateAndApplyColor(popup.Background, theme.Colors.SectionBackground)
     self:_AnimateAndApplyColor(popup.Border, theme.Colors.Separator)
     self:_AnimateAndApplyColor(popup.IncludeStyleToggle.Label, theme.Colors.TextSecondary)
-    self:_AnimateAndApplyColor(popup.Separator, self:_DarkenColor(theme.Colors.Separator, 0.5))
     
-    local pW, pH = 150, 90
+    -- Оставляем пока только один элемент, чтобы окно не было слишком большим
+    local pW, pH = 150, 50
     local pX, pY = popup.Pos.x, popup.Pos.y
     popup.ClickRegion = {x1=pX, y1=pY, x2=pX+pW, y2=pY+pH}
     popup.Background.Position = {pX, pY}; popup.Background.Size = {pW, pH}
@@ -1901,7 +1903,7 @@ function Library:_RenderConfigOptionsPopup(mouse_pos) -- Добавлен арг
     if popup.Glow then self:_RenderGlowEffect(popup.Glow, pX, pY, pW, pH, popup.Background.Rounding, theme.Colors.GlowColor) end
 
     local toggle = popup.IncludeStyleToggle
-    local toggleY = pY + (50 / 2) - (toggle.Label.Size / 2)
+    local toggleY = pY + (pH / 2) - (toggle.Label.Size / 2)
     toggle.Label.Position = {pX + 10, toggleY}
     local toggleBackX = pX + pW - toggle.Size.width - 15
     toggle.Back.Position = {toggleBackX, toggleY + 2}; toggle.Back.Size = {toggle.Size.width, toggle.Size.height}; toggle.ClickRegion = {x1 = toggleBackX, y1 = toggleY, x2 = toggleBackX + toggle.Size.width, y2 = toggleY + toggle.Size.height + 4}
@@ -1918,34 +1920,6 @@ function Library:_RenderConfigOptionsPopup(mouse_pos) -- Добавлен арг
     end
     self:_AnimateAndApplyColor(toggle.Back, targetBackColor)
     self:_AnimateAndApplyColor(toggle.Nub, targetNubColor)
-
-    local separatorY = pY + 50
-    popup.Separator.From = {pX + 5, separatorY}
-    popup.Separator.To = {pX + pW - 5, separatorY}
-
-    local delBtnY = separatorY + 7
-    delBtn.ClickRegion = {x1 = pX + 5, y1 = separatorY + 2, x2 = pX + pW - 5, y2 = pY + pH - 5}
-    local isHovered = mouse_pos and self:_IsPointInRegion(mouse_pos.x, mouse_pos.y, delBtn.ClickRegion)
-
-    local bgColorTable = self:_IsThemeLight(theme) and {0,0,0} or {255,255,255}
-    local targetBgColor = {bgColorTable[1], bgColorTable[2], bgColorTable[3], 0}
-    if tick() - delBtn.ClickTime < 0.1 then
-        targetBgColor[4] = 255 * 0.15 
-    elseif isHovered then
-        targetBgColor[4] = 255 * 0.07 
-    end
-    self:_AnimateAndApplyColor(delBtn.Background, targetBgColor)
-    delBtn.Background.Position = {delBtn.ClickRegion.x1, delBtn.ClickRegion.y1}
-    delBtn.Background.Size = {delBtn.ClickRegion.x2 - delBtn.ClickRegion.x1, delBtn.ClickRegion.y2 - delBtn.ClickRegion.y1}
-
-    local iconX = pX + 15
-    local iconY = delBtnY + ((pH - separatorY) / 2) - (delBtn.Icon.Size.y / 2)
-    delBtn.Icon.Position = {iconX, iconY}
-    delBtn.Label.Position = {iconX + delBtn.Icon.Size.x + 8, iconY}
-    
-    local deleteColor = {164, 88, 92, 255}
-    self:_AnimateAndApplyColor(delBtn.Icon, deleteColor)
-    self:_AnimateAndApplyColor(delBtn.Label, deleteColor)
 end
 
 function Library:_InputLoop()
@@ -2421,7 +2395,7 @@ end
 
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 51")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 31")
     local is_first_frame = true
     while self.Window.Visible do
         if is_first_frame then
