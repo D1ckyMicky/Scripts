@@ -1700,44 +1700,55 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
                 if el.HasSettings and el.SettingsIcon then self:_AnimateAndApplyColor(el.SettingsIcon, theme.Colors.TextSecondary) end
 
                 if el.type == "Toggle" then
+                    warn("--- Рендеринг Toggle: " .. (el.id or 'N/A') .. " ---")
                     el.Label.Position = {sectionX + 10, elementY};
                     local toggleBackX = sectionX + columnWidth - el.Size.width - 15
                     el.Back.Position = {toggleBackX, elementY + 2}; el.Back.Size = {el.Size.width, el.Size.height}; el.ClickRegion = {x1 = toggleBackX, y1 = elementY, x2 = toggleBackX + el.Size.width, y2 = elementY + el.Size.height + 4}
 
-                    --[[ НОВОЕ: Анимация ползунка (Nub) ]]
+                    warn("Шаг 1: Расчет целевой позиции...")
                     local is_on = self.UI.Values[el.id]
-                    local targetBackColor, targetNubColor
-                    -- Определяем целевую X-координату
                     local targetNubX = is_on and (toggleBackX + el.Size.width - 5) or (toggleBackX + 5)
                     
-                    -- Получаем состояние анимации для ползунка
+                    warn("Шаг 2: Получение состояния анимации...")
                     local nub_state = self.AnimationState[el.Nub]
                     if not nub_state then
-                        nub_state = { CurrentX = targetNubX } -- Начинаем с целевой позиции
+                        warn("   -> Состояние не найдено, создается новое.")
+                        nub_state = { CurrentX = targetNubX }
                         self.AnimationState[el.Nub] = nub_state
                     end
-
-                    -- Рассчитываем скорость
-                    local speed_value = self.UI.Values["AboutAnimationSpeed"] or 1.6
-                    local animationSpeed = speed_value / 10.0 -- Чуть быстрее для приятного ощущения
-
-                    -- Плавно изменяем текущую X-координату
-                    nub_state.CurrentX = nub_state.CurrentX + (targetNubX - nub_state.CurrentX) * animationSpeed
                     
+                    warn("Шаг 3: Расчет скорости анимации...")
+                    local speed_value = self.UI.Values["AboutAnimationSpeed"] or 1.6
+                    local animationSpeed = speed_value / 10.0
+
+                    warn("Шаг 4: Интерполяция X-координаты...")
+                    nub_state.CurrentX = nub_state.CurrentX + (targetNubX - nub_state.CurrentX) * animationSpeed
+                    warn("   -> Новая X: " .. tostring(nub_state.CurrentX))
+
+                    local targetBackColor, targetNubColor
                     if is_on then
-                        targetBackColor = theme.Colors.ToggleEnabledBackground or self:_DarkenColor(theme.Colors.Accent, 0.3)
+                        -- Я временно упростил эту строку для отладки
+                        targetBackColor = self:_DarkenColor(theme.Colors.Accent, 0.3)
                         targetNubColor = theme.Colors.Accent
                     else
                         targetBackColor = theme.Colors.DarkGray
                         targetNubColor = theme.Colors.LightGray
                     end
 
+                    warn("Шаг 5: Установка позиции Nub...")
                     el.Nub.Position = {nub_state.CurrentX, elementY + 2 + el.Size.height/2}
+                    warn("Шаг 6: Анимация цветов...")
                     self:_AnimateAndApplyColor(el.Back, targetBackColor)
                     self:_AnimateAndApplyColor(el.Nub, targetNubColor)
                     
-                    if el.HasSettings and el.SettingsIcon then local iconX = toggleBackX - el.SettingsIcon.Size.x - 10; el.SettingsIcon.Position = {iconX, elementY}; el.SettingsClickRegion = {x1 = iconX, y1 = elementY, x2 = iconX + el.SettingsIcon.Size.x, y2 = elementY + el.SettingsIcon.Size.y} end
+                    if el.HasSettings and el.SettingsIcon then 
+                        local iconX = toggleBackX - el.SettingsIcon.Size.x - 10
+                        el.SettingsIcon.Position = {iconX, elementY}
+                        el.SettingsClickRegion = {x1 = iconX, y1 = elementY, x2 = iconX + el.SettingsIcon.Size.x, y2 = elementY + el.SettingsIcon.Size.y} 
+                    end
                     elementY = elementY + 35
+                    warn("--- Завершен Toggle: " .. (el.id or 'N/A') .. " ---")
+
 
                 elseif el.type == "Slider" then
                     self:_AnimateAndApplyColor(el.LeftFill, theme.Colors.Accent)
@@ -2411,7 +2422,7 @@ end
 
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 231")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 351")
     local is_first_frame = true
     while self.Window.Visible do
         if is_first_frame then
