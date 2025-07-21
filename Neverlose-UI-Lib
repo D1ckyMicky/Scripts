@@ -214,11 +214,13 @@ function Library:_RenderSaveTooltip()
     local theme = self.ActiveTheme
 
     self:_SetVisibility(tooltip.Background, isVisible)
+    self:_SetVisibility(tooltip.Border, isVisible)
     self:_SetVisibility(tooltip.ConfigName, isVisible)
     self:_SetVisibility(tooltip.Author, isVisible)
 
     if isVisible then
         self:_AnimateAndApplyColor(tooltip.Background, theme.Colors.SectionBackground)
+        self:_AnimateAndApplyColor(tooltip.Border, theme.Colors.Separator)
         self:_AnimateAndApplyColor(tooltip.ConfigName, theme.Colors.TextLight)
         self:_AnimateAndApplyColor(tooltip.Author, theme.Colors.TextDark)
     
@@ -238,8 +240,14 @@ function Library:_RenderSaveTooltip()
 
         tooltip.Background.Position = {tooltipX, tooltipY}
         tooltip.Background.Size = {tooltipW, tooltipH}
+        tooltip.Border.Position = {tooltipX, tooltipY}
+        tooltip.Border.Size = {tooltipW, tooltipH}
         tooltip.ConfigName.Position = {tooltipX + (padding / 2), tooltipY + 8}
         tooltip.Author.Position = {tooltipX + (padding / 2), tooltipY + 28}
+        
+        self:_RenderGlowEffect(tooltip.Glow, tooltipX, tooltipY, tooltipW, tooltipH, tooltip.Background.Rounding, theme.Colors.GlowColor)
+    else
+        self:_HideGlowEffect(tooltip.Glow)
     end
 end
 
@@ -268,6 +276,19 @@ function Library:_AnimateAndApplyColor(drawingObject, targetColor)
             drawingObject.Opacity = 1 -- По умолчанию делаем объект полностью непрозрачным
         end
     end
+end
+
+function Library:_GetTextColorForBackground(backgroundColor)
+    local theme = self.ActiveTheme
+    if not backgroundColor or type(backgroundColor) ~= "table" then
+        return theme.Colors.TextLight -- По умолчанию возвращаем светлый текст
+    end
+    
+    -- Используем стандартную формулу для определения яркости
+    local brightness = (backgroundColor[1] * 0.299 + backgroundColor[2] * 0.587 + backgroundColor[3] * 0.114)
+    
+    -- Если фон яркий (brightness > 140), возвращаем темный текст, иначе - светлый
+    return brightness > 140 and theme.Colors.TextDark or theme.Colors.TextLight
 end
 
 --================================================================
@@ -374,9 +395,10 @@ function Library:_InitializeCoreUI()
         Settings = { Icon = self:_CreateDrawingObject("Image"), ClickRegion = {} }
     }
     
-    -- [ДОБАВЛЕНО] Объекты для всплывающей подсказки
     UI.Core.SaveTooltip = {
         Background = self:_CreateDrawingObject("Square"),
+        Border = self:_CreateDrawingObject("Square"),
+        Glow = self:_Internal_CreateGlowSet(49),
         ConfigName = self:_CreateDrawingObject("Text"),
         Author = self:_CreateDrawingObject("Text")
     }
@@ -400,9 +422,9 @@ function Library:_InitializeCoreUI()
 
     local tooltip = UI.Core.SaveTooltip
     if tooltip.Background then tooltip.Background.Filled = true; tooltip.Background.zIndex = 50; tooltip.Background.Rounding = self.ActiveTheme.Rounding.Element; end
+    if tooltip.Border then tooltip.Border.Filled = false; tooltip.Border.Thickness = 1; tooltip.Border.zIndex = 51; tooltip.Border.Rounding = self.ActiveTheme.Rounding.Element; end
     if tooltip.ConfigName then tooltip.ConfigName.Font = self.ActiveTheme.Fonts.Main; tooltip.ConfigName.Size = self.ActiveTheme.Fonts.Size + 2; tooltip.ConfigName.zIndex = 51; end
     if tooltip.Author then tooltip.Author.Font = self.ActiveTheme.Fonts.Main; tooltip.Author.Size = self.ActiveTheme.Fonts.Size; tooltip.Author.zIndex = 51; end
-
 
     UI.Core.ViewESPPanel = self:_CreateDrawingObject("Square"); if UI.Core.ViewESPPanel then UI.Core.ViewESPPanel.Filled = true; UI.Core.ViewESPPanel.zIndex = 1; UI.Core.ViewESPPanel.Rounding = self.ActiveTheme.Rounding.Window; end
     UI.Core.ViewESPImage = self:_CreateDrawingObject("Image"); if UI.Core.ViewESPImage then UI.Core.ViewESPImage.zIndex = 2; UI.Core.ViewESPImage.Visible = false; UI.Core.ViewESPImage.Url = "https://s6.imgcdn.dev/Y4wqGT.jpg"; UI.Core.ViewESPImage.Rounding = self.ActiveTheme.Rounding.Window - 2; end
@@ -1095,19 +1117,16 @@ function Library:_RenderPlayerESPSettingsPopup()
         return
     end
     
-    -- Добавляем анимацию цветов для всех элементов окна
     self:_AnimateAndApplyColor(popup.Background, theme.Colors.SectionBackground)
     self:_AnimateAndApplyColor(popup.Border, theme.Colors.Separator)
     self:_AnimateAndApplyColor(popup.Title, theme.Colors.TextLight)
     self:_AnimateAndApplyColor(popup.Separator, theme.Colors.Separator)
     self:_AnimateAndApplyColor(popup.BindLabel, theme.Colors.TextDark)
-    self:_AnimateAndApplyColor(popup.Keybind.Button, theme.Colors.Accent)
     
-    local isThemeLight = self:_IsThemeLight(theme)
-    local accentButtonTextColor = isThemeLight and {10, 10, 10, 255} or {234, 239, 245, 255}
-    self:_AnimateAndApplyColor(popup.Keybind.ButtonText, accentButtonTextColor)
+    local accentColor = theme.Colors.Accent
+    self:_AnimateAndApplyColor(popup.Keybind.Button, accentColor)
+    self:_AnimateAndApplyColor(popup.Keybind.ButtonText, self:_GetTextColorForBackground(accentColor))
 
-    -- Позиционирование (без изменений)
     local pX, pY = popup.Pos.x, popup.Pos.y
     local pW = 250
     local currentY = pY + 8
@@ -1382,7 +1401,6 @@ function Library:_RenderLoop()
     local Core = self.UI.Core
     local theme = self.ActiveTheme
     local isThemeLight = self:_IsThemeLight(theme)
-    local accentButtonTextColor = isThemeLight and theme.Colors.TextLight or theme.Colors.TextLight -- Текст на кнопках с акцентом всегда светлый для контраста
     local windowX, windowY = self:_SafeNumber(self.Window.X, 0), self:_SafeNumber(self.Window.Y, 0)
     local sidebarWidth, headerHeight = self:_SafeNumber(self.Window.SidebarWidth, 0), self:_SafeNumber(self.Window.HeaderHeight, 0)
     local rightPanelX = windowX + sidebarWidth - self.Window.PanelOverlap
@@ -1400,13 +1418,13 @@ function Library:_RenderLoop()
     self:_AnimateAndApplyColor(Core.Title, theme.Colors.TextLight)
     self:_AnimateAndApplyColor(Core.Title2, theme.Colors.GlowAccent)
     self:_AnimateAndApplyColor(Core.Title3, theme.Colors.Accent)
-    self:_AnimateAndApplyColor(Core.SidebarBottomCircle, theme.Colors.Accent)
+    self:_AnimateAndApplyColor(Core.SidebarBottomCircle, theme.Colors.Separator) -- Цвет изменен с Accent на Separator
     self:_AnimateAndApplyColor(Core.PlayerDisplayName, theme.Colors.TextLight)
     self:_AnimateAndApplyColor(Core.TillLabel, theme.Colors.TextDark)
     self:_AnimateAndApplyColor(Core.ForeverLabel, theme.Colors.Accent)
-    if Core.SidebarAvatar then self:_AnimateAndApplyColor(Core.SidebarAvatar, {255, 255, 255, 255}) end -- Аватар всегда без цветокоррекции
+    if Core.SidebarAvatar then self:_AnimateAndApplyColor(Core.SidebarAvatar, {255, 255, 255, 255}) end
 
-    -- Позиционирование (без изменений)
+    -- Позиционирование
     if Core.Sidebar.Drawing then Core.Sidebar.Drawing.Position = {windowX, windowY}; Core.Sidebar.Drawing.Size = {sidebarWidth, self.Window.Height}; end
     if Core.RightPanel.Drawing then Core.RightPanel.Drawing.Position = {rightPanelX, windowY}; Core.RightPanel.Drawing.Size = {self.Window.Width - sidebarWidth + self.Window.PanelOverlap, self.Window.Height}; end
     
@@ -1433,16 +1451,25 @@ function Library:_RenderLoop()
              button.Background.Position = {x, y}; button.Background.Size = {width, height}; 
              button.Border.Position = {x, y}; button.Border.Size = {width, height}; 
              
-             -- Анимация цвета фона и обводки
              local isHovered = self:_IsPointInRegion(mouse_pos.x, mouse_pos.y, button.ClickRegion)
-             button.IsHovered = isHovered -- [ИСПРАВЛЕНО] Сохраняем состояние наведения в сам объект кнопки
-             local targetBgColor = isHovered and self:_DarkenColor(theme.Colors.Accent, 0.5) or (is_accent and theme.Colors.Accent or theme.Colors.MainBackground)
+             button.IsHovered = isHovered 
+             
+             local targetBgColor, targetTextColor
+
+             if button == Core.HeaderButtons.CreateNew then
+                local baseColor = theme.Colors.Accent
+                local opacity = isHovered and 255 or (255 * 0.6) -- 100% при наведении, 60% по умолчанию
+                targetBgColor = {baseColor[1], baseColor[2], baseColor[3], opacity}
+                targetTextColor = self:_GetTextColorForBackground(baseColor) -- Цвет текста зависит от базового цвета фона
+             else
+                targetBgColor = isHovered and self:_DarkenColor(theme.Colors.Accent, 0.5) or (is_accent and theme.Colors.Accent or theme.Colors.MainBackground)
+                targetTextColor = is_accent and self:_GetTextColorForBackground(theme.Colors.Accent) or theme.Colors.TextLight
+             end
+
              local targetBorderColor = (tick() - (button.ClickTime or 0) < 0.1 or (button.IsOpen)) and theme.Colors.Accent or theme.Colors.Separator
+             
              self:_AnimateAndApplyColor(button.Background, targetBgColor)
              self:_AnimateAndApplyColor(button.Border, targetBorderColor)
-             
-             -- Анимация цвета текста и иконки
-             local targetTextColor = is_accent and accentButtonTextColor or theme.Colors.TextLight
              self:_AnimateAndApplyColor(button.Label, targetTextColor)
              if button.Icon then self:_AnimateAndApplyColor(button.Icon, targetTextColor) end
 
@@ -1719,8 +1746,6 @@ end
 function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
     local configs = self.UI.Core.ConfigsTab
     local theme = self.ActiveTheme
-    local isThemeLight = self:_IsThemeLight(theme)
-    local accentButtonTextColor = isThemeLight and {10, 10, 10, 255} or {234, 239, 245, 255}
 
     self:_SetVisibility(configs.MyItemsLabel, true)
     self:_SetVisibility(configs.Scrollbar.Background, true)
@@ -1787,9 +1812,13 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
             saveBtn.ClickRegion = {x1 = btnX, y1 = btnY, x2 = btnX + btnWidth, y2 = btnY + btnHeight}
         else
             local loadBtn = d.LoadButton
-            self:_AnimateAndApplyColor(loadBtn.Background, theme.Colors.Accent)
-            self:_AnimateAndApplyColor(loadBtn.Icon, accentButtonTextColor)
-            self:_AnimateAndApplyColor(loadBtn.Label, accentButtonTextColor)
+            local accentColor = theme.Colors.Accent
+            local textColorForAccent = self:_GetTextColorForBackground(accentColor)
+            
+            self:_AnimateAndApplyColor(loadBtn.Background, accentColor)
+            self:_AnimateAndApplyColor(loadBtn.Icon, textColorForAccent)
+            self:_AnimateAndApplyColor(loadBtn.Label, textColorForAccent)
+
             loadBtn.Background.Position = {btnX, btnY}; loadBtn.Background.Size = {btnWidth, btnHeight}
             local iconX = btnX + 15
             loadBtn.Icon.Position = {iconX, btnY + (btnHeight / 2) - (loadBtn.Icon.Size.y / 2)}
