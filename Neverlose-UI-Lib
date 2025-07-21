@@ -24,7 +24,7 @@ Library.AnimationState = {} -- Хранилище для состояний ан
 Library.Window = {
     Visible = true, X = 400, Y = 200, Width = 750, Height = 620,
     SidebarWidth = 187, HeaderHeight = 65, IsDragging = false,
-    ActiveTab = "", PanelOverlap = 8
+    ActiveTab = "", PanelOverlap = 4
 }
 
 Library.ConfigFolderPath = "NL_Configs" -- Новая папка для конфигов
