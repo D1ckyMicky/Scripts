@@ -1437,7 +1437,7 @@ function Library:_RenderLoop()
     self:_AnimateAndApplyColor(Core.RightPanelHeaderSeparator, theme.Colors.Separator)
     self:_AnimateAndApplyColor(Core.Title, theme.Colors.TextPrimary)
     self:_AnimateAndApplyColor(Core.Title2, theme.Colors.Accent)
-    self:_AnimateAndApplyColor(Core.Title3, theme.Colors.GlowAccent)
+    self:_AnimateAndApplyColor(Core.Title3, theme.Colors.SectionBackground)
     self:_AnimateAndApplyColor(Core.SidebarBottomCircle, theme.Colors.Separator)
     self:_AnimateAndApplyColor(Core.PlayerDisplayName, theme.Colors.TextPrimary)
     self:_AnimateAndApplyColor(Core.TillLabel, theme.Colors.TextSecondary)
@@ -2359,7 +2359,7 @@ end
 
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. w1")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 31")
     local is_first_frame = true
     while self.Window.Visible do
         if is_first_frame then
