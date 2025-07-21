@@ -1645,7 +1645,6 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
         local was_active_before = section.ParentTab == self.Window.LastRenderedTab
         
         local is_appearing = is_active_now and tab_changed
-        local is_disappearing = not is_active_now and was_active_before and tab_changed
         
         local state_key = section.Drawing.Background
         local anim_state = self.AnimationState[state_key]
@@ -1660,7 +1659,8 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
         end
         
         local targetOpacity = is_active_now and 1 or 0
-        local targetYOffset = is_disappearing and ANIMATION_SLIDE_DISTANCE or 0
+        -- [ИСПРАВЛЕНИЕ #1] Неактивные блоки всегда стремятся вниз, а не возвращаются вверх
+        local targetYOffset = is_active_now and 0 or ANIMATION_SLIDE_DISTANCE
 
         local speed_value = self.UI.Values["AboutAnimationSpeed"] or 1.6
         local animationSpeed = speed_value / 12.0
@@ -1674,7 +1674,13 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
         end
 
         local sectionX, sectionY
-        if section.Side == "Left" then sectionX, sectionY = leftColumnX, leftColumnY else sectionX, sectionY = rightColumnX, rightColumnY end
+        -- [ИСПРАВЛЕНИЕ #3] Новые блоки рассчитывают позицию независимо от старых
+        if is_active_now then
+            if section.Side == "Left" then sectionX, sectionY = leftColumnX, leftColumnY else sectionX, sectionY = rightColumnX, rightColumnY end
+        else -- Исчезающие блоки остаются на своей последней известной позиции
+            sectionX = (section.LastPos and section.LastPos.X) or 0
+            sectionY = (section.LastPos and section.LastPos.Y) or 0
+        end
         
         local animatedY = sectionY + anim_state.YOffset
         local masterOpacity = anim_state.Opacity
@@ -1725,7 +1731,13 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
                 el.Nub.Position = {nubX, currentElementY + 9};
                 local valueText = tostring(math.floor(self.UI.Values[el.id])); local valueTextX = sectionX + columnWidth - 40
                 el.ValueText.Text = valueText; el.ValueText.Position = {valueTextX, currentElementY};
-                self:_AnimateAndApplyColor(el.LeftFill, theme.Colors.Accent, masterOpacity); self:_AnimateAndApplyColor(el.RightFill, theme.Colors.DarkBlue, masterOpacity); self:_AnimateAndApplyColor(el.Nub, theme.Colors.Accent, masterOpacity); self:_AnimateAndApplyColor(el.ValueText, theme.Colors.TextPrimary, masterOpacity);
+                
+                -- [ИСПРАВЛЕНИЕ #2] Стабильная установка цвета для тела слайдера
+                local rightFillColor = theme.Colors.DarkBlue
+                el.RightFill.Color = {rightFillColor[1], rightFillColor[2], rightFillColor[3]}
+                el.RightFill.Opacity = ((rightFillColor[4] or 255) / 255) * masterOpacity
+
+                self:_AnimateAndApplyColor(el.LeftFill, theme.Colors.Accent, masterOpacity); self:_AnimateAndApplyColor(el.Nub, theme.Colors.Accent, masterOpacity); self:_AnimateAndApplyColor(el.ValueText, theme.Colors.TextPrimary, masterOpacity);
                 elementY = elementY + 35
 
             elseif el.type == "Dropdown" or el.type == "Multidropdown" then
@@ -1755,8 +1767,12 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
         local sectionHeight = elementY - (separatorY + 15) + 45
         sDrawing.Background.Size = {columnWidth, sectionHeight}
         sDrawing.Border.Size = {columnWidth, sectionHeight}
-
-        if section.Side == "Left" then leftColumnY = leftColumnY + sectionHeight + columnSpacing else rightColumnY = rightColumnY + sectionHeight + columnSpacing end
+        
+        if is_active_now then
+             -- Обновляем позицию и высоту только для активных секций
+            section.LastPos = { X = sectionX, Y = sectionY, Height = sectionHeight }
+            if section.Side == "Left" then leftColumnY = leftColumnY + sectionHeight + columnSpacing else rightColumnY = rightColumnY + sectionHeight + columnSpacing end
+        end
     end
 end
 
@@ -2373,7 +2389,7 @@ end
 
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 361")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 31")
     local is_first_frame = true
     while self.Window.Visible do
         if is_first_frame then
