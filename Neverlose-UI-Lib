@@ -694,7 +694,8 @@ function Library:_InitializeConfigsTab()
     local configs = {}; self.UI.Core.ConfigsTab = configs; local z = 4
     
     configs.LoadedConfigName = ""
-    configs.Items = {} -- Will be populated by _RefreshConfigList
+    configs.Items = {} 
+    configs.NeedsRefresh = false 
 
     configs.MyItemsLabel = self:_CreateDrawingObject("Text")
     if configs.MyItemsLabel then
@@ -713,10 +714,26 @@ function Library:_InitializeConfigsTab()
         Background = self:_CreateDrawingObject("Square"),
         Border = self:_CreateDrawingObject("Square"),
         Glow = self:_Internal_CreateGlowSet(z + 10),
-        IncludeStyleToggle = self:_Internal_CreateToggle({ id = "ConfigIncludeStyle", Name = "Include Style", Default = true, zIndex = z + 12 })
+        Separator = self:_CreateDrawingObject("Line"),
+        IncludeStyleToggle = self:_Internal_CreateToggle({ id = "ConfigIncludeStyle", Name = "Include Style", Default = true, zIndex = z + 12 }),
+        DeleteButton = {
+            Background = self:_CreateDrawingObject("Square"),
+            Icon = self:_CreateDrawingObject("Image"),
+            Label = self:_CreateDrawingObject("Text"),
+            ClickRegion = {},
+            ClickTime = 0
+        }
     }
-    if configs.OptionsPopup.Background then configs.OptionsPopup.Background.Filled = true; configs.OptionsPopup.Background.zIndex = z + 11; configs.OptionsPopup.Background.Rounding = self.ActiveTheme.Rounding.Section; end
-    if configs.OptionsPopup.Border then configs.OptionsPopup.Border.Filled = false; configs.OptionsPopup.Border.Thickness = 1; configs.OptionsPopup.Border.zIndex = z + 12; configs.OptionsPopup.Border.Rounding = self.ActiveTheme.Rounding.Section; end
+    
+    local popup = configs.OptionsPopup
+    if popup.Background then popup.Background.Filled = true; popup.Background.zIndex = z + 11; popup.Background.Rounding = self.ActiveTheme.Rounding.Section; end
+    if popup.Border then popup.Border.Filled = false; popup.Border.Thickness = 1; popup.Border.zIndex = z + 12; popup.Border.Rounding = self.ActiveTheme.Rounding.Section; end
+    if popup.Separator then popup.Separator.Thickness = 1; popup.Separator.zIndex = z + 12; end
+    
+    local delBtn = popup.DeleteButton
+    if delBtn.Background then delBtn.Background.Filled = true; delBtn.Background.zIndex = z + 12; delBtn.Background.Rounding = self.ActiveTheme.Rounding.Element; end
+    if delBtn.Icon then delBtn.Icon.Url = "https://s6.imgcdn.dev/Y4O0ng.png"; delBtn.Icon.Size = {14, 14}; delBtn.Icon.zIndex = z + 13; end
+    if delBtn.Label then delBtn.Label.Font = self.ActiveTheme.Fonts.Main; delBtn.Label.Size = self.ActiveTheme.Fonts.Size + 1; delBtn.Label.Text = "Delete config"; delBtn.Label.Center = false; delBtn.Label.zIndex = z + 13; end
 end
 
 --================================================================
@@ -1543,7 +1560,7 @@ function Library:_RenderLoop()
     end
     
     self:_RenderSaveTooltip()
-    self:_RenderConfigOptionsPopup()
+    self:_RenderConfigOptionsPopup(mouse_pos)
     self:_RenderPlayerESPSettingsPopup()
     self:_RenderAboutWindow(mouse_pos)
     self:_RenderEditStyleWindow()
@@ -1836,7 +1853,7 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
     configs.Scrollbar.Nub.Size = {scrollbarWidth, nubHeight}
 end
 
-function Library:_RenderConfigOptionsPopup()
+function Library:_RenderConfigOptionsPopup(mouse_pos)
     local configs = self.UI.Core.ConfigsTab
     local popup = configs.OptionsPopup
     local isVisible = popup.IsOpen
@@ -1847,6 +1864,12 @@ function Library:_RenderConfigOptionsPopup()
     self:_SetVisibility(popup.IncludeStyleToggle.Label, isVisible)
     self:_SetVisibility(popup.IncludeStyleToggle.Back, isVisible)
     self:_SetVisibility(popup.IncludeStyleToggle.Nub, isVisible)
+    self:_SetVisibility(popup.Separator, isVisible)
+    
+    local delBtn = popup.DeleteButton
+    self:_SetVisibility(delBtn.Background, isVisible)
+    self:_SetVisibility(delBtn.Icon, isVisible)
+    self:_SetVisibility(delBtn.Label, isVisible)
 
     if not isVisible then
         if popup.Glow then self:_HideGlowEffect(popup.Glow) end
@@ -1856,8 +1879,9 @@ function Library:_RenderConfigOptionsPopup()
     self:_AnimateAndApplyColor(popup.Background, theme.Colors.SectionBackground)
     self:_AnimateAndApplyColor(popup.Border, theme.Colors.Separator)
     self:_AnimateAndApplyColor(popup.IncludeStyleToggle.Label, theme.Colors.TextDark)
+    self:_AnimateAndApplyColor(popup.Separator, self:_DarkenColor(theme.Colors.Separator, 0.5))
     
-    local pW, pH = 150, 50
+    local pW, pH = 150, 90
     local pX, pY = popup.Pos.x, popup.Pos.y
     popup.ClickRegion = {x1=pX, y1=pY, x2=pX+pW, y2=pY+pH}
     popup.Background.Position = {pX, pY}; popup.Background.Size = {pW, pH}
@@ -1865,14 +1889,14 @@ function Library:_RenderConfigOptionsPopup()
     if popup.Glow then self:_RenderGlowEffect(popup.Glow, pX, pY, pW, pH, popup.Background.Rounding, theme.Colors.GlowColor) end
 
     local toggle = popup.IncludeStyleToggle
-    local toggleY = pY + (pH / 2) - (toggle.Label.Size / 2)
+    local toggleY = pY + (50 / 2) - (toggle.Label.Size / 2)
     toggle.Label.Position = {pX + 10, toggleY}
     local toggleBackX = pX + pW - toggle.Size.width - 15
     toggle.Back.Position = {toggleBackX, toggleY + 2}; toggle.Back.Size = {toggle.Size.width, toggle.Size.height}; toggle.ClickRegion = {x1 = toggleBackX, y1 = toggleY, x2 = toggleBackX + toggle.Size.width, y2 = toggleY + toggle.Size.height + 4}
     
     local targetBackColor, targetNubColor
     if self.UI.Values[toggle.id] then
-        targetBackColor = theme.Colors.ToggleEnabledBackground or self:_DarkenColor(theme.Colors.Accent, 0.3)
+        targetBackColor = self:_DarkenColor(theme.Colors.Accent, 0.3)
         targetNubColor = theme.Colors.Accent
         toggle.Nub.Position = {toggleBackX + toggle.Size.width - 5, toggleY + 2 + toggle.Size.height/2}
     else
@@ -1882,6 +1906,34 @@ function Library:_RenderConfigOptionsPopup()
     end
     self:_AnimateAndApplyColor(toggle.Back, targetBackColor)
     self:_AnimateAndApplyColor(toggle.Nub, targetNubColor)
+
+    local separatorY = pY + 50
+    popup.Separator.From = {pX + 5, separatorY}
+    popup.Separator.To = {pX + pW - 5, separatorY}
+
+    delBtn.ClickRegion = {x1 = pX + 5, y1 = separatorY + 2, x2 = pX + pW - 5, y2 = pY + pH - 5}
+    local isHovered = mouse_pos and self:_IsPointInRegion(mouse_pos.x, mouse_pos.y, delBtn.ClickRegion)
+
+    local highlightBaseColor = self:_IsThemeLight(theme) and {0,0,0} or {255,255,255}
+    local targetHighlightColor = {highlightBaseColor[1], highlightBaseColor[2], highlightBaseColor[3], 0}
+    if tick() - delBtn.ClickTime < 0.1 then
+        targetHighlightColor[4] = 255 * 0.15 
+    elseif isHovered then
+        targetHighlightColor[4] = 255 * 0.07 
+    end
+    delBtn.Background.Position = {delBtn.ClickRegion.x1, delBtn.ClickRegion.y1}
+    delBtn.Background.Size = {delBtn.ClickRegion.x2 - delBtn.ClickRegion.x1, delBtn.ClickRegion.y2 - delBtn.ClickRegion.y1}
+    self:_AnimateAndApplyColor(delBtn.Background, targetHighlightColor)
+
+    local delBtnY = separatorY + 7
+    local iconX = pX + 15
+    local iconY = delBtnY + ((pH - separatorY) / 2) - (delBtn.Icon.Size.y / 2)
+    delBtn.Icon.Position = {iconX, iconY}
+    delBtn.Label.Position = {iconX + delBtn.Icon.Size.x + 8, iconY}
+    
+    local deleteColor = {164, 88, 92, 255}
+    self:_AnimateAndApplyColor(delBtn.Icon, deleteColor)
+    self:_AnimateAndApplyColor(delBtn.Label, deleteColor)
 end
 
 function Library:_InputLoop()
@@ -2040,6 +2092,22 @@ function Library:_InputLoop()
                 local popup = configsTab.OptionsPopup
                 if self:_IsPointInRegion(mouse_x, mouse_y, popup.IncludeStyleToggle.ClickRegion) then
                     self.UI.Values[popup.IncludeStyleToggle.id] = not self.UI.Values[popup.IncludeStyleToggle.id]
+                elseif self:_IsPointInRegion(mouse_x, mouse_y, popup.DeleteButton.ClickRegion) then
+                    popup.DeleteButton.ClickTime = tick()
+                    local itemIndex = popup.ItemIndex
+                    if itemIndex and configsTab.Items[itemIndex] then
+                        local configName = configsTab.Items[itemIndex].Name
+                        local configPath = self:_GetConfigPath(configName)
+                        
+                        pcall(deletefile, configPath)
+                        
+                        if configsTab.LoadedConfigName == configName then
+                            configsTab.LoadedConfigName = ""
+                        end
+                        
+                        popup.IsOpen = false
+                        configsTab.NeedsRefresh = true
+                    end
                 elseif not self:_IsPointInRegion(mouse_x, mouse_y, popup.ClickRegion) then
                     popup.IsOpen = false
                 end
@@ -2226,7 +2294,6 @@ function Library:_InputLoop()
                 end
 
                 if not click_was_handled then
-                    -- [ИЗМЕНЕНО] Управление кликами по кнопкам в шапке
                     local create_btn_region = self.UI.Core.HeaderButtons.CreateNew.ClickRegion
                     local save_btn_region = self.UI.Core.HeaderButtons.Save.ClickRegion
                     local view_esp_region = self.UI.Core.HeaderButtons.ViewESP.ClickRegion
@@ -2342,7 +2409,7 @@ end
 
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 01")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 011")
     local is_first_frame = true
     while self.Window.Visible do
         if is_first_frame then
