@@ -1751,32 +1751,30 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
     local ANIMATION_SLIDE_DISTANCE = 15
     local tab_changed = self.Window.ActiveTab ~= self.Window.LastRenderedTab
 
-    -- =================================================================
-    -- [[ НОВАЯ ЛОГИКА АНИМАЦИИ И РЕНДЕРА ]]
-    -- =================================================================
-    
     -- СНАЧАЛА рендерим ИСЧЕЗАЮЩИЕ секции
     for _, section in ipairs(self.UI.Sections) do
         local is_active_now = section.ParentTab == self.Window.ActiveTab
         if not is_active_now then
             local anim_state = self.AnimationState[section.Drawing.Background]
+            
+            -- [[ FIX: Замена 'continue' на 'if/else' ]]
             if not anim_state or anim_state.Opacity < 0.01 then
-                -- Полностью невидима, пропускаем
+                -- Полностью невидима, просто скрываем все ее элементы
                 for _, obj in pairs(section.Drawing) do self:_SetVisibility(obj, false) end
                 for _, el in ipairs(section.Elements) do for k, v in pairs(el) do if type(v) == 'table' and v.Visible ~= nil then self:_SetVisibility(v, false) end end; if el.OptionList then for _, opt in ipairs(el.OptionList) do self:_SetVisibility(opt, false) end end; if el.Glow then self:_HideGlowEffect(el.Glow) end end
-            end
-            
-            -- Анимация исчезновения (сдвиг вниз и затухание)
-            local targetOpacity = 0
-            local targetYOffset = ANIMATION_SLIDE_DISTANCE
-            local speed_value = self.UI.Values["AboutAnimationSpeed"] or 1.6
-            local animationSpeed = speed_value / 12.0
-            anim_state.Opacity = anim_state.Opacity + (targetOpacity - anim_state.Opacity) * animationSpeed
-            anim_state.YOffset = anim_state.YOffset + (targetYOffset - anim_state.YOffset) * animationSpeed
+            else
+                -- Секция еще видима, анимируем ее исчезновение
+                local targetOpacity = 0
+                local targetYOffset = ANIMATION_SLIDE_DISTANCE
+                local speed_value = self.UI.Values["AboutAnimationSpeed"] or 1.6
+                local animationSpeed = speed_value / 12.0
+                anim_state.Opacity = anim_state.Opacity + (targetOpacity - anim_state.Opacity) * animationSpeed
+                anim_state.YOffset = anim_state.YOffset + (targetYOffset - anim_state.YOffset) * animationSpeed
 
-            local sectionX = (section.LastPos and section.LastPos.X) or 0
-            local sectionY = (section.LastPos and section.LastPos.Y) or 0
-            self:_RenderSingleSection(section, sectionX, sectionY, columnWidth, anim_state.YOffset, anim_state.Opacity)
+                local sectionX = (section.LastPos and section.LastPos.X) or 0
+                local sectionY = (section.LastPos and section.LastPos.Y) or 0
+                self:_RenderSingleSection(section, sectionX, sectionY, columnWidth, anim_state.YOffset, anim_state.Opacity)
+            end
         end
     end
 
@@ -1790,9 +1788,8 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
                 self.AnimationState[section.Drawing.Background] = anim_state
             end
 
-            -- Анимация появления (только проявление, без сдвига)
             if tab_changed then
-                anim_state.YOffset = 0 -- Новые вкладки не сдвигаются, а просто появляются
+                anim_state.YOffset = 0
             end
             local targetOpacity = 1
             local targetYOffset = 0
@@ -1801,7 +1798,6 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
             anim_state.Opacity = anim_state.Opacity + (targetOpacity - anim_state.Opacity) * animationSpeed
             anim_state.YOffset = anim_state.YOffset + (targetYOffset - anim_state.YOffset) * animationSpeed
             
-            -- Расчет позиции в потоке
             local sectionX, sectionY
             if section.Side == "Left" then
                 sectionX, sectionY = leftColumnX, leftColumnY
@@ -1811,14 +1807,12 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
 
             local sectionHeight = self:_RenderSingleSection(section, sectionX, sectionY, columnWidth, anim_state.YOffset, anim_state.Opacity)
             
-            -- Обновляем позицию для следующей секции в колонке
             if section.Side == "Left" then
                 leftColumnY = leftColumnY + sectionHeight + columnSpacing
             else
                 rightColumnY = rightColumnY + sectionHeight + columnSpacing
             end
             
-            -- Сохраняем последнюю позицию для анимации исчезновения
             section.LastPos = { X = sectionX, Y = sectionY, Height = sectionHeight }
         end
     end
