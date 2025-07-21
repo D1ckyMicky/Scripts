@@ -80,7 +80,6 @@ Library.TempTheme = nil
 Library.PreEditThemeName = nil
 
 Library.UI = { TabGroups = {}, Sections = {}, Values = {}, DrawingObjects = {}, Popups = {} }
-Library.UI.ActiveDropdowns = {}
 
 local drag_offset = {x = 0, y = 0}
 local was_left_pressed = false
@@ -278,19 +277,12 @@ function Library:_AnimateAndApplyColor(drawingObject, targetColor, masterOpacity
     if not drawingObject or type(targetColor) ~= "table" then return end
 
     local state = self.AnimationState[drawingObject]
-
-    -- [[ ИСПРАВЛЕНИЕ ]]
-    -- Если состояния нет, создаем его с полностью прозрачной версией целевого цвета.
-    -- Это заставляет анимацию цвета плавно "проявляться", а не "щёлкать",
-    -- и предотвращает ошибку "неопределенного цвета" в Severe.
     if not state then
-        local initialColor = self:_DeepCopy(targetColor)
-        initialColor[4] = 0 -- Начинаем с нулевой прозрачности
-        state = { CurrentColor = initialColor }
+        state = { CurrentColor = self:_DeepCopy(targetColor) }
         self.AnimationState[drawingObject] = state
     end
 
-    local speed_value = self.UI.Values["AboutAnimationSpeed"] or 1.6
+    local speed_value = self.UI.Values["AboutAnimationSpeed"] or 1.6 
     local animationSpeed = speed_value / 16.0
 
     state.CurrentColor = self:_LerpColor(state.CurrentColor, targetColor, animationSpeed)
@@ -300,6 +292,7 @@ function Library:_AnimateAndApplyColor(drawingObject, targetColor, masterOpacity
         drawingObject.Color = {color[1], color[2], color[3]}
         local baseOpacity = (color[4] or 255) / 255
         
+        --[[ НОВОЕ: Умножаем на общую прозрачность ]]
         masterOpacity = (masterOpacity == nil) and 1 or masterOpacity
         drawingObject.Opacity = baseOpacity * masterOpacity
     end
@@ -1562,12 +1555,11 @@ function Library:_RenderLoop()
     
     self:_RenderSaveTooltip()
     self:_RenderConfigOptionsPopup()
-    self:_RenderOpenDropdowns()
-
     self:_RenderPlayerESPSettingsPopup()
     self:_RenderAboutWindow(mouse_pos)
     self:_RenderEditStyleWindow()
     self:_RenderColorPickerWindow()
+    --[[ НОВОЕ: Запоминаем текущую вкладку для следующего кадра ]]
     self.Window.LastRenderedTab = self.Window.ActiveTab
 end
 
@@ -1637,9 +1629,6 @@ function Library:_RenderTabs(x, y, width)
 end
 
 function Library:_RenderSections(panelX, panelY, headerHeight)
-    -- Очищаем список активных дропдаунов перед каждым кадром
-    self.UI.ActiveDropdowns = {}
-
     local leftColumnY = panelY + headerHeight + 20
     local rightColumnY = panelY + headerHeight + 20
     local columnSpacing = 20
@@ -1654,8 +1643,8 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
     for _, section in ipairs(self.UI.Sections) do
         local is_active_now = section.ParentTab == self.Window.ActiveTab
         local was_active_before = section.ParentTab == self.Window.LastRenderedTab
+        
         local is_appearing = is_active_now and tab_changed
-        local is_disappearing = not is_active_now and was_active_before and tab_changed
         
         local state_key = section.Drawing.Background
         local anim_state = self.AnimationState[state_key]
@@ -1663,139 +1652,125 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
             anim_state = { Opacity = is_active_now and 1 or 0, YOffset = 0 }
             self.AnimationState[state_key] = anim_state
         end
+
         if is_appearing then
             anim_state.Opacity = 0
             anim_state.YOffset = ANIMATION_SLIDE_DISTANCE
         end
+        
         local targetOpacity = is_active_now and 1 or 0
-        local targetYOffset = is_disappearing and ANIMATION_SLIDE_DISTANCE or 0
+        -- [ИСПРАВЛЕНИЕ #1] Неактивные блоки всегда стремятся вниз, а не возвращаются вверх
+        local targetYOffset = is_active_now and 0 or ANIMATION_SLIDE_DISTANCE
+
         local speed_value = self.UI.Values["AboutAnimationSpeed"] or 1.6
         local animationSpeed = speed_value / 12.0
         anim_state.Opacity = anim_state.Opacity + (targetOpacity - anim_state.Opacity) * animationSpeed
         anim_state.YOffset = anim_state.YOffset + (targetYOffset - anim_state.YOffset) * animationSpeed
-        local masterOpacity = anim_state.Opacity
 
-        if masterOpacity < 0.01 then
+        if anim_state.Opacity < 0.01 then
             for _, obj in pairs(section.Drawing) do self:_SetVisibility(obj, false) end
-            for _, el in ipairs(section.Elements) do 
-                for k, v in pairs(el) do if type(v) == 'table' and v.Visible ~= nil then self:_SetVisibility(v, false) end end
-                if el.OptionList then for _, opt in ipairs(el.OptionList) do self:_SetVisibility(opt, false) end end
-                if el.Glow then self:_HideGlowEffect(el.Glow) end
-            end
-        else
-            local sectionHeight
-            do
-                local y_offset = 28
-                for _, el in ipairs(section.Elements) do
-                    y_offset = y_offset + 35
-                end
-                sectionHeight = y_offset + 15
-            end
+            for _, el in ipairs(section.Elements) do for k, v in pairs(el) do if type(v) == 'table' and v.Visible ~= nil then self:_SetVisibility(v, false) end end; if el.OptionList then for _, opt in ipairs(el.OptionList) do self:_SetVisibility(opt, false) end end end
+        end
 
-            local sectionX, sectionY
-            -- [[ ИСПРАВЛЕНИЕ "ЗАСТЫВАНИЯ" БЛОКОВ ]]
-            if is_active_now then
-                -- Для активных секций рассчитываем позицию и сохраняем её ОТНОСИТЕЛЬНОЕ смещение
-                local currentX, currentY
-                if section.Side == "Left" then
-                    currentX, currentY = leftColumnX, leftColumnY
-                    leftColumnY = leftColumnY + sectionHeight + columnSpacing
-                else
-                    currentX, currentY = rightColumnX, rightColumnY
-                    rightColumnY = rightColumnY + sectionHeight + columnSpacing
-                end
-                section.lastRenderOffset = { x = currentX - panelX, y = currentY - panelY }
-                sectionX, sectionY = currentX, currentY
-            else
-                -- Для исчезающих секций используем сохранённое смещение для расчёта ТЕКУЩЕЙ позиции
-                if section.lastRenderOffset then
-                    sectionX = panelX + section.lastRenderOffset.x
-                    sectionY = panelY + section.lastRenderOffset.y
-                else
-                    sectionX, sectionY = -9999, -9999 -- Прячем, если смещение ещё не было задано
-                end
-            end
+        local sectionX, sectionY
+        -- [ИСПРАВЛЕНИЕ #3] Новые блоки рассчитывают позицию независимо от старых
+        if is_active_now then
+            if section.Side == "Left" then sectionX, sectionY = leftColumnX, leftColumnY else sectionX, sectionY = rightColumnX, rightColumnY end
+        else -- Исчезающие блоки остаются на своей последней известной позиции
+            sectionX = (section.LastPos and section.LastPos.X) or 0
+            sectionY = (section.LastPos and section.LastPos.Y) or 0
+        end
+        
+        local animatedY = sectionY + anim_state.YOffset
+        local masterOpacity = anim_state.Opacity
+        
+        local sDrawing = section.Drawing
+        for _, obj in pairs(sDrawing) do self:_SetVisibility(obj, true) end
+        self:_AnimateAndApplyColor(sDrawing.Background, theme.Colors.SectionBackground, masterOpacity)
+        self:_AnimateAndApplyColor(sDrawing.Border, theme.Colors.Separator, masterOpacity)
+        self:_AnimateAndApplyColor(sDrawing.Title, theme.Colors.TextPrimary, masterOpacity)
+        self:_AnimateAndApplyColor(sDrawing.Separator, theme.Colors.Separator, masterOpacity)
+        
+        sDrawing.Background.Position = {sectionX, animatedY}
+        sDrawing.Border.Position = {sectionX, animatedY}
+        sDrawing.Title.Position = {sectionX + 10, animatedY + 8}
+        local separatorY = sDrawing.Title.Position.y + sDrawing.Title.Size + 5
+        sDrawing.Separator.From = {sectionX + 10, separatorY}; sDrawing.Separator.To = {sectionX + columnWidth - 10, separatorY};
+        
+        local elementY = separatorY + 15
+        
+        for _, el in ipairs(section.Elements) do
+            for k, v in pairs(el) do if type(v) == 'table' and v.Visible ~= nil then self:_SetVisibility(v, true) end end
+            if el.OptionList then for i, opt in ipairs(el.OptionList) do self:_SetVisibility(opt, el.IsOpen) end end
 
-            local animatedY = sectionY + anim_state.YOffset
-            local sDrawing = section.Drawing
-            for _, obj in pairs(sDrawing) do self:_SetVisibility(obj, true) end
-            self:_AnimateAndApplyColor(sDrawing.Background, theme.Colors.SectionBackground, masterOpacity)
-            self:_AnimateAndApplyColor(sDrawing.Border, theme.Colors.Separator, masterOpacity)
-            self:_AnimateAndApplyColor(sDrawing.Title, theme.Colors.TextPrimary, masterOpacity)
-            self:_AnimateAndApplyColor(sDrawing.Separator, theme.Colors.Separator, masterOpacity)
-            sDrawing.Background.Position = {sectionX, animatedY}
-            sDrawing.Background.Size = {columnWidth, sectionHeight}
-            sDrawing.Border.Position = {sectionX, animatedY}
-            sDrawing.Border.Size = {columnWidth, sectionHeight}
-            sDrawing.Title.Position = {sectionX + 10, animatedY + 8}
-            local separatorLineY = animatedY + 8 + sDrawing.Title.Size + 5
-            sDrawing.Separator.From = {sectionX + 10, separatorLineY}; sDrawing.Separator.To = {sectionX + columnWidth - 10, separatorLineY};
-            
-            local element_y_offset = 8 + sDrawing.Title.Size + 5 + 15
+            local currentElementY = elementY - sectionY + animatedY
+            self:_AnimateAndApplyColor(el.Label, theme.Colors.TextSecondary, masterOpacity)
 
-            for _, el in ipairs(section.Elements) do
-                local currentElementY = animatedY + element_y_offset
+            if el.type == "Toggle" then
+                el.Label.Position = {sectionX + 10, currentElementY};
+                local toggleBackX = sectionX + columnWidth - el.Size.width - 15
+                el.Back.Position = {toggleBackX, currentElementY + 2}; el.Back.Size = {el.Size.width, el.Size.height}; el.ClickRegion = {x1 = toggleBackX, y1 = currentElementY, x2 = toggleBackX + el.Size.width, y2 = currentElementY + el.Size.height + 4}
+                local is_on = self.UI.Values[el.id]
+                local nubY = currentElementY + 2 + el.Size.height / 2
+                el.Nub.Position = is_on and {toggleBackX + el.Size.width - 5, nubY} or {toggleBackX + 5, nubY}
+                local targetBackColor = is_on and self:_DarkenColor(theme.Colors.Accent, 0.3) or theme.Colors.DarkGray
+                local targetNubColor = is_on and theme.Colors.Accent or theme.Colors.LightGray
+                self:_AnimateAndApplyColor(el.Back, targetBackColor, masterOpacity)
+                self:_AnimateAndApplyColor(el.Nub, targetNubColor, masterOpacity)
+                if el.HasSettings and el.SettingsIcon then self:_AnimateAndApplyColor(el.SettingsIcon, theme.Colors.TextSecondary, masterOpacity); local iconX = toggleBackX - el.SettingsIcon.Size.x - 10; el.SettingsIcon.Position = {iconX, currentElementY}; el.SettingsClickRegion = {x1 = iconX, y1 = currentElementY, x2 = iconX + el.SettingsIcon.Size.x, y2 = currentElementY + el.SettingsIcon.Size.y} end
+                elementY = elementY + 35
+
+            elseif el.type == "Slider" then
+                el.Label.Position = {sectionX + 10, currentElementY};
+                local sliderBackX = sectionX + 100; local sliderBackWidth = columnWidth - 110 - 50
+                el.Back.Position = {sliderBackX, currentElementY + 8}; el.Back.Size = {sliderBackWidth, 2}; el.ClickRegion = { x1 = sliderBackX, y1 = currentElementY - 2, x2 = sliderBackX + sliderBackWidth, y2 = currentElementY + 18 };
+                local value_percentage = math.clamp((self.UI.Values[el.id] - el.Min) / (el.Max - el.Min), 0, 1); local nubX = sliderBackX + sliderBackWidth * value_percentage
+                el.LeftFill.Position = {sliderBackX, currentElementY + 8}; el.LeftFill.Size = {nubX - sliderBackX, 2};
+                el.RightFill.Position = {nubX, currentElementY + 8}; el.RightFill.Size = {sliderBackX + sliderBackWidth - nubX, 2};
+                el.Nub.Position = {nubX, currentElementY + 9};
+                local valueText = tostring(math.floor(self.UI.Values[el.id])); local valueTextX = sectionX + columnWidth - 40
+                el.ValueText.Text = valueText; el.ValueText.Position = {valueTextX, currentElementY};
                 
-                -- [[ ИСПРАВЛЕНИЕ МЕРЦАНИЯ DROPDOWN ]]
-                -- Больше не прячем здесь элементы списка. За их видимость теперь полностью отвечает _RenderOpenDropdowns
-                if el.type == "Dropdown" or el.type == "Multidropdown" then
-                    if el.IsOpen then
-                        table.insert(self.UI.ActiveDropdowns, el)
+                -- [ИСПРАВЛЕНИЕ #2] Стабильная установка цвета для тела слайдера
+                local rightFillColor = theme.Colors.DarkBlue
+                el.RightFill.Color = {rightFillColor[1], rightFillColor[2], rightFillColor[3]}
+                el.RightFill.Opacity = ((rightFillColor[4] or 255) / 255) * masterOpacity
+
+                self:_AnimateAndApplyColor(el.LeftFill, theme.Colors.Accent, masterOpacity); self:_AnimateAndApplyColor(el.Nub, theme.Colors.Accent, masterOpacity); self:_AnimateAndApplyColor(el.ValueText, theme.Colors.TextPrimary, masterOpacity);
+                elementY = elementY + 35
+
+            elseif el.type == "Dropdown" or el.type == "Multidropdown" then
+                el.Label.Position = {sectionX + 10, currentElementY + 5};
+                local dropdownButtonX, dropdownButtonY = sectionX + columnWidth - el.Size.width - 15, currentElementY
+                el.Button.Position = {dropdownButtonX, dropdownButtonY}; el.Button.Size = {el.Size.width, el.Size.height}
+                local textToShow = (el.type == "Dropdown") and self.UI.Values[el.id] or (#self.UI.Values[el.id] == 0 and "..." or table.concat(self.UI.Values[el.id], ", ")); if #textToShow > 11 then textToShow = string.sub(textToShow, 1, 10) .. "..." end
+                el.ButtonText.Position = { dropdownButtonX + 5, dropdownButtonY + el.Size.height / 2 - el.ButtonText.Size / 2 }; el.ButtonText.Text = textToShow;
+                local arrowX, arrowY = dropdownButtonX + el.Size.width - 15, dropdownButtonY + el.Size.height / 2
+                el.ArrowLine1.From = {arrowX, arrowY - 2}; el.ArrowLine1.To = {arrowX + 5, arrowY + 3}; el.ArrowLine2.From = {arrowX + 5, arrowY + 3}; el.ArrowLine2.To = {arrowX + 10, arrowY - 2}
+                el.ClickRegion = { x1 = dropdownButtonX, y1 = dropdownButtonY, x2 = dropdownButtonX + el.Size.width, y2 = dropdownButtonY + el.Size.height }
+                
+                self:_AnimateAndApplyColor(el.Button, theme.Colors.DarkBlue, masterOpacity); self:_AnimateAndApplyColor(el.ButtonText, theme.Colors.TextPrimary, masterOpacity); self:_AnimateAndApplyColor(el.ArrowLine1, theme.Colors.TextPrimary, masterOpacity); self:_AnimateAndApplyColor(el.ArrowLine2, theme.Colors.TextPrimary, masterOpacity);
+                
+                if el.IsOpen then
+                    self:_AnimateAndApplyColor(el.OptionBackground, theme.Colors.SectionBackground, masterOpacity); self:_AnimateAndApplyColor(el.BorderLeft, theme.Colors.Separator, masterOpacity); self:_AnimateAndApplyColor(el.BorderRight, theme.Colors.Separator, masterOpacity); self:_AnimateAndApplyColor(el.BorderBottom, theme.Colors.Separator, masterOpacity);
+                    for i, option in ipairs(el.OptionList) do 
+                        local isSelected = (el.type == "Dropdown" and self.UI.Values[el.id] == el.Options[i]) or (el.type == "Multidropdown" and table.find(self.UI.Values[el.id], el.Options[i])); 
+                        local targetOptColor = isSelected and theme.Colors.Accent or theme.Colors.TextPrimary
+                        self:_AnimateAndApplyColor(option, targetOptColor, masterOpacity)
                     end
                 end
-
-                for k, v in pairs(el) do if type(v) == 'table' and v.Visible ~= nil and k ~= "OptionBackground" and k~="BorderLeft" and k~="BorderRight" and k~="BorderBottom" then self:_SetVisibility(v, true) end end
-                self:_AnimateAndApplyColor(el.Label, theme.Colors.TextSecondary, masterOpacity)
-                
-                -- Располагаем Label в зависимости от типа элемента
-                if el.type == "Toggle" or el.type == "Slider" then
-                    el.Label.Position = {sectionX + 10, currentElementY}
-                elseif el.type == "Dropdown" or el.type == "Multidropdown" then
-                     el.Label.Position = {sectionX + 10, currentElementY + 5}
-                end
-                
-                -- Отрисовка остальной части элементов
-                if el.type == "Toggle" then
-                    local toggleBackX = sectionX + columnWidth - el.Size.width - 15
-                    el.Back.Position = {toggleBackX, currentElementY + 2}; el.Back.Size = {el.Size.width, el.Size.height}; el.ClickRegion = {x1 = toggleBackX, y1 = currentElementY, x2 = toggleBackX + el.Size.width, y2 = currentElementY + el.Size.height + 4}
-                    local is_on = self.UI.Values[el.id]
-                    local nubY = currentElementY + 2 + el.Size.height / 2
-                    el.Nub.Position = is_on and {toggleBackX + el.Size.width - 5, nubY} or {toggleBackX + 5, nubY}
-                    local targetBackColor = is_on and self:_DarkenColor(theme.Colors.Accent, 0.3) or theme.Colors.DarkGray
-                    local targetNubColor = is_on and theme.Colors.Accent or theme.Colors.LightGray
-                    self:_AnimateAndApplyColor(el.Back, targetBackColor, masterOpacity)
-                    self:_AnimateAndApplyColor(el.Nub, targetNubColor, masterOpacity)
-                    if el.HasSettings and el.SettingsIcon then self:_AnimateAndApplyColor(el.SettingsIcon, theme.Colors.TextSecondary, masterOpacity); local iconX = toggleBackX - el.SettingsIcon.Size.x - 10; el.SettingsIcon.Position = {iconX, currentElementY}; el.SettingsClickRegion = {x1 = iconX, y1 = currentElementY, x2 = iconX + el.SettingsIcon.Size.x, y2 = currentElementY + el.SettingsIcon.Size.y} end
-                elseif el.type == "Slider" then
-                    local sliderBackX = sectionX + 100; local sliderBackWidth = columnWidth - 110 - 50
-                    el.Back.Position = {sliderBackX, currentElementY + 8}; el.Back.Size = {sliderBackWidth, 2}; el.ClickRegion = { x1 = sliderBackX, y1 = currentElementY - 2, x2 = sliderBackX + sliderBackWidth, y2 = currentElementY + 18 };
-                    local value_percentage = math.clamp(((self.UI.Values[el.id] or el.Min) - el.Min) / (el.Max - el.Min), 0, 1);
-                    local nubX = sliderBackX + sliderBackWidth * value_percentage
-                    el.LeftFill.Position = {sliderBackX, currentElementY + 8}; el.LeftFill.Size = {nubX - sliderBackX, 2};
-                    el.RightFill.Position = {nubX, currentElementY + 8}; el.RightFill.Size = {sliderBackX + sliderBackWidth - nubX, 2};
-                    el.Nub.Position = {nubX, currentElementY + 9};
-                    local valueText = tostring(math.floor(self.UI.Values[el.id] or el.Min)); local valueTextX = sectionX + columnWidth - 40
-                    el.ValueText.Text = valueText; el.ValueText.Position = {valueTextX, currentElementY};
-                    self:_AnimateAndApplyColor(el.RightFill, theme.Colors.DarkGray, masterOpacity)
-                    self:_AnimateAndApplyColor(el.LeftFill, theme.Colors.Accent, masterOpacity);
-                    self:_AnimateAndApplyColor(el.Nub, theme.Colors.Accent, masterOpacity);
-                    self:_AnimateAndApplyColor(el.ValueText, theme.Colors.TextPrimary, masterOpacity);
-                elseif el.type == "Dropdown" or el.type == "Multidropdown" then
-                    local dropdownButtonX, dropdownButtonY = sectionX + columnWidth - el.Size.width - 15, currentElementY
-                    el.Button.Position = {dropdownButtonX, dropdownButtonY}; el.Button.Size = {el.Size.width, el.Size.height}
-                    local textToShow = (el.type == "Dropdown") and self.UI.Values[el.id] or (#self.UI.Values[el.id] == 0 and "..." or table.concat(self.UI.Values[el.id], ", ")); if #textToShow > 11 then textToShow = string.sub(textToShow, 1, 10) .. "..." end
-                    el.ButtonText.Position = { dropdownButtonX + 5, dropdownButtonY + el.Size.height / 2 - el.ButtonText.Size / 2 }; el.ButtonText.Text = textToShow;
-                    local arrowX, arrowY = dropdownButtonX + el.Size.width - 15, dropdownButtonY + el.Size.height / 2
-                    el.ArrowLine1.From = {arrowX, arrowY - 2}; el.ArrowLine1.To = {arrowX + 5, arrowY + 3}; el.ArrowLine2.From = {arrowX + 5, arrowY + 3}; el.ArrowLine2.To = {arrowX + 10, arrowY - 2}
-                    el.ClickRegion = { x1 = dropdownButtonX, y1 = dropdownButtonY, x2 = dropdownButtonX + el.Size.width, y2 = dropdownButtonY + el.Size.height }
-                    self:_AnimateAndApplyColor(el.Button, theme.Colors.DarkBlue, masterOpacity);
-                    self:_AnimateAndApplyColor(el.ButtonText, theme.Colors.TextPrimary, masterOpacity);
-                    self:_AnimateAndApplyColor(el.ArrowLine1, theme.Colors.TextPrimary, masterOpacity);
-                    self:_AnimateAndApplyColor(el.ArrowLine2, theme.Colors.TextPrimary, masterOpacity);
-                end
-                
-                element_y_offset = element_y_offset + 35
+                elementY = elementY + 35
             end
+        end
+        
+        local sectionHeight = elementY - (separatorY + 15) + 45
+        sDrawing.Background.Size = {columnWidth, sectionHeight}
+        sDrawing.Border.Size = {columnWidth, sectionHeight}
+        
+        if is_active_now then
+             -- Обновляем позицию и высоту только для активных секций
+            section.LastPos = { X = sectionX, Y = sectionY, Height = sectionHeight }
+            if section.Side == "Left" then leftColumnY = leftColumnY + sectionHeight + columnSpacing else rightColumnY = rightColumnY + sectionHeight + columnSpacing end
         end
     end
 end
@@ -1941,52 +1916,6 @@ function Library:_RenderConfigOptionsPopup()
     self:_AnimateAndApplyColor(toggle.Nub, targetNubColor)
 end
 
-function Library:_RenderOpenDropdowns()
-    local theme = self.ActiveTheme
-    if #self.UI.ActiveDropdowns == 0 then return end
-
-    for _, el in ipairs(self.UI.ActiveDropdowns) do
-        local masterOpacity = 1 -- Списки всегда полностью видимы, когда открыты
-        local z = el.zIndex and (el.zIndex + 10) or 15 -- Высокий zIndex, чтобы быть поверх
-
-        -- Перерисовываем фон и рамки
-        self:_SetVisibility(el.OptionBackground, true)
-        self:_SetVisibility(el.BorderLeft, true)
-        self:_SetVisibility(el.BorderRight, true)
-        self:_SetVisibility(el.BorderBottom, true)
-
-        self:_AnimateAndApplyColor(el.OptionBackground, theme.Colors.SectionBackground, masterOpacity)
-        self:_AnimateAndApplyColor(el.BorderLeft, theme.Colors.Separator, masterOpacity)
-        self:_AnimateAndApplyColor(el.BorderRight, theme.Colors.Separator, masterOpacity)
-        self:_AnimateAndApplyColor(el.BorderBottom, theme.Colors.Separator, masterOpacity)
-
-        -- Позиционируем фон
-        local dropdownButtonX = el.Button.Position.x
-        local dropdownButtonY = el.Button.Position.y
-        local optionListHeight = #el.Options * 20 + 5
-        local bgX, bgY, bgW, bgH = dropdownButtonX, dropdownButtonY + el.Size.height, el.Size.width, optionListHeight
-        
-        el.OptionBackground.Position = {bgX, bgY}; el.OptionBackground.Size = {bgW, bgH}
-        el.BorderLeft.From = {bgX, bgY}; el.BorderLeft.To = {bgX, bgY + bgH}
-        el.BorderRight.From = {bgX + bgW, bgY}; el.BorderRight.To = {bgX + bgW, bgY + bgH}
-        el.BorderBottom.From = {bgX, bgY + bgH}; el.BorderBottom.To = {bgX + bgW, bgY + bgH}
-
-        -- Отрисовываем тексты опций
-        local optionY = dropdownButtonY + el.Size.height + 5
-        for i, option in ipairs(el.OptionList) do
-            self:_SetVisibility(option, true)
-            option.Position = {dropdownButtonX + 5, optionY}
-            option.zIndex = z + 1 -- Убедимся, что текст поверх фона
-            
-            local isSelected = (el.type == "Dropdown" and self.UI.Values[el.id] == el.Options[i]) or (el.type == "Multidropdown" and table.find(self.UI.Values[el.id], el.Options[i]))
-            local targetOptColor = isSelected and theme.Colors.Accent or theme.Colors.TextPrimary
-            self:_AnimateAndApplyColor(option, targetOptColor, masterOpacity)
-
-            optionY = optionY + 20
-        end
-    end
-end
-
 function Library:_InputLoop()
     local mouse_pos = getmouseposition()
     if not mouse_pos then return end
@@ -2013,7 +1942,7 @@ function Library:_InputLoop()
                 picker.isDraggingOpacity = true
             elseif picker.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, picker.SaturationValueRegion) then
                 picker.isDraggingSaturationValue = true
-            elseif not self.UI.Popups.About.IsOpen and not self.UI.Popups.PlayerESP.IsOpen and not self.UI.Popups.EditStyle.IsOpen and not self.UI.Popups.ColorPicker.IsOpen and not configsTab.OptionsPopup.IsOpen and #self.UI.ActiveDropdowns == 0 then
+            elseif not self.UI.Popups.About.IsOpen and not self.UI.Popups.PlayerESP.IsOpen and not self.UI.Popups.EditStyle.IsOpen and not self.UI.Popups.ColorPicker.IsOpen and not configsTab.OptionsPopup.IsOpen then
                  local started_slider_drag = false
                  if self.Window.ActiveTab ~= "Configs" then
                     for _, section in ipairs(self.UI.Sections) do
@@ -2047,7 +1976,6 @@ function Library:_InputLoop()
         if picker.isDraggingHue then picker.isDraggingHue = false end
         if picker.isDraggingOpacity then picker.isDraggingOpacity = false end
         if picker.isDraggingSaturationValue then picker.isDraggingSaturationValue = false end
-        is_dragging_something = false
     end
 
     if self.Window.IsDragging then self.Window.X = mouse_x - drag_offset.x; self.Window.Y = mouse_y - drag_offset.y; end
@@ -2284,119 +2212,53 @@ function Library:_InputLoop()
                      esppopup.IsOpen = false; esppopup.Keybind.IsListening = false
                  end
             else
-                -- НОВЫЙ БЛОК: Обработка открытых dropdown/multidropdown
-                if #self.UI.ActiveDropdowns > 0 then
-                    for i = #self.UI.ActiveDropdowns, 1, -1 do
-                        local el = self.UI.ActiveDropdowns[i]
-                        local listX, listY = el.Button.Position.x, el.Button.Position.y + el.Size.height
-                        local listW, listH = el.Size.width, #el.Options * 20 + 5
-                        local listRegion = {x1 = listX, y1 = listY, x2 = listX + listW, y2 = listY + listH}
-
-                        if self:_IsPointInRegion(mouse_x, mouse_y, listRegion) then
-                            local optionY = listY + 5
-                            for optIdx, _ in ipairs(el.OptionList) do
-                                local optionRegion = {x1 = listX, y1 = optionY, x2 = listX + listW, y2 = optionY + 20}
-                                if self:_IsPointInRegion(mouse_x, mouse_y, optionRegion) then
-                                    if el.type == "Dropdown" then
-                                        self.UI.Values[el.id] = el.Options[optIdx]
-                                        el.IsOpen = false
-                                        table.remove(self.UI.ActiveDropdowns, i)
-                                    elseif el.type == "Multidropdown" then
-                                        local opt = el.Options[optIdx]
-                                        local idx = table.find(self.UI.Values[el.id], opt)
-                                        if idx then
-                                            table.remove(self.UI.Values[el.id], idx)
-                                        else
-                                            table.insert(self.UI.Values[el.id], opt)
-                                        end
-                                    end
-                                    if el.Callback then el.Callback(self.UI.Values[el.id]) end
-                                    click_was_handled = true
-                                    break
-                                end
-                                optionY = optionY + 20
-                            end
-                        elseif not self:_IsPointInRegion(mouse_x, mouse_y, el.ClickRegion) then
-                            -- Закрытие при клике вне списка
-                            el.IsOpen = false
-                            table.remove(self.UI.ActiveDropdowns, i)
-                            click_was_handled = true
+                if self.Window.ActiveTab == "Configs" then
+                    local config_item_clicked = false
+                    for i, item in ipairs(configsTab.Items) do
+                        local d = item.Drawing
+                        if configsTab.LoadedConfigName == item.Name and self:_IsPointInRegion(mouse_x, mouse_y, d.SaveButton.ClickRegion) then
+                            self:_SaveConfig(item.Name)
+                            config_item_clicked = true; break
+                        elseif configsTab.LoadedConfigName ~= item.Name and self:_IsPointInRegion(mouse_x, mouse_y, d.LoadButton.ClickRegion) then
+                            self:_LoadConfig(item.Name)
+                            config_item_clicked = true; break
+                        elseif self:_IsPointInRegion(mouse_x, mouse_y, d.OptionsButton.ClickRegion) then
+                            local popup = configsTab.OptionsPopup
+                            popup.IsOpen = not popup.IsOpen
+                            popup.ItemIndex = i
+                            popup.Pos = {x = mouse_x - 155, y = mouse_y}
+                            config_item_clicked = true; break
                         end
-
-                        if click_was_handled then break end
                     end
+                    if config_item_clicked then click_was_handled = true end
                 end
 
-                -- НОВЫЙ БЛОК: Обработка клика по кнопке dropdown/multidropdown
-                if not click_was_handled and self.Window.ActiveTab ~= "Configs" then
+                if not click_was_handled then
                     for _, section in ipairs(self.UI.Sections) do
                         if section.ParentTab == self.Window.ActiveTab then
                             for _, el in ipairs(section.Elements) do
-                                if (el.type == "Dropdown" or el.type == "Multidropdown") and self:_IsPointInRegion(mouse_x, mouse_y, el.ClickRegion) then
-                                    el.IsOpen = not el.IsOpen
-                                    clicked_dropdown_button = el
-                                    if el.IsOpen then
-                                        table.insert(self.UI.ActiveDropdowns, el)
-                                    else
-                                        for i, activeEl in ipairs(self.UI.ActiveDropdowns) do
-                                            if activeEl == el then
-                                                table.remove(self.UI.ActiveDropdowns, i)
-                                                break
-                                            end
+                                if (el.type == "Dropdown" or el.type == "Multidropdown") and el.IsOpen then
+                                    local dropdownButtonX = el.Button.Position.x
+                                    local optionY = el.Button.Position.y + el.Size.height + 5
+                                    for i, option_text in ipairs(el.OptionList) do
+                                        local optionRegion = {x1 = dropdownButtonX, y1 = optionY, x2 = dropdownButtonX + el.Size.width, y2 = optionY + 20}
+                                        if self:_IsPointInRegion(mouse_x, mouse_y, optionRegion) then
+                                            if el.type == "Dropdown" then self.UI.Values[el.id] = el.Options[i]; if el.Callback then el.Callback(self.UI.Values[el.id]) end; el.IsOpen = false;
+                                            else local opt = el.Options[i]; local found_idx = table.find(self.UI.Values[el.id], opt); if found_idx then table.remove(self.UI.Values[el.id], found_idx) else table.insert(self.UI.Values[el.id], opt) end; if el.Callback then el.Callback(self.UI.Values[el.id]) end; clicked_dropdown_button = el end
+                                            click_was_handled = true; break
                                         end
+                                        optionY = optionY + 20
                                     end
-                                    click_was_handled = true
-                                    break
                                 end
+                                if click_was_handled then break end
                             end
                         end
                         if click_was_handled then break end
                     end
                 end
 
-                -- НОВЫЙ БЛОК: Закрытие всех dropdown/multidropdown, кроме кликнутого
-                if clicked_dropdown_button then
-                    for _, section in ipairs(self.UI.Sections) do
-                        for _, el in ipairs(section.Elements) do
-                            if (el.type == "Dropdown" or el.type == "Multidropdown") and el ~= clicked_dropdown_button and el.IsOpen then
-                                el.IsOpen = false
-                                for i, activeEl in ipairs(self.UI.ActiveDropdowns) do
-                                    if activeEl == el then
-                                        table.remove(self.UI.ActiveDropdowns, i)
-                                        break
-                                    end
-                                end
-                            end
-                        end
-                    end
-                end
-
-                -- Оригинальная логика обработки Configs и других элементов
                 if not click_was_handled then
-                    if self.Window.ActiveTab == "Configs" then
-                        local config_item_clicked = false
-                        for i, item in ipairs(configsTab.Items) do
-                            local d = item.Drawing
-                            if configsTab.LoadedConfigName == item.Name and self:_IsPointInRegion(mouse_x, mouse_y, d.SaveButton.ClickRegion) then
-                                self:_SaveConfig(item.Name)
-                                config_item_clicked = true; break
-                            elseif configsTab.LoadedConfigName ~= item.Name and self:_IsPointInRegion(mouse_x, mouse_y, d.LoadButton.ClickRegion) then
-                                self:_LoadConfig(item.Name)
-                                config_item_clicked = true; break
-                            elseif self:_IsPointInRegion(mouse_x, mouse_y, d.OptionsButton.ClickRegion) then
-                                local popup = configsTab.OptionsPopup
-                                popup.IsOpen = not popup.IsOpen
-                                popup.ItemIndex = i
-                                popup.Pos = {x = mouse_x - 155, y = mouse_y}
-                                config_item_clicked = true; break
-                            end
-                        end
-                        if config_item_clicked then click_was_handled = true end
-                    end
-                end
-
-                if not click_was_handled then
-                    -- Управление кликами по кнопкам в шапке
+                    -- [ИЗМЕНЕНО] Управление кликами по кнопкам в шапке
                     local create_btn_region = self.UI.Core.HeaderButtons.CreateNew.ClickRegion
                     local save_btn_region = self.UI.Core.HeaderButtons.Save.ClickRegion
                     local view_esp_region = self.UI.Core.HeaderButtons.ViewESP.ClickRegion
@@ -2425,6 +2287,7 @@ function Library:_InputLoop()
                                             elseif self:_IsPointInRegion(mouse_x, mouse_y, el.ClickRegion) then
                                                 click_was_handled = true
                                                 if el.type == "Toggle" then self.UI.Values[el.id] = not self.UI.Values[el.id]; if el.Callback then el.Callback(self.UI.Values[el.id]) end;
+                                                elseif el.type == "Dropdown" or el.type == "Multidropdown" then clicked_dropdown_button = el; el.IsOpen = not el.IsOpen;
                                                 end; break
                                             end
                                         end
@@ -2435,6 +2298,7 @@ function Library:_InputLoop()
                         end
                     end
                 end
+                for _, section in ipairs(self.UI.Sections) do for _, el in ipairs(section.Elements) do if (el.type == "Dropdown" or el.type == "Multidropdown") and el ~= clicked_dropdown_button then el.IsOpen = false; end end end
             end
         end
     end
@@ -2510,7 +2374,7 @@ function Library:_AddPresetsTab()
         tab.Highlight.Rounding = self.ActiveTheme.Rounding.Element + 3
         tab.Highlight.Visible = true
     end
-
+    
     if tab.Text then
         tab.Text.Font = self.ActiveTheme.Fonts.Main; tab.Text.Size = self.ActiveTheme.Fonts.TabSize; tab.Text.Text = tabName; tab.Text.Center = false; tab.Text.Outline = false; tab.Text.zIndex = 3; end
     if tab.Icon then
@@ -2524,7 +2388,7 @@ end
 
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3bbb1")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 31")
     local is_first_frame = true
     while self.Window.Visible do
         if is_first_frame then
