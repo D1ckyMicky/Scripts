@@ -1136,9 +1136,22 @@ function Library:_RenderPlayerESPSettingsPopup()
     self:_AnimateAndApplyColor(popup.Separator, theme.Colors.Separator)
     self:_AnimateAndApplyColor(popup.BindLabel, theme.Colors.TextSecondary)
     
-    local accentColor = theme.Colors.Accent
-    self:_AnimateAndApplyColor(popup.Keybind.Button, accentColor)
-    self:_AnimateAndApplyColor(popup.Keybind.ButtonText, self:_GetTextColorForBackground(accentColor))
+    -- [[ ИСПРАВЛЕНИЕ: Логика цвета для кнопки Keybind ]]
+    local keybind = popup.Keybind
+    
+    -- Задаем цвета по умолчанию (как у Dropdown)
+    local buttonBackgroundColor = theme.Colors.DarkBlue
+    local buttonTextColor = theme.Colors.TextPrimary
+
+    -- Если кнопка "слушает" нажатие, подсвечиваем ее
+    if keybind.IsListening then
+        buttonBackgroundColor = theme.Colors.Accent
+        buttonTextColor = self:_GetTextColorForBackground(buttonBackgroundColor)
+    end
+    
+    self:_AnimateAndApplyColor(keybind.Button, buttonBackgroundColor)
+    self:_AnimateAndApplyColor(keybind.ButtonText, buttonTextColor)
+    -- Конец исправления
 
     local pX, pY = popup.Pos.x, popup.Pos.y
     local pW = 250
@@ -1150,12 +1163,17 @@ function Library:_RenderPlayerESPSettingsPopup()
     currentY = currentY + 15
     local elementY = currentY
     if popup.BindLabel then popup.BindLabel.Position = {pX + 10, elementY}; end
-    local keybind = popup.Keybind
+    
     local bindButtonX = pX + pW - keybind.Size.width - 15
     local bindButtonY = elementY - 5
     if keybind.Button then keybind.Button.Position = {bindButtonX, bindButtonY}; keybind.Button.Size = {keybind.Size.width, keybind.Size.height}; end
-    if keybind.ButtonText then keybind.ButtonText.Position = {bindButtonX + (keybind.Size.width / 2), bindButtonY + (keybind.Size.height / 2) - (keybind.ButtonText.Size / 2)}; keybind.ButtonText.Center = true; keybind.ButtonText.Text = keybind.IsListening and "..." or self.UI.Values[keybind.id]; end
+    if keybind.ButtonText then 
+        keybind.ButtonText.Position = {bindButtonX + (keybind.Size.width / 2), bindButtonY + (keybind.Size.height / 2) - (keybind.ButtonText.Size / 2)}; 
+        keybind.ButtonText.Center = true; 
+        keybind.ButtonText.Text = keybind.IsListening and "..." or string.upper(self.UI.Values[keybind.id]); 
+    end
     keybind.ClickRegion = {x1 = bindButtonX, y1 = bindButtonY, x2 = bindButtonX + keybind.Size.width, y2 = bindButtonY + keybind.Size.height}
+    
     currentY = currentY + 30
     currentY = currentY + 5
     local totalHeight = currentY - pY
@@ -2620,7 +2638,7 @@ function Library:_Internal_CreateKeybind(options)
     end
     local z = options.zIndex or 4
     local keybind = { id = options.id, type = "Keybind", Name = options.Name, Size = {width = 50, height = 25}, Callback = options.Callback, Button = self:_CreateDrawingObject("Square"), ButtonText = self:_CreateDrawingObject("Text"), IsListening = false, ClickRegion = {} }
-    if keybind.Button then keybind.Button.Filled = false; keybind.Button.Thickness = 1; keybind.Button.zIndex = z; keybind.Button.Rounding = self.ActiveTheme.Rounding.Element; end
+    if keybind.Button then keybind.Button.Filled = True; keybind.Button.Thickness = 1; keybind.Button.zIndex = z; keybind.Button.Rounding = self.ActiveTheme.Rounding.Element; end
     if keybind.ButtonText then keybind.ButtonText.Font = self.ActiveTheme.Fonts.Main; keybind.ButtonText.Size = self.ActiveTheme.Fonts.Size; keybind.ButtonText.Text = self.UI.Values[keybind.id]; keybind.ButtonText.Center = false; keybind.ButtonText.Outline = false; keybind.ButtonText.zIndex = z + 1; end
     return keybind
 end
