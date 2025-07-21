@@ -152,6 +152,19 @@ function Library:_CreateDrawingObject(class)
     return object
 end
 
+function Library:_LerpVector(from, to, alpha)
+    -- Эта функция плавно интерполирует позицию от 'from' до 'to'
+    local fromX = (from and from[1]) or 0
+    local fromY = (from and from[2]) or 0
+    local toX = (to and to[1]) or 0
+    local toY = (to and to[2]) or 0
+    
+    local newX = fromX + (toX - fromX) * alpha
+    local newY = fromY + (toY - fromY) * alpha
+    
+    return {newX, newY}
+end
+
 function Library:_DeepCopy(original)
     local copy = {}
     for k, v in pairs(original) do
@@ -1080,22 +1093,25 @@ function Library:_RenderAboutWindow(mouse_pos)
     toggle.Back.Size = {toggle.Size.width, toggle.Size.height}; 
     toggle.ClickRegion = {x1 = toggleBackX, y1 = currentY, x2 = toggleBackX + toggle.Size.width, y2 = currentY + toggle.Size.height + 8}; 
     
-    --[[ НОВОЕ: Анимация ползунка (Nub) для окна About ]]
+-- [[ ИСПРАВЛЕННАЯ АНИМАЦИЯ для окна About ]]
     local is_on = self.UI.Values[toggle.id]
-    local targetBackColor, targetNubColor
+    local nubY = currentY + 4 + toggle.Size.height / 2
     local targetNubX = is_on and (toggleBackX + toggle.Size.width - 5) or (toggleBackX + 5)
-    
+    local targetPosition = {targetNubX, nubY}
+
     local nub_state = self.AnimationState[toggle.Nub]
     if not nub_state then
-        nub_state = { CurrentX = targetNubX }
+        nub_state = { CurrentPosition = targetPosition }
         self.AnimationState[toggle.Nub] = nub_state
     end
 
     local speed_value = self.UI.Values["AboutAnimationSpeed"] or 1.6
     local animationSpeed = speed_value / 10.0
 
-    nub_state.CurrentX = nub_state.CurrentX + (targetNubX - nub_state.CurrentX) * animationSpeed
-    
+    nub_state.CurrentPosition = self:_LerpVector(nub_state.CurrentPosition, targetPosition, animationSpeed)
+    toggle.Nub.Position = nub_state.CurrentPosition
+
+    local targetBackColor, targetNubColor
     if is_on then
         targetBackColor = self:_DarkenColor(theme.Colors.Accent, 0.3)
         targetNubColor = theme.Colors.Accent
@@ -1104,7 +1120,6 @@ function Library:_RenderAboutWindow(mouse_pos)
         targetNubColor = theme.Colors.LightGray
     end
     
-    toggle.Nub.Position = {nub_state.CurrentX, currentY + 4 + toggle.Size.height/2}
     self:_AnimateAndApplyColor(toggle.Back, targetBackColor)
     self:_AnimateAndApplyColor(toggle.Nub, targetNubColor)
     
@@ -1700,44 +1715,38 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
                 if el.HasSettings and el.SettingsIcon then self:_AnimateAndApplyColor(el.SettingsIcon, theme.Colors.TextSecondary) end
 
                 if el.type == "Toggle" then
-                    warn("--- Рендеринг Toggle: " .. (el.id or 'N/A') .. " ---")
                     el.Label.Position = {sectionX + 10, elementY};
                     local toggleBackX = sectionX + columnWidth - el.Size.width - 15
                     el.Back.Position = {toggleBackX, elementY + 2}; el.Back.Size = {el.Size.width, el.Size.height}; el.ClickRegion = {x1 = toggleBackX, y1 = elementY, x2 = toggleBackX + el.Size.width, y2 = elementY + el.Size.height + 4}
 
-                    warn("Шаг 1: Расчет целевой позиции...")
+                    -- [[ ИСПРАВЛЕННАЯ АНИМАЦИЯ ]]
                     local is_on = self.UI.Values[el.id]
+                    local nubY = elementY + 2 + el.Size.height / 2
                     local targetNubX = is_on and (toggleBackX + el.Size.width - 5) or (toggleBackX + 5)
+                    local targetPosition = {targetNubX, nubY}
                     
-                    warn("Шаг 2: Получение состояния анимации...")
                     local nub_state = self.AnimationState[el.Nub]
                     if not nub_state then
-                        warn("   -> Состояние не найдено, создается новое.")
-                        nub_state = { CurrentX = targetNubX }
+                        nub_state = { CurrentPosition = targetPosition }
                         self.AnimationState[el.Nub] = nub_state
                     end
-                    
-                    warn("Шаг 3: Расчет скорости анимации...")
+
                     local speed_value = self.UI.Values["AboutAnimationSpeed"] or 1.6
                     local animationSpeed = speed_value / 10.0
 
-                    warn("Шаг 4: Интерполяция X-координаты...")
-                    nub_state.CurrentX = nub_state.CurrentX + (targetNubX - nub_state.CurrentX) * animationSpeed
-                    warn("   -> Новая X: " .. tostring(nub_state.CurrentX))
-
+                    -- Анимируем всю позицию, а не только X
+                    nub_state.CurrentPosition = self:_LerpVector(nub_state.CurrentPosition, targetPosition, animationSpeed)
+                    el.Nub.Position = nub_state.CurrentPosition
+                    
                     local targetBackColor, targetNubColor
                     if is_on then
-                        -- Я временно упростил эту строку для отладки
                         targetBackColor = self:_DarkenColor(theme.Colors.Accent, 0.3)
                         targetNubColor = theme.Colors.Accent
                     else
                         targetBackColor = theme.Colors.DarkGray
                         targetNubColor = theme.Colors.LightGray
                     end
-
-                    warn("Шаг 5: Установка позиции Nub...")
-                    el.Nub.Position = {nub_state.CurrentX, elementY + 2 + el.Size.height/2}
-                    warn("Шаг 6: Анимация цветов...")
+                    
                     self:_AnimateAndApplyColor(el.Back, targetBackColor)
                     self:_AnimateAndApplyColor(el.Nub, targetNubColor)
                     
@@ -1747,8 +1756,6 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
                         el.SettingsClickRegion = {x1 = iconX, y1 = elementY, x2 = iconX + el.SettingsIcon.Size.x, y2 = elementY + el.SettingsIcon.Size.y} 
                     end
                     elementY = elementY + 35
-                    warn("--- Завершен Toggle: " .. (el.id or 'N/A') .. " ---")
-
 
                 elseif el.type == "Slider" then
                     self:_AnimateAndApplyColor(el.LeftFill, theme.Colors.Accent)
@@ -2422,7 +2429,7 @@ end
 
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 351")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 31")
     local is_first_frame = true
     while self.Window.Visible do
         if is_first_frame then
