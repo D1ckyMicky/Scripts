@@ -25,10 +25,8 @@ Library.Window = {
     Visible = true, X = 400, Y = 200, Width = 750, Height = 620,
     SidebarWidth = 187, HeaderHeight = 65, IsDragging = false,
     ActiveTab = "", PanelOverlap = 4,
-    LastRenderedTab = "",
-    TransitionState = "none" -- << ДОБАВЬТЕ ЭТУ СТРОКУ
+    LastRenderedTab = "" -- << ДОБАВЬТЕ ЭТУ СТРОКУ
 }
-
 
 Library.ConfigFolderPath = "NL_Configs" -- Новая папка для конфигов
 
@@ -147,20 +145,6 @@ end
 --================================================================
 --[[ PRIVATE: HELPER FUNCTIONS ]]
 --================================================================
-
-function Library:_HideSection(section)
-    for _, obj in pairs(section.Drawing) do self:_SetVisibility(obj, false) end
-    for _, el in ipairs(section.Elements) do
-        for k, v in pairs(el) do
-            if type(v) == 'table' and v.Visible ~= nil then self:_SetVisibility(v, false) end
-        end
-        if el.OptionList then
-            el.IsOpen = false -- Закрываем дропдаун принудительно
-            for _, opt in ipairs(el.OptionList) do self:_SetVisibility(opt, false) end
-        end
-        if el.Glow then self:_HideGlowEffect(el.Glow) end
-    end
-end
 
 function Library:_CreateDrawingObject(class)
     local success, object = pcall(Drawing.new, class)
@@ -1575,7 +1559,6 @@ function Library:_RenderLoop()
     self:_RenderAboutWindow(mouse_pos)
     self:_RenderEditStyleWindow()
     self:_RenderColorPickerWindow()
-    --[[ НОВОЕ: Запоминаем текущую вкладку для следующего кадра ]]
     self.Window.LastRenderedTab = self.Window.ActiveTab
 end
 
@@ -1644,123 +1627,6 @@ function Library:_RenderTabs(x, y, width)
     end
 end
 
-function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, yOffset, masterOpacity)
-    if masterOpacity < 0.01 then
-        self:_HideSection(section) -- Используем новую функцию для чистого скрытия
-        return 0
-    end
-
-    local theme = self.ActiveTheme
-    local animatedY = sectionY + yOffset
-    
-    local sDrawing = section.Drawing
-    for _, obj in pairs(sDrawing) do self:_SetVisibility(obj, true) end
-    self:_AnimateAndApplyColor(sDrawing.Background, theme.Colors.SectionBackground, masterOpacity)
-    self:_AnimateAndApplyColor(sDrawing.Border, theme.Colors.Separator, masterOpacity)
-    self:_AnimateAndApplyColor(sDrawing.Title, theme.Colors.TextPrimary, masterOpacity)
-    self:_AnimateAndApplyColor(sDrawing.Separator, theme.Colors.Separator, masterOpacity)
-    
-    sDrawing.Background.Position = {sectionX, animatedY}
-    sDrawing.Border.Position = {sectionX, animatedY}
-    sDrawing.Title.Position = {sectionX + 10, animatedY + 8}
-    local separatorY_abs = sDrawing.Title.Position.y + sDrawing.Title.Size + 5
-    sDrawing.Separator.From = {sectionX + 10, separatorY_abs}; sDrawing.Separator.To = {sectionX + columnWidth - 10, separatorY_abs}
-    
-    local elementY_offset = (separatorY_abs - animatedY) + 15
-    
-    for _, el in ipairs(section.Elements) do
-        for k, v in pairs(el) do if type(v) == 'table' and v.Visible ~= nil then self:_SetVisibility(v, true) end end
-        if el.OptionList then for i, opt in ipairs(el.OptionList) do self:_SetVisibility(opt, el.IsOpen) end end
-
-        local currentElementY = animatedY + elementY_offset
-        self:_AnimateAndApplyColor(el.Label, theme.Colors.TextSecondary, masterOpacity)
-
-        if el.type == "Toggle" then
-            el.Label.Position = {sectionX + 10, currentElementY}
-            local toggleBackX = sectionX + columnWidth - el.Size.width - 15
-            el.Back.Position = {toggleBackX, currentElementY + 2}; el.Back.Size = {el.Size.width, el.Size.height}; el.ClickRegion = {x1 = toggleBackX, y1 = currentElementY, x2 = toggleBackX + el.Size.width, y2 = currentElementY + el.Size.height + 4}
-            local is_on = self.UI.Values[el.id]
-            local nubY = currentElementY + 2 + el.Size.height / 2
-            el.Nub.Position = is_on and {toggleBackX + el.Size.width - 5, nubY} or {toggleBackX + 5, nubY}
-            local targetBackColor = is_on and self:_DarkenColor(theme.Colors.Accent, 0.3) or theme.Colors.DarkGray
-            local targetNubColor = is_on and theme.Colors.Accent or theme.Colors.LightGray
-            self:_AnimateAndApplyColor(el.Back, targetBackColor, masterOpacity)
-            self:_AnimateAndApplyColor(el.Nub, targetNubColor, masterOpacity)
-            if el.HasSettings and el.SettingsIcon then self:_AnimateAndApplyColor(el.SettingsIcon, theme.Colors.TextSecondary, masterOpacity); local iconX = toggleBackX - el.SettingsIcon.Size.x - 10; el.SettingsIcon.Position = {iconX, currentElementY}; el.SettingsClickRegion = {x1 = iconX, y1 = currentElementY, x2 = iconX + el.SettingsIcon.Size.x, y2 = currentElementY + el.SettingsIcon.Size.y} end
-            elementY_offset = elementY_offset + 35
-
-        elseif el.type == "Slider" then
-            el.Label.Position = {sectionX + 10, currentElementY}
-            local sliderBackX = sectionX + 100; local sliderBackWidth = columnWidth - 110 - 50
-            el.Back.Position = {sliderBackX, currentElementY + 8}; el.Back.Size = {sliderBackWidth, 2}; el.ClickRegion = { x1 = sliderBackX, y1 = currentElementY - 2, x2 = sliderBackX + sliderBackWidth, y2 = currentElementY + 18 };
-            local value_percentage = math.clamp(((self.UI.Values[el.id] or el.Min) - el.Min) / (el.Max - el.Min), 0, 1)
-            local nubX = sliderBackX + sliderBackWidth * value_percentage
-            el.LeftFill.Position = {sliderBackX, currentElementY + 8}; el.LeftFill.Size = {nubX - sliderBackX, 2}
-            el.RightFill.Position = {nubX, currentElementY + 8}; el.RightFill.Size = {sliderBackX + sliderBackWidth - nubX, 2}
-            el.Nub.Position = {nubX, currentElementY + 9}
-            local valueText = tostring(math.floor(self.UI.Values[el.id] or el.Min)); local valueTextX = sectionX + columnWidth - 40
-            el.ValueText.Text = valueText; el.ValueText.Position = {valueTextX, currentElementY}
-            
-            self:_AnimateAndApplyColor(el.RightFill, theme.Colors.DarkBlue, masterOpacity)
-            self:_AnimateAndApplyColor(el.LeftFill, theme.Colors.Accent, masterOpacity)
-            self:_AnimateAndApplyColor(el.Nub, theme.Colors.Accent, masterOpacity)
-            self:_AnimateAndApplyColor(el.ValueText, theme.Colors.TextPrimary, masterOpacity)
-            elementY_offset = elementY_offset + 35
-
-        elseif el.type == "Dropdown" or el.type == "Multidropdown" then
-            el.Label.Position = {sectionX + 10, currentElementY + 5}
-            local dropdownButtonX, dropdownButtonY = sectionX + columnWidth - el.Size.width - 15, currentElementY
-            el.Button.Position = {dropdownButtonX, dropdownButtonY}; el.Button.Size = {el.Size.width, el.Size.height}
-            local textToShow = (el.type == "Dropdown") and self.UI.Values[el.id] or (#self.UI.Values[el.id] == 0 and "..." or table.concat(self.UI.Values[el.id], ", ")); if #textToShow > 11 then textToShow = string.sub(textToShow, 1, 10) .. "..." end
-            el.ButtonText.Position = { dropdownButtonX + 5, dropdownButtonY + el.Size.height / 2 - el.ButtonText.Size / 2 }; el.ButtonText.Text = textToShow
-            local arrowX, arrowY = dropdownButtonX + el.Size.width - 15, dropdownButtonY + el.Size.height / 2
-            el.ArrowLine1.From = {arrowX, arrowY - 2}; el.ArrowLine1.To = {arrowX + 5, arrowY + 3}; el.ArrowLine2.From = {arrowX + 5, arrowY + 3}; el.ArrowLine2.To = {arrowX + 10, arrowY - 2}
-            el.ClickRegion = { x1 = dropdownButtonX, y1 = dropdownButtonY, x2 = dropdownButtonX + el.Size.width, y2 = dropdownButtonY + el.Size.height }
-            
-            self:_AnimateAndApplyColor(el.Button, theme.Colors.DarkBlue, masterOpacity); self:_AnimateAndApplyColor(el.ButtonText, theme.Colors.TextPrimary, masterOpacity); self:_AnimateAndApplyColor(el.ArrowLine1, theme.Colors.TextPrimary, masterOpacity); self:_AnimateAndApplyColor(el.ArrowLine2, theme.Colors.TextPrimary, masterOpacity)
-            
-            elementY_offset = elementY_offset + 35
-            
-            if el.IsOpen then
-                local optionListHeight = #el.Options * 20 + 5
-                local bgX, bgY, bgW, bgH = dropdownButtonX, dropdownButtonY + el.Size.height, el.Size.width, optionListHeight
-                
-                el.OptionBackground.Position = {bgX, bgY}; el.OptionBackground.Size = {bgW, bgH}
-                el.BorderLeft.From = {bgX, bgY}; el.BorderLeft.To = {bgX, bgY + bgH}
-                el.BorderRight.From = {bgX + bgW, bgY}; el.BorderRight.To = {bgX + bgW, bgY + bgH}
-                el.BorderBottom.From = {bgX, bgY + bgH}; el.BorderBottom.To = {bgX + bgW, bgY + bgH}
-                
-                self:_RenderGlowEffect(el.Glow, bgX, bgY, bgW, bgH, el.OptionBackground.Rounding, theme.Colors.GlowColor, {top=false, left=true, right=true, bottom=true})
-                self:_AnimateAndApplyColor(el.OptionBackground, theme.Colors.SectionBackground, masterOpacity)
-                self:_AnimateAndApplyColor(el.BorderLeft, theme.Colors.Separator, masterOpacity)
-                self:_AnimateAndApplyColor(el.BorderRight, theme.Colors.Separator, masterOpacity)
-                self:_AnimateAndApplyColor(el.BorderBottom, theme.Colors.Separator, masterOpacity)
-
-                local optionY_abs = dropdownButtonY + el.Size.height + 5
-                for i, option in ipairs(el.OptionList) do 
-                    option.Position = {dropdownButtonX + 5, optionY_abs}
-                    local isSelected = (el.type == "Dropdown" and self.UI.Values[el.id] == el.Options[i]) or (el.type == "Multidropdown" and table.find(self.UI.Values[el.id], el.Options[i]))
-                    local targetOptColor = isSelected and theme.Colors.Accent or theme.Colors.TextPrimary
-                    self:_AnimateAndApplyColor(option, targetOptColor, masterOpacity)
-                    optionY_abs = optionY_abs + 20 
-                end
-            else
-                self:_HideGlowEffect(el.Glow)
-                self:_SetVisibility(el.OptionBackground, false)
-                self:_SetVisibility(el.BorderLeft, false)
-                self:_SetVisibility(el.BorderRight, false)
-                self:_SetVisibility(el.BorderBottom, false)
-            end
-        end
-    end
-    
-    local sectionHeight = elementY_offset - ((separatorY_abs - animatedY) + 15) + 55
-    sDrawing.Background.Size = {columnWidth, sectionHeight}
-    sDrawing.Border.Size = {columnWidth, sectionHeight}
-    
-    return sectionHeight
-end
-
 function Library:_RenderSections(panelX, panelY, headerHeight)
     local leftColumnY = panelY + headerHeight + 20
     local rightColumnY = panelY + headerHeight + 20
@@ -1768,88 +1634,128 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
     local columnWidth = ((self.Window.Width - self.Window.SidebarWidth + self.Window.PanelOverlap) - (columnSpacing * 3)) / 2
     local leftColumnX = panelX + columnSpacing
     local rightColumnX = leftColumnX + columnWidth + columnSpacing
-    
+    local theme = self.ActiveTheme
+
     local ANIMATION_SLIDE_DISTANCE = 15
     local tab_changed = self.Window.ActiveTab ~= self.Window.LastRenderedTab
 
-    -- 1. Управление состоянием перехода
-    if tab_changed and self.Window.TransitionState == "none" then
-        self.Window.TransitionState = "fading_out"
-    -- [[ FIX: Обработка быстрого переключения ]]
-    elseif tab_changed and self.Window.TransitionState ~= "none" then
-        -- Если пользователь кликнул снова во время анимации, "сбрасываем" старую вкладку
-        for _, section in ipairs(self.UI.Sections) do
-            if section.ParentTab == self.Window.LastRenderedTab then
-                local anim_state = self.AnimationState[section.Drawing.Background]
-                if anim_state then anim_state.Opacity = 0 end
-            end
-        end
-        -- И начинаем новый переход
-        self.Window.LastRenderedTab = self.Window.ActiveTab -- Это единственное место, где мы меняем LastRenderedTab вручную
-        self.Window.TransitionState = "fading_out"
-    end
-
-    local sections_fading_out_count = 0
-    local sections_fading_in_count = 0
-
-    -- 2. Основной цикл рендера и анимации
     for _, section in ipairs(self.UI.Sections) do
-        local is_active = (section.ParentTab == self.Window.ActiveTab)
-        local is_last_active = (section.ParentTab == self.Window.LastRenderedTab)
-        local anim_state = self.AnimationState[section.Drawing.Background]
-        if not anim_state then anim_state = { Opacity = 0, YOffset = 0 }; self.AnimationState[section.Drawing.Background] = anim_state end
+        local is_active_now = section.ParentTab == self.Window.ActiveTab
+        local was_active_before = section.ParentTab == self.Window.LastRenderedTab
+        
+        local is_appearing = is_active_now and tab_changed
+        local is_disappearing = not is_active_now and was_active_before and tab_changed
+        
+        local state_key = section.Drawing.Background
+        local anim_state = self.AnimationState[state_key]
+        if not anim_state then
+            anim_state = { Opacity = is_active_now and 1 or 0, YOffset = 0 }
+            self.AnimationState[state_key] = anim_state
+        end
+
+        if is_appearing then
+            anim_state.Opacity = 0
+            anim_state.YOffset = ANIMATION_SLIDE_DISTANCE
+        end
+        
+        local targetOpacity = is_active_now and 1 or 0
+        local targetYOffset = is_disappearing and ANIMATION_SLIDE_DISTANCE or 0
 
         local speed_value = self.UI.Values["AboutAnimationSpeed"] or 1.6
         local animationSpeed = speed_value / 12.0
-        
-        if is_last_active and self.Window.TransitionState == "fading_out" then
-            -- Анимируем исчезновение старых секций
-            local targetOpacity, targetYOffset = 0, ANIMATION_SLIDE_DISTANCE
-            anim_state.Opacity = anim_state.Opacity + (targetOpacity - anim_state.Opacity) * animationSpeed
-            anim_state.YOffset = anim_state.YOffset + (targetYOffset - anim_state.YOffset) * animationSpeed
+        anim_state.Opacity = anim_state.Opacity + (targetOpacity - anim_state.Opacity) * animationSpeed
+        anim_state.YOffset = anim_state.YOffset + (targetYOffset - anim_state.YOffset) * animationSpeed
 
-            local sectionX = (section.LastPos and section.LastPos.X) or 0
-            local sectionY = (section.LastPos and section.LastPos.Y) or 0
-            self:_RenderSingleSection(section, sectionX, sectionY, columnWidth, anim_state.YOffset, anim_state.Opacity)
-            
-            if anim_state.Opacity > 0.01 then sections_fading_out_count = sections_fading_out_count + 1 end
-
-        elseif is_active and self.Window.TransitionState == "fading_in" then
-             -- Анимируем появление новых секций
-            local targetOpacity, targetYOffset = 1, 0
-            anim_state.Opacity = anim_state.Opacity + (targetOpacity - anim_state.Opacity) * animationSpeed
-            anim_state.YOffset = anim_state.YOffset + (targetYOffset - anim_state.YOffset) * animationSpeed
-
-            local sectionX, sectionY
-            if section.Side == "Left" then sectionX, sectionY = leftColumnX, leftColumnY else sectionX, sectionY = rightColumnX, rightColumnY end
-            
-            local sectionHeight = self:_RenderSingleSection(section, sectionX, sectionY, columnWidth, anim_state.YOffset, anim_state.Opacity)
-            section.LastPos = { X = sectionX, Y = sectionY, Height = sectionHeight }
-            if section.Side == "Left" then leftColumnY = leftColumnY + sectionHeight + columnSpacing else rightColumnY = rightColumnY + sectionHeight + columnSpacing end
-
-            if anim_state.Opacity < 0.99 then sections_fading_in_count = sections_fading_in_count + 1 end
-        
-        elseif is_active and self.Window.TransitionState == "none" then
-             -- Обычный рендер активной вкладки
-            anim_state.Opacity, anim_state.YOffset = 1, 0
-            local sectionX, sectionY
-            if section.Side == "Left" then sectionX, sectionY = leftColumnX, leftColumnY else sectionX, sectionY = rightColumnX, rightColumnY end
-            
-            local sectionHeight = self:_RenderSingleSection(section, sectionX, sectionY, columnWidth, anim_state.YOffset, anim_state.Opacity)
-            section.LastPos = { X = sectionX, Y = sectionY, Height = sectionHeight }
-            if section.Side == "Left" then leftColumnY = leftColumnY + sectionHeight + columnSpacing else rightColumnY = rightColumnY + sectionHeight + columnSpacing end
-        else
-            -- Все остальные секции должны быть скрыты
-            self:_HideSection(section)
+        if anim_state.Opacity < 0.01 then
+            for _, obj in pairs(section.Drawing) do self:_SetVisibility(obj, false) end
+            for _, el in ipairs(section.Elements) do for k, v in pairs(el) do if type(v) == 'table' and v.Visible ~= nil then self:_SetVisibility(v, false) end end; if el.OptionList then for _, opt in ipairs(el.OptionList) do self:_SetVisibility(opt, false) end end end
+            -- continue
         end
-    end
 
-    -- 3. Смена состояний анимации
-    if self.Window.TransitionState == "fading_out" and sections_fading_out_count == 0 then
-        self.Window.TransitionState = "fading_in"
-    elseif self.Window.TransitionState == "fading_in" and sections_fading_in_count == 0 then
-        self.Window.TransitionState = "none"
-        self.Window.LastRenderedTab = self.Window.ActiveTab -- Обновляем здесь, когда все закончено
+        local sectionX, sectionY
+        if section.Side == "Left" then sectionX, sectionY = leftColumnX, leftColumnY else sectionX, sectionY = rightColumnX, rightColumnY end
+        
+        local animatedY = sectionY + anim_state.YOffset
+        local masterOpacity = anim_state.Opacity
+        
+        local sDrawing = section.Drawing
+        for _, obj in pairs(sDrawing) do self:_SetVisibility(obj, true) end
+        self:_AnimateAndApplyColor(sDrawing.Background, theme.Colors.SectionBackground, masterOpacity)
+        self:_AnimateAndApplyColor(sDrawing.Border, theme.Colors.Separator, masterOpacity)
+        self:_AnimateAndApplyColor(sDrawing.Title, theme.Colors.TextPrimary, masterOpacity)
+        self:_AnimateAndApplyColor(sDrawing.Separator, theme.Colors.Separator, masterOpacity)
+        
+        sDrawing.Background.Position = {sectionX, animatedY}
+        sDrawing.Border.Position = {sectionX, animatedY}
+        sDrawing.Title.Position = {sectionX + 10, animatedY + 8}
+        local separatorY = sDrawing.Title.Position.y + sDrawing.Title.Size + 5
+        sDrawing.Separator.From = {sectionX + 10, separatorY}; sDrawing.Separator.To = {sectionX + columnWidth - 10, separatorY};
+        
+        local elementY = separatorY + 15
+        
+        for _, el in ipairs(section.Elements) do
+            for k, v in pairs(el) do if type(v) == 'table' and v.Visible ~= nil then self:_SetVisibility(v, true) end end
+            if el.OptionList then for i, opt in ipairs(el.OptionList) do self:_SetVisibility(opt, el.IsOpen) end end
+
+            local currentElementY = elementY - sectionY + animatedY
+            self:_AnimateAndApplyColor(el.Label, theme.Colors.TextSecondary, masterOpacity)
+
+            if el.type == "Toggle" then
+                el.Label.Position = {sectionX + 10, currentElementY};
+                local toggleBackX = sectionX + columnWidth - el.Size.width - 15
+                el.Back.Position = {toggleBackX, currentElementY + 2}; el.Back.Size = {el.Size.width, el.Size.height}; el.ClickRegion = {x1 = toggleBackX, y1 = currentElementY, x2 = toggleBackX + el.Size.width, y2 = currentElementY + el.Size.height + 4}
+                local is_on = self.UI.Values[el.id]
+                local nubY = currentElementY + 2 + el.Size.height / 2
+                el.Nub.Position = is_on and {toggleBackX + el.Size.width - 5, nubY} or {toggleBackX + 5, nubY}
+                local targetBackColor = is_on and self:_DarkenColor(theme.Colors.Accent, 0.3) or theme.Colors.DarkGray
+                local targetNubColor = is_on and theme.Colors.Accent or theme.Colors.LightGray
+                self:_AnimateAndApplyColor(el.Back, targetBackColor, masterOpacity)
+                self:_AnimateAndApplyColor(el.Nub, targetNubColor, masterOpacity)
+                if el.HasSettings and el.SettingsIcon then self:_AnimateAndApplyColor(el.SettingsIcon, theme.Colors.TextSecondary, masterOpacity); local iconX = toggleBackX - el.SettingsIcon.Size.x - 10; el.SettingsIcon.Position = {iconX, currentElementY}; el.SettingsClickRegion = {x1 = iconX, y1 = currentElementY, x2 = iconX + el.SettingsIcon.Size.x, y2 = currentElementY + el.SettingsIcon.Size.y} end
+                elementY = elementY + 35
+
+            elseif el.type == "Slider" then
+                el.Label.Position = {sectionX + 10, currentElementY};
+                local sliderBackX = sectionX + 100; local sliderBackWidth = columnWidth - 110 - 50
+                el.Back.Position = {sliderBackX, currentElementY + 8}; el.Back.Size = {sliderBackWidth, 2}; el.ClickRegion = { x1 = sliderBackX, y1 = currentElementY - 2, x2 = sliderBackX + sliderBackWidth, y2 = currentElementY + 18 };
+                local value_percentage = math.clamp((self.UI.Values[el.id] - el.Min) / (el.Max - el.Min), 0, 1); local nubX = sliderBackX + sliderBackWidth * value_percentage
+                el.LeftFill.Position = {sliderBackX, currentElementY + 8}; el.LeftFill.Size = {nubX - sliderBackX, 2};
+                el.RightFill.Position = {nubX, currentElementY + 8}; el.RightFill.Size = {sliderBackX + sliderBackWidth - nubX, 2};
+                el.Nub.Position = {nubX, currentElementY + 9};
+                local valueText = tostring(math.floor(self.UI.Values[el.id])); local valueTextX = sectionX + columnWidth - 40
+                el.ValueText.Text = valueText; el.ValueText.Position = {valueTextX, currentElementY};
+                self:_AnimateAndApplyColor(el.LeftFill, theme.Colors.Accent, masterOpacity); self:_AnimateAndApplyColor(el.RightFill, theme.Colors.DarkBlue, masterOpacity); self:_AnimateAndApplyColor(el.Nub, theme.Colors.Accent, masterOpacity); self:_AnimateAndApplyColor(el.ValueText, theme.Colors.TextPrimary, masterOpacity);
+                elementY = elementY + 35
+
+            elseif el.type == "Dropdown" or el.type == "Multidropdown" then
+                el.Label.Position = {sectionX + 10, currentElementY + 5};
+                local dropdownButtonX, dropdownButtonY = sectionX + columnWidth - el.Size.width - 15, currentElementY
+                el.Button.Position = {dropdownButtonX, dropdownButtonY}; el.Button.Size = {el.Size.width, el.Size.height}
+                local textToShow = (el.type == "Dropdown") and self.UI.Values[el.id] or (#self.UI.Values[el.id] == 0 and "..." or table.concat(self.UI.Values[el.id], ", ")); if #textToShow > 11 then textToShow = string.sub(textToShow, 1, 10) .. "..." end
+                el.ButtonText.Position = { dropdownButtonX + 5, dropdownButtonY + el.Size.height / 2 - el.ButtonText.Size / 2 }; el.ButtonText.Text = textToShow;
+                local arrowX, arrowY = dropdownButtonX + el.Size.width - 15, dropdownButtonY + el.Size.height / 2
+                el.ArrowLine1.From = {arrowX, arrowY - 2}; el.ArrowLine1.To = {arrowX + 5, arrowY + 3}; el.ArrowLine2.From = {arrowX + 5, arrowY + 3}; el.ArrowLine2.To = {arrowX + 10, arrowY - 2}
+                el.ClickRegion = { x1 = dropdownButtonX, y1 = dropdownButtonY, x2 = dropdownButtonX + el.Size.width, y2 = dropdownButtonY + el.Size.height }
+                
+                self:_AnimateAndApplyColor(el.Button, theme.Colors.DarkBlue, masterOpacity); self:_AnimateAndApplyColor(el.ButtonText, theme.Colors.TextPrimary, masterOpacity); self:_AnimateAndApplyColor(el.ArrowLine1, theme.Colors.TextPrimary, masterOpacity); self:_AnimateAndApplyColor(el.ArrowLine2, theme.Colors.TextPrimary, masterOpacity);
+                
+                if el.IsOpen then
+                    self:_AnimateAndApplyColor(el.OptionBackground, theme.Colors.SectionBackground, masterOpacity); self:_AnimateAndApplyColor(el.BorderLeft, theme.Colors.Separator, masterOpacity); self:_AnimateAndApplyColor(el.BorderRight, theme.Colors.Separator, masterOpacity); self:_AnimateAndApplyColor(el.BorderBottom, theme.Colors.Separator, masterOpacity);
+                    for i, option in ipairs(el.OptionList) do 
+                        local isSelected = (el.type == "Dropdown" and self.UI.Values[el.id] == el.Options[i]) or (el.type == "Multidropdown" and table.find(self.UI.Values[el.id], el.Options[i])); 
+                        local targetOptColor = isSelected and theme.Colors.Accent or theme.Colors.TextPrimary
+                        self:_AnimateAndApplyColor(option, targetOptColor, masterOpacity)
+                    end
+                end
+                elementY = elementY + 35
+            end
+        end
+        
+        local sectionHeight = elementY - (separatorY + 15) + 45
+        sDrawing.Background.Size = {columnWidth, sectionHeight}
+        sDrawing.Border.Size = {columnWidth, sectionHeight}
+
+        if section.Side == "Left" then leftColumnY = leftColumnY + sectionHeight + columnSpacing else rightColumnY = rightColumnY + sectionHeight + columnSpacing end
     end
 end
 
@@ -2452,7 +2358,7 @@ function Library:_AddPresetsTab()
         tab.Highlight.Rounding = self.ActiveTheme.Rounding.Element + 3
         tab.Highlight.Visible = true
     end
-    
+
     if tab.Text then
         tab.Text.Font = self.ActiveTheme.Fonts.Main; tab.Text.Size = self.ActiveTheme.Fonts.TabSize; tab.Text.Text = tabName; tab.Text.Center = false; tab.Text.Outline = false; tab.Text.zIndex = 3; end
     if tab.Icon then
@@ -2466,7 +2372,7 @@ end
 
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 31121")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 31")
     local is_first_frame = true
     while self.Window.Visible do
         if is_first_frame then
