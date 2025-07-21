@@ -309,6 +309,45 @@ function Library:_GetTextColorForBackground(backgroundColor)
     return brightness > 140 and theme.Colors.TextDark or theme.Colors.TextLight
 end
 
+function Library:_UpdateAnimationStates()
+    local tab_changed = self.Window.ActiveTab ~= self.Window.LastRenderedTab
+    local ANIMATION_SLIDE_DISTANCE = 20
+
+    for _, section in ipairs(self.UI.Sections) do
+        -- Гарантируем, что у каждой секции есть состояние анимации
+        local anim_state = self.AnimationState[section.Drawing.Background]
+        if not anim_state then
+            anim_state = { Opacity = 0, YOffset = 0 }
+            self.AnimationState[section.Drawing.Background] = anim_state
+        end
+
+        local is_active = (section.ParentTab == self.Window.ActiveTab)
+
+        -- Если вкладка сменилась и секция должна появиться, задаём ей начальную позицию для анимации
+        if tab_changed and is_active and anim_state.Opacity < 1 then
+            anim_state.YOffset = -ANIMATION_SLIDE_DISTANCE -- Начнёт выезжать сверху
+        end
+
+        -- Определяем конечные цели для анимации
+        local targetOpacity = is_active and 1 or 0
+        local targetYOffset = is_active and 0 or ANIMATION_SLIDE_DISTANCE -- Исчезнет вниз
+
+        -- Плавно анимируем значения
+        local speed_value = self.UI.Values["AboutAnimationSpeed"] or 1.6
+        local animationSpeed = speed_value / 15.0
+        anim_state.Opacity = anim_state.Opacity + (targetOpacity - anim_state.Opacity) * animationSpeed
+        anim_state.YOffset = anim_state.YOffset + (targetYOffset - anim_state.YOffset) * animationSpeed
+
+        -- Принудительно "прищёлкиваем" значения в конце, чтобы гарантированно избавиться от "призраков"
+        if math.abs(anim_state.Opacity - targetOpacity) < 0.01 then
+            anim_state.Opacity = targetOpacity
+        end
+        if math.abs(anim_state.YOffset - targetYOffset) < 0.01 then
+            anim_state.YOffset = targetYOffset
+        end
+    end
+end
+
 --================================================================
 --[[ PRIVATE: GLOW EFFECT HELPERS ]]
 --================================================================
@@ -1466,6 +1505,8 @@ function Library:_RenderLoop()
         self.UI.Core.ConfigsTab.NeedsRefresh = false
     end
 
+    self:_UpdateAnimationStates()
+
     local mouse_pos = getmouseposition()
     if not mouse_pos then return end
 
@@ -1869,62 +1910,26 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
     local leftColumnX = panelX + columnSpacing
     local rightColumnX = leftColumnX + columnWidth + columnSpacing
     
-    local ANIMATION_SLIDE_DISTANCE = 20
-    local tab_changed = self.Window.ActiveTab ~= self.Window.LastRenderedTab
-
-    -- Единый цикл для всех секций
     for _, section in ipairs(self.UI.Sections) do
-        -- Гарантируем, что у секции есть состояние анимации
         local anim_state = self.AnimationState[section.Drawing.Background]
-        if not anim_state then
-            anim_state = { Opacity = 0, YOffset = 0 }
-            self.AnimationState[section.Drawing.Background] = anim_state
-        end
-
-        local is_active = (section.ParentTab == self.Window.ActiveTab)
-
-        -- Если вкладка сменилась и секция стала активной, задаём ей начальное состояние для анимации появления
-        if tab_changed and is_active then
-            anim_state.YOffset = -ANIMATION_SLIDE_DISTANCE -- Появится сверху
-            anim_state.Opacity = 0
-        end
         
-        -- Определяем конечные цели для анимации
-        local targetOpacity = is_active and 1 or 0
-        local targetYOffset = is_active and 0 or ANIMATION_SLIDE_DISTANCE -- Исчезнет вниз
-
-        -- Анимируем значения
-        local speed_value = self.UI.Values["AboutAnimationSpeed"] or 1.6
-        local animationSpeed = speed_value / 15.0
-        anim_state.Opacity = anim_state.Opacity + (targetOpacity - anim_state.Opacity) * animationSpeed
-        anim_state.YOffset = anim_state.YOffset + (targetYOffset - anim_state.YOffset) * animationSpeed
-
-        -- Принудительно "прищёлкиваем" значения в конце, чтобы избежать зависания
-        if math.abs(anim_state.Opacity - targetOpacity) < 0.01 then anim_state.Opacity = targetOpacity end
-        if math.abs(anim_state.YOffset - targetYOffset) < 0.01 then anim_state.YOffset = targetYOffset end
-
-        -- Отрисовываем секцию, только если она хоть немного видима
-        if anim_state.Opacity > 0 then
+        -- Рендерим секцию, только если она не полностью прозрачна
+        if anim_state and anim_state.Opacity > 0 then
+            local is_active = (section.ParentTab == self.Window.ActiveTab)
             local sectionX, sectionY
 
             if is_active then
-                -- Если секция АКТИВНА, она участвует в расчёте расположения
-                if section.Side == "Left" then
-                    sectionX, sectionY = leftColumnX, leftColumnY
-                else
-                    sectionX, sectionY = rightColumnX, rightColumnY
-                end
+                -- Активные секции используют и обновляют сетку расположения
+                if section.Side == "Left" then sectionX, sectionY = leftColumnX, leftColumnY
+                else sectionX, sectionY = rightColumnX, rightColumnY end
                 
                 local sectionHeight = self:_RenderSingleSection(section, sectionX, sectionY, columnWidth, anim_state.YOffset, anim_state.Opacity)
-                section.LastPos = { X = sectionX, Y = sectionY } -- Запоминаем её позицию
+                section.LastPos = { X = sectionX, Y = sectionY } -- Запоминаем позицию
                 
-                if section.Side == "Left" then
-                    leftColumnY = leftColumnY + sectionHeight + columnSpacing
-                else
-                    rightColumnY = rightColumnY + sectionHeight + columnSpacing
-                end
+                if section.Side == "Left" then leftColumnY = leftColumnY + sectionHeight + columnSpacing
+                else rightColumnY = rightColumnY + sectionHeight + columnSpacing end
             else
-                -- Если секция НЕАКТИВНА (исчезает), она рисуется на своей старой позиции и НЕ влияет на расположение новых
+                -- Неактивные (исчезающие) секции рисуются на своей последней позиции и не влияют на сетку
                 if section.LastPos then
                     self:_RenderSingleSection(section, section.LastPos.X, section.LastPos.Y, columnWidth, anim_state.YOffset, anim_state.Opacity)
                 end
