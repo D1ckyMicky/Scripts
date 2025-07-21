@@ -1656,6 +1656,7 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
         local was_active_before = section.ParentTab == self.Window.LastRenderedTab
         local is_appearing = is_active_now and tab_changed
         local is_disappearing = not is_active_now and was_active_before and tab_changed
+        
         local state_key = section.Drawing.Background
         local anim_state = self.AnimationState[state_key]
         if not anim_state then
@@ -1682,30 +1683,37 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
                 if el.Glow then self:_HideGlowEffect(el.Glow) end
             end
         else
-            -- [[ ИСПРАВЛЕНИЕ ВЫСОТЫ И РАСПОЛОЖЕНИЯ ]]
             local sectionHeight
             do
-                local y_offset = 28 -- Высота заголовка
+                local y_offset = 28
                 for _, el in ipairs(section.Elements) do
-                    y_offset = y_offset + 35 -- Отступ для каждого элемента
+                    y_offset = y_offset + 35
                 end
-                -- Больше не добавляем высоту для открытого списка
-                sectionHeight = y_offset + 15 -- Финальный отступ
+                sectionHeight = y_offset + 15
             end
 
             local sectionX, sectionY
+            -- [[ ИСПРАВЛЕНИЕ "ЗАСТЫВАНИЯ" БЛОКОВ ]]
             if is_active_now then
+                -- Для активных секций рассчитываем позицию и сохраняем её ОТНОСИТЕЛЬНОЕ смещение
+                local currentX, currentY
                 if section.Side == "Left" then
-                    sectionX, sectionY = leftColumnX, leftColumnY
+                    currentX, currentY = leftColumnX, leftColumnY
                     leftColumnY = leftColumnY + sectionHeight + columnSpacing
                 else
-                    sectionX, sectionY = rightColumnX, rightColumnY
+                    currentX, currentY = rightColumnX, rightColumnY
                     rightColumnY = rightColumnY + sectionHeight + columnSpacing
                 end
-                section.lastRenderPos = { x = sectionX, y = sectionY }
+                section.lastRenderOffset = { x = currentX - panelX, y = currentY - panelY }
+                sectionX, sectionY = currentX, currentY
             else
-                sectionX = section.lastRenderPos and section.lastRenderPos.x or -9999
-                sectionY = section.lastRenderPos and section.lastRenderPos.y or -9999
+                -- Для исчезающих секций используем сохранённое смещение для расчёта ТЕКУЩЕЙ позиции
+                if section.lastRenderOffset then
+                    sectionX = panelX + section.lastRenderOffset.x
+                    sectionY = panelY + section.lastRenderOffset.y
+                else
+                    sectionX, sectionY = -9999, -9999 -- Прячем, если смещение ещё не было задано
+                end
             end
 
             local animatedY = sectionY + anim_state.YOffset
@@ -1723,41 +1731,30 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
             local separatorLineY = animatedY + 8 + sDrawing.Title.Size + 5
             sDrawing.Separator.From = {sectionX + 10, separatorLineY}; sDrawing.Separator.To = {sectionX + columnWidth - 10, separatorLineY};
             
-            -- [[ ИСПРАВЛЕНИЕ РАСПОЛОЖЕНИЯ ЭЛЕМЕНТОВ ]]
-            local element_y_offset = 8 + sDrawing.Title.Size + 5 + 15 -- Начальный отступ от верха секции
+            local element_y_offset = 8 + sDrawing.Title.Size + 5 + 15
 
             for _, el in ipairs(section.Elements) do
                 local currentElementY = animatedY + element_y_offset
                 
-                -- Скрываем фоновые элементы списка, т.к. они теперь рисуются отдельно
+                -- [[ ИСПРАВЛЕНИЕ МЕРЦАНИЯ DROPDOWN ]]
+                -- Больше не прячем здесь элементы списка. За их видимость теперь полностью отвечает _RenderOpenDropdowns
                 if el.type == "Dropdown" or el.type == "Multidropdown" then
-                    self:_SetVisibility(el.OptionBackground, false)
-                    self:_SetVisibility(el.BorderLeft, false)
-                    self:_SetVisibility(el.BorderRight, false)
-                    self:_SetVisibility(el.BorderBottom, false)
-                    for _, option in ipairs(el.OptionList) do self:_SetVisibility(option, false) end
                     if el.IsOpen then
-                        -- Если список открыт, добавляем его в очередь на отрисовку
                         table.insert(self.UI.ActiveDropdowns, el)
                     end
                 end
 
                 for k, v in pairs(el) do if type(v) == 'table' and v.Visible ~= nil and k ~= "OptionBackground" and k~="BorderLeft" and k~="BorderRight" and k~="BorderBottom" then self:_SetVisibility(v, true) end end
-                
                 self:_AnimateAndApplyColor(el.Label, theme.Colors.TextSecondary, masterOpacity)
-
-                if el.type == "Toggle" then
+                
+                -- Располагаем Label в зависимости от типа элемента
+                if el.type == "Toggle" or el.type == "Slider" then
                     el.Label.Position = {sectionX + 10, currentElementY}
-                elseif el.type == "Slider" then
-                    el.Label.Position = {sectionX + 10, currentElementY}
-                    -- Цвет фона слайдера теперь тоже анимируется правильно
-                    self:_AnimateAndApplyColor(el.RightFill, theme.Colors.DarkGray, masterOpacity)
                 elseif el.type == "Dropdown" or el.type == "Multidropdown" then
                      el.Label.Position = {sectionX + 10, currentElementY + 5}
                 end
                 
-                -- Остальная логика отрисовки элементов (позиционирование кнопок, ползунков и т.д.)
-                -- Код ниже остаётся почти без изменений, но теперь использует `currentElementY`
+                -- Отрисовка остальной части элементов
                 if el.type == "Toggle" then
                     local toggleBackX = sectionX + columnWidth - el.Size.width - 15
                     el.Back.Position = {toggleBackX, currentElementY + 2}; el.Back.Size = {el.Size.width, el.Size.height}; el.ClickRegion = {x1 = toggleBackX, y1 = currentElementY, x2 = toggleBackX + el.Size.width, y2 = currentElementY + el.Size.height + 4}
@@ -1779,6 +1776,7 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
                     el.Nub.Position = {nubX, currentElementY + 9};
                     local valueText = tostring(math.floor(self.UI.Values[el.id] or el.Min)); local valueTextX = sectionX + columnWidth - 40
                     el.ValueText.Text = valueText; el.ValueText.Position = {valueTextX, currentElementY};
+                    self:_AnimateAndApplyColor(el.RightFill, theme.Colors.DarkGray, masterOpacity)
                     self:_AnimateAndApplyColor(el.LeftFill, theme.Colors.Accent, masterOpacity);
                     self:_AnimateAndApplyColor(el.Nub, theme.Colors.Accent, masterOpacity);
                     self:_AnimateAndApplyColor(el.ValueText, theme.Colors.TextPrimary, masterOpacity);
@@ -1796,7 +1794,7 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
                     self:_AnimateAndApplyColor(el.ArrowLine2, theme.Colors.TextPrimary, masterOpacity);
                 end
                 
-                element_y_offset = element_y_offset + 35 -- Увеличиваем отступ для следующего элемента
+                element_y_offset = element_y_offset + 35
             end
         end
     end
