@@ -152,19 +152,6 @@ function Library:_CreateDrawingObject(class)
     return object
 end
 
-function Library:_LerpVector(from, to, alpha)
-    -- Эта функция плавно интерполирует позицию от 'from' до 'to'
-    local fromX = (from and from[1]) or 0
-    local fromY = (from and from[2]) or 0
-    local toX = (to and to[1]) or 0
-    local toY = (to and to[2]) or 0
-    
-    local newX = fromX + (toX - fromX) * alpha
-    local newY = fromY + (toY - fromY) * alpha
-    
-    return {newX, newY}
-end
-
 function Library:_DeepCopy(original)
     local copy = {}
     for k, v in pairs(original) do
@@ -417,6 +404,8 @@ function Library:_InitializeCoreUI()
     if UI.Core.Title then UI.Core.Title.Font = self.ActiveTheme.Fonts.Title; UI.Core.Title.Size = self.ActiveTheme.Fonts.TitleSize; UI.Core.Title.Text = "NEVERLOSE"; UI.Core.Title.Center = false; UI.Core.Title.Outline = false; UI.Core.Title.zIndex = 5; end
     if UI.Core.Title2 then UI.Core.Title2.Font = self.ActiveTheme.Fonts.Title; UI.Core.Title2.Size = self.ActiveTheme.Fonts.TitleSize; UI.Core.Title2.Text = "NEVERLOSE"; UI.Core.Title2.Center = false; UI.Core.Title2.Outline = false; UI.Core.Title2.zIndex = 4; end
     if UI.Core.Title3 then UI.Core.Title3.Font = self.ActiveTheme.Fonts.Title; UI.Core.Title3.Size = self.ActiveTheme.Fonts.TitleSize; UI.Core.Title3.Text = "NEVERLOSE"; UI.Core.Title3.Center = false; UI.Core.Title3.Outline = false; UI.Core.Title3.zIndex = 3; end
+
+    UI.Core.ActiveTabHighlight = self:_CreateDrawingObject("Square"); if UI.Core.ActiveTabHighlight then UI.Core.ActiveTabHighlight.Filled = true; UI.Core.ActiveTabHighlight.zIndex = 2; UI.Core.ActiveTabHighlight.Rounding = self.ActiveTheme.Rounding.Element + 3; end
 
     UI.Core.SidebarBottomCircle = self:_CreateDrawingObject("Circle"); if UI.Core.SidebarBottomCircle then UI.Core.SidebarBottomCircle.Filled = false; UI.Core.SidebarBottomCircle.Thickness = 3; UI.Core.SidebarBottomCircle.zIndex = 6; UI.Core.SidebarBottomCircle.Radius = 28; end
     UI.Core.PlayerDisplayName = self:_CreateDrawingObject("Text"); if UI.Core.PlayerDisplayName then UI.Core.PlayerDisplayName.Font = self.ActiveTheme.Fonts.Main; UI.Core.PlayerDisplayName.Size = self.ActiveTheme.Fonts.Size + 2; UI.Core.PlayerDisplayName.Text = ""; UI.Core.PlayerDisplayName.Center = false; UI.Core.PlayerDisplayName.Outline = false; UI.Core.PlayerDisplayName.zIndex = 7; end
@@ -1087,30 +1076,9 @@ function Library:_RenderAboutWindow(mouse_pos)
     local controlX = winX + 20; local controlW = winW - 40; local controlSpacing = 35
     local rightEdge = winX + winW - 25
     local toggle = about.AutoSaveToggle
-    toggle.Label.Position = {controlX, currentY}; 
-    local toggleBackX = rightEdge - toggle.Size.width
-    toggle.Back.Position = {toggleBackX, currentY + 4}; 
-    toggle.Back.Size = {toggle.Size.width, toggle.Size.height}; 
-    toggle.ClickRegion = {x1 = toggleBackX, y1 = currentY, x2 = toggleBackX + toggle.Size.width, y2 = currentY + toggle.Size.height + 8}; 
-    
--- [[ ИСПРАВЛЕННАЯ АНИМАЦИЯ для окна About ]]
-    local is_on = self.UI.Values[toggle.id]
-    local nubY = currentY + 4 + toggle.Size.height / 2
-    
-    local targetBackColor, targetNubColor
-    if is_on then
-        toggle.Nub.Position = {toggleBackX + toggle.Size.width - 5, nubY} -- Мгновенная установка
-        targetBackColor = self:_DarkenColor(theme.Colors.Accent, 0.3)
-        targetNubColor = theme.Colors.Accent
-    else
-        toggle.Nub.Position = {toggleBackX + 5, nubY} -- Мгновенная установка
-        targetBackColor = theme.Colors.DarkGray
-        targetNubColor = theme.Colors.LightGray
-    end
-    
-    self:_AnimateAndApplyColor(toggle.Back, targetBackColor)
-    self:_AnimateAndApplyColor(toggle.Nub, targetNubColor)
-    
+    toggle.Label.Position = {controlX, currentY}; local toggleBackX = rightEdge - toggle.Size.width; toggle.Back.Position = {toggleBackX, currentY + 4}; toggle.Back.Size = {toggle.Size.width, toggle.Size.height}; toggle.ClickRegion = {x1 = toggleBackX, y1 = currentY, x2 = toggleBackX + toggle.Size.width, y2 = currentY + toggle.Size.height + 8}; 
+    local targetBackColor, targetNubColor; if self.UI.Values[toggle.id] then targetBackColor = self:_DarkenColor(theme.Colors.Accent, 0.3); targetNubColor = theme.Colors.Accent; toggle.Nub.Position = {toggleBackX + toggle.Size.width - 5, currentY + 4 + toggle.Size.height/2} else targetBackColor = theme.Colors.DarkGray; targetNubColor = theme.Colors.LightGray; toggle.Nub.Position = {toggleBackX + 5, currentY + 4 + toggle.Size.height/2} end;
+    self:_AnimateAndApplyColor(toggle.Back, targetBackColor); self:_AnimateAndApplyColor(toggle.Nub, targetNubColor);
     currentY = currentY + controlSpacing
     local slider = about.AnimationSpeedSlider
     slider.Label.Position = {controlX, currentY}; 
@@ -1603,28 +1571,26 @@ end
 
 function Library:_RenderTabs(x, y, width)
     local currentY = y + 25
-    local theme = self.ActiveTheme
-
+    local highlightY = 0
     for _, group in ipairs(self.UI.TabGroups) do
         if group.Header then
-            self:_SetVisibility(group.Header, true)
-            self:_AnimateAndApplyColor(group.Header, theme.Colors.TabHeader)
             group.Header.Position = {x + 25, currentY}
+            self:_SetVisibility(group.Header, true)
+            self:_AnimateAndApplyColor(group.Header, self.ActiveTheme.Colors.TabHeader)
         end
-        currentY = currentY + theme.Fonts.TabHeaderSize + 10
-
+        currentY = currentY + self.ActiveTheme.Fonts.TabHeaderSize + 10
         for _, tab in ipairs(group.Tabs) do
-            local tabHeight = theme.Fonts.TabSize + 10
+            local tabHeight = self.ActiveTheme.Fonts.TabSize + 10
             local is_active = (self.Window.ActiveTab == tab.Name)
-            local target_text_color = is_active and theme.Colors.TextPrimary or theme.Colors.TextSecondary
+            local target_text_color = is_active and self.ActiveTheme.Colors.TextPrimary or self.ActiveTheme.Colors.TextSecondary
             local startX = x + 25
 
             if tab.Icon then
                 self:_SetVisibility(tab.Icon, true)
-                tab.Icon.Position = {startX, currentY + (tabHeight / 2) - (theme.IconSize / 2)}
-                local iconColor = (tab.Name == "Players" or tab.Name == "Configs") and theme.Colors.Accent or target_text_color
+                tab.Icon.Position = {startX, currentY + (tabHeight / 2) - (self.ActiveTheme.IconSize / 2)}
+                local iconColor = (tab.Name == "Players" or tab.Name == "Configs") and self.ActiveTheme.Colors.Accent or target_text_color
                 self:_AnimateAndApplyColor(tab.Icon, iconColor)
-                startX = startX + theme.IconSize + 8
+                startX = startX + self.ActiveTheme.IconSize + 8
             end
 
             if tab.Text then
@@ -1634,35 +1600,33 @@ function Library:_RenderTabs(x, y, width)
             end
 
             tab.ClickRegion = {x1 = x + 10, y1 = currentY, x2 = x + width - 10, y2 = currentY + tabHeight}
-
-            --[[ НОВОЕ: Анимация индивидуальной подсветки ]]
-            if tab.Highlight then
-                tab.Highlight.Position = {x + 10, currentY}
-                tab.Highlight.Size = {self.Window.SidebarWidth - 20, tabHeight}
-                self:_AnimateAndApplyColor(tab.Highlight, theme.Colors.Accent)
-
-                -- Получаем состояние анимации для объекта подсветки
-                local state = self.AnimationState[tab.Highlight]
-                if not state then
-                    state = { CurrentOpacity = is_active and (theme.Transparency.ActiveTabHighlight or 0.28) or 0 }
-                    self.AnimationState[tab.Highlight] = state
-                end
-
-                -- Определяем целевую прозрачность
-                local targetOpacity = is_active and (theme.Transparency.ActiveTabHighlight or 0.28) or 0
-                
-                -- Рассчитываем скорость
-                local speed_value = self.UI.Values["AboutAnimationSpeed"] or 1.6
-                local animationSpeed = speed_value / 16.0
-
-                -- Плавно изменяем текущую прозрачность
-                state.CurrentOpacity = state.CurrentOpacity + (targetOpacity - state.CurrentOpacity) * animationSpeed
-                tab.Highlight.Opacity = state.CurrentOpacity
-            end
-
+            if is_active then highlightY = currentY; end
             currentY = currentY + tabHeight + 5
         end
         currentY = currentY + 15
+    end
+    if highlightY > 0 and self.UI.Core.ActiveTabHighlight then
+        local highlightObject = self.UI.Core.ActiveTabHighlight
+        self:_SetVisibility(highlightObject, true)
+        highlightObject.Position = {x + 10, highlightY}; 
+        highlightObject.Size = {self.Window.SidebarWidth - 20, self.ActiveTheme.Fonts.TabSize + 10};
+        
+        local targetColor = self.ActiveTheme.Colors.Accent
+        local state = self.AnimationState[highlightObject]
+        if not state then
+            state = { CurrentColor = self:_DeepCopy(targetColor) }
+            self.AnimationState[highlightObject] = state
+        end
+        
+        state.CurrentColor = self:_LerpColor(state.CurrentColor, targetColor, 0.1)
+        
+        local animatedColor = state.CurrentColor
+        highlightObject.Color = {animatedColor[1], animatedColor[2], animatedColor[3]}
+        highlightObject.Opacity = self.ActiveTheme.Transparency.ActiveTabHighlight 
+    else
+        if self.UI.Core.ActiveTabHighlight then
+            self:_SetVisibility(self.UI.Core.ActiveTabHighlight, false)
+        end
     end
 end
 
@@ -1707,29 +1671,20 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
                     local toggleBackX = sectionX + columnWidth - el.Size.width - 15
                     el.Back.Position = {toggleBackX, elementY + 2}; el.Back.Size = {el.Size.width, el.Size.height}; el.ClickRegion = {x1 = toggleBackX, y1 = elementY, x2 = toggleBackX + el.Size.width, y2 = elementY + el.Size.height + 4}
 
-                    -- [[ ВРЕМЕННОЕ УПРОЩЕНИЕ: Анимация полностью убрана ]]
-                    local is_on = self.UI.Values[el.id]
-                    local nubY = elementY + 2 + el.Size.height / 2
-                    
                     local targetBackColor, targetNubColor
-                    if is_on then
-                        el.Nub.Position = {toggleBackX + el.Size.width - 5, nubY} -- Мгновенная установка позиции
-                        targetBackColor = self:_DarkenColor(theme.Colors.Accent, 0.3)
+                    if self.UI.Values[el.id] then
+                        targetBackColor = theme.Colors.ToggleEnabledBackground or self:_DarkenColor(theme.Colors.Accent, 0.3)
                         targetNubColor = theme.Colors.Accent
+                        el.Nub.Position = {toggleBackX + el.Size.width - 5, elementY + 2 + el.Size.height/2}
                     else
-                        el.Nub.Position = {toggleBackX + 5, nubY} -- Мгновенная установка позиции
                         targetBackColor = theme.Colors.DarkGray
                         targetNubColor = theme.Colors.LightGray
+                        el.Nub.Position = {toggleBackX + 5, elementY + 2 + el.Size.height/2}
                     end
-                    
                     self:_AnimateAndApplyColor(el.Back, targetBackColor)
                     self:_AnimateAndApplyColor(el.Nub, targetNubColor)
-                    
-                    if el.HasSettings and el.SettingsIcon then 
-                        local iconX = toggleBackX - el.SettingsIcon.Size.x - 10
-                        el.SettingsIcon.Position = {iconX, elementY}
-                        el.SettingsClickRegion = {x1 = iconX, y1 = elementY, x2 = iconX + el.SettingsIcon.Size.x, y2 = elementY + el.SettingsIcon.Size.y} 
-                    end
+
+                    if el.HasSettings and el.SettingsIcon then local iconX = toggleBackX - el.SettingsIcon.Size.x - 10; el.SettingsIcon.Position = {iconX, elementY}; el.SettingsClickRegion = {x1 = iconX, y1 = elementY, x2 = iconX + el.SettingsIcon.Size.x, y2 = elementY + el.SettingsIcon.Size.y} end
                     elementY = elementY + 35
 
                 elseif el.type == "Slider" then
@@ -2404,7 +2359,7 @@ end
 
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3121")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. safe")
     local is_first_frame = true
     while self.Window.Visible do
         if is_first_frame then
@@ -2562,21 +2517,7 @@ function Library:Tab(options)
         table.insert(self.UI.TabGroups, existingGroup)
     end
 
-    local tab_obj = {
-        Name = tabName,
-        Text = self:_CreateDrawingObject("Text"),
-        Icon = nil,
-        ClickRegion = {},
-        --[[ НОВОЕ: Персональный объект подсветки для вкладки ]]
-        Highlight = self:_CreateDrawingObject("Square")
-    }
-    if tab_obj.Highlight then
-        tab_obj.Highlight.Filled = true
-        tab_obj.Highlight.zIndex = 2
-        tab_obj.Highlight.Rounding = self.ActiveTheme.Rounding.Element + 3
-        tab_obj.Highlight.Visible = true -- Он всегда видим, но может быть прозрачным
-    end
-
+    local tab_obj = { Name = tabName, Text = self:_CreateDrawingObject("Text"), Icon = nil, ClickRegion = {} }
     if tab_obj.Text then tab_obj.Text.Font = self.ActiveTheme.Fonts.Main; tab_obj.Text.Size = self.ActiveTheme.Fonts.TabSize; tab_obj.Text.Text = tabName; tab_obj.Text.Center = false; tab_obj.Text.Outline = false; tab_obj.Text.zIndex = 3; end
     if options.Icon then tab_obj.Icon = self:_CreateDrawingObject("Image"); if tab_obj.Icon then tab_obj.Icon.Url = options.Icon; tab_obj.Icon.Size = {self.ActiveTheme.IconSize, self.ActiveTheme.IconSize}; tab_obj.Icon.zIndex = 3; end end
 
