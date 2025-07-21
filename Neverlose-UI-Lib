@@ -1676,7 +1676,6 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
         if anim_state.Opacity < 0.01 and not (self.Window.TransitionState == "disappearing" and was_active_before) then
             for _, obj in pairs(section.Drawing) do self:_SetVisibility(obj, false) end
             for _, el in ipairs(section.Elements) do for k, v in pairs(el) do if type(v) == 'table' and v.Visible ~= nil then self:_SetVisibility(v, false) end end; if el.OptionList then for _, opt in ipairs(el.OptionList) do self:_SetVisibility(opt, false) end end end
-            continue
         end
 
         local sectionX, sectionY
