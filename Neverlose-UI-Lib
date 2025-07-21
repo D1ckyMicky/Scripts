@@ -33,21 +33,42 @@ Library.Themes = {
     Blue = {
         Name = "Blue", IsPreset = true,
         Fonts = { Title = 2, Main = 1, Size = 14, TitleSize = 27, TabSize = 18, TabHeaderSize = 12 },
-        Colors = { MainBackground = {6, 9, 17, 245}, SectionBackground = {3, 11, 23, 255}, SidebarBackground = {11, 20, 33, 204}, Separator = {0, 18, 32, 255}, Accent = {24, 165, 232, 255}, DarkBlue = {3, 23, 51, 255}, DarkGray = {24, 24, 24, 255}, LightGray = {77, 77, 76, 255}, TextDark = {160, 181, 197, 255}, TextLight = {234, 239, 245, 255}, TabHeader = {100, 120, 140, 255}, GlowColor = {7, 70, 99, 255}, GlowAccent = {24, 165, 232, 255} },
+        Colors = { 
+            MainBackground = {6, 9, 17, 245}, SectionBackground = {3, 11, 23, 255}, SidebarBackground = {11, 20, 33, 204}, 
+            Separator = {0, 18, 32, 255}, Accent = {24, 165, 232, 255}, DarkBlue = {3, 23, 51, 255}, 
+            DarkGray = {24, 24, 24, 255}, LightGray = {77, 77, 76, 255}, 
+            TextPrimary = {234, 239, 245, 255}, TextSecondary = {160, 181, 197, 255}, 
+            TabHeader = {100, 120, 140, 255}, GlowColor = {7, 70, 99, 255}, GlowAccent = {24, 165, 232, 255},
+            TextLight = {234, 239, 245, 255}, TextDark = {60, 60, 60, 255}
+        },
         Transparency = { Solid = 0.9, ActiveTabHighlight = 0.28 },
         Rounding = { Window = 8, Section = 6, Element = 4, Button = 5 }, IconSize = 16
     },
     Black = {
         Name = "Black", IsPreset = true,
         Fonts = { Title = 2, Main = 1, Size = 14, TitleSize = 27, TabSize = 18, TabHeaderSize = 12 },
-        Colors = { MainBackground = {6, 6, 9, 247}, SectionBackground = {0, 3, 5, 255}, SidebarBackground = {14, 16, 19, 230}, Separator = {11, 11, 11, 255}, Accent = {72, 130, 255, 255}, DarkBlue = {10, 11, 19, 255}, DarkGray = {24, 24, 24, 255}, LightGray = {77, 77, 76, 255}, TextDark = {181, 181, 194, 255}, TextLight = {234, 239, 245, 255}, TabHeader = {111, 120, 130, 255}, GlowColor = {22, 39, 77, 255}, GlowAccent = {72, 130, 255, 255} },
+        Colors = { 
+            MainBackground = {6, 6, 9, 247}, SectionBackground = {0, 3, 5, 255}, SidebarBackground = {14, 16, 19, 230}, 
+            Separator = {11, 11, 11, 255}, Accent = {72, 130, 255, 255}, DarkBlue = {10, 11, 19, 255}, 
+            DarkGray = {24, 24, 24, 255}, LightGray = {77, 77, 76, 255}, 
+            TextPrimary = {234, 239, 245, 255}, TextSecondary = {181, 181, 194, 255}, 
+            TabHeader = {111, 120, 130, 255}, GlowColor = {22, 39, 77, 255}, GlowAccent = {72, 130, 255, 255},
+            TextLight = {234, 239, 245, 255}, TextDark = {60, 60, 60, 255}
+        },
         Transparency = { Solid = 0.9, ActiveTabHighlight = 0.28 },
         Rounding = { Window = 8, Section = 6, Element = 4, Button = 5 }, IconSize = 16
     },
     White = {
         Name = "White", IsPreset = true,
         Fonts = { Title = 2, Main = 1, Size = 14, TitleSize = 27, TabSize = 18, TabHeaderSize = 12 },
-        Colors = { MainBackground = {250, 250, 255, 247}, SectionBackground = {244, 244, 244, 255}, SidebarBackground = {240, 240, 240, 230}, Separator = {200, 200, 200, 255}, Accent = {24, 165, 232, 255}, DarkBlue = {220, 220, 220, 255}, DarkGray = {165, 165, 165, 255}, LightGray = {120, 120, 120, 255}, TextDark = {60, 60, 60, 255}, TextLight = {10, 10, 10, 255}, TabHeader = {100, 100, 100, 255}, GlowColor = {7, 70, 99, 255}, GlowAccent = {24, 165, 232, 255} },
+        Colors = { 
+            MainBackground = {250, 250, 255, 247}, SectionBackground = {244, 244, 244, 255}, SidebarBackground = {240, 240, 240, 230}, 
+            Separator = {200, 200, 200, 255}, Accent = {24, 165, 232, 255}, DarkBlue = {220, 220, 220, 255}, 
+            DarkGray = {165, 165, 165, 255}, LightGray = {120, 120, 120, 255}, 
+            TextPrimary = {10, 10, 10, 255}, TextSecondary = {60, 60, 60, 255}, 
+            TabHeader = {100, 100, 100, 255}, GlowColor = {7, 70, 99, 255}, GlowAccent = {24, 165, 232, 255},
+            TextLight = {234, 239, 245, 255}, TextDark = {60, 60, 60, 255}
+        },
         Transparency = { Solid = 0.9, ActiveTabHighlight = 0.28 },
         Rounding = { Window = 8, Section = 6, Element = 4, Button = 5 }, IconSize = 16
     }
@@ -221,8 +242,8 @@ function Library:_RenderSaveTooltip()
     if isVisible then
         self:_AnimateAndApplyColor(tooltip.Background, theme.Colors.SectionBackground)
         self:_AnimateAndApplyColor(tooltip.Border, theme.Colors.Separator)
-        self:_AnimateAndApplyColor(tooltip.ConfigName, theme.Colors.TextLight)
-        self:_AnimateAndApplyColor(tooltip.Author, theme.Colors.TextDark)
+        self:_AnimateAndApplyColor(tooltip.ConfigName, theme.Colors.TextPrimary)
+        self:_AnimateAndApplyColor(tooltip.Author, theme.Colors.TextSecondary)
     
         local configName = self.UI.Core.ConfigsTab.LoadedConfigName
         if configName == "" then configName = "default" end
@@ -281,13 +302,11 @@ end
 function Library:_GetTextColorForBackground(backgroundColor)
     local theme = self.ActiveTheme
     if not backgroundColor or type(backgroundColor) ~= "table" then
-        return theme.Colors.TextLight -- По умолчанию возвращаем светлый текст
+        return theme.Colors.TextLight 
     end
     
-    -- Используем стандартную формулу для определения яркости
     local brightness = (backgroundColor[1] * 0.299 + backgroundColor[2] * 0.587 + backgroundColor[3] * 0.114)
     
-    -- Если фон яркий (brightness > 140), возвращаем темный текст, иначе - светлый
     return brightness > 140 and theme.Colors.TextDark or theme.Colors.TextLight
 end
 
@@ -694,8 +713,7 @@ function Library:_InitializeConfigsTab()
     local configs = {}; self.UI.Core.ConfigsTab = configs; local z = 4
     
     configs.LoadedConfigName = ""
-    configs.Items = {} 
-    configs.NeedsRefresh = false 
+    configs.Items = {} -- Will be populated by _RefreshConfigList
 
     configs.MyItemsLabel = self:_CreateDrawingObject("Text")
     if configs.MyItemsLabel then
@@ -714,26 +732,10 @@ function Library:_InitializeConfigsTab()
         Background = self:_CreateDrawingObject("Square"),
         Border = self:_CreateDrawingObject("Square"),
         Glow = self:_Internal_CreateGlowSet(z + 10),
-        Separator = self:_CreateDrawingObject("Line"),
-        IncludeStyleToggle = self:_Internal_CreateToggle({ id = "ConfigIncludeStyle", Name = "Include Style", Default = true, zIndex = z + 12 }),
-        DeleteButton = {
-            Background = self:_CreateDrawingObject("Square"),
-            Icon = self:_CreateDrawingObject("Image"),
-            Label = self:_CreateDrawingObject("Text"),
-            ClickRegion = {},
-            ClickTime = 0
-        }
+        IncludeStyleToggle = self:_Internal_CreateToggle({ id = "ConfigIncludeStyle", Name = "Include Style", Default = true, zIndex = z + 12 })
     }
-    
-    local popup = configs.OptionsPopup
-    if popup.Background then popup.Background.Filled = true; popup.Background.zIndex = z + 11; popup.Background.Rounding = self.ActiveTheme.Rounding.Section; end
-    if popup.Border then popup.Border.Filled = false; popup.Border.Thickness = 1; popup.Border.zIndex = z + 12; popup.Border.Rounding = self.ActiveTheme.Rounding.Section; end
-    if popup.Separator then popup.Separator.Thickness = 1; popup.Separator.zIndex = z + 12; end
-    
-    local delBtn = popup.DeleteButton
-    if delBtn.Background then delBtn.Background.Filled = true; delBtn.Background.zIndex = z + 12; delBtn.Background.Rounding = self.ActiveTheme.Rounding.Element; end
-    if delBtn.Icon then delBtn.Icon.Url = "https://s6.imgcdn.dev/Y4O0ng.png"; delBtn.Icon.Size = {14, 14}; delBtn.Icon.zIndex = z + 13; end
-    if delBtn.Label then delBtn.Label.Font = self.ActiveTheme.Fonts.Main; delBtn.Label.Size = self.ActiveTheme.Fonts.Size + 1; delBtn.Label.Text = "Delete config"; delBtn.Label.Center = false; delBtn.Label.zIndex = z + 13; end
+    if configs.OptionsPopup.Background then configs.OptionsPopup.Background.Filled = true; configs.OptionsPopup.Background.zIndex = z + 11; configs.OptionsPopup.Background.Rounding = self.ActiveTheme.Rounding.Section; end
+    if configs.OptionsPopup.Border then configs.OptionsPopup.Border.Filled = false; configs.OptionsPopup.Border.Thickness = 1; configs.OptionsPopup.Border.zIndex = z + 12; configs.OptionsPopup.Border.Rounding = self.ActiveTheme.Rounding.Section; end
 end
 
 --================================================================
@@ -972,7 +974,6 @@ function Library:_RenderAboutWindow(mouse_pos)
     local isVisible = self.UI.Popups.About.IsOpen
     local theme = self.ActiveTheme
     
-    -- Эта внутренняя функция остается без изменений
     local function setAboutVisibility(tbl, visible)
         for key, obj in pairs(tbl) do
             if type(obj) == 'table' then
@@ -1011,37 +1012,35 @@ function Library:_RenderAboutWindow(mouse_pos)
         return
     end
 
-    -- Добавляем анимацию цветов для всех элементов окна
     self:_AnimateAndApplyColor(about.Background, theme.Colors.SectionBackground)
     self:_AnimateAndApplyColor(about.Border, theme.Colors.Separator)
-    self:_AnimateAndApplyColor(about.HeaderIcon, theme.Colors.TextDark)
-    self:_AnimateAndApplyColor(about.HeaderTitle, theme.Colors.TextLight)
-    self:_AnimateAndApplyColor(about.CloseButton.Line1, theme.Colors.TextDark)
-    self:_AnimateAndApplyColor(about.CloseButton.Line2, theme.Colors.TextDark)
+    self:_AnimateAndApplyColor(about.HeaderIcon, theme.Colors.TextSecondary)
+    self:_AnimateAndApplyColor(about.HeaderTitle, theme.Colors.TextPrimary)
+    self:_AnimateAndApplyColor(about.CloseButton.Line1, theme.Colors.TextSecondary)
+    self:_AnimateAndApplyColor(about.CloseButton.Line2, theme.Colors.TextSecondary)
     self:_AnimateAndApplyColor(about.Separator1, theme.Colors.Separator)
-    self:_AnimateAndApplyColor(about.MainTitle, theme.Colors.TextLight)
+    self:_AnimateAndApplyColor(about.MainTitle, theme.Colors.TextPrimary)
     self:_AnimateAndApplyColor(about.Separator2, theme.Colors.Separator)
-    self:_AnimateAndApplyColor(about.InfoVersionLabel, theme.Colors.TextDark); self:_AnimateAndApplyColor(about.InfoVersionValue, theme.Colors.Accent)
-    self:_AnimateAndApplyColor(about.InfoBuildDateLabel, theme.Colors.TextDark); self:_AnimateAndApplyColor(about.InfoBuildDateValue, theme.Colors.Accent)
-    self:_AnimateAndApplyColor(about.InfoBuildTypeLabel, theme.Colors.TextDark); self:_AnimateAndApplyColor(about.InfoBuildTypeValue, theme.Colors.Accent)
-    self:_AnimateAndApplyColor(about.InfoRegisteredToLabel, theme.Colors.TextDark); self:_AnimateAndApplyColor(about.InfoRegisteredToValue, theme.Colors.Accent)
-    self:_AnimateAndApplyColor(about.InfoSubscriptionLabel, theme.Colors.TextDark); self:_AnimateAndApplyColor(about.InfoSubscriptionValue, theme.Colors.Accent)
-    self:_AnimateAndApplyColor(about.FooterText, theme.Colors.TextDark)
+    self:_AnimateAndApplyColor(about.InfoVersionLabel, theme.Colors.TextSecondary); self:_AnimateAndApplyColor(about.InfoVersionValue, theme.Colors.Accent)
+    self:_AnimateAndApplyColor(about.InfoBuildDateLabel, theme.Colors.TextSecondary); self:_AnimateAndApplyColor(about.InfoBuildDateValue, theme.Colors.Accent)
+    self:_AnimateAndApplyColor(about.InfoBuildTypeLabel, theme.Colors.TextSecondary); self:_AnimateAndApplyColor(about.InfoBuildTypeValue, theme.Colors.Accent)
+    self:_AnimateAndApplyColor(about.InfoRegisteredToLabel, theme.Colors.TextSecondary); self:_AnimateAndApplyColor(about.InfoRegisteredToValue, theme.Colors.Accent)
+    self:_AnimateAndApplyColor(about.InfoSubscriptionLabel, theme.Colors.TextSecondary); self:_AnimateAndApplyColor(about.InfoSubscriptionValue, theme.Colors.Accent)
+    self:_AnimateAndApplyColor(about.FooterText, theme.Colors.TextSecondary)
     self:_AnimateAndApplyColor(about.Separator3, theme.Colors.Separator)
-    self:_AnimateAndApplyColor(about.CreditText, theme.Colors.TextDark)
-    self:_AnimateAndApplyColor(about.StyleLabel, theme.Colors.TextDark)
+    self:_AnimateAndApplyColor(about.CreditText, theme.Colors.TextSecondary)
+    self:_AnimateAndApplyColor(about.StyleLabel, theme.Colors.TextSecondary)
     self:_AnimateAndApplyColor(about.Tooltip.Background, theme.Colors.MainBackground)
-    self:_AnimateAndApplyColor(about.Tooltip.Text, theme.Colors.TextLight)
+    self:_AnimateAndApplyColor(about.Tooltip.Text, theme.Colors.TextPrimary)
     for _, circle in ipairs(about.StyleCircles) do
         self:_AnimateAndApplyColor(circle.Border, theme.Colors.Accent)
-        if circle.PlusLine1 then self:_AnimateAndApplyColor(circle.PlusLine1, theme.Colors.TextDark) end
-        if circle.PlusLine2 then self:_AnimateAndApplyColor(circle.PlusLine2, theme.Colors.TextDark) end
+        if circle.PlusLine1 then self:_AnimateAndApplyColor(circle.PlusLine1, theme.Colors.TextSecondary) end
+        if circle.PlusLine2 then self:_AnimateAndApplyColor(circle.PlusLine2, theme.Colors.TextSecondary) end
     end
-    self:_AnimateAndApplyColor(about.AutoSaveToggle.Label, theme.Colors.TextDark)
-    local slider = about.AnimationSpeedSlider; self:_AnimateAndApplyColor(slider.Label, theme.Colors.TextDark); self:_AnimateAndApplyColor(slider.LeftFill, theme.Colors.Accent); self:_AnimateAndApplyColor(slider.RightFill, theme.Colors.DarkBlue); self:_AnimateAndApplyColor(slider.Nub, theme.Colors.Accent); self:_AnimateAndApplyColor(slider.ValueText, theme.Colors.TextLight);
-    local dd = about.DpiScaleDropdown; self:_AnimateAndApplyColor(dd.Label, theme.Colors.TextDark); self:_AnimateAndApplyColor(dd.Button, theme.Colors.DarkBlue); self:_AnimateAndApplyColor(dd.ButtonText, theme.Colors.TextLight); self:_AnimateAndApplyColor(dd.ArrowLine1, theme.Colors.TextLight); self:_AnimateAndApplyColor(dd.ArrowLine2, theme.Colors.TextLight); self:_AnimateAndApplyColor(dd.OptionBackground, theme.Colors.SectionBackground); self:_AnimateAndApplyColor(dd.BorderLeft, theme.Colors.Separator); self:_AnimateAndApplyColor(dd.BorderRight, theme.Colors.Separator); self:_AnimateAndApplyColor(dd.BorderBottom, theme.Colors.Separator);
+    self:_AnimateAndApplyColor(about.AutoSaveToggle.Label, theme.Colors.TextSecondary)
+    local slider = about.AnimationSpeedSlider; self:_AnimateAndApplyColor(slider.Label, theme.Colors.TextSecondary); self:_AnimateAndApplyColor(slider.LeftFill, theme.Colors.Accent); self:_AnimateAndApplyColor(slider.RightFill, theme.Colors.DarkBlue); self:_AnimateAndApplyColor(slider.Nub, theme.Colors.Accent); self:_AnimateAndApplyColor(slider.ValueText, theme.Colors.TextPrimary);
+    local dd = about.DpiScaleDropdown; self:_AnimateAndApplyColor(dd.Label, theme.Colors.TextSecondary); self:_AnimateAndApplyColor(dd.Button, theme.Colors.DarkBlue); self:_AnimateAndApplyColor(dd.ButtonText, theme.Colors.TextPrimary); self:_AnimateAndApplyColor(dd.ArrowLine1, theme.Colors.TextPrimary); self:_AnimateAndApplyColor(dd.ArrowLine2, theme.Colors.TextPrimary); self:_AnimateAndApplyColor(dd.OptionBackground, theme.Colors.SectionBackground); self:_AnimateAndApplyColor(dd.BorderLeft, theme.Colors.Separator); self:_AnimateAndApplyColor(dd.BorderRight, theme.Colors.Separator); self:_AnimateAndApplyColor(dd.BorderBottom, theme.Colors.Separator);
 
-    -- Позиционирование (без изменений)
     local winW, winH = 360, 500
     local winX, winY = self.Window.X + (self.Window.Width / 2) - (winW / 2), self.Window.Y + (self.Window.Height / 2) - (winH / 2)
     about.ClickRegion = {x1 = winX, y1 = winY, x2 = winX + winW, y2 = winY + winH}
@@ -1092,7 +1091,7 @@ function Library:_RenderAboutWindow(mouse_pos)
         local optionY = dropdownY + dropdown.Size.height + 5
         for i, option in ipairs(dropdown.OptionList) do 
             self:_SetVisibility(option, true); option.Position = {dropdownButtonX + 5, optionY}; option.Text = dropdown.Options[i]; 
-            local targetOptColor = (self.UI.Values[dropdown.id] == dropdown.Options[i]) and theme.Colors.Accent or theme.Colors.TextLight
+            local targetOptColor = (self.UI.Values[dropdown.id] == dropdown.Options[i]) and theme.Colors.Accent or theme.Colors.TextPrimary
             self:_AnimateAndApplyColor(option, targetOptColor)
             optionY = optionY + 20 
         end
@@ -1136,9 +1135,9 @@ function Library:_RenderPlayerESPSettingsPopup()
     
     self:_AnimateAndApplyColor(popup.Background, theme.Colors.SectionBackground)
     self:_AnimateAndApplyColor(popup.Border, theme.Colors.Separator)
-    self:_AnimateAndApplyColor(popup.Title, theme.Colors.TextLight)
+    self:_AnimateAndApplyColor(popup.Title, theme.Colors.TextPrimary)
     self:_AnimateAndApplyColor(popup.Separator, theme.Colors.Separator)
-    self:_AnimateAndApplyColor(popup.BindLabel, theme.Colors.TextDark)
+    self:_AnimateAndApplyColor(popup.BindLabel, theme.Colors.TextSecondary)
     
     local accentColor = theme.Colors.Accent
     self:_AnimateAndApplyColor(popup.Keybind.Button, accentColor)
@@ -1174,7 +1173,6 @@ function Library:_RenderEditStyleWindow()
     local isVisible = style_window.IsOpen
     local theme = self.ActiveTheme
 
-    -- Установка видимости
     self:_SetVisibility(style_window.Background, isVisible); self:_SetVisibility(style_window.Border, isVisible); self:_SetVisibility(style_window.HeaderIcon, isVisible); self:_SetVisibility(style_window.HeaderTitle, isVisible); self:_SetVisibility(style_window.CloseButton.Line1, isVisible); self:_SetVisibility(style_window.CloseButton.Line2, isVisible); self:_SetVisibility(style_window.Separator1, isVisible);
     self:_SetVisibility(style_window.StyleNameLabel, isVisible); self:_SetVisibility(style_window.StyleNameInputBg, isVisible); self:_SetVisibility(style_window.StyleNameInputText, isVisible); self:_SetVisibility(style_window.Separator2, isVisible); self:_SetVisibility(style_window.Separator3, isVisible);
     self:_SetVisibility(style_window.StyleNameInputCursor, isVisible and style_window.IsEditingName and math.sin(tick() * 5) > 0)
@@ -1188,29 +1186,31 @@ function Library:_RenderEditStyleWindow()
         return
     end
 
-    -- Анимация цветов
     self:_AnimateAndApplyColor(style_window.Background, theme.Colors.SectionBackground)
     self:_AnimateAndApplyColor(style_window.Border, theme.Colors.Separator)
-    self:_AnimateAndApplyColor(style_window.HeaderTitle, theme.Colors.TextLight)
-    self:_AnimateAndApplyColor(style_window.CloseButton.Line1, theme.Colors.TextDark)
-    self:_AnimateAndApplyColor(style_window.CloseButton.Line2, theme.Colors.TextDark)
+    self:_AnimateAndApplyColor(style_window.HeaderTitle, theme.Colors.TextPrimary)
+    self:_AnimateAndApplyColor(style_window.CloseButton.Line1, theme.Colors.TextSecondary)
+    self:_AnimateAndApplyColor(style_window.CloseButton.Line2, theme.Colors.TextSecondary)
     self:_AnimateAndApplyColor(style_window.Separator1, theme.Colors.Separator)
     self:_AnimateAndApplyColor(style_window.Separator2, theme.Colors.Separator)
     self:_AnimateAndApplyColor(style_window.Separator3, theme.Colors.Separator)
-    self:_AnimateAndApplyColor(style_window.StyleNameLabel, theme.Colors.TextDark)
+    self:_AnimateAndApplyColor(style_window.StyleNameLabel, theme.Colors.TextSecondary)
     self:_AnimateAndApplyColor(style_window.StyleNameInputBg, theme.Colors.DarkBlue)
-    self:_AnimateAndApplyColor(style_window.StyleNameInputText, theme.Colors.TextLight)
+    self:_AnimateAndApplyColor(style_window.StyleNameInputText, theme.Colors.TextPrimary)
     self:_AnimateAndApplyColor(style_window.StyleNameInputCursor, theme.Colors.Accent)
-    for _, item in ipairs(style_window.ColorItems) do self:_AnimateAndApplyColor(item.Label, theme.Colors.TextDark); self:_AnimateAndApplyColor(item.ColorBorder, theme.Colors.LightGray); end
-    self:_AnimateAndApplyColor(style_window.RealTimeToggle.Label, theme.Colors.TextDark)
+    for _, item in ipairs(style_window.ColorItems) do self:_AnimateAndApplyColor(item.Label, theme.Colors.TextSecondary); self:_AnimateAndApplyColor(item.ColorBorder, theme.Colors.LightGray); end
+    self:_AnimateAndApplyColor(style_window.RealTimeToggle.Label, theme.Colors.TextSecondary)
     self:_AnimateAndApplyColor(style_window.CancelButton.Background, theme.Colors.MainBackground)
     self:_AnimateAndApplyColor(style_window.CancelButton.Border, theme.Colors.Separator)
-    self:_AnimateAndApplyColor(style_window.CancelButton.IconLine1, theme.Colors.TextLight)
-    self:_AnimateAndApplyColor(style_window.CancelButton.IconLine2, theme.Colors.TextLight)
-    self:_AnimateAndApplyColor(style_window.CancelButton.Label, theme.Colors.TextLight)
-    self:_AnimateAndApplyColor(style_window.SaveButton.Background, theme.Colors.Accent)
-    self:_AnimateAndApplyColor(style_window.SaveButton.Label, theme.Colors.TextLight)
-    self:_AnimateAndApplyColor(style_window.SaveButton.Icon, theme.Colors.TextLight)
+    self:_AnimateAndApplyColor(style_window.CancelButton.IconLine1, theme.Colors.TextPrimary)
+    self:_AnimateAndApplyColor(style_window.CancelButton.IconLine2, theme.Colors.TextPrimary)
+    self:_AnimateAndApplyColor(style_window.CancelButton.Label, theme.Colors.TextPrimary)
+    
+    local saveButtonAccentColor = theme.Colors.Accent
+    self:_AnimateAndApplyColor(style_window.SaveButton.Background, saveButtonAccentColor)
+    local saveButtonTextColor = self:_GetTextColorForBackground(saveButtonAccentColor)
+    self:_AnimateAndApplyColor(style_window.SaveButton.Label, saveButtonTextColor)
+    self:_AnimateAndApplyColor(style_window.SaveButton.Icon, saveButtonTextColor)
 
     local winW, winH = 300, 540
     local winX, winY = self.Window.X + self.Window.Width + 15, self.Window.Y
@@ -1422,26 +1422,23 @@ function Library:_RenderLoop()
     local sidebarWidth, headerHeight = self:_SafeNumber(self.Window.SidebarWidth, 0), self:_SafeNumber(self.Window.HeaderHeight, 0)
     local rightPanelX = windowX + sidebarWidth - self.Window.PanelOverlap
 
-    -- Установка видимости
     self:_SetVisibility(Core.Sidebar.Drawing, true); self:_SetVisibility(Core.RightPanel.Drawing, true); self:_SetVisibility(Core.VerticalSeparator, true); self:_SetVisibility(Core.SidebarHeaderSeparator, true); self:_SetVisibility(Core.RightPanelHeaderSeparator, true); self:_SetVisibility(Core.Title, true); self:_SetVisibility(Core.SidebarBottomCircle, true); if Core.SidebarAvatar then self:_SetVisibility(Core.SidebarAvatar, true) end; self:_SetVisibility(Core.PlayerDisplayName, true); self:_SetVisibility(Core.TillLabel, true); self:_SetVisibility(Core.ForeverLabel, true)
     self:_SetVisibility(Core.Title2, not isThemeLight); self:_SetVisibility(Core.Title3, not isThemeLight)
 
-    -- Анимация цветов основных элементов
     self:_AnimateAndApplyColor(Core.Sidebar.Drawing, theme.Colors.SidebarBackground)
     self:_AnimateAndApplyColor(Core.RightPanel.Drawing, theme.Colors.MainBackground)
     self:_AnimateAndApplyColor(Core.VerticalSeparator, theme.Colors.Separator)
     self:_AnimateAndApplyColor(Core.SidebarHeaderSeparator, theme.Colors.Separator)
     self:_AnimateAndApplyColor(Core.RightPanelHeaderSeparator, theme.Colors.Separator)
-    self:_AnimateAndApplyColor(Core.Title, theme.Colors.TextLight)
+    self:_AnimateAndApplyColor(Core.Title, theme.Colors.TextPrimary)
     self:_AnimateAndApplyColor(Core.Title2, theme.Colors.GlowAccent)
     self:_AnimateAndApplyColor(Core.Title3, theme.Colors.Accent)
-    self:_AnimateAndApplyColor(Core.SidebarBottomCircle, theme.Colors.Separator) -- Цвет изменен с Accent на Separator
-    self:_AnimateAndApplyColor(Core.PlayerDisplayName, theme.Colors.TextLight)
-    self:_AnimateAndApplyColor(Core.TillLabel, theme.Colors.TextDark)
+    self:_AnimateAndApplyColor(Core.SidebarBottomCircle, theme.Colors.Separator)
+    self:_AnimateAndApplyColor(Core.PlayerDisplayName, theme.Colors.TextPrimary)
+    self:_AnimateAndApplyColor(Core.TillLabel, theme.Colors.TextSecondary)
     self:_AnimateAndApplyColor(Core.ForeverLabel, theme.Colors.Accent)
     if Core.SidebarAvatar then self:_AnimateAndApplyColor(Core.SidebarAvatar, {255, 255, 255, 255}) end
 
-    -- Позиционирование
     if Core.Sidebar.Drawing then Core.Sidebar.Drawing.Position = {windowX, windowY}; Core.Sidebar.Drawing.Size = {sidebarWidth, self.Window.Height}; end
     if Core.RightPanel.Drawing then Core.RightPanel.Drawing.Position = {rightPanelX, windowY}; Core.RightPanel.Drawing.Size = {self.Window.Width - sidebarWidth + self.Window.PanelOverlap, self.Window.Height}; end
     
@@ -1475,12 +1472,12 @@ function Library:_RenderLoop()
 
              if button == Core.HeaderButtons.CreateNew then
                 local baseColor = theme.Colors.Accent
-                local opacity = isHovered and 255 or (255 * 0.6) -- 100% при наведении, 60% по умолчанию
+                local opacity = isHovered and 255 or (255 * 0.6)
                 targetBgColor = {baseColor[1], baseColor[2], baseColor[3], opacity}
-                targetTextColor = self:_GetTextColorForBackground(baseColor) -- Цвет текста зависит от базового цвета фона
+                targetTextColor = self:_GetTextColorForBackground(baseColor)
              else
                 targetBgColor = isHovered and self:_DarkenColor(theme.Colors.Accent, 0.5) or (is_accent and theme.Colors.Accent or theme.Colors.MainBackground)
-                targetTextColor = is_accent and self:_GetTextColorForBackground(theme.Colors.Accent) or theme.Colors.TextLight
+                targetTextColor = is_accent and self:_GetTextColorForBackground(theme.Colors.Accent) or theme.Colors.TextPrimary
              end
 
              local targetBorderColor = (tick() - (button.ClickTime or 0) < 0.1 or (button.IsOpen)) and theme.Colors.Accent or theme.Colors.Separator
@@ -1515,7 +1512,7 @@ function Library:_RenderLoop()
         local settingsX = rightPanelX + (self.Window.Width - sidebarWidth + self.Window.PanelOverlap) - settingsIcon.Size.x - 20 - 30
         local settingsY = startY - (settingsIcon.Size.y / 2)
         self:_SetVisibility(settingsIcon, true); settingsIcon.Position = {settingsX, settingsY}; Core.HeaderButtons.Settings.ClickRegion = {x1 = settingsX, y1 = settingsY, x2 = settingsX + settingsIcon.Size.x, y2 = settingsY + settingsIcon.Size.y}
-        self:_AnimateAndApplyColor(settingsIcon, theme.Colors.TextDark)
+        self:_AnimateAndApplyColor(settingsIcon, theme.Colors.TextSecondary)
     end
     
     self:_SetVisibility(Core.ViewESPPanel, Core.HeaderButtons.ViewESP.IsOpen); self:_SetVisibility(Core.ViewESPPanelBorder, Core.HeaderButtons.ViewESP.IsOpen)
@@ -1560,7 +1557,7 @@ function Library:_RenderLoop()
     end
     
     self:_RenderSaveTooltip()
-    self:_RenderConfigOptionsPopup(mouse_pos)
+    self:_RenderConfigOptionsPopup()
     self:_RenderPlayerESPSettingsPopup()
     self:_RenderAboutWindow(mouse_pos)
     self:_RenderEditStyleWindow()
@@ -1574,27 +1571,27 @@ function Library:_RenderTabs(x, y, width)
         if group.Header then
             group.Header.Position = {x + 25, currentY}
             self:_SetVisibility(group.Header, true)
-            self:_AnimateAndApplyColor(group.Header, self.ActiveTheme.Colors.TabHeader) -- Анимация
+            self:_AnimateAndApplyColor(group.Header, self.ActiveTheme.Colors.TabHeader)
         end
         currentY = currentY + self.ActiveTheme.Fonts.TabHeaderSize + 10
         for _, tab in ipairs(group.Tabs) do
             local tabHeight = self.ActiveTheme.Fonts.TabSize + 10
             local is_active = (self.Window.ActiveTab == tab.Name)
-            local target_text_color = is_active and self.ActiveTheme.Colors.TextLight or self.ActiveTheme.Colors.TextDark
+            local target_text_color = is_active and self.ActiveTheme.Colors.TextPrimary or self.ActiveTheme.Colors.TextSecondary
             local startX = x + 25
 
             if tab.Icon then
                 self:_SetVisibility(tab.Icon, true)
                 tab.Icon.Position = {startX, currentY + (tabHeight / 2) - (self.ActiveTheme.IconSize / 2)}
                 local iconColor = (tab.Name == "Players" or tab.Name == "Configs") and self.ActiveTheme.Colors.Accent or target_text_color
-                self:_AnimateAndApplyColor(tab.Icon, iconColor) -- Анимация
+                self:_AnimateAndApplyColor(tab.Icon, iconColor)
                 startX = startX + self.ActiveTheme.IconSize + 8
             end
 
             if tab.Text then
                 self:_SetVisibility(tab.Text, true)
                 tab.Text.Position = {startX, currentY + (tabHeight / 2) - (tab.Text.Size / 2)}
-                self:_AnimateAndApplyColor(tab.Text, target_text_color) -- Анимация
+                self:_AnimateAndApplyColor(tab.Text, target_text_color)
             end
 
             tab.ClickRegion = {x1 = x + 10, y1 = currentY, x2 = x + width - 10, y2 = currentY + tabHeight}
@@ -1609,7 +1606,6 @@ function Library:_RenderTabs(x, y, width)
         highlightObject.Position = {x + 10, highlightY}; 
         highlightObject.Size = {self.Window.SidebarWidth - 20, self.ActiveTheme.Fonts.TabSize + 10};
         
-        -- ИСПРАВЛЕННАЯ АНИМАЦИЯ с использованием AnimationState
         local targetColor = self.ActiveTheme.Colors.Accent
         local state = self.AnimationState[highlightObject]
         if not state then
@@ -1621,7 +1617,6 @@ function Library:_RenderTabs(x, y, width)
         
         local animatedColor = state.CurrentColor
         highlightObject.Color = {animatedColor[1], animatedColor[2], animatedColor[3]}
-        -- Используем фиксированную прозрачность из темы, а не из анимированного цвета
         highlightObject.Opacity = self.ActiveTheme.Transparency.ActiveTabHighlight 
     else
         if self.UI.Core.ActiveTabHighlight then
@@ -1650,7 +1645,7 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
             local sDrawing = section.Drawing
             self:_AnimateAndApplyColor(sDrawing.Background, theme.Colors.SectionBackground)
             self:_AnimateAndApplyColor(sDrawing.Border, theme.Colors.Separator)
-            self:_AnimateAndApplyColor(sDrawing.Title, theme.Colors.TextLight)
+            self:_AnimateAndApplyColor(sDrawing.Title, theme.Colors.TextPrimary)
             self:_AnimateAndApplyColor(sDrawing.Separator, theme.Colors.Separator)
 
             sDrawing.Background.Position = {sectionX, sectionY}
@@ -1663,8 +1658,8 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
             for _, el in ipairs(section.Elements) do
                 self:_SetVisibility(el.Label, true); if el.Back then self:_SetVisibility(el.Back, true) end; if el.Nub then self:_SetVisibility(el.Nub, true) end; if el.Button then self:_SetVisibility(el.Button, true) end; if el.ButtonText then self:_SetVisibility(el.ButtonText, true) end; if el.LeftFill then self:_SetVisibility(el.LeftFill, true) end; if el.RightFill then self:_SetVisibility(el.RightFill, true) end; if el.ValueText then self:_SetVisibility(el.ValueText, true) end; if el.ArrowLine1 then self:_SetVisibility(el.ArrowLine1, true) end; if el.ArrowLine2 then self:_SetVisibility(el.ArrowLine2, true) end; if el.HasSettings and el.SettingsIcon then self:_SetVisibility(el.SettingsIcon, true) end
                 
-                self:_AnimateAndApplyColor(el.Label, theme.Colors.TextDark)
-                if el.HasSettings and el.SettingsIcon then self:_AnimateAndApplyColor(el.SettingsIcon, theme.Colors.TextDark) end
+                self:_AnimateAndApplyColor(el.Label, theme.Colors.TextSecondary)
+                if el.HasSettings and el.SettingsIcon then self:_AnimateAndApplyColor(el.SettingsIcon, theme.Colors.TextSecondary) end
 
                 if el.type == "Toggle" then
                     el.Label.Position = {sectionX + 10, elementY};
@@ -1691,7 +1686,7 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
                     self:_AnimateAndApplyColor(el.LeftFill, theme.Colors.Accent)
                     self:_AnimateAndApplyColor(el.RightFill, theme.Colors.DarkBlue)
                     self:_AnimateAndApplyColor(el.Nub, theme.Colors.Accent)
-                    self:_AnimateAndApplyColor(el.ValueText, theme.Colors.TextLight)
+                    self:_AnimateAndApplyColor(el.ValueText, theme.Colors.TextPrimary)
                     el.Label.Position = {sectionX + 10, elementY};
                     local sliderBackX = sectionX + 100; local sliderBackWidth = columnWidth - 110 - 50
                     el.Back.Position = {sliderBackX, elementY + 8}; el.Back.Size = {sliderBackWidth, 2}; el.ClickRegion = { x1 = sliderBackX, y1 = elementY + 8 - 10, x2 = sliderBackX + sliderBackWidth, y2 = elementY + 8 + 10 };
@@ -1711,9 +1706,9 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
 
                 elseif el.type == "Dropdown" or el.type == "Multidropdown" then
                     self:_AnimateAndApplyColor(el.Button, theme.Colors.DarkBlue)
-                    self:_AnimateAndApplyColor(el.ButtonText, theme.Colors.TextLight)
-                    self:_AnimateAndApplyColor(el.ArrowLine1, theme.Colors.TextLight)
-                    self:_AnimateAndApplyColor(el.ArrowLine2, theme.Colors.TextLight)
+                    self:_AnimateAndApplyColor(el.ButtonText, theme.Colors.TextPrimary)
+                    self:_AnimateAndApplyColor(el.ArrowLine1, theme.Colors.TextPrimary)
+                    self:_AnimateAndApplyColor(el.ArrowLine2, theme.Colors.TextPrimary)
                     self:_AnimateAndApplyColor(el.OptionBackground, theme.Colors.SectionBackground)
                     self:_AnimateAndApplyColor(el.BorderLeft, theme.Colors.Separator)
                     self:_AnimateAndApplyColor(el.BorderRight, theme.Colors.Separator)
@@ -1736,7 +1731,7 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
                         for i, option in ipairs(el.OptionList) do 
                             self:_SetVisibility(option, true); option.Position = {dropdownButtonX + 5, optionY}; option.Text = el.Options[i]; 
                             local isSelected = (el.type == "Dropdown" and self.UI.Values[el.id] == el.Options[i]) or (el.type == "Multidropdown" and table.find(self.UI.Values[el.id], el.Options[i])); 
-                            local targetOptColor = isSelected and theme.Colors.Accent or theme.Colors.TextLight
+                            local targetOptColor = isSelected and theme.Colors.Accent or theme.Colors.TextPrimary
                             self:_AnimateAndApplyColor(option, targetOptColor)
                             optionY = optionY + 20 
                         end
@@ -1767,7 +1762,7 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
     self:_SetVisibility(configs.MyItemsLabel, true)
     self:_SetVisibility(configs.Scrollbar.Background, true)
     self:_SetVisibility(configs.Scrollbar.Nub, true)
-    self:_AnimateAndApplyColor(configs.MyItemsLabel, theme.Colors.TextLight)
+    self:_AnimateAndApplyColor(configs.MyItemsLabel, theme.Colors.TextPrimary)
     self:_AnimateAndApplyColor(configs.Scrollbar.Background, theme.Colors.DarkBlue)
     self:_AnimateAndApplyColor(configs.Scrollbar.Nub, theme.Colors.Accent)
 
@@ -1777,12 +1772,12 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
         
         self:_AnimateAndApplyColor(d.Background, theme.Colors.SectionBackground)
         self:_AnimateAndApplyColor(d.Border, theme.Colors.Separator)
-        self:_AnimateAndApplyColor(d.Name, theme.Colors.TextLight)
-        self:_AnimateAndApplyColor(d.Modified, theme.Colors.TextDark)
-        self:_AnimateAndApplyColor(d.Author, theme.Colors.TextDark)
-        self:_AnimateAndApplyColor(d.OptionsButton.Dot1, theme.Colors.TextDark)
-        self:_AnimateAndApplyColor(d.OptionsButton.Dot2, theme.Colors.TextDark)
-        self:_AnimateAndApplyColor(d.OptionsButton.Dot3, theme.Colors.TextDark)
+        self:_AnimateAndApplyColor(d.Name, theme.Colors.TextPrimary)
+        self:_AnimateAndApplyColor(d.Modified, theme.Colors.TextSecondary)
+        self:_AnimateAndApplyColor(d.Author, theme.Colors.TextSecondary)
+        self:_AnimateAndApplyColor(d.OptionsButton.Dot1, theme.Colors.TextSecondary)
+        self:_AnimateAndApplyColor(d.OptionsButton.Dot2, theme.Colors.TextSecondary)
+        self:_AnimateAndApplyColor(d.OptionsButton.Dot3, theme.Colors.TextSecondary)
     end
 
     local startX = panelX + 20
@@ -1819,8 +1814,8 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
             local saveBtn = d.SaveButton
             self:_AnimateAndApplyColor(saveBtn.Background, theme.Colors.SectionBackground)
             self:_AnimateAndApplyColor(saveBtn.Border, theme.Colors.Accent)
-            self:_AnimateAndApplyColor(saveBtn.Icon, theme.Colors.TextLight)
-            self:_AnimateAndApplyColor(saveBtn.Label, theme.Colors.TextLight)
+            self:_AnimateAndApplyColor(saveBtn.Icon, theme.Colors.TextPrimary)
+            self:_AnimateAndApplyColor(saveBtn.Label, theme.Colors.TextPrimary)
             saveBtn.Background.Position = {btnX, btnY}; saveBtn.Background.Size = {btnWidth, btnHeight}
             saveBtn.Border.Position = {btnX, btnY}; saveBtn.Border.Size = {btnWidth, btnHeight}
             local iconX = btnX + 15
@@ -1853,7 +1848,7 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
     configs.Scrollbar.Nub.Size = {scrollbarWidth, nubHeight}
 end
 
-function Library:_RenderConfigOptionsPopup(mouse_pos)
+function Library:_RenderConfigOptionsPopup()
     local configs = self.UI.Core.ConfigsTab
     local popup = configs.OptionsPopup
     local isVisible = popup.IsOpen
@@ -1864,12 +1859,6 @@ function Library:_RenderConfigOptionsPopup(mouse_pos)
     self:_SetVisibility(popup.IncludeStyleToggle.Label, isVisible)
     self:_SetVisibility(popup.IncludeStyleToggle.Back, isVisible)
     self:_SetVisibility(popup.IncludeStyleToggle.Nub, isVisible)
-    self:_SetVisibility(popup.Separator, isVisible)
-    
-    local delBtn = popup.DeleteButton
-    self:_SetVisibility(delBtn.Background, isVisible)
-    self:_SetVisibility(delBtn.Icon, isVisible)
-    self:_SetVisibility(delBtn.Label, isVisible)
 
     if not isVisible then
         if popup.Glow then self:_HideGlowEffect(popup.Glow) end
@@ -1878,10 +1867,9 @@ function Library:_RenderConfigOptionsPopup(mouse_pos)
 
     self:_AnimateAndApplyColor(popup.Background, theme.Colors.SectionBackground)
     self:_AnimateAndApplyColor(popup.Border, theme.Colors.Separator)
-    self:_AnimateAndApplyColor(popup.IncludeStyleToggle.Label, theme.Colors.TextDark)
-    self:_AnimateAndApplyColor(popup.Separator, self:_DarkenColor(theme.Colors.Separator, 0.5))
+    self:_AnimateAndApplyColor(popup.IncludeStyleToggle.Label, theme.Colors.TextSecondary)
     
-    local pW, pH = 150, 90
+    local pW, pH = 150, 50
     local pX, pY = popup.Pos.x, popup.Pos.y
     popup.ClickRegion = {x1=pX, y1=pY, x2=pX+pW, y2=pY+pH}
     popup.Background.Position = {pX, pY}; popup.Background.Size = {pW, pH}
@@ -1889,14 +1877,14 @@ function Library:_RenderConfigOptionsPopup(mouse_pos)
     if popup.Glow then self:_RenderGlowEffect(popup.Glow, pX, pY, pW, pH, popup.Background.Rounding, theme.Colors.GlowColor) end
 
     local toggle = popup.IncludeStyleToggle
-    local toggleY = pY + (50 / 2) - (toggle.Label.Size / 2)
+    local toggleY = pY + (pH / 2) - (toggle.Label.Size / 2)
     toggle.Label.Position = {pX + 10, toggleY}
     local toggleBackX = pX + pW - toggle.Size.width - 15
     toggle.Back.Position = {toggleBackX, toggleY + 2}; toggle.Back.Size = {toggle.Size.width, toggle.Size.height}; toggle.ClickRegion = {x1 = toggleBackX, y1 = toggleY, x2 = toggleBackX + toggle.Size.width, y2 = toggleY + toggle.Size.height + 4}
     
     local targetBackColor, targetNubColor
     if self.UI.Values[toggle.id] then
-        targetBackColor = self:_DarkenColor(theme.Colors.Accent, 0.3)
+        targetBackColor = theme.Colors.ToggleEnabledBackground or self:_DarkenColor(theme.Colors.Accent, 0.3)
         targetNubColor = theme.Colors.Accent
         toggle.Nub.Position = {toggleBackX + toggle.Size.width - 5, toggleY + 2 + toggle.Size.height/2}
     else
@@ -1906,34 +1894,6 @@ function Library:_RenderConfigOptionsPopup(mouse_pos)
     end
     self:_AnimateAndApplyColor(toggle.Back, targetBackColor)
     self:_AnimateAndApplyColor(toggle.Nub, targetNubColor)
-
-    local separatorY = pY + 50
-    popup.Separator.From = {pX + 5, separatorY}
-    popup.Separator.To = {pX + pW - 5, separatorY}
-
-    delBtn.ClickRegion = {x1 = pX + 5, y1 = separatorY + 2, x2 = pX + pW - 5, y2 = pY + pH - 5}
-    local isHovered = mouse_pos and self:_IsPointInRegion(mouse_pos.x, mouse_pos.y, delBtn.ClickRegion)
-
-    local highlightBaseColor = self:_IsThemeLight(theme) and {0,0,0} or {255,255,255}
-    local targetHighlightColor = {highlightBaseColor[1], highlightBaseColor[2], highlightBaseColor[3], 0}
-    if tick() - delBtn.ClickTime < 0.1 then
-        targetHighlightColor[4] = 255 * 0.15 
-    elseif isHovered then
-        targetHighlightColor[4] = 255 * 0.07 
-    end
-    delBtn.Background.Position = {delBtn.ClickRegion.x1, delBtn.ClickRegion.y1}
-    delBtn.Background.Size = {delBtn.ClickRegion.x2 - delBtn.ClickRegion.x1, delBtn.ClickRegion.y2 - delBtn.ClickRegion.y1}
-    self:_AnimateAndApplyColor(delBtn.Background, targetHighlightColor)
-
-    local delBtnY = separatorY + 7
-    local iconX = pX + 15
-    local iconY = delBtnY + ((pH - separatorY) / 2) - (delBtn.Icon.Size.y / 2)
-    delBtn.Icon.Position = {iconX, iconY}
-    delBtn.Label.Position = {iconX + delBtn.Icon.Size.x + 8, iconY}
-    
-    local deleteColor = {164, 88, 92, 255}
-    self:_AnimateAndApplyColor(delBtn.Icon, deleteColor)
-    self:_AnimateAndApplyColor(delBtn.Label, deleteColor)
 end
 
 function Library:_InputLoop()
@@ -2092,22 +2052,6 @@ function Library:_InputLoop()
                 local popup = configsTab.OptionsPopup
                 if self:_IsPointInRegion(mouse_x, mouse_y, popup.IncludeStyleToggle.ClickRegion) then
                     self.UI.Values[popup.IncludeStyleToggle.id] = not self.UI.Values[popup.IncludeStyleToggle.id]
-                elseif self:_IsPointInRegion(mouse_x, mouse_y, popup.DeleteButton.ClickRegion) then
-                    popup.DeleteButton.ClickTime = tick()
-                    local itemIndex = popup.ItemIndex
-                    if itemIndex and configsTab.Items[itemIndex] then
-                        local configName = configsTab.Items[itemIndex].Name
-                        local configPath = self:_GetConfigPath(configName)
-                        
-                        pcall(deletefile, configPath)
-                        
-                        if configsTab.LoadedConfigName == configName then
-                            configsTab.LoadedConfigName = ""
-                        end
-                        
-                        popup.IsOpen = false
-                        configsTab.NeedsRefresh = true
-                    end
                 elseif not self:_IsPointInRegion(mouse_x, mouse_y, popup.ClickRegion) then
                     popup.IsOpen = false
                 end
@@ -2294,6 +2238,7 @@ function Library:_InputLoop()
                 end
 
                 if not click_was_handled then
+                    -- [ИЗМЕНЕНО] Управление кликами по кнопкам в шапке
                     local create_btn_region = self.UI.Core.HeaderButtons.CreateNew.ClickRegion
                     local save_btn_region = self.UI.Core.HeaderButtons.Save.ClickRegion
                     local view_esp_region = self.UI.Core.HeaderButtons.ViewESP.ClickRegion
@@ -2409,7 +2354,7 @@ end
 
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 011")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 31")
     local is_first_frame = true
     while self.Window.Visible do
         if is_first_frame then
