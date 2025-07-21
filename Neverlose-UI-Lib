@@ -1601,29 +1601,27 @@ function Library:_RenderTabs(x, y, width)
 
             tab.ClickRegion = {x1 = x + 10, y1 = currentY, x2 = x + width - 10, y2 = currentY + tabHeight}
 
-            --[[ НОВАЯ ЛОГИКА: Анимация индивидуальной подсветки ]]
+            -- [[ ИСПРАВЛЕННАЯ ЛОГИКА АНИМАЦИИ ]]
             if tab.Highlight then
                 tab.Highlight.Position = {x + 10, currentY}
                 tab.Highlight.Size = {self.Window.SidebarWidth - 20, tabHeight}
-                self:_AnimateAndApplyColor(tab.Highlight, theme.Colors.Accent)
+                
+                -- Устанавливаем цвет напрямую, без лишней анимации
+                local accentColor = theme.Colors.Accent
+                tab.Highlight.Color = {accentColor[1], accentColor[2], accentColor[3]}
 
-                -- Получаем состояние анимации для объекта подсветки
+                -- Анимируем ТОЛЬКО прозрачность
                 local state = self.AnimationState[tab.Highlight]
                 if not state then
-                    -- Задаем начальную прозрачность в зависимости от того, активна ли вкладка
                     local initialOpacity = is_active and (theme.Transparency.ActiveTabHighlight or 0.28) or 0
                     state = { CurrentOpacity = initialOpacity }
                     self.AnimationState[tab.Highlight] = state
                 end
 
-                -- Определяем целевую прозрачность (полная, если активна; 0, если нет)
                 local targetOpacity = is_active and (theme.Transparency.ActiveTabHighlight or 0.28) or 0
-                
-                -- Рассчитываем скорость на основе слайдера в меню
                 local speed_value = self.UI.Values["AboutAnimationSpeed"] or 1.6
                 local animationSpeed = speed_value / 16.0
 
-                -- Плавно изменяем текущую прозрачность к целевой
                 state.CurrentOpacity = state.CurrentOpacity + (targetOpacity - state.CurrentOpacity) * animationSpeed
                 tab.Highlight.Opacity = state.CurrentOpacity
             end
@@ -2363,7 +2361,7 @@ end
 
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 314")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 31")
     local is_first_frame = true
     while self.Window.Visible do
         if is_first_frame then
