@@ -1154,11 +1154,12 @@ function Library:_RenderPlayerESPSettingsPopup()
     self:_AnimateAndApplyColor(popup.Title, theme.Colors.TextLight)
     self:_AnimateAndApplyColor(popup.Separator, theme.Colors.Separator)
     self:_AnimateAndApplyColor(popup.BindLabel, theme.Colors.TextDark)
-    self:_AnimateAndApplyColor(popup.Keybind.Button, theme.Colors.Accent)
     
-    local isThemeLight = self:_IsThemeLight(theme)
-    local accentButtonTextColor = isThemeLight and {10, 10, 10, 255} or {234, 239, 245, 255}
-    self:_AnimateAndApplyColor(popup.Keybind.ButtonText, accentButtonTextColor)
+    -- [ИЗМЕНЕНО] Убрана старая логика и используется новая универсальная функция
+    local accentColor = theme.Colors.Accent
+    local textColorForAccent = self:_GetTextColorForBackground(accentColor)
+    self:_AnimateAndApplyColor(popup.Keybind.Button, accentColor)
+    self:_AnimateAndApplyColor(popup.Keybind.ButtonText, textColorForAccent)
 
     -- Позиционирование (без изменений)
     local pX, pY = popup.Pos.x, popup.Pos.y
@@ -1782,8 +1783,6 @@ end
 function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
     local configs = self.UI.Core.ConfigsTab
     local theme = self.ActiveTheme
-    local isThemeLight = self:_IsThemeLight(theme)
-    local accentButtonTextColor = isThemeLight and {10, 10, 10, 255} or {234, 239, 245, 255}
 
     self:_SetVisibility(configs.MyItemsLabel, true)
     self:_SetVisibility(configs.Scrollbar.Background, true)
@@ -1849,10 +1848,15 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
             saveBtn.Label.Position = {iconX + saveBtn.Icon.Size.x + 8, btnY + (btnHeight / 2) - (saveBtn.Label.Size / 2)}
             saveBtn.ClickRegion = {x1 = btnX, y1 = btnY, x2 = btnX + btnWidth, y2 = btnY + btnHeight}
         else
+            -- [ИЗМЕНЕНО] Убрана старая логика и используется новая универсальная функция
             local loadBtn = d.LoadButton
-            self:_AnimateAndApplyColor(loadBtn.Background, theme.Colors.Accent)
-            self:_AnimateAndApplyColor(loadBtn.Icon, accentButtonTextColor)
-            self:_AnimateAndApplyColor(loadBtn.Label, accentButtonTextColor)
+            local accentColor = theme.Colors.Accent
+            local textColorForAccent = self:_GetTextColorForBackground(accentColor)
+            
+            self:_AnimateAndApplyColor(loadBtn.Background, accentColor)
+            self:_AnimateAndApplyColor(loadBtn.Icon, textColorForAccent)
+            self:_AnimateAndApplyColor(loadBtn.Label, textColorForAccent)
+
             loadBtn.Background.Position = {btnX, btnY}; loadBtn.Background.Size = {btnWidth, btnHeight}
             local iconX = btnX + 15
             loadBtn.Icon.Position = {iconX, btnY + (btnHeight / 2) - (loadBtn.Icon.Size.y / 2)}
@@ -2376,7 +2380,7 @@ end
 
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 1")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 21")
     local is_first_frame = true
     while self.Window.Visible do
         if is_first_frame then
