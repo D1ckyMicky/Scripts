@@ -1435,6 +1435,7 @@ function Library:_RenderLoop()
              
              -- Анимация цвета фона и обводки
              local isHovered = self:_IsPointInRegion(mouse_pos.x, mouse_pos.y, button.ClickRegion)
+             button.IsHovered = isHovered -- [ИСПРАВЛЕНО] Сохраняем состояние наведения в сам объект кнопки
              local targetBgColor = isHovered and self:_DarkenColor(theme.Colors.Accent, 0.5) or (is_accent and theme.Colors.Accent or theme.Colors.MainBackground)
              local targetBorderColor = (tick() - (button.ClickTime or 0) < 0.1 or (button.IsOpen)) and theme.Colors.Accent or theme.Colors.Separator
              self:_AnimateAndApplyColor(button.Background, targetBgColor)
@@ -2312,7 +2313,7 @@ end
 
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started.")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 1")
     local is_first_frame = true
     while self.Window.Visible do
         if is_first_frame then
