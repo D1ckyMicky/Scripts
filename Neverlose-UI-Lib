@@ -1096,26 +1096,14 @@ function Library:_RenderAboutWindow(mouse_pos)
 -- [[ ИСПРАВЛЕННАЯ АНИМАЦИЯ для окна About ]]
     local is_on = self.UI.Values[toggle.id]
     local nubY = currentY + 4 + toggle.Size.height / 2
-    local targetNubX = is_on and (toggleBackX + toggle.Size.width - 5) or (toggleBackX + 5)
-    local targetPosition = {targetNubX, nubY}
-
-    local nub_state = self.AnimationState[toggle.Nub]
-    if not nub_state then
-        nub_state = { CurrentPosition = targetPosition }
-        self.AnimationState[toggle.Nub] = nub_state
-    end
-
-    local speed_value = self.UI.Values["AboutAnimationSpeed"] or 1.6
-    local animationSpeed = speed_value / 10.0
-
-    nub_state.CurrentPosition = self:_LerpVector(nub_state.CurrentPosition, targetPosition, animationSpeed)
-    toggle.Nub.Position = nub_state.CurrentPosition
-
+    
     local targetBackColor, targetNubColor
     if is_on then
+        toggle.Nub.Position = {toggleBackX + toggle.Size.width - 5, nubY} -- Мгновенная установка
         targetBackColor = self:_DarkenColor(theme.Colors.Accent, 0.3)
         targetNubColor = theme.Colors.Accent
     else
+        toggle.Nub.Position = {toggleBackX + 5, nubY} -- Мгновенная установка
         targetBackColor = theme.Colors.DarkGray
         targetNubColor = theme.Colors.LightGray
     end
@@ -1719,30 +1707,17 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
                     local toggleBackX = sectionX + columnWidth - el.Size.width - 15
                     el.Back.Position = {toggleBackX, elementY + 2}; el.Back.Size = {el.Size.width, el.Size.height}; el.ClickRegion = {x1 = toggleBackX, y1 = elementY, x2 = toggleBackX + el.Size.width, y2 = elementY + el.Size.height + 4}
 
-                    -- [[ ИСПРАВЛЕННАЯ АНИМАЦИЯ ]]
+                    -- [[ ВРЕМЕННОЕ УПРОЩЕНИЕ: Анимация полностью убрана ]]
                     local is_on = self.UI.Values[el.id]
                     local nubY = elementY + 2 + el.Size.height / 2
-                    local targetNubX = is_on and (toggleBackX + el.Size.width - 5) or (toggleBackX + 5)
-                    local targetPosition = {targetNubX, nubY}
-                    
-                    local nub_state = self.AnimationState[el.Nub]
-                    if not nub_state then
-                        nub_state = { CurrentPosition = targetPosition }
-                        self.AnimationState[el.Nub] = nub_state
-                    end
-
-                    local speed_value = self.UI.Values["AboutAnimationSpeed"] or 1.6
-                    local animationSpeed = speed_value / 10.0
-
-                    -- Анимируем всю позицию, а не только X
-                    nub_state.CurrentPosition = self:_LerpVector(nub_state.CurrentPosition, targetPosition, animationSpeed)
-                    el.Nub.Position = nub_state.CurrentPosition
                     
                     local targetBackColor, targetNubColor
                     if is_on then
+                        el.Nub.Position = {toggleBackX + el.Size.width - 5, nubY} -- Мгновенная установка позиции
                         targetBackColor = self:_DarkenColor(theme.Colors.Accent, 0.3)
                         targetNubColor = theme.Colors.Accent
                     else
+                        el.Nub.Position = {toggleBackX + 5, nubY} -- Мгновенная установка позиции
                         targetBackColor = theme.Colors.DarkGray
                         targetNubColor = theme.Colors.LightGray
                     end
@@ -2429,7 +2404,7 @@ end
 
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 31")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3121")
     local is_first_frame = true
     while self.Window.Visible do
         if is_first_frame then
