@@ -24,7 +24,7 @@ Library.AnimationState = {} -- Хранилище для состояний ан
 Library.Window = {
     Visible = true, X = 400, Y = 200, Width = 750, Height = 620,
     SidebarWidth = 187, HeaderHeight = 65, IsDragging = false,
-    ActiveTab = "", PanelOverlap = 4
+    ActiveTab = "", PanelOverlap = 8
 }
 
 Library.ConfigFolderPath = "NL_Configs" -- Новая папка для конфигов
@@ -1431,8 +1431,8 @@ function Library:_RenderLoop()
     self:_AnimateAndApplyColor(Core.SidebarHeaderSeparator, theme.Colors.Separator)
     self:_AnimateAndApplyColor(Core.RightPanelHeaderSeparator, theme.Colors.Separator)
     self:_AnimateAndApplyColor(Core.Title, theme.Colors.TextPrimary)
-    self:_AnimateAndApplyColor(Core.Title2, theme.Colors.GlowAccent)
-    self:_AnimateAndApplyColor(Core.Title3, theme.Colors.Accent)
+    self:_AnimateAndApplyColor(Core.Title2, theme.Colors.Accent)
+    self:_AnimateAndApplyColor(Core.Title3, theme.Colors.GlowAccent)
     self:_AnimateAndApplyColor(Core.SidebarBottomCircle, theme.Colors.Separator)
     self:_AnimateAndApplyColor(Core.PlayerDisplayName, theme.Colors.TextPrimary)
     self:_AnimateAndApplyColor(Core.TillLabel, theme.Colors.TextSecondary)
@@ -2354,7 +2354,7 @@ end
 
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 31")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. d")
     local is_first_frame = true
     while self.Window.Visible do
         if is_first_frame then
