@@ -2284,40 +2284,95 @@ function Library:_InputLoop()
                      esppopup.IsOpen = false; esppopup.Keybind.IsListening = false
                  end
             else
-                -- Новая логика обработки открытых выпадающих списков
-                local click_on_open_list = false
+                -- НОВЫЙ БЛОК: Обработка открытых dropdown/multidropdown
                 if #self.UI.ActiveDropdowns > 0 then
-                    for _, el in ipairs(self.UI.ActiveDropdowns) do
-                        local listX, listY, listW, listH = el.Button.Position.x, el.Button.Position.y + el.Size.height, el.Size.width, #el.Options * 20 + 5
-                        if self:_IsPointInRegion(mouse_x, mouse_y, {x1=listX, y1=listY, x2=listX+listW, y2=listY+listH}) then
+                    for i = #self.UI.ActiveDropdowns, 1, -1 do
+                        local el = self.UI.ActiveDropdowns[i]
+                        local listX, listY = el.Button.Position.x, el.Button.Position.y + el.Size.height
+                        local listW, listH = el.Size.width, #el.Options * 20 + 5
+                        local listRegion = {x1 = listX, y1 = listY, x2 = listX + listW, y2 = listY + listH}
+
+                        if self:_IsPointInRegion(mouse_x, mouse_y, listRegion) then
                             local optionY = listY + 5
-                            for i, _ in ipairs(el.OptionList) do
-                                if self:_IsPointInRegion(mouse_x, mouse_y, {x1=listX, y1=optionY, x2=listX+listW, y2=optionY+20}) then
-                                    if el.type == "Dropdown" then 
-                                        self.UI.Values[el.id] = el.Options[i]
+                            for optIdx, _ in ipairs(el.OptionList) do
+                                local optionRegion = {x1 = listX, y1 = optionY, x2 = listX + listW, y2 = optionY + 20}
+                                if self:_IsPointInRegion(mouse_x, mouse_y, optionRegion) then
+                                    if el.type == "Dropdown" then
+                                        self.UI.Values[el.id] = el.Options[optIdx]
                                         el.IsOpen = false
-                                    else 
-                                        local opt = el.Options[i]
+                                        table.remove(self.UI.ActiveDropdowns, i)
+                                    elseif el.type == "Multidropdown" then
+                                        local opt = el.Options[optIdx]
                                         local idx = table.find(self.UI.Values[el.id], opt)
-                                        if idx then 
-                                            table.remove(self.UI.Values[el.id], idx) 
-                                        else 
-                                            table.insert(self.UI.Values[el.id], opt) 
+                                        if idx then
+                                            table.remove(self.UI.Values[el.id], idx)
+                                        else
+                                            table.insert(self.UI.Values[el.id], opt)
                                         end
                                     end
                                     if el.Callback then el.Callback(self.UI.Values[el.id]) end
                                     click_was_handled = true
-                                    click_on_open_list = true
                                     break
                                 end
                                 optionY = optionY + 20
                             end
-                            if click_was_handled then break end
+                        elseif not self:_IsPointInRegion(mouse_x, mouse_y, el.ClickRegion) then
+                            -- Закрытие при клике вне списка
+                            el.IsOpen = false
+                            table.remove(self.UI.ActiveDropdowns, i)
+                            click_was_handled = true
+                        end
+
+                        if click_was_handled then break end
+                    end
+                end
+
+                -- НОВЫЙ БЛОК: Обработка клика по кнопке dropdown/multidropdown
+                if not click_was_handled and self.Window.ActiveTab ~= "Configs" then
+                    for _, section in ipairs(self.UI.Sections) do
+                        if section.ParentTab == self.Window.ActiveTab then
+                            for _, el in ipairs(section.Elements) do
+                                if (el.type == "Dropdown" or el.type == "Multidropdown") and self:_IsPointInRegion(mouse_x, mouse_y, el.ClickRegion) then
+                                    el.IsOpen = not el.IsOpen
+                                    clicked_dropdown_button = el
+                                    if el.IsOpen then
+                                        table.insert(self.UI.ActiveDropdowns, el)
+                                    else
+                                        for i, activeEl in ipairs(self.UI.ActiveDropdowns) do
+                                            if activeEl == el then
+                                                table.remove(self.UI.ActiveDropdowns, i)
+                                                break
+                                            end
+                                        end
+                                    end
+                                    click_was_handled = true
+                                    break
+                                end
+                            end
+                        end
+                        if click_was_handled then break end
+                    end
+                end
+
+                -- НОВЫЙ БЛОК: Закрытие всех dropdown/multidropdown, кроме кликнутого
+                if clicked_dropdown_button then
+                    for _, section in ipairs(self.UI.Sections) do
+                        for _, el in ipairs(section.Elements) do
+                            if (el.type == "Dropdown" or el.type == "Multidropdown") and el ~= clicked_dropdown_button and el.IsOpen then
+                                el.IsOpen = false
+                                for i, activeEl in ipairs(self.UI.ActiveDropdowns) do
+                                    if activeEl == el then
+                                        table.remove(self.UI.ActiveDropdowns, i)
+                                        break
+                                    end
+                                end
+                            end
                         end
                     end
                 end
 
-                if not click_on_open_list then
+                -- Оригинальная логика обработки Configs и других элементов
+                if not click_was_handled then
                     if self.Window.ActiveTab == "Configs" then
                         local config_item_clicked = false
                         for i, item in ipairs(configsTab.Items) do
@@ -2338,50 +2393,48 @@ function Library:_InputLoop()
                         end
                         if config_item_clicked then click_was_handled = true end
                     end
+                end
 
-                    if not click_was_handled then
-                        -- Управление кликами по кнопкам в шапке
-                        local create_btn_region = self.UI.Core.HeaderButtons.CreateNew.ClickRegion
-                        local save_btn_region = self.UI.Core.HeaderButtons.Save.ClickRegion
-                        local view_esp_region = self.UI.Core.HeaderButtons.ViewESP.ClickRegion
-                        local settings_region = self.UI.Core.HeaderButtons.Settings.ClickRegion
+                if not click_was_handled then
+                    -- Управление кликами по кнопкам в шапке
+                    local create_btn_region = self.UI.Core.HeaderButtons.CreateNew.ClickRegion
+                    local save_btn_region = self.UI.Core.HeaderButtons.Save.ClickRegion
+                    local view_esp_region = self.UI.Core.HeaderButtons.ViewESP.ClickRegion
+                    local settings_region = self.UI.Core.HeaderButtons.Settings.ClickRegion
 
-                        if self:_IsPointInRegion(mouse_x, mouse_y, create_btn_region) and self.Window.ActiveTab == "Configs" then
-                            click_was_handled = true;
-                            self.UI.Core.HeaderButtons.CreateNew.ClickTime = tick()
-                            self:_CreateNewConfig()
-                        elseif self:_IsPointInRegion(mouse_x, mouse_y, save_btn_region) then
-                            click_was_handled = true; self.UI.Core.HeaderButtons.Save.ClickTime = tick();
-                            if configsTab.LoadedConfigName ~= "" then self:_SaveConfig(configsTab.LoadedConfigName) end
-                        elseif self:_IsPointInRegion(mouse_x, mouse_y, view_esp_region) then 
-                            click_was_handled = true; self.UI.Core.HeaderButtons.ViewESP.IsOpen = not self.UI.Core.HeaderButtons.ViewESP.IsOpen; self.UI.Core.HeaderButtons.ViewESP.ClickTime = tick();
-                        elseif self:_IsPointInRegion(mouse_x, mouse_y, settings_region) then 
-                            click_was_handled = true; self.UI.Popups.About.IsOpen = not self.UI.Popups.About.IsOpen;
-                        else
-                            for _, group in ipairs(self.UI.TabGroups) do for _, tab in ipairs(group.Tabs) do if self:_IsPointInRegion(mouse_x, mouse_y, tab.ClickRegion) then self.Window.ActiveTab = tab.Name; click_was_handled = true; break; end end if click_was_handled then break; end end
-                            if not click_was_handled then
-                                if self.Window.ActiveTab ~= "Configs" then
-                                    for _, section in ipairs(self.UI.Sections) do
-                                        if section.ParentTab == self.Window.ActiveTab then
-                                            for _, el in ipairs(section.Elements) do
-                                                if el.HasSettings and self:_IsPointInRegion(mouse_x, mouse_y, el.SettingsClickRegion) then
-                                                    local espPopup = self.UI.Popups.PlayerESP; espPopup.IsOpen = not espPopup.IsOpen; espPopup.Pos = {x = mouse_x, y = mouse_y}; click_was_handled = true; break
-                                                elseif self:_IsPointInRegion(mouse_x, mouse_y, el.ClickRegion) then
-                                                    click_was_handled = true
-                                                    if el.type == "Toggle" then self.UI.Values[el.id] = not self.UI.Values[el.id]; if el.Callback then el.Callback(self.UI.Values[el.id]) end;
-                                                    elseif el.type == "Dropdown" or el.type == "Multidropdown" then clicked_dropdown_button = el; el.IsOpen = not el.IsOpen;
-                                                    end; break
-                                                end
+                    if self:_IsPointInRegion(mouse_x, mouse_y, create_btn_region) and self.Window.ActiveTab == "Configs" then
+                        click_was_handled = true;
+                        self.UI.Core.HeaderButtons.CreateNew.ClickTime = tick()
+                        self:_CreateNewConfig()
+                    elseif self:_IsPointInRegion(mouse_x, mouse_y, save_btn_region) then
+                        click_was_handled = true; self.UI.Core.HeaderButtons.Save.ClickTime = tick();
+                        if configsTab.LoadedConfigName ~= "" then self:_SaveConfig(configsTab.LoadedConfigName) end
+                    elseif self:_IsPointInRegion(mouse_x, mouse_y, view_esp_region) then 
+                        click_was_handled = true; self.UI.Core.HeaderButtons.ViewESP.IsOpen = not self.UI.Core.HeaderButtons.ViewESP.IsOpen; self.UI.Core.HeaderButtons.ViewESP.ClickTime = tick();
+                    elseif self:_IsPointInRegion(mouse_x, mouse_y, settings_region) then 
+                        click_was_handled = true; self.UI.Popups.About.IsOpen = not self.UI.Popups.About.IsOpen;
+                    else
+                        for _, group in ipairs(self.UI.TabGroups) do for _, tab in ipairs(group.Tabs) do if self:_IsPointInRegion(mouse_x, mouse_y, tab.ClickRegion) then self.Window.ActiveTab = tab.Name; click_was_handled = true; break; end end if click_was_handled then break; end end
+                        if not click_was_handled then
+                            if self.Window.ActiveTab ~= "Configs" then
+                                for _, section in ipairs(self.UI.Sections) do
+                                    if section.ParentTab == self.Window.ActiveTab then
+                                        for _, el in ipairs(section.Elements) do
+                                            if el.HasSettings and self:_IsPointInRegion(mouse_x, mouse_y, el.SettingsClickRegion) then
+                                                local espPopup = self.UI.Popups.PlayerESP; espPopup.IsOpen = not espPopup.IsOpen; espPopup.Pos = {x = mouse_x, y = mouse_y}; click_was_handled = true; break
+                                            elseif self:_IsPointInRegion(mouse_x, mouse_y, el.ClickRegion) then
+                                                click_was_handled = true
+                                                if el.type == "Toggle" then self.UI.Values[el.id] = not self.UI.Values[el.id]; if el.Callback then el.Callback(self.UI.Values[el.id]) end;
+                                                end; break
                                             end
                                         end
-                                        if click_was_handled then break end
                                     end
+                                    if click_was_handled then break end
                                 end
                             end
                         end
                     end
                 end
-                for _, section in ipairs(self.UI.Sections) do for _, el in ipairs(section.Elements) do if (el.type == "Dropdown" or el.type == "Multidropdown") and el ~= clicked_dropdown_button then el.IsOpen = false; end end end
             end
         end
     end
@@ -2471,7 +2524,7 @@ end
 
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 331")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3bbb1")
     local is_first_frame = true
     while self.Window.Visible do
         if is_first_frame then
