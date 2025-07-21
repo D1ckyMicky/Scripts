@@ -1868,72 +1868,54 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
     local columnWidth = ((self.Window.Width - self.Window.SidebarWidth + self.Window.PanelOverlap) - (columnSpacing * 3)) / 2
     local leftColumnX = panelX + columnSpacing
     local rightColumnX = leftColumnX + columnWidth + columnSpacing
-    local theme = self.ActiveTheme
-
-    local ANIMATION_SLIDE_DISTANCE = 15
+    
+    local ANIMATION_SLIDE_DISTANCE = 20 -- Расстояние, на которое смещаются блоки
     local tab_changed = self.Window.ActiveTab ~= self.Window.LastRenderedTab
 
-    -- [[ FIX: При смене вкладки добавляем задержку для новых секций ]]
-    if tab_changed then
-        for _, section in ipairs(self.UI.Sections) do
+    -- Единый цикл для обработки всех секций
+    for _, section in ipairs(self.UI.Sections) do
+        -- Шаг 1: Убеждаемся, что у каждой секции есть состояние анимации
+        local anim_state = self.AnimationState[section.Drawing.Background]
+        if not anim_state then
+            anim_state = { Opacity = 0, YOffset = ANIMATION_SLIDE_DISTANCE }
+            -- Если секция принадлежит активной вкладке при первой загрузке, отображаем её сразу
             if section.ParentTab == self.Window.ActiveTab then
-                local anim_state = self.AnimationState[section.Drawing.Background]
-                if anim_state then
-                    anim_state.Delay = 8 -- Количество кадров задержки
-                end
+                anim_state.Opacity = 1
+                anim_state.YOffset = 0
             end
+            self.AnimationState[section.Drawing.Background] = anim_state
         end
-    end
-
-    -- СНАЧАЛА рендерим ИСЧЕЗАЮЩИЕ секции
-    for _, section in ipairs(self.UI.Sections) do
-        local is_active_now = section.ParentTab == self.Window.ActiveTab
-        if not is_active_now then
-            local anim_state = self.AnimationState[section.Drawing.Background]
-            
-            if not anim_state or anim_state.Opacity < 0.01 then
-                for _, obj in pairs(section.Drawing) do self:_SetVisibility(obj, false) end
-                for _, el in ipairs(section.Elements) do for k, v in pairs(el) do if type(v) == 'table' and v.Visible ~= nil then self:_SetVisibility(v, false) end end; if el.OptionList then for _, opt in ipairs(el.OptionList) do self:_SetVisibility(opt, false) end end; if el.Glow then self:_HideGlowEffect(el.Glow) end end
-            else
-                local targetOpacity = 0
-                local targetYOffset = ANIMATION_SLIDE_DISTANCE
-                local speed_value = self.UI.Values["AboutAnimationSpeed"] or 1.6
-                local animationSpeed = speed_value / 12.0
-                anim_state.Opacity = anim_state.Opacity + (targetOpacity - anim_state.Opacity) * animationSpeed
-                anim_state.YOffset = anim_state.YOffset + (targetYOffset - anim_state.YOffset) * animationSpeed
-
-                local sectionX = (section.LastPos and section.LastPos.X) or 0
-                local sectionY = (section.LastPos and section.LastPos.Y) or 0
-                self:_RenderSingleSection(section, sectionX, sectionY, columnWidth, anim_state.YOffset, anim_state.Opacity)
-            end
+        
+        -- Шаг 2: При смене вкладки задаём начальные позиции для "появляющихся" секций
+        if tab_changed and section.ParentTab == self.Window.ActiveTab then
+             anim_state.YOffset = ANIMATION_SLIDE_DISTANCE -- Начинают снизу
+             anim_state.Opacity = 0
         end
-    end
 
-    -- ЗАТЕМ рендерим ПОЯВЛЯЮЩИЕСЯ секции
-    for _, section in ipairs(self.UI.Sections) do
         local is_active_now = section.ParentTab == self.Window.ActiveTab
-        if is_active_now then
-            local anim_state = self.AnimationState[section.Drawing.Background]
-            if not anim_state then
-                anim_state = { Opacity = 0, YOffset = 0, Delay = 0 }
-                self.AnimationState[section.Drawing.Background] = anim_state
-            end
+        
+        -- Шаг 3: Определяем конечные цели для анимации
+        local targetOpacity = is_active_now and 1 or 0
+        local targetYOffset = is_active_now and 0 or -ANIMATION_SLIDE_DISTANCE -- "Исчезающие" секции уезжают вверх
 
-            anim_state.YOffset = 0 -- Появляющиеся секции не сдвигаются
-            
-            local targetOpacity
-            -- [[ FIX: Учитываем задержку перед началом анимации ]]
-            if anim_state.Delay and anim_state.Delay > 0 then
-                anim_state.Delay = anim_state.Delay - 1
-                targetOpacity = 0
-            else
-                targetOpacity = 1
-            end
-            
-            local speed_value = self.UI.Values["AboutAnimationSpeed"] or 1.6
-            local animationSpeed = speed_value / 12.0
+        -- Шаг 4: Плавно анимируем свойства к их конечным целям
+        local speed_value = self.UI.Values["AboutAnimationSpeed"] or 1.6
+        local animationSpeed = speed_value / 15.0
+        
+        if math.abs(targetOpacity - anim_state.Opacity) > 0.001 then
             anim_state.Opacity = anim_state.Opacity + (targetOpacity - anim_state.Opacity) * animationSpeed
-            
+        else
+            anim_state.Opacity = targetOpacity
+        end
+
+        if math.abs(targetYOffset - anim_state.YOffset) > 0.001 then
+             anim_state.YOffset = anim_state.YOffset + (targetYOffset - anim_state.YOffset) * animationSpeed
+        else
+            anim_state.YOffset = targetYOffset
+        end
+
+        -- Шаг 5: Отрисовываем секцию, только если она достаточно видима
+        if anim_state.Opacity > 0.01 then
             local sectionX, sectionY
             if section.Side == "Left" then
                 sectionX, sectionY = leftColumnX, leftColumnY
@@ -1948,8 +1930,6 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
             else
                 rightColumnY = rightColumnY + sectionHeight + columnSpacing
             end
-            
-            section.LastPos = { X = sectionX, Y = sectionY, Height = sectionHeight }
         end
     end
 
