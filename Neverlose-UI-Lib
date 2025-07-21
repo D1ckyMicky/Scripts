@@ -282,7 +282,12 @@ function Library:_AnimateAndApplyColor(drawingObject, targetColor)
         self.AnimationState[drawingObject] = state
     end
 
-    local animationSpeed = 0.1
+    --[[ НОВОЕ: Динамическое получение скорости ]]
+    -- Получаем значение слайдера (по умолчанию 1.6, как в UI)
+    local speed_value = self.UI.Values["AboutAnimationSpeed"] or 1.6 
+    -- Преобразуем значение слайдера (0-5) в подходящий коэффициент для анимации (alpha для Lerp)
+    -- Дефолтное значение 1.6 / 16 = 0.1, что соответствует старой скорости
+    local animationSpeed = speed_value / 16.0
 
     -- Анимация цвета
     state.CurrentColor = self:_LerpColor(state.CurrentColor, targetColor, animationSpeed)
@@ -1441,8 +1446,8 @@ function Library:_RenderLoop()
 
     if Core.Sidebar.Drawing then Core.Sidebar.Drawing.Position = {windowX, windowY}; Core.Sidebar.Drawing.Size = {sidebarWidth, self.Window.Height}; end
     if Core.RightPanel.Drawing then Core.RightPanel.Drawing.Position = {rightPanelX, windowY}; Core.RightPanel.Drawing.Size = {self.Window.Width - sidebarWidth + self.Window.PanelOverlap, self.Window.Height}; end
-    
-    self:_RenderGlowEffect(Core.Sidebar.Glow, windowX, windowY, sidebarWidth, self.Window.Height, Core.Sidebar.Drawing.Rounding, theme.Colors.GlowColor, {top=true, bottom=true, left=true, right=false})
+
+    self:_RenderGlowEffect(Core.Sidebar.Glow, windowX, windowY, sidebarWidth, self.Window.Height, Core.Sidebar.Drawing.Rounding, theme.Colors.GlowColor, {top=true, bottom=true, left=true, right=true})
     self:_RenderGlowEffect(Core.RightPanel.Glow, rightPanelX, windowY, self.Window.Width - sidebarWidth + self.Window.PanelOverlap, self.Window.Height, Core.RightPanel.Drawing.Rounding, theme.Colors.GlowColor, {top=true, bottom=true, left=false, right=true})
 
     if Core.VerticalSeparator then Core.VerticalSeparator.Position = {rightPanelX, windowY}; Core.VerticalSeparator.Size = {4, self.Window.Height}; end
@@ -2354,7 +2359,7 @@ end
 
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. d")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. w1")
     local is_first_frame = true
     while self.Window.Visible do
         if is_first_frame then
