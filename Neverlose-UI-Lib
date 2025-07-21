@@ -148,6 +148,20 @@ end
 --[[ PRIVATE: HELPER FUNCTIONS ]]
 --================================================================
 
+function Library:_HideSection(section)
+    for _, obj in pairs(section.Drawing) do self:_SetVisibility(obj, false) end
+    for _, el in ipairs(section.Elements) do
+        for k, v in pairs(el) do
+            if type(v) == 'table' and v.Visible ~= nil then self:_SetVisibility(v, false) end
+        end
+        if el.OptionList then
+            el.IsOpen = false -- Закрываем дропдаун принудительно
+            for _, opt in ipairs(el.OptionList) do self:_SetVisibility(opt, false) end
+        end
+        if el.Glow then self:_HideGlowEffect(el.Glow) end
+    end
+end
+
 function Library:_CreateDrawingObject(class)
     local success, object = pcall(Drawing.new, class)
     if not success then warn(SCRIPT_PREFIX .. "Failed to create Drawing object of type:", class); return nil end
@@ -1631,14 +1645,8 @@ function Library:_RenderTabs(x, y, width)
 end
 
 function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, yOffset, masterOpacity)
-    -- Если прозрачность почти нулевая, просто скрываем все и выходим
     if masterOpacity < 0.01 then
-        for _, obj in pairs(section.Drawing) do self:_SetVisibility(obj, false) end
-        for _, el in ipairs(section.Elements) do
-            for k, v in pairs(el) do if type(v) == 'table' and v.Visible ~= nil then self:_SetVisibility(v, false) end end
-            if el.OptionList then for _, opt in ipairs(el.OptionList) do self:_SetVisibility(opt, false) end end
-            if el.Glow then self:_HideGlowEffect(el.Glow) end
-        end
+        self:_HideSection(section) -- Используем новую функцию для чистого скрытия
         return 0
     end
 
@@ -1746,7 +1754,7 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
         end
     end
     
-    local sectionHeight = elementY_offset - ((separatorY_abs - animatedY) + 15) + 55 -- [[ FIX: Увеличено с 45 до 55 для дополнительного отступа ]]
+    local sectionHeight = elementY_offset - ((separatorY_abs - animatedY) + 15) + 55
     sDrawing.Background.Size = {columnWidth, sectionHeight}
     sDrawing.Border.Size = {columnWidth, sectionHeight}
     
@@ -1767,86 +1775,81 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
     -- 1. Управление состоянием перехода
     if tab_changed and self.Window.TransitionState == "none" then
         self.Window.TransitionState = "fading_out"
-    end
-
-    -- Скрываем все секции по умолчанию, чтобы избежать артефактов
-    for _, section in ipairs(self.UI.Sections) do
-        self:_RenderSingleSection(section, 0, 0, 0, 0, 0) -- Вызов с opacity=0 скроет все элементы секции
-    end
-
-    -- 2. Логика для каждого состояния
-    if self.Window.TransitionState == "fading_out" then
-        local sections_still_visible = 0
+    -- [[ FIX: Обработка быстрого переключения ]]
+    elseif tab_changed and self.Window.TransitionState ~= "none" then
+        -- Если пользователь кликнул снова во время анимации, "сбрасываем" старую вкладку
         for _, section in ipairs(self.UI.Sections) do
             if section.ParentTab == self.Window.LastRenderedTab then
                 local anim_state = self.AnimationState[section.Drawing.Background]
-                if not anim_state then anim_state = { Opacity = 1, YOffset = 0 }; self.AnimationState[section.Drawing.Background] = anim_state; end
-                
-                local targetOpacity = 0
-                local targetYOffset = ANIMATION_SLIDE_DISTANCE
-                local speed_value = self.UI.Values["AboutAnimationSpeed"] or 1.6
-                local animationSpeed = speed_value / 12.0
-                anim_state.Opacity = anim_state.Opacity + (targetOpacity - anim_state.Opacity) * animationSpeed
-                anim_state.YOffset = anim_state.YOffset + (targetYOffset - anim_state.YOffset) * animationSpeed
-
-                if anim_state.Opacity > 0.01 then
-                    sections_still_visible = sections_still_visible + 1
-                    local sectionX = (section.LastPos and section.LastPos.X) or 0
-                    local sectionY = (section.LastPos and section.LastPos.Y) or 0
-                    self:_RenderSingleSection(section, sectionX, sectionY, columnWidth, anim_state.YOffset, anim_state.Opacity)
-                end
+                if anim_state then anim_state.Opacity = 0 end
             end
         end
-        if sections_still_visible == 0 then
-            self.Window.TransitionState = "fading_in"
-        end
-    elseif self.Window.TransitionState == "fading_in" then
-        local sections_not_finished = 0
-        for _, section in ipairs(self.UI.Sections) do
-            if section.ParentTab == self.Window.ActiveTab then
-                local anim_state = self.AnimationState[section.Drawing.Background]
-                if not anim_state then anim_state = { Opacity = 0, YOffset = ANIMATION_SLIDE_DISTANCE }; self.AnimationState[section.Drawing.Background] = anim_state; end
-                
-                local targetOpacity = 1
-                local targetYOffset = 0
-                local speed_value = self.UI.Values["AboutAnimationSpeed"] or 1.6
-                local animationSpeed = speed_value / 12.0
-                anim_state.Opacity = anim_state.Opacity + (targetOpacity - anim_state.Opacity) * animationSpeed
-                anim_state.YOffset = anim_state.YOffset + (targetYOffset - anim_state.YOffset) * animationSpeed
+        -- И начинаем новый переход
+        self.Window.LastRenderedTab = self.Window.ActiveTab -- Это единственное место, где мы меняем LastRenderedTab вручную
+        self.Window.TransitionState = "fading_out"
+    end
 
-                if anim_state.Opacity < 0.99 then
-                    sections_not_finished = sections_not_finished + 1
-                end
-                
-                local sectionX, sectionY
-                if section.Side == "Left" then sectionX, sectionY = leftColumnX, leftColumnY else sectionX, sectionY = rightColumnX, rightColumnY end
-                
-                local sectionHeight = self:_RenderSingleSection(section, sectionX, sectionY, columnWidth, anim_state.YOffset, anim_state.Opacity)
-                section.LastPos = { X = sectionX, Y = sectionY, Height = sectionHeight }
-                
-                if section.Side == "Left" then leftColumnY = leftColumnY + sectionHeight + columnSpacing else rightColumnY = rightColumnY + sectionHeight + columnSpacing end
-            end
-        end
-        if sections_not_finished == 0 then
-            self.Window.TransitionState = "none"
-            self.Window.LastRenderedTab = self.Window.ActiveTab
-        end
-    else -- Состояние "none"
-        for _, section in ipairs(self.UI.Sections) do
-            if section.ParentTab == self.Window.ActiveTab then
-                local anim_state = self.AnimationState[section.Drawing.Background]
-                if not anim_state then anim_state = { Opacity = 1, YOffset = 0 }; self.AnimationState[section.Drawing.Background] = anim_state; end
-                anim_state.Opacity = 1; anim_state.YOffset = 0;
+    local sections_fading_out_count = 0
+    local sections_fading_in_count = 0
 
-                local sectionX, sectionY
-                if section.Side == "Left" then sectionX, sectionY = leftColumnX, leftColumnY else sectionX, sectionY = rightColumnX, rightColumnY end
-                
-                local sectionHeight = self:_RenderSingleSection(section, sectionX, sectionY, columnWidth, anim_state.YOffset, anim_state.Opacity)
-                section.LastPos = { X = sectionX, Y = sectionY, Height = sectionHeight }
-                
-                if section.Side == "Left" then leftColumnY = leftColumnY + sectionHeight + columnSpacing else rightColumnY = rightColumnY + sectionHeight + columnSpacing end
-            end
+    -- 2. Основной цикл рендера и анимации
+    for _, section in ipairs(self.UI.Sections) do
+        local is_active = (section.ParentTab == self.Window.ActiveTab)
+        local is_last_active = (section.ParentTab == self.Window.LastRenderedTab)
+        local anim_state = self.AnimationState[section.Drawing.Background]
+        if not anim_state then anim_state = { Opacity = 0, YOffset = 0 }; self.AnimationState[section.Drawing.Background] = anim_state end
+
+        local speed_value = self.UI.Values["AboutAnimationSpeed"] or 1.6
+        local animationSpeed = speed_value / 12.0
+        
+        if is_last_active and self.Window.TransitionState == "fading_out" then
+            -- Анимируем исчезновение старых секций
+            local targetOpacity, targetYOffset = 0, ANIMATION_SLIDE_DISTANCE
+            anim_state.Opacity = anim_state.Opacity + (targetOpacity - anim_state.Opacity) * animationSpeed
+            anim_state.YOffset = anim_state.YOffset + (targetYOffset - anim_state.YOffset) * animationSpeed
+
+            local sectionX = (section.LastPos and section.LastPos.X) or 0
+            local sectionY = (section.LastPos and section.LastPos.Y) or 0
+            self:_RenderSingleSection(section, sectionX, sectionY, columnWidth, anim_state.YOffset, anim_state.Opacity)
+            
+            if anim_state.Opacity > 0.01 then sections_fading_out_count = sections_fading_out_count + 1 end
+
+        elseif is_active and self.Window.TransitionState == "fading_in" then
+             -- Анимируем появление новых секций
+            local targetOpacity, targetYOffset = 1, 0
+            anim_state.Opacity = anim_state.Opacity + (targetOpacity - anim_state.Opacity) * animationSpeed
+            anim_state.YOffset = anim_state.YOffset + (targetYOffset - anim_state.YOffset) * animationSpeed
+
+            local sectionX, sectionY
+            if section.Side == "Left" then sectionX, sectionY = leftColumnX, leftColumnY else sectionX, sectionY = rightColumnX, rightColumnY end
+            
+            local sectionHeight = self:_RenderSingleSection(section, sectionX, sectionY, columnWidth, anim_state.YOffset, anim_state.Opacity)
+            section.LastPos = { X = sectionX, Y = sectionY, Height = sectionHeight }
+            if section.Side == "Left" then leftColumnY = leftColumnY + sectionHeight + columnSpacing else rightColumnY = rightColumnY + sectionHeight + columnSpacing end
+
+            if anim_state.Opacity < 0.99 then sections_fading_in_count = sections_fading_in_count + 1 end
+        
+        elseif is_active and self.Window.TransitionState == "none" then
+             -- Обычный рендер активной вкладки
+            anim_state.Opacity, anim_state.YOffset = 1, 0
+            local sectionX, sectionY
+            if section.Side == "Left" then sectionX, sectionY = leftColumnX, leftColumnY else sectionX, sectionY = rightColumnX, rightColumnY end
+            
+            local sectionHeight = self:_RenderSingleSection(section, sectionX, sectionY, columnWidth, anim_state.YOffset, anim_state.Opacity)
+            section.LastPos = { X = sectionX, Y = sectionY, Height = sectionHeight }
+            if section.Side == "Left" then leftColumnY = leftColumnY + sectionHeight + columnSpacing else rightColumnY = rightColumnY + sectionHeight + columnSpacing end
+        else
+            -- Все остальные секции должны быть скрыты
+            self:_HideSection(section)
         end
+    end
+
+    -- 3. Смена состояний анимации
+    if self.Window.TransitionState == "fading_out" and sections_fading_out_count == 0 then
+        self.Window.TransitionState = "fading_in"
+    elseif self.Window.TransitionState == "fading_in" and sections_fading_in_count == 0 then
+        self.Window.TransitionState = "none"
+        self.Window.LastRenderedTab = self.Window.ActiveTab -- Обновляем здесь, когда все закончено
     end
 end
 
