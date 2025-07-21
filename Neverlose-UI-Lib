@@ -1140,7 +1140,7 @@ function Library:_RenderPlayerESPSettingsPopup()
     local keybind = popup.Keybind
     
     -- Задаем цвета по умолчанию (как у Dropdown)
-    local buttonBackgroundColor = theme.Colors.DarkBlue
+    local buttonBackgroundColor = theme.Colors.GlowAccent
     local buttonTextColor = theme.Colors.TextPrimary
 
     -- Если кнопка "слушает" нажатие, подсвечиваем ее
@@ -1666,7 +1666,6 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
     local elementY_offset = (separatorY_abs - animatedY) + 15
     
     for _, el in ipairs(section.Elements) do
-        -- [[ ИСПРАВЛЕНИЕ: Управляем видимостью базовых частей элемента здесь ]]
         self:_SetVisibility(el.Label, true)
         if el.type == "Toggle" then
             self:_SetVisibility(el.Back, true)
@@ -1675,7 +1674,7 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
         elseif el.type == "Slider" then
             self:_SetVisibility(el.Back, true)
             self:_SetVisibility(el.LeftFill, true)
-            self:_SetVisibility(el.RightFill, true)
+            -- self:_SetVisibility(el.RightFill, true) -- Убрали
             self:_SetVisibility(el.Nub, true)
             self:_SetVisibility(el.ValueText, true)
         elseif el.type == "Dropdown" or el.type == "Multidropdown" then
@@ -1683,8 +1682,10 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
             self:_SetVisibility(el.ButtonText, true)
             self:_SetVisibility(el.ArrowLine1, true)
             self:_SetVisibility(el.ArrowLine2, true)
+        elseif el.type == "Keybind" then
+            self:_SetVisibility(el.Button, true)
+            self:_SetVisibility(el.ButtonText, true)
         end
-        -- Конец блока видимости
 
         local currentElementY = animatedY + elementY_offset
         self:_AnimateAndApplyColor(el.Label, theme.Colors.TextSecondary, masterOpacity)
@@ -1703,19 +1704,30 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
             if el.HasSettings and el.SettingsIcon then self:_AnimateAndApplyColor(el.SettingsIcon, theme.Colors.TextSecondary, masterOpacity); local iconX = toggleBackX - el.SettingsIcon.Size.x - 10; el.SettingsIcon.Position = {iconX, currentElementY}; el.SettingsClickRegion = {x1 = iconX, y1 = currentElementY, x2 = iconX + el.SettingsIcon.Size.x, y2 = currentElementY + el.SettingsIcon.Size.y} end
             elementY_offset = elementY_offset + 35
 
+        -- [[ ИСПРАВЛЕНИЕ СЛАЙДЕРА ]]
         elseif el.type == "Slider" then
             el.Label.Position = {sectionX + 10, currentElementY}
             local sliderBackX = sectionX + 100; local sliderBackWidth = columnWidth - 110 - 50
-            el.Back.Position = {sliderBackX, currentElementY + 8}; el.Back.Size = {sliderBackWidth, 2}; el.ClickRegion = { x1 = sliderBackX, y1 = currentElementY - 2, x2 = sliderBackX + sliderBackWidth, y2 = currentElementY + 18 };
+            
+            -- Задаем позицию и размер для всей полоски слайдера
+            el.Back.Position = {sliderBackX, currentElementY + 8}; 
+            el.Back.Size = {sliderBackWidth, 2}; 
+            el.ClickRegion = { x1 = sliderBackX, y1 = currentElementY - 2, x2 = sliderBackX + sliderBackWidth, y2 = currentElementY + 18 };
+            
             local value_percentage = math.clamp(((self.UI.Values[el.id] or el.Min) - el.Min) / (el.Max - el.Min), 0, 1)
             local nubX = sliderBackX + sliderBackWidth * value_percentage
-            el.LeftFill.Position = {sliderBackX, currentElementY + 8}; el.LeftFill.Size = {nubX - sliderBackX, 2}
-            el.RightFill.Position = {nubX, currentElementY + 8}; el.RightFill.Size = {sliderBackX + sliderBackWidth - nubX, 2}
+            
+            -- Задаем позицию и размер для заполненной части
+            el.LeftFill.Position = {sliderBackX, currentElementY + 8}; 
+            el.LeftFill.Size = {nubX - sliderBackX, 2}
+            
+            -- Позиция ползунка и текста со значением
             el.Nub.Position = {nubX, currentElementY + 9}
             local valueText = tostring(math.floor(self.UI.Values[el.id] or el.Min)); local valueTextX = sectionX + columnWidth - 40
             el.ValueText.Text = valueText; el.ValueText.Position = {valueTextX, currentElementY}
             
-            self:_AnimateAndApplyColor(el.RightFill, theme.Colors.DarkBlue, masterOpacity)
+            -- Применяем цвета и прозрачность ко всем элементам
+            self:_AnimateAndApplyColor(el.Back, theme.Colors.DarkBlue, masterOpacity) -- Применяем цвет и прозрачность к фону
             self:_AnimateAndApplyColor(el.LeftFill, theme.Colors.Accent, masterOpacity)
             self:_AnimateAndApplyColor(el.Nub, theme.Colors.Accent, masterOpacity)
             self:_AnimateAndApplyColor(el.ValueText, theme.Colors.TextPrimary, masterOpacity)
@@ -1736,7 +1748,6 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
             elementY_offset = elementY_offset + 35
             
             if el.IsOpen then
-                -- [[ ИСПРАВЛЕНИЕ: Явно устанавливаем видимость для открытого списка ]]
                 self:_SetVisibility(el.OptionBackground, true)
                 self:_SetVisibility(el.BorderLeft, true)
                 self:_SetVisibility(el.BorderRight, true)
@@ -1766,7 +1777,6 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
                     optionY_abs = optionY_abs + 20 
                 end
             else
-                -- [[ ИСПРАВЛЕНИЕ: Явно скрываем все части списка ]]
                 self:_HideGlowEffect(el.Glow)
                 self:_SetVisibility(el.OptionBackground, false)
                 self:_SetVisibility(el.BorderLeft, false)
@@ -1774,15 +1784,34 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
                 self:_SetVisibility(el.BorderBottom, false)
                 for _, option in ipairs(el.OptionList) do self:_SetVisibility(option, false) end
             end
+        
+        elseif el.type == "Keybind" then
+            el.Label.Position = {sectionX + 10, currentElementY + 5}
+            local keybindButtonX, keybindButtonY = sectionX + columnWidth - el.Size.width - 15, currentElementY
+            
+            el.Button.Position = {keybindButtonX, keybindButtonY}; 
+            el.Button.Size = {el.Size.width, el.Size.height}
+            
+            el.ButtonText.Position = { keybindButtonX + (el.Size.width / 2), keybindButtonY + el.Size.height / 2 - el.ButtonText.Size / 2 }; 
+            el.ButtonText.Text = el.IsListening and "..." or string.upper(self.UI.Values[el.id])
+            
+            el.ClickRegion = { x1 = keybindButtonX, y1 = keybindButtonY, x2 = keybindButtonX + el.Size.width, y2 = keybindButtonY + el.Size.height }
+            
+            local targetButtonColor = el.IsListening and theme.Colors.Accent or theme.Colors.DarkBlue
+            local targetTextColor = el.IsListening and self:_GetTextColorForBackground(targetButtonColor) or theme.Colors.TextPrimary
+
+            self:_AnimateAndApplyColor(el.Button, targetButtonColor, masterOpacity)
+            self:_AnimateAndApplyColor(el.ButtonText, targetTextColor, masterOpacity)
+            
+            elementY_offset = elementY_offset + 35
         end
     end
     
     local sectionHeight = elementY_offset - ((separatorY_abs - animatedY) + 15) + 45
     
-    -- [[ НОВОЕ: Корректировка высоты секции ]]
     if #section.Elements > 0 then
         local lastElement = section.Elements[#section.Elements]
-        if lastElement.type == "Dropdown" or lastElement.type == "Multidropdown" then
+        if lastElement.type == "Dropdown" or lastElement.type == "Multidropdown" or lastElement.type == "Keybind" then
             sectionHeight = sectionHeight + 13
         end
     end
@@ -2501,7 +2530,7 @@ end
 
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3x1")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3g1")
     local is_first_frame = true
     while self.Window.Visible do
         if is_first_frame then
@@ -2560,15 +2589,16 @@ function Library:_Internal_CreateSlider(options)
         id = options.id, type = "Slider", Name = options.Name, Min = options.Min or 0, Max = options.Max or 100,
         Increment = options.Increment or 1, IsDragging = false, Callback = options.Callback,
         Label = self:_CreateDrawingObject("Text"), Back = self:_CreateDrawingObject("Square"),
-        LeftFill = self:_CreateDrawingObject("Square"), RightFill = self:_CreateDrawingObject("Square"),
+        LeftFill = self:_CreateDrawingObject("Square"),
+        -- RightFill = self:_CreateDrawingObject("Square"), -- Элемент RightFill больше не нужен
         Nub = self:_CreateDrawingObject("Circle"), ValueText = self:_CreateDrawingObject("Text"),
         ClickRegion = {}, Glow = self:_Internal_CreateGlowSet(z),
-        CurrentNubColor = {0,0,0,0}, CurrentFillColor = {0,0,0,0} -- Цвета для анимации
+        CurrentNubColor = {0,0,0,0}, CurrentFillColor = {0,0,0,0}
     }
     if slider.Label then slider.Label.Font = self.ActiveTheme.Fonts.Main; slider.Label.Size = self.ActiveTheme.Fonts.Size + 2; slider.Label.Text = slider.Name; slider.Label.Center = false; slider.Label.Outline = false; slider.Label.zIndex = z; end
     if slider.Back then slider.Back.Filled = true; slider.Back.zIndex = z; slider.Back.Rounding = 1; end
     if slider.LeftFill then slider.LeftFill.Filled = true; slider.LeftFill.zIndex = z + 1; slider.LeftFill.Rounding = 1; end
-    if slider.RightFill then slider.RightFill.Filled = true; slider.RightFill.zIndex = z + 1; slider.RightFill.Rounding = 1; end
+    -- if slider.RightFill then slider.RightFill.Filled = true; slider.RightFill.zIndex = z + 1; slider.RightFill.Rounding = 1; end -- И его настройка тоже
     if slider.Nub then slider.Nub.Filled = true; slider.Nub.zIndex = z + 2; slider.Nub.Radius = 8; end
     if slider.ValueText then slider.ValueText.Font = self.ActiveTheme.Fonts.Main; slider.ValueText.Size = self.ActiveTheme.Fonts.Size; slider.ValueText.Center = false; slider.ValueText.Outline = false; slider.ValueText.zIndex = z; end
     return slider
