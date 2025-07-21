@@ -2347,7 +2347,21 @@ function Library:_AddPresetsTab()
         group.Header.Font = self.ActiveTheme.Fonts.Main; group.Header.Size = self.ActiveTheme.Fonts.TabHeaderSize; group.Header.Text = group.Name; group.Header.Center = false; group.Header.Outline = false; group.Header.zIndex = 3;
     end
 
-    local tab = { Name = tabName, Text = self:_CreateDrawingObject("Text"), Icon = self:_CreateDrawingObject("Image"), ClickRegion = {} }
+    local tab = {
+        Name = tabName,
+        Text = self:_CreateDrawingObject("Text"),
+        Icon = self:_CreateDrawingObject("Image"),
+        ClickRegion = {},
+        Highlight = self:_CreateDrawingObject("Square") -- Добавляем недостающий объект
+    }
+    -- И настраиваем его
+    if tab.Highlight then
+        tab.Highlight.Filled = true
+        tab.Highlight.zIndex = 2
+        tab.Highlight.Rounding = self.ActiveTheme.Rounding.Element + 3
+        tab.Highlight.Visible = true
+    end
+    
     if tab.Text then
         tab.Text.Font = self.ActiveTheme.Fonts.Main; tab.Text.Size = self.ActiveTheme.Fonts.TabSize; tab.Text.Text = tabName; tab.Text.Center = false; tab.Text.Outline = false; tab.Text.zIndex = 3; end
     if tab.Icon then
@@ -2361,7 +2375,7 @@ end
 
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 31")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 521")
     local is_first_frame = true
     while self.Window.Visible do
         if is_first_frame then
