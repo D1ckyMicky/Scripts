@@ -1,12 +1,16 @@
 --[[
     Neverlose.cc Style UI Library for Severe
-    Version: 19.0 (Stability Release Candidate)
+    Version: 16.1 (Config System - Hotfix)
     Developer: Gemini AI & Dicky_Micky_
 
-    - [CRITICAL FIX] Rewrote all pop-up window rendering functions using a stable "flat list" pattern to eliminate all 'C stack overflow' and 'arithmetic on nil' errors.
-    - [FIX] Corrected the _Internal_CreateKeybind function to properly initialize a Label element.
-    - [FIX] Added nil-checks to _RenderGlowEffect to prevent crashes.
-    - [STABLE] All core features, including sequential tab animations, configs, and custom themes, are now stable. Pop-up windows appear instantly without animation to ensure stability.
+    - [FIX] Changed config file extension from .json to .cfg to avoid 'banned file extension' error in Severe.
+    - [NEW] Implemented the core config saving/loading system using the file system.
+    - [NEW] The library now automatically creates a 'NL_Configs' folder on startup.
+    - [NEW] On first launch (or if no configs exist), a 'default.cfg' config is created with the default values of all UI elements.
+    - [NEW] The 'Configs' tab now dynamically loads and displays all .cfg files found in the 'NL_Configs' folder.
+    - [UPDATE] The 'Save' button now saves the current UI values to the selected config file.
+    - [UPDATE] The 'Load' button now loads UI values from the selected config file.
+    - [INTERNAL] Removed 'DummyData' in favor of the new dynamic system.
 ]]
 
 local Library = {}
@@ -15,17 +19,17 @@ local Library = {}
 --[[ PRIVATE: CORE PROPERTIES & CONFIGURATION ]]
 --================================================================
 
-Library.AnimationState = {}
+Library.AnimationState = {} -- Хранилище для состояний анимации
 
 Library.Window = {
     Visible = true, X = 400, Y = 200, Width = 750, Height = 620,
     SidebarWidth = 187, HeaderHeight = 65, IsDragging = false,
     ActiveTab = "", PanelOverlap = 4,
     LastRenderedTab = "",
-    Animation = { State = "IDLE", OldTab = nil }
+    Animation = { State = "IDLE", OldTab = nil } -- << ИЗМЕНИ ЭТУ СТРОКУ
 }
 
-Library.ConfigFolderPath = "NL_Configs"
+Library.ConfigFolderPath = "NL_Configs" -- Новая папка для конфигов
 
 Library.Themes = {
     Blue = {
@@ -85,7 +89,7 @@ local lastToggleTime = 0
 local toggleDelay = 0.5
 local SCRIPT_PREFIX = "[NL UI Lib] "
 local lastAutoSaveTime = 0
-local autoSaveInterval = 15
+local autoSaveInterval = 15 -- Интервал в секундах (можно изменить)
 
 --================================================================
 --[[ PRIVATE: COLOR CONVERSION FUNCTIONS (PLACEHOLDERS) ]]
@@ -409,18 +413,20 @@ function Library:_Internal_CreateGlowSet(zIndex, count)
     return glowSet
 end
 
-function Library:_RenderGlowEffect(glowSet, x, y, width, height, rounding, targetColor, sides, masterOpacity)
-    if not glowSet or not x or not y or not width or not height or not targetColor or not rounding then return end
+function Library:_RenderGlowEffect(glowSet, x, y, width, height, rounding, targetColor, sides)
+    if not glowSet or #glowSet == 0 or not targetColor then return end
     
-    masterOpacity = masterOpacity or 1
-
+    -- Используем первый квадрат в наборе как ключ для нашего хранилища состояний
     local stateHolder = glowSet[1]
+
+    -- Получаем или создаем состояние для этого ключа
     local state = self.AnimationState[stateHolder]
     if not state then
         state = { CurrentColor = self:_DeepCopy(targetColor) }
         self.AnimationState[stateHolder] = state
     end
     
+    -- Анимируем цвет
     state.CurrentColor = self:_LerpColor(state.CurrentColor, targetColor, 0.1)
     local animatedColor = state.CurrentColor
     
@@ -440,9 +446,9 @@ function Library:_RenderGlowEffect(glowSet, x, y, width, height, rounding, targe
         
         glowSquare.Position = {glowX, glowY}
         glowSquare.Size = {glowW, glowH}
-        glowSquare.Rounding = rounding + spread
+        glowSquare.Rounding = rounding + spread -- Теперь 'rounding' это корректное число
         glowSquare.Color = glowColorRGB
-        glowSquare.Opacity = glowOpacity * alpha_factor * masterOpacity
+        glowSquare.Opacity = glowOpacity * alpha_factor
         self:_SetVisibility(glowSquare, true)
     end
 end
@@ -1046,123 +1052,109 @@ end
 --================================================================
 --[[ PRIVATE: RENDERING & INPUT HANDLING ]]
 --================================================================
+
 function Library:_RenderAboutWindow(mouse_pos)
     local about = self.UI.Core.AboutWindow
     local isVisible = self.UI.Popups.About.IsOpen
     local theme = self.ActiveTheme
-
-    -- [[ ЗАЩИТА ОТ ОШИБОК ПЕРВОГО КАДРА И РЕКУРСИИ ]]
-    if not self.Window.X or not self.Window.Y then return end -- Защита от nil
-
-    if not about.AllElements then
-        about.AllElements = {
-            about.Background, about.Border, about.HeaderIcon, about.HeaderTitle, about.CloseButton.Line1, about.CloseButton.Line2, 
-            about.Separator1, about.MainTitle, about.Separator2, about.InfoVersionLabel, about.InfoVersionValue, 
-            about.InfoBuildDateLabel, about.InfoBuildDateValue, about.InfoBuildTypeLabel, about.InfoBuildTypeValue, 
-            about.InfoRegisteredToLabel, about.InfoRegisteredToValue, about.InfoSubscriptionLabel, about.InfoSubscriptionValue, 
-            about.FooterText, about.Separator3, about.CreditText, about.AutoSaveToggle.Label, about.AutoSaveToggle.Back, 
-            about.AutoSaveToggle.Nub, about.DpiScaleDropdown.Label, about.DpiScaleDropdown.Button, about.DpiScaleDropdown.ButtonText, 
-            about.DpiScaleDropdown.ArrowLine1, about.DpiScaleDropdown.ArrowLine2, about.AnimationSpeedSlider.Label, 
-            about.AnimationSpeedSlider.Back, about.AnimationSpeedSlider.LeftFill, about.AnimationSpeedSlider.Nub, 
-            about.AnimationSpeedSlider.ValueText, about.StyleLabel, about.Tooltip.Background, about.Tooltip.Text
-        }
-        for _, circle in ipairs(about.StyleCircles) do
-            if circle.Circle then table.insert(about.AllElements, circle.Circle) end
-            if circle.Border then table.insert(about.AllElements, circle.Border) end
-            if circle.Inner then table.insert(about.AllElements, circle.Inner) end
-            if circle.PlusLine1 then table.insert(about.AllElements, circle.PlusLine1) end
-            if circle.PlusLine2 then table.insert(about.AllElements, circle.PlusLine2) end
+    
+    local function setAboutVisibility(tbl, visible)
+        for key, obj in pairs(tbl) do
+            if type(obj) == 'table' then
+                if obj.Visible ~= nil then self:_SetVisibility(obj, visible)
+                --[[ ИСПРАВЛЕНИЕ: Добавлена проверка на существование RightFill перед его использованием ]]
+                elseif obj.Label and (obj.Back or obj.Button or (obj.LeftFill and obj.Nub)) then
+                    self:_SetVisibility(obj.Label, visible);
+                    if obj.Back then self:_SetVisibility(obj.Back, visible); self:_SetVisibility(obj.Nub, visible); end
+                    if obj.LeftFill then 
+                        self:_SetVisibility(obj.LeftFill, visible); 
+                        -- self:_SetVisibility(obj.RightFill, visible); -- Убрали
+                        self:_SetVisibility(obj.Nub, visible); 
+                        self:_SetVisibility(obj.ValueText, visible); 
+                    end
+                    if obj.Button then self:_SetVisibility(obj.Button, visible); self:_SetVisibility(obj.ButtonText, visible); self:_SetVisibility(obj.ArrowLine1, visible); self:_SetVisibility(obj.ArrowLine2, visible); end
+                elseif key ~= "ClickRegion" and key ~= "StyleCircles" and key ~= "Glow" and key ~= "Tooltip" and key ~= "HoveredThemeCircle" then
+                     setAboutVisibility(obj, visible)
+                end
+            end
         end
-        about.AllElementsInitialized = true
     end
+    setAboutVisibility(about, isVisible)
+    self:_SetVisibility(about.Tooltip.Background, false)
+    self:_SetVisibility(about.Tooltip.Text, false)
 
-    for _, obj in ipairs(about.AllElements) do if obj then self:_SetVisibility(obj, isVisible) end end
-    self:_SetVisibility(about.DpiScaleDropdown.OptionBackground, isVisible and about.DpiScaleDropdown.IsOpen)
-    for _, opt in ipairs(about.DpiScaleDropdown.OptionList) do self:_SetVisibility(opt, isVisible and about.DpiScaleDropdown.IsOpen) end
-    self:_SetVisibility(about.Tooltip.Background, false); self:_SetVisibility(about.Tooltip.Text, false)
+    for _, circle in ipairs(about.StyleCircles) do
+        self:_SetVisibility(circle.Circle, isVisible); 
+        self:_SetVisibility(circle.Border, isVisible and self.UI.Values.AboutSelectedStyle == circle.Name);
+        if circle.Inner then self:_SetVisibility(circle.Inner, isVisible) end
+        if circle.PlusLine1 then self:_SetVisibility(circle.PlusLine1, isVisible); self:_SetVisibility(circle.PlusLine2, isVisible) end
+    end
 
     if not isVisible then
         if about.Glow then self:_HideGlowEffect(about.Glow) end
         if about.AnimationSpeedSlider.Glow then self:_HideGlowEffect(about.AnimationSpeedSlider.Glow) end
-        if about.DpiScaleDropdown.IsOpen then about.DpiScaleDropdown.IsOpen = false end
+        local dropdown = about.DpiScaleDropdown
+        if dropdown.IsOpen then
+            dropdown.IsOpen = false
+            self:_SetVisibility(dropdown.OptionBackground, false); self:_SetVisibility(dropdown.BorderLeft, false); self:_SetVisibility(dropdown.BorderRight, false); self:_SetVisibility(dropdown.BorderBottom, false)
+            for _, option in ipairs(dropdown.OptionList) do self:_SetVisibility(option, false) end
+        end
         return
     end
 
-    for _, circle in ipairs(about.StyleCircles) do if circle.Border then self:_SetVisibility(circle.Border, self.UI.Values.AboutSelectedStyle == circle.Name) end end
-    
     self:_AnimateAndApplyColor(about.Background, theme.Colors.SectionBackground)
     self:_AnimateAndApplyColor(about.Border, theme.Colors.Separator)
     self:_AnimateAndApplyColor(about.HeaderIcon, theme.Colors.TextSecondary)
-        
-    self:_AnimateAndApplyColor(about.Background, theme.Colors.SectionBackground, animatedOpacity)
-    self:_AnimateAndApplyColor(about.Border, theme.Colors.Separator, animatedOpacity)
-    self:_AnimateAndApplyColor(about.HeaderIcon, theme.Colors.TextSecondary, animatedOpacity)
-    self:_AnimateAndApplyColor(about.HeaderTitle, theme.Colors.TextPrimary, animatedOpacity)
-    self:_AnimateAndApplyColor(about.CloseButton.Line1, theme.Colors.TextSecondary, animatedOpacity)
-    self:_AnimateAndApplyColor(about.CloseButton.Line2, theme.Colors.TextSecondary, animatedOpacity)
-    self:_AnimateAndApplyColor(about.Separator1, theme.Colors.Separator, animatedOpacity)
-    self:_AnimateAndApplyColor(about.MainTitle, theme.Colors.TextPrimary, animatedOpacity)
-    self:_AnimateAndApplyColor(about.Separator2, theme.Colors.Separator, animatedOpacity)
-    self:_AnimateAndApplyColor(about.InfoVersionLabel, theme.Colors.TextSecondary, animatedOpacity); self:_AnimateAndApplyColor(about.InfoVersionValue, theme.Colors.Accent, animatedOpacity)
-    self:_AnimateAndApplyColor(about.InfoBuildDateLabel, theme.Colors.TextSecondary, animatedOpacity); self:_AnimateAndApplyColor(about.InfoBuildDateValue, theme.Colors.Accent, animatedOpacity)
-    self:_AnimateAndApplyColor(about.InfoBuildTypeLabel, theme.Colors.TextSecondary, animatedOpacity); self:_AnimateAndApplyColor(about.InfoBuildTypeValue, theme.Colors.Accent, animatedOpacity)
-    self:_AnimateAndApplyColor(about.InfoRegisteredToLabel, theme.Colors.TextSecondary, animatedOpacity); self:_AnimateAndApplyColor(about.InfoRegisteredToValue, theme.Colors.Accent, animatedOpacity)
-    self:_AnimateAndApplyColor(about.InfoSubscriptionLabel, theme.Colors.TextSecondary, animatedOpacity); self:_AnimateAndApplyColor(about.InfoSubscriptionValue, theme.Colors.Accent, animatedOpacity)
-    self:_AnimateAndApplyColor(about.FooterText, theme.Colors.TextSecondary, animatedOpacity)
-    self:_AnimateAndApplyColor(about.Separator3, theme.Colors.Separator, animatedOpacity)
-    self:_AnimateAndApplyColor(about.CreditText, theme.Colors.TextSecondary, animatedOpacity)
-    self:_AnimateAndApplyColor(about.StyleLabel, theme.Colors.TextSecondary, animatedOpacity)
-    self:_AnimateAndApplyColor(about.Tooltip.Background, theme.Colors.MainBackground, animatedOpacity)
-    self:_AnimateAndApplyColor(about.Tooltip.Text, theme.Colors.TextPrimary, animatedOpacity)
-    
+    self:_AnimateAndApplyColor(about.HeaderTitle, theme.Colors.TextPrimary)
+    self:_AnimateAndApplyColor(about.CloseButton.Line1, theme.Colors.TextSecondary)
+    self:_AnimateAndApplyColor(about.CloseButton.Line2, theme.Colors.TextSecondary)
+    self:_AnimateAndApplyColor(about.Separator1, theme.Colors.Separator)
+    self:_AnimateAndApplyColor(about.MainTitle, theme.Colors.TextPrimary)
+    self:_AnimateAndApplyColor(about.Separator2, theme.Colors.Separator)
+    self:_AnimateAndApplyColor(about.InfoVersionLabel, theme.Colors.TextSecondary); self:_AnimateAndApplyColor(about.InfoVersionValue, theme.Colors.Accent)
+    self:_AnimateAndApplyColor(about.InfoBuildDateLabel, theme.Colors.TextSecondary); self:_AnimateAndApplyColor(about.InfoBuildDateValue, theme.Colors.Accent)
+    self:_AnimateAndApplyColor(about.InfoBuildTypeLabel, theme.Colors.TextSecondary); self:_AnimateAndApplyColor(about.InfoBuildTypeValue, theme.Colors.Accent)
+    self:_AnimateAndApplyColor(about.InfoRegisteredToLabel, theme.Colors.TextSecondary); self:_AnimateAndApplyColor(about.InfoRegisteredToValue, theme.Colors.Accent)
+    self:_AnimateAndApplyColor(about.InfoSubscriptionLabel, theme.Colors.TextSecondary); self:_AnimateAndApplyColor(about.InfoSubscriptionValue, theme.Colors.Accent)
+    self:_AnimateAndApplyColor(about.FooterText, theme.Colors.TextSecondary)
+    self:_AnimateAndApplyColor(about.Separator3, theme.Colors.Separator)
+    self:_AnimateAndApplyColor(about.CreditText, theme.Colors.TextSecondary)
+    self:_AnimateAndApplyColor(about.StyleLabel, theme.Colors.TextSecondary)
+    self:_AnimateAndApplyColor(about.Tooltip.Background, theme.Colors.MainBackground)
+    self:_AnimateAndApplyColor(about.Tooltip.Text, theme.Colors.TextPrimary)
     for _, circle in ipairs(about.StyleCircles) do
-        if circle.Circle then circle.Circle.Opacity = animatedOpacity end
-        self:_AnimateAndApplyColor(circle.Border, theme.Colors.Accent, animatedOpacity)
-        if circle.Inner then circle.Inner.Opacity = animatedOpacity end
-        if circle.PlusLine1 then self:_AnimateAndApplyColor(circle.PlusLine1, theme.Colors.TextSecondary, animatedOpacity) end
-        if circle.PlusLine2 then self:_AnimateAndApplyColor(circle.PlusLine2, theme.Colors.TextSecondary, animatedOpacity) end
+        self:_AnimateAndApplyColor(circle.Border, theme.Colors.Accent)
+        if circle.PlusLine1 then self:_AnimateAndApplyColor(circle.PlusLine1, theme.Colors.TextSecondary) end
+        if circle.PlusLine2 then self:_AnimateAndApplyColor(circle.PlusLine2, theme.Colors.TextSecondary) end
     end
-    self:_AnimateAndApplyColor(about.AutoSaveToggle.Label, theme.Colors.TextSecondary, animatedOpacity)
+    self:_AnimateAndApplyColor(about.AutoSaveToggle.Label, theme.Colors.TextSecondary)
+    
+    -- [[ ИСПРАВЛЕНИЕ СЛАЙДЕРА В ABOUT МЕНЮ ]]
     local slider = about.AnimationSpeedSlider; 
-    self:_AnimateAndApplyColor(slider.Label, theme.Colors.TextSecondary, animatedOpacity); 
-    self:_AnimateAndApplyColor(slider.Back, theme.Colors.DarkBlue, animatedOpacity); 
-    self:_AnimateAndApplyColor(slider.LeftFill, theme.Colors.Accent, animatedOpacity); 
-    self:_AnimateAndApplyColor(slider.Nub, theme.Colors.Accent, animatedOpacity); 
-    self:_AnimateAndApplyColor(slider.ValueText, theme.Colors.TextPrimary, animatedOpacity);
+    self:_AnimateAndApplyColor(slider.Label, theme.Colors.TextSecondary); 
+    self:_AnimateAndApplyColor(slider.Back, theme.Colors.DarkBlue); -- Задаем цвет фоновой полоске
+    self:_AnimateAndApplyColor(slider.LeftFill, theme.Colors.Accent); 
+    -- self:_AnimateAndApplyColor(slider.RightFill, theme.Colors.DarkBlue); -- Убрали
+    self:_AnimateAndApplyColor(slider.Nub, theme.Colors.Accent); 
+    self:_AnimateAndApplyColor(slider.ValueText, theme.Colors.TextPrimary);
+    
     local dd = about.DpiScaleDropdown; 
-    self:_AnimateAndApplyColor(dd.Label, theme.Colors.TextSecondary, animatedOpacity); 
-    self:_AnimateAndApplyColor(dd.Button, theme.Colors.DarkBlue, animatedOpacity); 
-    self:_AnimateAndApplyColor(dd.ButtonText, theme.Colors.TextPrimary, animatedOpacity); 
-    self:_AnimateAndApplyColor(dd.ArrowLine1, theme.Colors.TextPrimary, animatedOpacity); 
-    self:_AnimateAndApplyColor(dd.ArrowLine2, theme.Colors.TextPrimary, animatedOpacity); 
-    self:_AnimateAndApplyColor(dd.OptionBackground, theme.Colors.SectionBackground, animatedOpacity); 
-    self:_AnimateAndApplyColor(dd.BorderLeft, theme.Colors.Separator, animatedOpacity); 
-    self:_AnimateAndApplyColor(dd.BorderRight, theme.Colors.Separator, animatedOpacity); 
-    self:_AnimateAndApplyColor(dd.BorderBottom, theme.Colors.Separator, animatedOpacity);
+    self:_AnimateAndApplyColor(dd.Label, theme.Colors.TextSecondary); 
+    self:_AnimateAndApplyColor(dd.Button, theme.Colors.DarkBlue); 
+    self:_AnimateAndApplyColor(dd.ButtonText, theme.Colors.TextPrimary); 
+    self:_AnimateAndApplyColor(dd.ArrowLine1, theme.Colors.TextPrimary); 
+    self:_AnimateAndApplyColor(dd.ArrowLine2, theme.Colors.TextPrimary); 
+    self:_AnimateAndApplyColor(dd.OptionBackground, theme.Colors.SectionBackground); 
+    self:_AnimateAndApplyColor(dd.BorderLeft, theme.Colors.Separator); 
+    self:_AnimateAndApplyColor(dd.BorderRight, theme.Colors.Separator); 
+    self:_AnimateAndApplyColor(dd.BorderBottom, theme.Colors.Separator);
 
     local winW, winH = 360, 500
     local winX, winY = self.Window.X + (self.Window.Width / 2) - (winW / 2), self.Window.Y + (self.Window.Height / 2) - (winH / 2)
     about.ClickRegion = {x1 = winX, y1 = winY, x2 = winX + winW, y2 = winY + winH}
     about.Background.Position = {winX, winY}; about.Background.Size = {winW, winH}
     about.Border.Position = {winX, winY}; about.Border.Size = {winW, winH}
-    if about.Glow then self:_RenderGlowEffect(about.Glow, winX, winY, winW, winH, about.Background.Rounding, theme.Colors.GlowColor, nil, animatedOpacity) end
-    
-    if slider.LeftFill and slider.LeftFill.Position and slider.Nub and slider.Nub.Position then
-        local glowWidth = slider.LeftFill.Size.x
-    if glowWidth > 0 and slider.Glow then
-        self:_RenderGlowEffect(slider.Glow, sliderBackX, currentY + 9 - (glowHeight / 2), glowWidth, glowHeight, slider.LeftFill.Rounding, theme.Colors.GlowAccent, {top=true, bottom=true, left=true, right=false}, animatedOpacity)
-    elseif slider.Glow then
-        self:_HideGlowEffect(slider.Glow)
-    end
-end
-
-    if about.DpiScaleDropdown.IsOpen then
-        for i, option in ipairs(about.DpiScaleDropdown.OptionList) do 
-            local targetOptColor = (self.UI.Values[about.DpiScaleDropdown.id] == about.DpiScaleDropdown.Options[i]) and theme.Colors.Accent or theme.Colors.TextPrimary
-            self:_AnimateAndApplyColor(option, targetOptColor, animatedOpacity)
-        end
-    end
-    
+    if about.Glow then self:_RenderGlowEffect(about.Glow, winX, winY, winW, winH, about.Background.Rounding, theme.Colors.GlowColor) end
     about.HeaderIcon.Position = {winX + 15, winY + 12}
     about.HeaderTitle.Position = {winX + 15 + about.HeaderIcon.Size.x + 8, winY + 13}
     about.CloseButton.Line1.From = {winX + winW - 25, winY + 12}; about.CloseButton.Line1.To = {winX + winW - 15, winY + 22}
@@ -1176,7 +1168,7 @@ end
     about.Separator2.From = {winX + 10, currentY}; about.Separator2.To = {winX + winW - 10, currentY}
     currentY = currentY + 20
     local infoX = winX + 30
-    local function renderInfoLine(y, label, value) if label and value and label.TextBounds then label.Position = {infoX, y}; value.Position = {infoX + label.TextBounds.x + 5, y} return y + 25; end; return y; end
+    local function renderInfoLine(y, label, value) if label and value then label.Position = {infoX, y}; if label.TextBounds then value.Position = {infoX + label.TextBounds.x + 5, y} end; return y + 25; end; return y; end
     currentY = renderInfoLine(currentY, about.InfoVersionLabel, about.InfoVersionValue)
     currentY = renderInfoLine(currentY, about.InfoBuildDateLabel, about.InfoBuildDateValue)
     currentY = renderInfoLine(currentY, about.InfoBuildTypeLabel, about.InfoBuildTypeValue)
@@ -1189,8 +1181,10 @@ end
     local toggle = about.AutoSaveToggle
     toggle.Label.Position = {controlX, currentY}; local toggleBackX = rightEdge - toggle.Size.width; toggle.Back.Position = {toggleBackX, currentY + 4}; toggle.Back.Size = {toggle.Size.width, toggle.Size.height}; toggle.ClickRegion = {x1 = toggleBackX, y1 = currentY, x2 = toggleBackX + toggle.Size.width, y2 = currentY + toggle.Size.height + 8}; 
     local targetBackColor, targetNubColor; if self.UI.Values[toggle.id] then targetBackColor = self:_DarkenColor(theme.Colors.Accent, 0.3); targetNubColor = theme.Colors.Accent; toggle.Nub.Position = {toggleBackX + toggle.Size.width - 5, currentY + 4 + toggle.Size.height/2} else targetBackColor = theme.Colors.DarkGray; targetNubColor = theme.Colors.LightGray; toggle.Nub.Position = {toggleBackX + 5, currentY + 4 + toggle.Size.height/2} end;
-    self:_AnimateAndApplyColor(toggle.Back, targetBackColor, animatedOpacity); self:_AnimateAndApplyColor(toggle.Nub, targetNubColor, animatedOpacity);
+    self:_AnimateAndApplyColor(toggle.Back, targetBackColor); self:_AnimateAndApplyColor(toggle.Nub, targetNubColor);
     currentY = currentY + controlSpacing
+    
+    -- [[ ИСПРАВЛЕНИЕ СЛАЙДЕРА В ABOUT МЕНЮ ]]
     slider.Label.Position = {controlX, currentY}; 
     local valueTextWidth = 40; local sliderRightEdge = rightEdge - valueTextWidth; local sliderBackX = controlX + 140; local sliderBackWidth = sliderRightEdge - sliderBackX
     slider.Back.Position = {sliderBackX, currentY + 8}; 
@@ -1200,14 +1194,20 @@ end
     local nubX = sliderBackX + sliderBackWidth * value_percentage; 
     slider.LeftFill.Position = {sliderBackX, currentY + 8}; 
     slider.LeftFill.Size = {nubX - sliderBackX, 2}; 
+    -- slider.RightFill.Position = {nubX, currentY + 8}; -- Убрали
+    -- slider.RightFill.Size = {sliderBackX + sliderBackWidth - nubX, 2}; -- Убрали
     slider.Nub.Position = {nubX, currentY + 9}; 
+    local glowWidth = nubX - sliderBackX; local glowHeight = 8; 
+    if glowWidth > 0 and slider.Glow then self:_RenderGlowEffect(slider.Glow, sliderBackX, currentY + 9 - (glowHeight / 2), glowWidth, glowHeight, slider.LeftFill.Rounding, theme.Colors.GlowAccent, {top=true, bottom=true, left=true, right=false}) elseif slider.Glow then self:_HideGlowEffect(slider.Glow) end
     local valueText = string.format("%.1f", self.UI.Values[slider.id]); local valueTextX = rightEdge - valueTextWidth + 10; 
     slider.ValueText.Text = valueText; 
     slider.ValueText.Position = {valueTextX, currentY}; 
     currentY = currentY + controlSpacing
+    
     local dropdown = about.DpiScaleDropdown
     local dropdownY = currentY - 4
     dropdown.Label.Position = {controlX, dropdownY + 5}; local dropdownButtonX = rightEdge - dropdown.Size.width; dropdown.Button.Position = {dropdownButtonX, dropdownY}; dropdown.Button.Size = {dropdown.Size.width, dropdown.Size.height}; dropdown.ButtonText.Position = {dropdownButtonX + 5, dropdownY + dropdown.Size.height / 2 - dropdown.ButtonText.Size / 2}; dropdown.ButtonText.Text = self.UI.Values[dropdown.id]; local arrowX, arrowY = dropdownButtonX + dropdown.Size.width - 15, dropdownY + dropdown.Size.height / 2; dropdown.ArrowLine1.From = {arrowX, arrowY - 2}; dropdown.ArrowLine1.To = {arrowX + 5, arrowY + 3}; dropdown.ArrowLine2.From = {arrowX + 5, arrowY + 3}; dropdown.ArrowLine2.To = {arrowX + 10, arrowY - 2}; dropdown.ClickRegion = { x1 = dropdownButtonX, y1 = dropdownY, x2 = dropdownButtonX + dropdown.Size.width, y2 = dropdownY + dropdown.Size.height }
+    self:_SetVisibility(dropdown.BorderLeft, dropdown.IsOpen); self:_SetVisibility(dropdown.BorderRight, dropdown.IsOpen); self:_SetVisibility(dropdown.BorderBottom, dropdown.IsOpen)
     if dropdown.IsOpen then
         local optionListHeight = #dropdown.Options * 20 + 5; local bgX, bgY, bgW, bgH = dropdownButtonX, dropdownY + dropdown.Size.height, dropdown.Size.width, optionListHeight
         self:_SetVisibility(dropdown.OptionBackground, true); dropdown.OptionBackground.Position = {bgX, bgY}; dropdown.OptionBackground.Size = {bgW, bgH}; dropdown.BorderLeft.From = {bgX, bgY}; dropdown.BorderLeft.To = {bgX, bgY + bgH}; dropdown.BorderRight.From = {bgX + bgW, bgY}; dropdown.BorderRight.To = {bgX + bgW, bgY + bgH}; dropdown.BorderBottom.From = {bgX, bgY + bgH}; dropdown.BorderBottom.To = {bgX + bgW, bgY + bgH};
@@ -1215,7 +1215,7 @@ end
         for i, option in ipairs(dropdown.OptionList) do 
             self:_SetVisibility(option, true); option.Position = {dropdownButtonX + 5, optionY}; option.Text = dropdown.Options[i]; 
             local targetOptColor = (self.UI.Values[dropdown.id] == dropdown.Options[i]) and theme.Colors.Accent or theme.Colors.TextPrimary
-            self:_AnimateAndApplyColor(option, targetOptColor, animatedOpacity)
+            self:_AnimateAndApplyColor(option, targetOptColor)
             optionY = optionY + 20 
         end
     else
@@ -1230,7 +1230,7 @@ end
         local circleX = circleStartX - (col * circleSpacing); local circleY = styleY + 5 + (row * circleSpacing)
         circle.Circle.Position = {circleX, circleY}; circle.Border.Position = {circleX, circleY}
         if circle.Inner then circle.Inner.Position = {circleX, circleY} end
-        if circle.PlusLine1 then circle.PlusLine1.From = {circleX, circleY - 4}; circle.PlusLine1.To = {circleX, circleY + 4}; circle.PlusLine2.From = {circleX - 4, circleY}; circle.PlusLine2.To = {circleX + 4, circleY}; end
+        if circle.PlusLine1 then circle.PlusLine1.From = {circleX - 4, circleY}; circle.PlusLine1.To = {circleX + 4, circleY}; circle.PlusLine2.From = {circleX, circleY - 4}; circle.PlusLine2.To = {circleX, circleY + 4}; end
         circle.ClickRegion = {x1 = circleX - 10, y1 = circleY - 5, x2 = circleX + 10, y2 = circleY + 15}
     end
     if about.HoveredThemeCircle.Name and (tick() - about.HoveredThemeCircle.HoverStartTime > 1) then
@@ -1249,32 +1249,35 @@ function Library:_RenderPlayerESPSettingsPopup()
     local isVisible = popup.IsOpen
     local theme = self.ActiveTheme
 
-    if not popup.AllElements then
-        popup.AllElements = {popup.Background, popup.Border, popup.Title, popup.Separator, popup.BindLabel, popup.Keybind.Button, popup.Keybind.ButtonText}
-    end
-
-    for _, obj in ipairs(popup.AllElements) do if obj then self:_SetVisibility(obj, isVisible) end end
+    self:_SetVisibility(popup.Background, isVisible); self:_SetVisibility(popup.Border, isVisible); self:_SetVisibility(popup.Title, isVisible); self:_SetVisibility(popup.Separator, isVisible); self:_SetVisibility(popup.BindLabel, isVisible); self:_SetVisibility(popup.Keybind.Button, isVisible); self:_SetVisibility(popup.Keybind.ButtonText, isVisible);
 
     if not isVisible then
         if popup.Glow then self:_HideGlowEffect(popup.Glow) end
         return
     end
     
-    self:_AnimateAndApplyColor(popup.Background, theme.Colors.SectionBackground, animatedOpacity)
-    self:_AnimateAndApplyColor(popup.Border, theme.Colors.Separator, animatedOpacity)
-    self:_AnimateAndApplyColor(popup.Title, theme.Colors.TextPrimary, animatedOpacity)
-    self:_AnimateAndApplyColor(popup.Separator, theme.Colors.Separator, animatedOpacity)
-    self:_AnimateAndApplyColor(popup.BindLabel, theme.Colors.TextSecondary, animatedOpacity)
+    self:_AnimateAndApplyColor(popup.Background, theme.Colors.SectionBackground)
+    self:_AnimateAndApplyColor(popup.Border, theme.Colors.Separator)
+    self:_AnimateAndApplyColor(popup.Title, theme.Colors.TextPrimary)
+    self:_AnimateAndApplyColor(popup.Separator, theme.Colors.Separator)
+    self:_AnimateAndApplyColor(popup.BindLabel, theme.Colors.TextSecondary)
     
+    -- [[ ИСПРАВЛЕНИЕ: Логика цвета для кнопки Keybind ]]
     local keybind = popup.Keybind
+    
+    -- Задаем цвета по умолчанию (как у Dropdown)
     local buttonBackgroundColor = theme.Colors.DarkBlue
     local buttonTextColor = theme.Colors.TextPrimary
+
+    -- Если кнопка "слушает" нажатие, подсвечиваем ее
     if keybind.IsListening then
         buttonBackgroundColor = theme.Colors.Accent
         buttonTextColor = self:_GetTextColorForBackground(buttonBackgroundColor)
     end
-    self:_AnimateAndApplyColor(keybind.Button, buttonBackgroundColor, animatedOpacity)
-    self:_AnimateAndApplyColor(keybind.ButtonText, buttonTextColor, animatedOpacity)
+    
+    self:_AnimateAndApplyColor(keybind.Button, buttonBackgroundColor)
+    self:_AnimateAndApplyColor(keybind.ButtonText, buttonTextColor)
+    -- Конец исправления
 
     local pX, pY = popup.Pos.x, popup.Pos.y
     local pW = 250
@@ -1286,6 +1289,7 @@ function Library:_RenderPlayerESPSettingsPopup()
     currentY = currentY + 15
     local elementY = currentY
     if popup.BindLabel then popup.BindLabel.Position = {pX + 10, elementY}; end
+    
     local bindButtonX = pX + pW - keybind.Size.width - 15
     local bindButtonY = elementY - 5
     if keybind.Button then keybind.Button.Position = {bindButtonX, bindButtonY}; keybind.Button.Size = {keybind.Size.width, keybind.Size.height}; end
@@ -1295,136 +1299,59 @@ function Library:_RenderPlayerESPSettingsPopup()
         keybind.ButtonText.Text = keybind.IsListening and "..." or string.upper(self.UI.Values[keybind.id]); 
     end
     keybind.ClickRegion = {x1 = bindButtonX, y1 = bindButtonY, x2 = bindButtonX + keybind.Size.width, y2 = bindButtonY + keybind.Size.height}
+    
     currentY = currentY + 30
     currentY = currentY + 5
     local totalHeight = currentY - pY
     popup.ClickRegion = {x1 = pX, y1 = pY, x2 = pX + pW, y2 = pY + totalHeight}
     if popup.Background then popup.Background.Position = {pX, pY}; popup.Background.Size = {pW, totalHeight}; end
     if popup.Border then popup.Border.Position = {pX, pY}; popup.Border.Size = {pW, totalHeight}; end
-    if popup.Glow then self:_RenderGlowEffect(popup.Glow, pX, pY, pW, totalHeight, popup.Background.Rounding, theme.Colors.GlowColor, nil, animatedOpacity) end
+    if popup.Glow then self:_RenderGlowEffect(popup.Glow, pX, pY, pW, totalHeight, popup.Background.Rounding, theme.Colors.GlowColor) end
 end
-
-function Library:_RenderPlayerESPSettingsPopup()
-    local popup = self.UI.Popups.PlayerESP
-    local isVisible = popup.IsOpen
-    local theme = self.ActiveTheme
-
-    if not popup.AllElements then
-        popup.AllElements = {popup.Background, popup.Border, popup.Title, popup.Separator, popup.BindLabel, popup.Keybind.Button, popup.Keybind.ButtonText}
-    end
-
-    for _, obj in ipairs(popup.AllElements) do if obj then self:_SetVisibility(obj, isVisible) end end
-
-    if not isVisible then
-        if popup.Glow then self:_HideGlowEffect(popup.Glow) end
-        return
-    end
-    
-    self:_AnimateAndApplyColor(popup.Background, theme.Colors.SectionBackground, animatedOpacity)
-    self:_AnimateAndApplyColor(popup.Border, theme.Colors.Separator, animatedOpacity)
-    self:_AnimateAndApplyColor(popup.Title, theme.Colors.TextPrimary, animatedOpacity)
-    self:_AnimateAndApplyColor(popup.Separator, theme.Colors.Separator, animatedOpacity)
-    self:_AnimateAndApplyColor(popup.BindLabel, theme.Colors.TextSecondary, animatedOpacity)
-    
-    local keybind = popup.Keybind
-    local buttonBackgroundColor = theme.Colors.DarkBlue
-    local buttonTextColor = theme.Colors.TextPrimary
-    if keybind.IsListening then
-        buttonBackgroundColor = theme.Colors.Accent
-        buttonTextColor = self:_GetTextColorForBackground(buttonBackgroundColor)
-    end
-    self:_AnimateAndApplyColor(keybind.Button, buttonBackgroundColor, animatedOpacity)
-    self:_AnimateAndApplyColor(keybind.ButtonText, buttonTextColor, animatedOpacity)
-
-    local pX, pY = popup.Pos.x, popup.Pos.y
-    local pW = 250
-    local currentY = pY + 8
-    if popup.Title then popup.Title.Position = {pX + 10, currentY}; end
-    currentY = currentY + popup.Title.Size + 5
-    local separatorY = currentY
-    if popup.Separator then popup.Separator.From = {pX + 10, separatorY}; popup.Separator.To = {pX + pW - 10, separatorY}; end
-    currentY = currentY + 15
-    local elementY = currentY
-    if popup.BindLabel then popup.BindLabel.Position = {pX + 10, elementY}; end
-    local bindButtonX = pX + pW - keybind.Size.width - 15
-    local bindButtonY = elementY - 5
-    if keybind.Button then keybind.Button.Position = {bindButtonX, bindButtonY}; keybind.Button.Size = {keybind.Size.width, keybind.Size.height}; end
-    if keybind.ButtonText then 
-        keybind.ButtonText.Position = {bindButtonX + (keybind.Size.width / 2), bindButtonY + (keybind.Size.height / 2) - (keybind.ButtonText.Size / 2)}; 
-        keybind.ButtonText.Center = true; 
-        keybind.ButtonText.Text = keybind.IsListening and "..." or string.upper(self.UI.Values[keybind.id]); 
-    end
-    keybind.ClickRegion = {x1 = bindButtonX, y1 = bindButtonY, x2 = bindButtonX + keybind.Size.width, y2 = bindButtonY + keybind.Size.height}
-    currentY = currentY + 30
-    currentY = currentY + 5
-    local totalHeight = currentY - pY
-    popup.ClickRegion = {x1 = pX, y1 = pY, x2 = pX + pW, y2 = pY + totalHeight}
-    if popup.Background then popup.Background.Position = {pX, pY}; popup.Background.Size = {pW, totalHeight}; end
-    if popup.Border then popup.Border.Position = {pX, pY}; popup.Border.Size = {pW, totalHeight}; end
-    if popup.Glow then self:_RenderGlowEffect(popup.Glow, pX, pY, pW, totalHeight, popup.Background.Rounding, theme.Colors.GlowColor, nil, animatedOpacity) end
-end
-
 
 function Library:_RenderEditStyleWindow()
     local style_window = self.UI.Popups.EditStyle
     local isVisible = style_window.IsOpen
     local theme = self.ActiveTheme
 
-    if not style_window.AllElements then
-        style_window.AllElements = {style_window.Background, style_window.Border, style_window.HeaderIcon, style_window.HeaderTitle, style_window.CloseButton.Line1, style_window.CloseButton.Line2, style_window.Separator1, style_window.StyleNameLabel, style_window.StyleNameInputBg, style_window.StyleNameInputText, style_window.Separator2, style_window.Separator3, style_window.StyleNameInputCursor, style_window.RealTimeToggle.Label, style_window.RealTimeToggle.Back, style_window.RealTimeToggle.Nub, style_window.CancelButton.Background, style_window.CancelButton.Border, style_window.CancelButton.IconLine1, style_window.CancelButton.IconLine2, style_window.CancelButton.Label, style_window.SaveButton.Background, style_window.SaveButton.Label, style_window.SaveButton.Icon}
-        for _, item in ipairs(style_window.ColorItems) do table.insert(style_window.AllElements, item.Label); table.insert(style_window.AllElements, item.ColorCircle); table.insert(style_window.AllElements, item.ColorBorder); end
-    end
-    
-    for _, obj in ipairs(style_window.AllElements) do if obj then self:_SetVisibility(obj, isVisible) end end
+    self:_SetVisibility(style_window.Background, isVisible); self:_SetVisibility(style_window.Border, isVisible); self:_SetVisibility(style_window.HeaderIcon, isVisible); self:_SetVisibility(style_window.HeaderTitle, isVisible); self:_SetVisibility(style_window.CloseButton.Line1, isVisible); self:_SetVisibility(style_window.CloseButton.Line2, isVisible); self:_SetVisibility(style_window.Separator1, isVisible);
+    self:_SetVisibility(style_window.StyleNameLabel, isVisible); self:_SetVisibility(style_window.StyleNameInputBg, isVisible); self:_SetVisibility(style_window.StyleNameInputText, isVisible); self:_SetVisibility(style_window.Separator2, isVisible); self:_SetVisibility(style_window.Separator3, isVisible);
     self:_SetVisibility(style_window.StyleNameInputCursor, isVisible and style_window.IsEditingName and math.sin(tick() * 5) > 0)
+    for _, item in ipairs(style_window.ColorItems) do self:_SetVisibility(item.Label, isVisible); self:_SetVisibility(item.ColorCircle, isVisible); self:_SetVisibility(item.ColorBorder, isVisible); end
+    self:_SetVisibility(style_window.RealTimeToggle.Label, isVisible); self:_SetVisibility(style_window.RealTimeToggle.Back, isVisible); self:_SetVisibility(style_window.RealTimeToggle.Nub, isVisible);
+    self:_SetVisibility(style_window.CancelButton.Background, isVisible); self:_SetVisibility(style_window.CancelButton.Border, isVisible); self:_SetVisibility(style_window.CancelButton.IconLine1, isVisible); self:_SetVisibility(style_window.CancelButton.IconLine2, isVisible); self:_SetVisibility(style_window.CancelButton.Label, isVisible);
+    self:_SetVisibility(style_window.SaveButton.Background, isVisible); self:_SetVisibility(style_window.SaveButton.Label, isVisible); self:_SetVisibility(style_window.SaveButton.Icon, isVisible);
     
     if not isVisible then
-        if style_window.Glow then self:_HideGlowEffect(style_window.Glow) end
+        self:_HideGlowEffect(style_window.Glow)
         return
     end
 
-    self:_AnimateAndApplyColor(style_window.Background, theme.Colors.SectionBackground, animatedOpacity)
-    self:_AnimateAndApplyColor(style_window.Border, theme.Colors.Separator, animatedOpacity)
-    self:_AnimateAndApplyColor(style_window.HeaderTitle, theme.Colors.TextPrimary, animatedOpacity)
-    self:_AnimateAndApplyColor(style_window.CloseButton.Line1, theme.Colors.TextSecondary, animatedOpacity)
-    self:_AnimateAndApplyColor(style_window.CloseButton.Line2, theme.Colors.TextSecondary, animatedOpacity)
-    self:_AnimateAndApplyColor(style_window.Separator1, theme.Colors.Separator, animatedOpacity)
-    self:_AnimateAndApplyColor(style_window.Separator2, theme.Colors.Separator, animatedOpacity)
-    self:_AnimateAndApplyColor(style_window.Separator3, theme.Colors.Separator, animatedOpacity)
-    self:_AnimateAndApplyColor(style_window.StyleNameLabel, theme.Colors.TextSecondary, animatedOpacity)
-    self:_AnimateAndApplyColor(style_window.StyleNameInputBg, theme.Colors.DarkBlue, animatedOpacity)
-    self:_AnimateAndApplyColor(style_window.StyleNameInputText, theme.Colors.TextPrimary, animatedOpacity)
-    self:_AnimateAndApplyColor(style_window.StyleNameInputCursor, theme.Colors.Accent, animatedOpacity)
-    for _, item in ipairs(style_window.ColorItems) do 
-        self:_AnimateAndApplyColor(item.Label, theme.Colors.TextSecondary, animatedOpacity); 
-        self:_AnimateAndApplyColor(item.ColorBorder, theme.Colors.LightGray, animatedOpacity);
-        local c = style_window.EditingTheme.Colors[item.Name] or {255,0,255,255}
-        self:_AnimateAndApplyColor(item.ColorCircle, c, animatedOpacity)
-    end
-    self:_AnimateAndApplyColor(style_window.RealTimeToggle.Label, theme.Colors.TextSecondary, animatedOpacity)
-    self:_AnimateAndApplyColor(style_window.CancelButton.Background, theme.Colors.MainBackground, animatedOpacity)
-    self:_AnimateAndApplyColor(style_window.CancelButton.Border, theme.Colors.Separator, animatedOpacity)
-    self:_AnimateAndApplyColor(style_window.CancelButton.IconLine1, theme.Colors.TextPrimary, animatedOpacity)
-    self:_AnimateAndApplyColor(style_window.CancelButton.IconLine2, theme.Colors.TextPrimary, animatedOpacity)
-    self:_AnimateAndApplyColor(style_window.CancelButton.Label, theme.Colors.TextPrimary, animatedOpacity)
+    self:_AnimateAndApplyColor(style_window.Background, theme.Colors.SectionBackground)
+    self:_AnimateAndApplyColor(style_window.Border, theme.Colors.Separator)
+    self:_AnimateAndApplyColor(style_window.HeaderTitle, theme.Colors.TextPrimary)
+    self:_AnimateAndApplyColor(style_window.CloseButton.Line1, theme.Colors.TextSecondary)
+    self:_AnimateAndApplyColor(style_window.CloseButton.Line2, theme.Colors.TextSecondary)
+    self:_AnimateAndApplyColor(style_window.Separator1, theme.Colors.Separator)
+    self:_AnimateAndApplyColor(style_window.Separator2, theme.Colors.Separator)
+    self:_AnimateAndApplyColor(style_window.Separator3, theme.Colors.Separator)
+    self:_AnimateAndApplyColor(style_window.StyleNameLabel, theme.Colors.TextSecondary)
+    self:_AnimateAndApplyColor(style_window.StyleNameInputBg, theme.Colors.DarkBlue)
+    self:_AnimateAndApplyColor(style_window.StyleNameInputText, theme.Colors.TextPrimary)
+    self:_AnimateAndApplyColor(style_window.StyleNameInputCursor, theme.Colors.Accent)
+    for _, item in ipairs(style_window.ColorItems) do self:_AnimateAndApplyColor(item.Label, theme.Colors.TextSecondary); self:_AnimateAndApplyColor(item.ColorBorder, theme.Colors.LightGray); end
+    self:_AnimateAndApplyColor(style_window.RealTimeToggle.Label, theme.Colors.TextSecondary)
+    self:_AnimateAndApplyColor(style_window.CancelButton.Background, theme.Colors.MainBackground)
+    self:_AnimateAndApplyColor(style_window.CancelButton.Border, theme.Colors.Separator)
+    self:_AnimateAndApplyColor(style_window.CancelButton.IconLine1, theme.Colors.TextPrimary)
+    self:_AnimateAndApplyColor(style_window.CancelButton.IconLine2, theme.Colors.TextPrimary)
+    self:_AnimateAndApplyColor(style_window.CancelButton.Label, theme.Colors.TextPrimary)
     
     local saveButtonAccentColor = theme.Colors.Accent
-    self:_AnimateAndApplyColor(style_window.SaveButton.Background, saveButtonAccentColor, animatedOpacity)
+    self:_AnimateAndApplyColor(style_window.SaveButton.Background, saveButtonAccentColor)
     local saveButtonTextColor = self:_GetTextColorForBackground(saveButtonAccentColor)
-    self:_AnimateAndApplyColor(style_window.SaveButton.Label, saveButtonTextColor, animatedOpacity)
-    self:_AnimateAndApplyColor(style_window.SaveButton.Icon, saveButtonTextColor, animatedOpacity)
-    
-    local toggle = style_window.RealTimeToggle
-    local backColor, nubColor
-    if self.UI.Values[toggle.id] then
-        backColor = theme.Colors.ToggleEnabledBackground or self:_DarkenColor(theme.Colors.Accent, 0.3)
-        nubColor = theme.Colors.Accent
-    else
-        backColor = theme.Colors.DarkGray
-        nubColor = theme.Colors.LightGray
-    end
-    self:_AnimateAndApplyColor(toggle.Back, backColor, animatedOpacity)
-    self:_AnimateAndApplyColor(toggle.Nub, nubColor, animatedOpacity)
+    self:_AnimateAndApplyColor(style_window.SaveButton.Label, saveButtonTextColor)
+    self:_AnimateAndApplyColor(style_window.SaveButton.Icon, saveButtonTextColor)
 
     local winW, winH = 300, 540
     local winX, winY = self.Window.X + self.Window.Width + 15, self.Window.Y
@@ -1432,19 +1359,21 @@ function Library:_RenderEditStyleWindow()
     style_window.ClickRegion = {x1 = winX, y1 = winY, x2 = winX + winW, y2 = winY + winH}
     style_window.Background.Position = {winX, winY}; style_window.Background.Size = {winW, winH}
     style_window.Border.Position = {winX, winY}; style_window.Border.Size = {winW, winH}
-    self:_RenderGlowEffect(style_window.Glow, winX, winY, winW, winH, style_window.Background.Rounding, theme.Colors.GlowColor, nil, animatedOpacity)
+    self:_RenderGlowEffect(style_window.Glow, winX, winY, winW, winH, style_window.Background.Rounding, theme.Colors.GlowColor)
 
     local headerY = winY + 12
     local accentIconColor = style_window.EditingTheme.Colors.Accent or {255,255,255,255}
-    self:_AnimateAndApplyColor(style_window.HeaderIcon, accentIconColor, animatedOpacity)
+    self:_AnimateAndApplyColor(style_window.HeaderIcon, accentIconColor)
     style_window.HeaderIcon.Position = {winX + 15, headerY}
     style_window.HeaderTitle.Position = {winX + 15 + style_window.HeaderIcon.Size.x + 8, headerY + 1}
+    
     style_window.CloseButton.Line1.From = {winX + winW - 25, headerY}; style_window.CloseButton.Line1.To = {winX + winW - 15, headerY + 10}
     style_window.CloseButton.Line2.From = {winX + winW - 25, headerY + 10}; style_window.CloseButton.Line2.To = {winX + winW - 15, headerY}
     style_window.CloseButton.ClickRegion = {x1 = winX + winW - 30, y1 = winY + 10, x2 = winX + winW - 10, y2 = winY + 25}
 
     local currentY = winY + 40
     style_window.Separator1.From = {winX + 10, currentY}; style_window.Separator1.To = {winX + winW - 10, currentY}
+    
     currentY = currentY + 15
     style_window.StyleNameLabel.Position = {winX + 15, currentY}
     local inputW = 150; local inputH = 25
@@ -1462,15 +1391,21 @@ function Library:_RenderEditStyleWindow()
 
     currentY = currentY + 30
     style_window.Separator2.From = {winX + 10, currentY}; style_window.Separator2.To = {winX + winW - 10, currentY}
+    
     currentY = currentY + 15
     for _, item in ipairs(style_window.ColorItems) do
         item.Label.Position = {winX + 15, currentY}
         local circleX = winX + winW - 30
+        
+        local c = style_window.EditingTheme.Colors[item.Name] or {255,0,255,255}
+        self:_AnimateAndApplyColor(item.ColorCircle, c)
+
         item.ColorCircle.Position = {circleX, currentY + 7}
         item.ColorBorder.Position = {circleX, currentY + 7}
         item.ClickRegion = {x1 = winX + 15, y1 = currentY, x2 = winX + winW - 15, y2 = currentY + 20}
         currentY = currentY + 25
     end
+    
     currentY = currentY + 20
     style_window.Separator3.From = {winX + 10, currentY}; style_window.Separator3.To = {winX + winW - 10, currentY}
 
@@ -1494,75 +1429,120 @@ function Library:_RenderEditStyleWindow()
     cancelBtn.ClickRegion = {x1 = cancelBtnX, y1 = cancelBtnY, x2 = cancelBtnX + cancelBtnW, y2 = cancelBtnY + cancelBtnH}
 
     local toggleY = footerY + cancelBtnH + 15
+    local toggle = style_window.RealTimeToggle
     toggle.Label.Position = {winX + 15, toggleY + 5}
     if toggle.Label.TextBounds then
       local toggleBackX = winX + 15 + toggle.Label.TextBounds.x + 10
       toggle.Back.Position = {toggleBackX, toggleY + 7}; toggle.Back.Size = {toggle.Size.width, toggle.Size.height}; toggle.ClickRegion = {x1 = toggleBackX, y1 = toggleY, x2 = toggleBackX + toggle.Size.width, y2 = toggleY + toggle.Size.height + 14}
+      local backColor, nubColor
       if self.UI.Values[toggle.id] then
+          backColor = theme.Colors.ToggleEnabledBackground or self:_DarkenColor(theme.Colors.Accent, 0.3)
+          nubColor = theme.Colors.Accent
           toggle.Nub.Position = {toggleBackX + toggle.Size.width - 5, toggleY + 7 + toggle.Size.height/2}
       else
+          backColor = theme.Colors.DarkGray
+          nubColor = theme.Colors.LightGray
           toggle.Nub.Position = {toggleBackX + 5, toggleY + 7 + toggle.Size.height/2}
       end
+      self:_AnimateAndApplyColor(toggle.Back, backColor)
+      self:_AnimateAndApplyColor(toggle.Nub, nubColor)
     end
-    self:_RenderGlowEffect(style_window.Glow, winX, winY, winW, winH, style_window.Background.Rounding, theme.Colors.GlowColor, nil, animatedOpacity)
 end
 
 function Library:_RenderColorPickerWindow()
     local picker = self.UI.Popups.ColorPicker
     local isVisible = picker.IsOpen
 
-    if not picker.AllElements then
-        picker.AllElements = {picker.Background, picker.Border, picker.ColorSquare, picker.GradientOverlay, picker.SaturationValueNub, picker.HueSlider, picker.HueNub, picker.HueNubBorder, picker.OpacitySliderBackground, picker.OpacitySliderGradient, picker.OpacityNub, picker.OpacityNubBorder}
+    self:_SetVisibility(picker.Background, isVisible)
+    self:_SetVisibility(picker.Border, isVisible)
+    self:_SetVisibility(picker.ColorSquare, isVisible)
+    self:_SetVisibility(picker.GradientOverlay, isVisible)
+    self:_SetVisibility(picker.SaturationValueNub, isVisible)
+    self:_SetVisibility(picker.HueSlider, isVisible)
+    self:_SetVisibility(picker.HueNub, isVisible)
+    self:_SetVisibility(picker.HueNubBorder, isVisible)
+    self:_SetVisibility(picker.OpacitySliderBackground, isVisible)
+    self:_SetVisibility(picker.OpacitySliderGradient, isVisible)
+    self:_SetVisibility(picker.OpacityNub, isVisible)
+    self:_SetVisibility(picker.OpacityNubBorder, isVisible)
+    
+    if isVisible then
+        local padding = 10
+        local squareSize = 160
+        local sliderHeight = 8
+        local sliderSpacing = 12
+
+        local pickerW = squareSize + (padding * 2)
+        local pickerH = squareSize + (padding * 2) + (sliderHeight * 2) + (sliderSpacing * 2)
+        local pickerX, pickerY = picker.Pos.x, picker.Pos.y
+        
+        picker.Background.Position = {pickerX, pickerY}
+        picker.Background.Size = {pickerW, pickerH}
+        local bgColor = self.ActiveTheme.Colors.SectionBackground
+        picker.Background.Color = {bgColor[1], bgColor[2], bgColor[3]}
+        picker.Background.Opacity = (bgColor[4] or 255) / 255
+
+        picker.Border.Position = {pickerX, pickerY}
+        picker.Border.Size = {pickerW, pickerH}
+        local borderColor = self.ActiveTheme.Colors.Separator
+        picker.Border.Color = {borderColor[1], borderColor[2], borderColor[3]}
+        picker.Border.Opacity = (borderColor[4] or 255) / 255
+
+        self:_RenderGlowEffect(picker.Glow, pickerX, pickerY, pickerW, pickerH, picker.Background.Rounding, self.ActiveTheme.Colors.GlowColor)
+
+        local squareX = pickerX + padding
+        local squareY = pickerY + padding
+        
+        -- Main saturation/value square
+        picker.ColorSquare.Position = {squareX, squareY}
+        picker.ColorSquare.Size = {squareSize, squareSize}
+        local pureHue = self:_HSVtoRGB(picker.h, 1, 1)
+        picker.ColorSquare.Color = {pureHue[1], pureHue[2], pureHue[3]}
+
+        picker.GradientOverlay.Position = {squareX, squareY}
+        picker.GradientOverlay.Size = {squareSize, squareSize}
+
+        local svNubX = squareX + (picker.s * squareSize)
+        local svNubY = squareY + ((1 - picker.v) * squareSize)
+        picker.SaturationValueNub.Position = {svNubX, svNubY}
+        picker.SaturationValueNub.Color = picker.v > 0.5 and {0,0,0} or {255,255,255}
+        picker.SaturationValueRegion = {x1 = squareX, y1 = squareY, x2 = squareX + squareSize, y2 = squareY + squareSize}
+
+        local currentY = squareY + squareSize + sliderSpacing
+
+        -- Hue Slider
+        picker.HueSlider.Position = {squareX, currentY}
+        picker.HueSlider.Size = {squareSize, sliderHeight}
+        local hueNubX = squareX + (picker.h * squareSize)
+        local hueNubY = currentY + sliderHeight / 2
+        picker.HueNub.Position = {hueNubX, hueNubY}
+        picker.HueNubBorder.Position = {hueNubX, hueNubY}
+        local hueNubColor = self:_HSVtoRGB(picker.h, 1, 1) -- Dynamic color
+        picker.HueNub.Color = {hueNubColor[1], hueNubColor[2], hueNubColor[3]}
+        picker.HueNubBorder.Color = {0, 0, 0}
+        picker.HueSliderRegion = {x1 = squareX, y1 = currentY, x2 = squareX + squareSize, y2 = currentY + sliderHeight}
+
+        currentY = currentY + sliderHeight + sliderSpacing
+
+        -- Opacity Slider
+        picker.OpacitySliderBackground.Position = {squareX, currentY}
+        picker.OpacitySliderBackground.Size = {squareSize, sliderHeight}
+        local opacityBgColor = self:_HSVtoRGB(picker.h, picker.s, picker.v)
+        picker.OpacitySliderBackground.Color = {opacityBgColor[1], opacityBgColor[2], opacityBgColor[3]}
+        
+        picker.OpacitySliderGradient.Position = {squareX, currentY}
+        picker.OpacitySliderGradient.Size = {squareSize, sliderHeight}
+
+        local opacityNubX = squareX + (picker.a * squareSize)
+        local opacityNubY = currentY + sliderHeight / 2
+        picker.OpacityNub.Position = {opacityNubX, opacityNubY}
+        picker.OpacityNubBorder.Position = {opacityNubX, opacityNubY}
+        picker.OpacityNub.Color = {255, 255, 255}
+        picker.OpacityNubBorder.Color = {0, 0, 0}
+        picker.OpacitySliderRegion = {x1 = squareX, y1 = currentY, x2 = squareX + squareSize, y2 = currentY + sliderHeight}
+    else
+        self:_HideGlowEffect(picker.Glow)
     end
-
-    for _, obj in ipairs(picker.AllElements) do if obj then self:_SetVisibility(obj, isVisible) end end
-
-    if not isVisible then
-        if picker.Glow then self:_HideGlowEffect(picker.Glow) end
-        return
-    end
-    
-    local padding = 10; local squareSize = 160; local sliderHeight = 8; local sliderSpacing = 12
-    local pickerW = squareSize + (padding * 2); local pickerH = squareSize + (padding * 2) + (sliderHeight * 2) + (sliderSpacing * 2)
-    local pickerX, pickerY = picker.Pos.x, picker.Pos.y
-    
-    local bgColor = self.ActiveTheme.Colors.SectionBackground
-    picker.Background.Position = {pickerX, pickerY}; picker.Background.Size = {pickerW, pickerH}
-    picker.Background.Color = {bgColor[1], bgColor[2], bgColor[3]}; picker.Background.Opacity = ((bgColor[4] or 255) / 255) * animatedOpacity
-    
-    local borderColor = self.ActiveTheme.Colors.Separator
-    picker.Border.Position = {pickerX, pickerY}; picker.Border.Size = {pickerW, pickerH}
-    picker.Border.Color = {borderColor[1], borderColor[2], borderColor[3]}; picker.Border.Opacity = ((borderColor[4] or 255) / 255) * animatedOpacity
-
-    self:_RenderGlowEffect(picker.Glow, pickerX, pickerY, pickerW, pickerH, picker.Background.Rounding, self.ActiveTheme.Colors.GlowColor, nil, animatedOpacity)
-    local squareX = pickerX + padding; local squareY = pickerY + padding
-    
-    local pureHue = self:_HSVtoRGB(picker.h, 1, 1)
-    picker.ColorSquare.Position = {squareX, squareY}; picker.ColorSquare.Size = {squareSize, squareSize}
-    picker.ColorSquare.Color = {pureHue[1], pureHue[2], pureHue[3]}; picker.ColorSquare.Opacity = animatedOpacity
-    picker.GradientOverlay.Position = {squareX, squareY}; picker.GradientOverlay.Size = {squareSize, squareSize}; picker.GradientOverlay.Opacity = animatedOpacity
-    
-    local svNubX = squareX + (picker.s * squareSize); local svNubY = squareY + ((1 - picker.v) * squareSize)
-    picker.SaturationValueNub.Position = {svNubX, svNubY}; picker.SaturationValueNub.Color = picker.v > 0.5 and {0,0,0} or {255,255,255}; picker.SaturationValueNub.Opacity = animatedOpacity
-    picker.SaturationValueRegion = {x1 = squareX, y1 = squareY, x2 = squareX + squareSize, y2 = squareY + squareSize}
-
-    local currentY = squareY + squareSize + sliderSpacing
-    picker.HueSlider.Position = {squareX, currentY}; picker.HueSlider.Size = {squareSize, sliderHeight}; picker.HueSlider.Opacity = animatedOpacity
-    local hueNubX = squareX + (picker.h * squareSize); local hueNubY = currentY + sliderHeight / 2
-    local hueNubColor = self:_HSVtoRGB(picker.h, 1, 1)
-    picker.HueNub.Position = {hueNubX, hueNubY}; picker.HueNub.Color = {hueNubColor[1], hueNubColor[2], hueNubColor[3]}; picker.HueNub.Opacity = animatedOpacity
-    picker.HueNubBorder.Position = {hueNubX, hueNubY}; picker.HueNubBorder.Color = {0, 0, 0}; picker.HueNubBorder.Opacity = animatedOpacity
-    picker.HueSliderRegion = {x1 = squareX, y1 = currentY, x2 = squareX + squareSize, y2 = currentY + sliderHeight}
-    
-    currentY = currentY + sliderHeight + sliderSpacing
-    local opacityBgColor = self:_HSVtoRGB(picker.h, picker.s, picker.v)
-    picker.OpacitySliderBackground.Position = {squareX, currentY}; picker.OpacitySliderBackground.Size = {squareSize, sliderHeight}
-    picker.OpacitySliderBackground.Color = {opacityBgColor[1], opacityBgColor[2], opacityBgColor[3]}; picker.OpacitySliderBackground.Opacity = animatedOpacity
-    picker.OpacitySliderGradient.Position = {squareX, currentY}; picker.OpacitySliderGradient.Size = {squareSize, sliderHeight}; picker.OpacitySliderGradient.Opacity = animatedOpacity
-    local opacityNubX = squareX + (picker.a * squareSize); local opacityNubY = currentY + sliderHeight / 2
-    picker.OpacityNub.Position = {opacityNubX, opacityNubY}; picker.OpacityNub.Color = {255, 255, 255}; picker.OpacityNub.Opacity = animatedOpacity
-    picker.OpacityNubBorder.Position = {opacityNubX, opacityNubY}; picker.OpacityNubBorder.Color = {0, 0, 0}; picker.OpacityNubBorder.Opacity = animatedOpacity
-    picker.OpacitySliderRegion = {x1 = squareX, y1 = currentY, x2 = squareX + squareSize, y2 = currentY + sliderHeight}
 end
 
 function Library:_RenderLoop()
@@ -1581,8 +1561,6 @@ function Library:_RenderLoop()
             print(SCRIPT_PREFIX .. "Config autosaved.")
         end
     end
-
-    -- [[ НОВОЕ: Анимация прозрачности для Pop-up окон ]]
 
     self:_UpdateAnimationStates()
 
@@ -2167,31 +2145,32 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
 end
 
 function Library:_RenderConfigOptionsPopup()
-    local popup = self.UI.Core.ConfigsTab.OptionsPopup
+    local configs = self.UI.Core.ConfigsTab
+    local popup = configs.OptionsPopup
     local isVisible = popup.IsOpen
     local theme = self.ActiveTheme
 
-    if not popup.AllElements then
-        popup.AllElements = {popup.Background, popup.Border, popup.IncludeStyleToggle.Label, popup.IncludeStyleToggle.Back, popup.IncludeStyleToggle.Nub}
-    end
-
-    for _, obj in ipairs(popup.AllElements) do if obj then self:_SetVisibility(obj, isVisible) end end
+    self:_SetVisibility(popup.Background, isVisible)
+    self:_SetVisibility(popup.Border, isVisible)
+    self:_SetVisibility(popup.IncludeStyleToggle.Label, isVisible)
+    self:_SetVisibility(popup.IncludeStyleToggle.Back, isVisible)
+    self:_SetVisibility(popup.IncludeStyleToggle.Nub, isVisible)
 
     if not isVisible then
         if popup.Glow then self:_HideGlowEffect(popup.Glow) end
         return
     end
 
-    self:_AnimateAndApplyColor(popup.Background, theme.Colors.SectionBackground, animatedOpacity)
-    self:_AnimateAndApplyColor(popup.Border, theme.Colors.Separator, animatedOpacity)
-    self:_AnimateAndApplyColor(popup.IncludeStyleToggle.Label, theme.Colors.TextSecondary, animatedOpacity)
+    self:_AnimateAndApplyColor(popup.Background, theme.Colors.SectionBackground)
+    self:_AnimateAndApplyColor(popup.Border, theme.Colors.Separator)
+    self:_AnimateAndApplyColor(popup.IncludeStyleToggle.Label, theme.Colors.TextSecondary)
     
     local pW, pH = 150, 50
     local pX, pY = popup.Pos.x, popup.Pos.y
     popup.ClickRegion = {x1=pX, y1=pY, x2=pX+pW, y2=pY+pH}
     popup.Background.Position = {pX, pY}; popup.Background.Size = {pW, pH}
     popup.Border.Position = {pX, pY}; popup.Border.Size = {pW, pH}
-    if popup.Glow then self:_RenderGlowEffect(popup.Glow, pX, pY, pW, pH, popup.Background.Rounding, theme.Colors.GlowColor, nil, animatedOpacity) end
+    if popup.Glow then self:_RenderGlowEffect(popup.Glow, pX, pY, pW, pH, popup.Background.Rounding, theme.Colors.GlowColor) end
 
     local toggle = popup.IncludeStyleToggle
     local toggleY = pY + (pH / 2) - (toggle.Label.Size / 2)
@@ -2209,8 +2188,8 @@ function Library:_RenderConfigOptionsPopup()
         targetNubColor = theme.Colors.LightGray
         toggle.Nub.Position = {toggleBackX + 5, toggleY + 2 + toggle.Size.height/2}
     end
-    self:_AnimateAndApplyColor(toggle.Back, targetBackColor, animatedOpacity)
-    self:_AnimateAndApplyColor(toggle.Nub, targetNubColor, animatedOpacity)
+    self:_AnimateAndApplyColor(toggle.Back, targetBackColor)
+    self:_AnimateAndApplyColor(toggle.Nub, targetNubColor)
 end
 
 function Library:_InputLoop()
@@ -2685,7 +2664,7 @@ end
 
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. DEBUG MODE ACTIVE.")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3x5x1")
     local is_first_frame = true
     while self.Window.Visible do
         if is_first_frame then
@@ -2822,41 +2801,9 @@ function Library:_Internal_CreateKeybind(options)
         self.UI.Values[options.id] = options.Default or "none"
     end
     local z = options.zIndex or 4
-    local keybind = { 
-        id = options.id, type = "Keybind", Name = options.Name, 
-        Size = {width = 80, height = 25}, 
-        Callback = options.Callback, 
-        Label = self:_CreateDrawingObject("Text"), -- ИСПРАВЛЕНО
-        Button = self:_CreateDrawingObject("Square"), 
-        ButtonText = self:_CreateDrawingObject("Text"), 
-        IsListening = false, 
-        ClickRegion = {} 
-    }
-
-    if keybind.Label then 
-        keybind.Label.Font = self.ActiveTheme.Fonts.Main; 
-        keybind.Label.Size = self.ActiveTheme.Fonts.Size + 2; 
-        keybind.Label.Text = keybind.Name; 
-        keybind.Label.Center = false; 
-        keybind.Label.Outline = false; 
-        keybind.Label.zIndex = z; 
-    end
-
-    if keybind.Button then 
-        keybind.Button.Filled = true; 
-        keybind.Button.Thickness = 1; 
-        keybind.Button.zIndex = z; 
-        keybind.Button.Rounding = self.ActiveTheme.Rounding.Element; 
-    end
-
-    if keybind.ButtonText then 
-        keybind.ButtonText.Font = self.ActiveTheme.Fonts.Main; 
-        keybind.ButtonText.Size = self.ActiveTheme.Fonts.Size + 1; 
-        keybind.ButtonText.Text = self.UI.Values[keybind.id]; 
-        keybind.ButtonText.Center = true; 
-        keybind.ButtonText.Outline = false; 
-        keybind.ButtonText.zIndex = z + 1; 
-    end
+    local keybind = { id = options.id, type = "Keybind", Name = options.Name, Size = {width = 50, height = 25}, Callback = options.Callback, Button = self:_CreateDrawingObject("Square"), ButtonText = self:_CreateDrawingObject("Text"), IsListening = false, ClickRegion = {} }
+    if keybind.Button then keybind.Button.Filled = true; keybind.Button.Thickness = 1; keybind.Button.zIndex = z; keybind.Button.Rounding = self.ActiveTheme.Rounding.Element; end
+    if keybind.ButtonText then keybind.ButtonText.Font = self.ActiveTheme.Fonts.Main; keybind.ButtonText.Size = self.ActiveTheme.Fonts.Size; keybind.ButtonText.Text = self.UI.Values[keybind.id]; keybind.ButtonText.Center = false; keybind.ButtonText.Outline = false; keybind.ButtonText.zIndex = z + 1; end
     return keybind
 end
 
