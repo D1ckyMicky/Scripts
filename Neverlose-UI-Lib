@@ -414,8 +414,8 @@ function Library:_Internal_CreateGlowSet(zIndex, count)
 end
 
 function Library:_RenderGlowEffect(glowSet, x, y, width, height, rounding, targetColor, sides, masterOpacity)
-    -- [[ ИСПРАВЛЕНИЕ: Защита от некорректных координат ]]
-    if not glowSet or not x or not y or not width or not height or not targetColor then return end
+    -- [[ ИСПРАВЛЕНО: Защита от некорректных координат ]]
+    if not glowSet or not x or not y or not width or not height or not targetColor or not rounding then return end
     
     masterOpacity = masterOpacity or 1
 
