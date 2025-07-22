@@ -377,6 +377,24 @@ function Library:_SetSectionAndElementsVisibility(section, visible)
     end
 end
 
+function Library:_EnsureDefaults(data_table, default_table)
+    if type(data_table) ~= 'table' or type(default_table) ~= 'table' then
+        return self:_DeepCopy(default_table) or {}
+    end
+    
+    local result = self:_DeepCopy(data_table)
+    for key, defaultValue in pairs(default_table) do
+        if result[key] == nil then
+            -- Если ключ полностью отсутствует в загруженных данных, копируем его из шаблона.
+            result[key] = defaultValue
+        elseif type(defaultValue) == 'table' and type(result[key]) == 'table' then
+            -- Если ключ есть, но это тоже таблица, рекурсивно проверяем и её.
+            result[key] = self:_EnsureDefaults(result[key], defaultValue)
+        end
+    end
+    return result
+end
+
 --================================================================
 --[[ PRIVATE: GLOW EFFECT HELPERS ]]
 --================================================================
@@ -2646,7 +2664,7 @@ end
 
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3x5x1")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 333")
     local is_first_frame = true
     while self.Window.Visible do
         if is_first_frame then
