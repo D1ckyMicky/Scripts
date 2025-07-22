@@ -377,6 +377,24 @@ function Library:_SetSectionAndElementsVisibility(section, visible)
     end
 end
 
+function Library:_EnsureDefaults(data_table, default_table)
+    if type(data_table) ~= 'table' or type(default_table) ~= 'table' then
+        return self:_DeepCopy(default_table) or {}
+    end
+    
+    local result = self:_DeepCopy(data_table)
+    for key, defaultValue in pairs(default_table) do
+        if result[key] == nil then
+            -- Если ключ полностью отсутствует в загруженных данных, копируем его из шаблона.
+            result[key] = defaultValue
+        elseif type(defaultValue) == 'table' and type(result[key]) == 'table' then
+            -- Если ключ есть, но это тоже таблица, рекурсивно проверяем и её.
+            result[key] = self:_EnsureDefaults(result[key], defaultValue)
+        end
+    end
+    return result
+end
+
 --================================================================
 --[[ PRIVATE: GLOW EFFECT HELPERS ]]
 --================================================================
@@ -860,33 +878,29 @@ function Library:_LoadConfig(name)
     local success, decodedData = pcall(JSONDecode, fileContent)
     if not success or not decodedData then warn(SCRIPT_PREFIX .. "Failed to decode config JSON: " .. name); return end
 
-    -- [[ НАЧАЛО ИЗМЕНЕНИЙ ]]
-    -- Загружаем темы, восстанавливая их полную структуру с использованием "Blue" как шаблона по умолчанию
+    -- [[ НАЧАЛО ИЗМЕНЕНИЙ: Умная загрузка тем ]]
     if decodedData.Themes then
         for themeName, savedThemeData in pairs(decodedData.Themes) do
-            local baseTheme = self.Themes.Blue -- Используем "Blue" как основу для недостающих полей
-            local fullTheme = {
-                Name = themeName,
-                IsPreset = false,
-                -- Если поле в конфиге есть, используем его. Если нет - берём из baseTheme.
-                Colors = savedThemeData.Colors or self:_DeepCopy(baseTheme.Colors),
-                Rounding = savedThemeData.Rounding or self:_DeepCopy(baseTheme.Rounding),
-                Transparency = savedThemeData.Transparency or self:_DeepCopy(baseTheme.Transparency),
-                IconSize = savedThemeData.IconSize or baseTheme.IconSize,
-                Fonts = self:_DeepCopy(baseTheme.Fonts) -- Шрифты всегда берём из стандарта
-            }
+            local baseTheme = self.Themes.Blue -- Используем "Blue" как эталон полной темы
+
+            -- "Чиним" и дополняем загруженную тему данными из эталона
+            local fullTheme = self:_EnsureDefaults(savedThemeData, baseTheme)
+
+            -- Перезаписываем уникальные поля
+            fullTheme.Name = themeName
+            fullTheme.IsPreset = false
+            fullTheme.Fonts = self:_DeepCopy(baseTheme.Fonts)
+
             self.Themes[themeName] = fullTheme
         end
         self:_RebuildStyleCircles()
     end
     -- [[ КОНЕЦ ИЗМЕНЕНИЙ ]]
 
-    -- Применяем значения и вызываем коллбэки для обновления
     if decodedData.Values then
         for id, value in pairs(decodedData.Values) do
             if self.UI.Values[id] ~= nil then
                 self.UI.Values[id] = value
-                -- [ДОБАВЛЕНО] Ищем элемент и вызываем его коллбэк для обновления
                 for _, section in ipairs(self.UI.Sections) do
                     for _, element in ipairs(section.Elements) do
                         if element.id == id and element.Callback then
@@ -902,7 +916,6 @@ function Library:_LoadConfig(name)
     if decodedData.ActiveThemeName and self.Themes[decodedData.ActiveThemeName] then
         self.ActiveTheme = self.Themes[decodedData.ActiveThemeName]
         self.UI.Values.AboutSelectedStyle = decodedData.ActiveThemeName
-        self.AnimationState = {}
     end
 
     self.UI.Core.ConfigsTab.LoadedConfigName = name
@@ -2377,7 +2390,6 @@ function Library:_InputLoop()
                     self:_RebuildStyleCircles()
                     self.UI.Values.AboutSelectedStyle = newTheme.Name
                     self.ActiveTheme = newTheme
-                    self.AnimationState = {}
                     
                     self.TempTheme = nil
                     self.PreEditThemeName = nil
@@ -2390,10 +2402,8 @@ function Library:_InputLoop()
                         self.PreEditThemeName = self.ActiveTheme.Name
                         self.TempTheme = self:_DeepCopy(style_window.EditingTheme)
                         self.ActiveTheme = self.TempTheme
-                        self.AnimationState = {}
                     else
                         self.ActiveTheme = self.Themes[self.PreEditThemeName] or self.Themes.Blue
-                        self.AnimationState = {}
                         self.UI.Values.AboutSelectedStyle = self.ActiveTheme.Name
                         self.TempTheme = nil
                         self.PreEditThemeName = nil
@@ -2455,7 +2465,6 @@ function Library:_InputLoop()
                             else
                                 self.UI.Values.AboutSelectedStyle = circle.Name
                                 self.ActiveTheme = self.Themes[circle.Name]
-                                self.AnimationState = {}
                             end
                             break
                         end
@@ -2654,7 +2663,7 @@ end
 
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3x51")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3155x1")
     local is_first_frame = true
     while self.Window.Visible do
         if is_first_frame then
