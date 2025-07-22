@@ -88,6 +88,8 @@ local is_dragging_something = false
 local lastToggleTime = 0
 local toggleDelay = 0.5
 local SCRIPT_PREFIX = "[NL UI Lib] "
+local lastAutoSaveTime = 0
+local autoSaveInterval = 15 -- Интервал в секундах (можно изменить)
 
 --================================================================
 --[[ PRIVATE: COLOR CONVERSION FUNCTIONS (PLACEHOLDERS) ]]
@@ -678,7 +680,7 @@ function Library:_InitializeEditStyleWindow()
     style_window.IsOpen = false
     style_window.IsEditingName = false -- For text input
     style_window.last_key_press_time = 0
-    style_window.key_press_delay = 0.08
+    style_window.key_press_delay = 0.04
     style_window.last_key_pressed = ""
     style_window.ColorItems = {}
     style_window.EditingTheme = {}
@@ -1530,6 +1532,15 @@ function Library:_RenderLoop()
     if self.UI.Core.ConfigsTab.NeedsRefresh then
         self:_RefreshConfigList()
         self.UI.Core.ConfigsTab.NeedsRefresh = false
+    end
+
+    -- [[ НОВОЕ: Логика автосохранения ]]
+    if self.UI.Values["AboutAutoSave"] and self.UI.Core.ConfigsTab.LoadedConfigName ~= "" then
+        if tick() - lastAutoSaveTime > autoSaveInterval then
+            self:_SaveConfig(self.UI.Core.ConfigsTab.LoadedConfigName)
+            lastAutoSaveTime = tick() -- Сбрасываем таймер
+            print(SCRIPT_PREFIX .. "Config autosaved.")
+        end
     end
 
     self:_UpdateAnimationStates()
