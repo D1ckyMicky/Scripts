@@ -1057,40 +1057,6 @@ function Library:_RenderAboutWindow(mouse_pos)
     local popupState = self.UI.Popups.About
     local theme = self.ActiveTheme
 
-    -- ================================================================
-    -- [[ ДИАГНОСТИЧЕСКИЙ БЛОК: Проверка целостности объектов ]]
-    -- ================================================================
-    do
-        local objects_to_verify = {
-            Background = about.Background, Border = about.Border, HeaderIcon = about.HeaderIcon, HeaderTitle = about.HeaderTitle,
-            CloseButton_Line1 = about.CloseButton.Line1, CloseButton_Line2 = about.CloseButton.Line2, Separator1 = about.Separator1,
-            MainTitle = about.MainTitle, Separator2 = about.Separator2, InfoVersionLabel = about.InfoVersionLabel,
-            InfoVersionValue = about.InfoVersionValue, InfoBuildDateLabel = about.InfoBuildDateLabel, InfoBuildDateValue = about.InfoBuildDateValue,
-            InfoBuildTypeLabel = about.InfoBuildTypeLabel, InfoBuildTypeValue = about.InfoBuildTypeValue, InfoRegisteredToLabel = about.InfoRegisteredToLabel,
-            InfoRegisteredToValue = about.InfoRegisteredToValue, InfoSubscriptionLabel = about.InfoSubscriptionLabel, InfoSubscriptionValue = about.InfoSubscriptionValue,
-            FooterText = about.FooterText, Separator3 = about.Separator3, CreditText = about.CreditText, AutoSaveToggle_Label = about.AutoSaveToggle.Label,
-            AutoSaveToggle_Back = about.AutoSaveToggle.Back, AutoSaveToggle_Nub = about.AutoSaveToggle.Nub, DpiScaleDropdown_Label = about.DpiScaleDropdown.Label,
-            DpiScaleDropdown_Button = about.DpiScaleDropdown.Button, DpiScaleDropdown_ButtonText = about.DpiScaleDropdown.ButtonText,
-            DpiScaleDropdown_ArrowLine1 = about.DpiScaleDropdown.ArrowLine1, DpiScaleDropdown_ArrowLine2 = about.DpiScaleDropdown.ArrowLine2,
-            AnimationSpeedSlider_Label = about.AnimationSpeedSlider.Label, AnimationSpeedSlider_Back = about.AnimationSpeedSlider.Back,
-            AnimationSpeedSlider_LeftFill = about.AnimationSpeedSlider.LeftFill, AnimationSpeedSlider_Nub = about.AnimationSpeedSlider.Nub,
-            AnimationSpeedSlider_ValueText = about.AnimationSpeedSlider.ValueText, StyleLabel = about.StyleLabel,
-            Tooltip_Background = about.Tooltip.Background, Tooltip_Text = about.Tooltip.Text
-        }
-        local found_nil = false
-        for name, obj in pairs(objects_to_verify) do
-            if obj == nil then
-                warn(SCRIPT_PREFIX .. "VERIFY FAILED: AboutWindow." .. name .. " is nil!")
-                found_nil = true
-            end
-        end
-        if found_nil then
-            warn(SCRIPT_PREFIX .. "Verification failed. Halting render to prevent crash.")
-            return -- Останавливаем выполнение, чтобы увидеть лог
-        end
-    end
-    -- ================================================================
-
     -- Анимация прозрачности
     local targetOpacity = popupState.IsOpen and 1 or 0
     if popupState.CurrentOpacity == nil then popupState.CurrentOpacity = targetOpacity end
