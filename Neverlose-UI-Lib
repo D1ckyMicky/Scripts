@@ -1051,7 +1051,10 @@ end
 --================================================================
 --[[ PRIVATE: RENDERING & INPUT HANDLING ]]
 --================================================================
-
+function Library:_RenderAboutWindow(mouse_pos)
+    local about = self.UI.Core.AboutWindow
+    local popupState = self.UI.Popups.About
+    local theme = self.ActiveTheme
     -- [[ НОВАЯ СТАБИЛЬНАЯ АНИМАЦИЯ ]]
     -- 1. Определяем цель (1 - видимо, 0 - невидимо)
     local targetOpacity = popupState.IsOpen and 1 or 0
@@ -2732,7 +2735,7 @@ end
 
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3bghb")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3bwwb")
     local is_first_frame = true
     while self.Window.Visible do
         if is_first_frame then
