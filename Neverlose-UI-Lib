@@ -1053,6 +1053,7 @@ end
 --================================================================
 
 function Library:_RenderAboutWindow(mouse_pos)
+    warn(SCRIPT_PREFIX .. "DEBUG: _RenderAboutWindow --- FRAME START ---") -- Начало выполнения кадра
     local about = self.UI.Core.AboutWindow
     local popupState = self.UI.Popups.About
     local theme = self.ActiveTheme
@@ -1068,9 +1069,11 @@ function Library:_RenderAboutWindow(mouse_pos)
         popupState.CurrentOpacity = targetOpacity
     end
     local animatedOpacity = popupState.CurrentOpacity
+    warn(SCRIPT_PREFIX .. "DEBUG: Current animated opacity is " .. tostring(animatedOpacity))
 
-    -- [[ НОВЫЙ ПОДХОД: Создаем плоский список всех элементов для надёжного управления видимостью ]]
+    -- Создание плоского списка элементов
     if not about.AllElements then
+        warn(SCRIPT_PREFIX .. "DEBUG: Creating 'AllElements' list for the first time.")
         about.AllElements = {
             about.Background, about.Border, about.HeaderIcon, about.HeaderTitle, about.CloseButton.Line1, about.CloseButton.Line2, 
             about.Separator1, about.MainTitle, about.Separator2, about.InfoVersionLabel, about.InfoVersionValue, 
@@ -1091,20 +1094,32 @@ function Library:_RenderAboutWindow(mouse_pos)
         end
     end
 
+    warn(SCRIPT_PREFIX .. "DEBUG: Checking opacity to determine visibility.")
     if animatedOpacity < 0.01 then
-        for _, obj in ipairs(about.AllElements) do if obj then self:_SetVisibility(obj, false) end end
+        warn(SCRIPT_PREFIX .. "DEBUG: Opacity is near zero. Hiding all elements.")
+        for i, obj in ipairs(about.AllElements) do 
+            if i > 200 then warn("!!! ABNORMAL LOOP in HIDE block !!!"); break end
+            if obj then self:_SetVisibility(obj, false) end 
+        end
         self:_SetVisibility(about.DpiScaleDropdown.OptionBackground, false)
         for _, opt in ipairs(about.DpiScaleDropdown.OptionList) do self:_SetVisibility(opt, false) end
         if about.Glow then self:_HideGlowEffect(about.Glow) end
         if about.AnimationSpeedSlider.Glow then self:_HideGlowEffect(about.AnimationSpeedSlider.Glow) end
         if about.DpiScaleDropdown.IsOpen then about.DpiScaleDropdown.IsOpen = false end
+        warn(SCRIPT_PREFIX .. "DEBUG: _RenderAboutWindow --- FRAME END (EARLY EXIT) ---")
         return
     end
 
-    for _, obj in ipairs(about.AllElements) do if obj then self:_SetVisibility(obj, true) end end
+    warn(SCRIPT_PREFIX .. "DEBUG: Opacity is visible. Showing all elements.")
+    for i, obj in ipairs(about.AllElements) do
+        if i > 200 then warn("!!! ABNORMAL LOOP in SHOW block !!!"); break end
+        if obj then self:_SetVisibility(obj, true) end
+    end
     self:_SetVisibility(about.Tooltip.Background, false)
     self:_SetVisibility(about.Tooltip.Text, false)
     for _, circle in ipairs(about.StyleCircles) do if circle.Border then self:_SetVisibility(circle.Border, self.UI.Values.AboutSelectedStyle == circle.Name) end end
+    
+    warn(SCRIPT_PREFIX .. "DEBUG: Starting to render objects...")
     
     self:_AnimateAndApplyColor(about.Background, theme.Colors.SectionBackground, animatedOpacity)
     self:_AnimateAndApplyColor(about.Border, theme.Colors.Separator, animatedOpacity)
@@ -1260,6 +1275,7 @@ function Library:_RenderAboutWindow(mouse_pos)
         end
     end
     about.CreditText.Position = {winX + winW / 2, winY + winH - 25}
+    warn(SCRIPT_PREFIX .. "DEBUG: _RenderAboutWindow --- FRAME END (FULL RENDER) ---")
 end
 
 function Library:_RenderPlayerESPSettingsPopup()
@@ -2759,7 +2775,7 @@ end
 
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 36bbb5jj1")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. bbbbb")
     local is_first_frame = true
     while self.Window.Visible do
         if is_first_frame then
