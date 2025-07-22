@@ -2545,14 +2545,15 @@ end
 
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3x5x1")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3x55215151")
     local is_first_frame = true
     while self.Window.Visible do
         if is_first_frame then
             self:_AddPresetsTab()
             is_first_frame = false
         end
-        pcall(function() self:_InputLoop(); self:_RenderLoop() end)
+        self:_InputLoop()
+        self:_RenderLoop()
         wait(0.01)
     end
 end
