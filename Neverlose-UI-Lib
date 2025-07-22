@@ -1303,6 +1303,79 @@ function Library:_RenderAboutWindow(mouse_pos)
     about.CreditText.Position = {winX + winW / 2, winY + winH - 25}
 end
 
+function Library:_RenderPlayerESPSettingsPopup()
+    local popup = self.UI.Popups.PlayerESP
+    local theme = self.ActiveTheme
+
+    -- Анимация прозрачности
+    local targetOpacity = popup.IsOpen and 1 or 0
+    if popup.CurrentOpacity == nil then popup.CurrentOpacity = targetOpacity end
+    if math.abs(popup.CurrentOpacity - targetOpacity) > 0.01 then
+        local speed_value = self.UI.Values["AboutAnimationSpeed"] or 1.6
+        local animationSpeed = speed_value / 12.0
+        popup.CurrentOpacity = popup.CurrentOpacity + (targetOpacity - popup.CurrentOpacity) * animationSpeed
+    else
+        popup.CurrentOpacity = targetOpacity
+    end
+    local animatedOpacity = popup.CurrentOpacity
+
+    -- Создаем плоский список всех элементов для надёжного управления видимостью
+    if not popup.AllElements then
+        popup.AllElements = {popup.Background, popup.Border, popup.Title, popup.Separator, popup.BindLabel, popup.Keybind.Button, popup.Keybind.ButtonText}
+    end
+    
+    if animatedOpacity < 0.01 then
+        for _, obj in ipairs(popup.AllElements) do self:_SetVisibility(obj, false) end
+        if popup.Glow then self:_HideGlowEffect(popup.Glow) end
+        return
+    end
+
+    for _, obj in ipairs(popup.AllElements) do self:_SetVisibility(obj, true) end
+    
+    self:_AnimateAndApplyColor(popup.Background, theme.Colors.SectionBackground, animatedOpacity)
+    self:_AnimateAndApplyColor(popup.Border, theme.Colors.Separator, animatedOpacity)
+    self:_AnimateAndApplyColor(popup.Title, theme.Colors.TextPrimary, animatedOpacity)
+    self:_AnimateAndApplyColor(popup.Separator, theme.Colors.Separator, animatedOpacity)
+    self:_AnimateAndApplyColor(popup.BindLabel, theme.Colors.TextSecondary, animatedOpacity)
+    
+    local keybind = popup.Keybind
+    local buttonBackgroundColor = theme.Colors.DarkBlue
+    local buttonTextColor = theme.Colors.TextPrimary
+    if keybind.IsListening then
+        buttonBackgroundColor = theme.Colors.Accent
+        buttonTextColor = self:_GetTextColorForBackground(buttonBackgroundColor)
+    end
+    self:_AnimateAndApplyColor(keybind.Button, buttonBackgroundColor, animatedOpacity)
+    self:_AnimateAndApplyColor(keybind.ButtonText, buttonTextColor, animatedOpacity)
+
+    local pX, pY = popup.Pos.x, popup.Pos.y
+    local pW = 250
+    local currentY = pY + 8
+    if popup.Title then popup.Title.Position = {pX + 10, currentY}; end
+    currentY = currentY + popup.Title.Size + 5
+    local separatorY = currentY
+    if popup.Separator then popup.Separator.From = {pX + 10, separatorY}; popup.Separator.To = {pX + pW - 10, separatorY}; end
+    currentY = currentY + 15
+    local elementY = currentY
+    if popup.BindLabel then popup.BindLabel.Position = {pX + 10, elementY}; end
+    local bindButtonX = pX + pW - keybind.Size.width - 15
+    local bindButtonY = elementY - 5
+    if keybind.Button then keybind.Button.Position = {bindButtonX, bindButtonY}; keybind.Button.Size = {keybind.Size.width, keybind.Size.height}; end
+    if keybind.ButtonText then 
+        keybind.ButtonText.Position = {bindButtonX + (keybind.Size.width / 2), bindButtonY + (keybind.Size.height / 2) - (keybind.ButtonText.Size / 2)}; 
+        keybind.ButtonText.Center = true; 
+        keybind.ButtonText.Text = keybind.IsListening and "..." or string.upper(self.UI.Values[keybind.id]); 
+    end
+    keybind.ClickRegion = {x1 = bindButtonX, y1 = bindButtonY, x2 = bindButtonX + keybind.Size.width, y2 = bindButtonY + keybind.Size.height}
+    currentY = currentY + 30
+    currentY = currentY + 5
+    local totalHeight = currentY - pY
+    popup.ClickRegion = {x1 = pX, y1 = pY, x2 = pX + pW, y2 = pY + totalHeight}
+    if popup.Background then popup.Background.Position = {pX, pY}; popup.Background.Size = {pW, totalHeight}; end
+    if popup.Border then popup.Border.Position = {pX, pY}; popup.Border.Size = {pW, totalHeight}; end
+    if popup.Glow then self:_RenderGlowEffect(popup.Glow, pX, pY, pW, totalHeight, popup.Background.Rounding, theme.Colors.GlowColor, nil, animatedOpacity) end
+end
+
 function Library:_RenderConfigOptionsPopup()
     local configs = self.UI.Core.ConfigsTab
     local popup = configs.OptionsPopup
@@ -2727,7 +2800,7 @@ end
 
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3x51")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3x521")
     local is_first_frame = true
     while self.Window.Visible do
         if is_first_frame then
