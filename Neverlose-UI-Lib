@@ -1,16 +1,14 @@
 --[[
     Neverlose.cc Style UI Library for Severe
-    Version: 16.1 (Config System - Hotfix)
+    Version: 17.0 (Animation & Stability Finalization)
     Developer: Gemini AI & Dicky_Micky_
 
-    - [FIX] Changed config file extension from .json to .cfg to avoid 'banned file extension' error in Severe.
-    - [NEW] Implemented the core config saving/loading system using the file system.
-    - [NEW] The library now automatically creates a 'NL_Configs' folder on startup.
-    - [NEW] On first launch (or if no configs exist), a 'default.cfg' config is created with the default values of all UI elements.
-    - [NEW] The 'Configs' tab now dynamically loads and displays all .cfg files found in the 'NL_Configs' folder.
-    - [UPDATE] The 'Save' button now saves the current UI values to the selected config file.
-    - [UPDATE] The 'Load' button now loads UI values from the selected config file.
-    - [INTERNAL] Removed 'DummyData' in favor of the new dynamic system.
+    - [FIX] Rewrote the section animation logic to be fully sequential and state-based, fixing all "ghost" element bugs.
+    - [FIX] Rewrote the pop-up window rendering logic to include fade animations and prevent "ghosts".
+    - [FIX] Corrected a data corruption issue where custom theme transparency was saved incorrectly.
+    - [UPDATE] Implemented timer-based Auto-Save functionality.
+    - [UPDATE] Increased text input speed in the style editor.
+    - [INTERNAL] Centralized pop-up animation logic into individual render functions.
 ]]
 
 local Library = {}
@@ -19,17 +17,17 @@ local Library = {}
 --[[ PRIVATE: CORE PROPERTIES & CONFIGURATION ]]
 --================================================================
 
-Library.AnimationState = {} -- Хранилище для состояний анимации
+Library.AnimationState = {}
 
 Library.Window = {
     Visible = true, X = 400, Y = 200, Width = 750, Height = 620,
     SidebarWidth = 187, HeaderHeight = 65, IsDragging = false,
     ActiveTab = "", PanelOverlap = 4,
     LastRenderedTab = "",
-    Animation = { State = "IDLE", OldTab = nil } -- << ИЗМЕНИ ЭТУ СТРОКУ
+    Animation = { State = "IDLE", OldTab = nil }
 }
 
-Library.ConfigFolderPath = "NL_Configs" -- Новая папка для конфигов
+Library.ConfigFolderPath = "NL_Configs"
 
 Library.Themes = {
     Blue = {
@@ -89,24 +87,20 @@ local lastToggleTime = 0
 local toggleDelay = 0.5
 local SCRIPT_PREFIX = "[NL UI Lib] "
 local lastAutoSaveTime = 0
-local autoSaveInterval = 15 -- Интервал в секундах (можно изменить)
+local autoSaveInterval = 15 -- Интервал в секундах
 
 --================================================================
 --[[ PRIVATE: COLOR CONVERSION FUNCTIONS (PLACEHOLDERS) ]]
 --================================================================
 
--- ВСТАВЬТЕ СЮДА ФУНКЦИЮ _HSVtoRGB
 function Library:_HSVtoRGB(h, s, v)
     local r, g, b
-
     local i = math.floor(h * 6)
     local f = h * 6 - i
     local p = v * (1 - s)
     local q = v * (1 - f * s)
     local t = v * (1 - (1 - f) * s)
-
     i = i % 6
-
     if i == 0 then r, g, b = v, t, p
     elseif i == 1 then r, g, b = q, v, p
     elseif i == 2 then r, g, b = p, v, t
@@ -114,21 +108,15 @@ function Library:_HSVtoRGB(h, s, v)
     elseif i == 4 then r, g, b = t, p, v
     elseif i == 5 then r, g, b = v, p, q
     end
-
-    -- Возвращаем таблицу {r, g, b} со значениями от 0 до 255,
-    -- как того требует библиотека Drawing.
     return { r * 255, g * 255, b * 255 }
 end
 
--- ВСТАВЬТЕ СЮДА ФУНКЦИЮ _RGBtoHSV
 function Library:_RGBtoHSV(r, g, b, a)
     r, g, b = r / 255, g / 255, b / 255
     local max, min = math.max(r, g, b), math.min(r, g, b)
     local h, s, v = max, max, max
-
     local d = max - min
     s = max == 0 and 0 or d / max
-
     if max == min then
         h = 0
     else
@@ -141,7 +129,6 @@ function Library:_RGBtoHSV(r, g, b, a)
         end
         h = h / 6
     end
-
     return h, s, v, (a or 255) / 255
 end
 
@@ -175,9 +162,8 @@ end
 function Library:_IsThemeLight(theme)
     local bg = theme.Colors.MainBackground
     if not bg then return false end
-    -- Using luminance formula to determine brightness
     local brightness = (bg[1] * 0.299 + bg[2] * 0.587 + bg[3] * 0.114)
-    return brightness > 150 -- Threshold for what is considered a "light" background
+    return brightness > 150
 end
 
 function Library:_getAvatarThumbnail(userId)
@@ -200,102 +186,77 @@ end
 function Library:_SetVisibility(object, visible) if object and object.Visible ~= visible then object.Visible = visible end end
 function table.find(tbl, value) for i, v in ipairs(tbl) do if v == value then return i end end; return nil end
 
--- Вставьте эту новую функцию в раздел PRIVATE: HELPER FUNCTIONS
 function Library:_CleanupDrawingObjects(tbl)
     for _, v in pairs(tbl) do
         if type(v) == 'table' then
             if v.Remove and type(v.Remove) == 'function' then
-                -- Это объект отрисовки, удаляем его
                 pcall(v.Remove, v)
             else
-                -- Это обычная таблица, идем глубже
                 self:_CleanupDrawingObjects(v)
             end
         end
     end
 end
 
--- Новая функция для плавной смены цвета (анимации)
-function Library:_LerpColor(from, to, alpha)
-    -- Проверка на случай, если одна из таблиц некорректна
-    if type(from) ~= "table" or type(to) ~= "table" then 
-        return to or from or {0, 0, 0, 255} 
+function Library:_EnsureDefaults(data_table, default_table)
+    if type(data_table) ~= 'table' or type(default_table) ~= 'table' then
+        return self:_DeepCopy(default_table) or {}
     end
+    
+    local result = self:_DeepCopy(data_table)
+    for key, defaultValue in pairs(default_table) do
+        if result[key] == nil then
+            result[key] = defaultValue
+        elseif type(defaultValue) == 'table' and type(result[key]) == 'table' then
+            result[key] = self:_EnsureDefaults(result[key], defaultValue)
+        end
+    end
+    return result
+end
 
-    -- Интерполяция с использованием значений по умолчанию для каждого канала
+function Library:_SetSectionAndElementsVisibility(section, visible)
+    for _, obj in pairs(section.Drawing) do
+        if obj and obj.Visible ~= nil then self:_SetVisibility(obj, visible) end
+    end
+    for _, el in ipairs(section.Elements) do
+        for key, val in pairs(el) do
+            if type(val) == 'table' and val.Visible ~= nil then
+                self:_SetVisibility(val, visible)
+            elseif (key == 'OptionList' or key == 'Glow') and type(val) == 'table' then
+                 for _, nested_obj in ipairs(val) do
+                    if nested_obj and nested_obj.Visible ~= nil then self:_SetVisibility(nested_obj, visible) end
+                 end
+            end
+        end
+        if not visible and el.IsOpen then
+            el.IsOpen = false
+        end
+    end
+end
+
+function Library:_LerpColor(from, to, alpha)
+    if type(from) ~= "table" or type(to) ~= "table" then return to or from or {0, 0, 0, 255} end
     local r = (from[1] or 0) + ((to[1] or 0) - (from[1] or 0)) * alpha
     local g = (from[2] or 0) + ((to[2] or 0) - (from[2] or 0)) * alpha
     local b = (from[3] or 0) + ((to[3] or 0) - (from[3] or 0)) * alpha
     local a = (from[4] or 255) + ((to[4] or 255) - (from[4] or 255)) * alpha
-    
     return {r, g, b, a}
-end
-
--- Новая функция для отрисовки подсказки у кнопки Save
-function Library:_RenderSaveTooltip()
-    local tooltip = self.UI.Core.SaveTooltip
-    local saveBtn = self.UI.Core.HeaderButtons.Save
-    local isVisible = saveBtn.IsHovered
-    local theme = self.ActiveTheme
-
-    self:_SetVisibility(tooltip.Background, isVisible)
-    self:_SetVisibility(tooltip.Border, isVisible)
-    self:_SetVisibility(tooltip.ConfigName, isVisible)
-    self:_SetVisibility(tooltip.Author, isVisible)
-
-    if isVisible then
-        self:_AnimateAndApplyColor(tooltip.Background, theme.Colors.SectionBackground)
-        self:_AnimateAndApplyColor(tooltip.Border, theme.Colors.Separator)
-        self:_AnimateAndApplyColor(tooltip.ConfigName, theme.Colors.TextPrimary)
-        self:_AnimateAndApplyColor(tooltip.Author, theme.Colors.TextSecondary)
-    
-        local configName = self.UI.Core.ConfigsTab.LoadedConfigName
-        if configName == "" then configName = "default" end
-        tooltip.ConfigName.Text = "Config \"" .. configName .. "\""
-        tooltip.Author.Text = "Author: " .. (self.UI.Core.PlayerDisplayName.Text or "user")
-
-        local padding = 16
-        local configNameWidth = tooltip.ConfigName.TextBounds and tooltip.ConfigName.TextBounds.x or 100
-        local authorWidth = tooltip.Author.TextBounds and tooltip.Author.TextBounds.x or 100
-        local tooltipW = math.max(configNameWidth, authorWidth) + padding
-        local tooltipH = 50
-
-        local btnRegion = saveBtn.ClickRegion
-        local tooltipX, tooltipY = btnRegion.x2 + 10, btnRegion.y1
-
-        tooltip.Background.Position = {tooltipX, tooltipY}
-        tooltip.Background.Size = {tooltipW, tooltipH}
-        tooltip.Border.Position = {tooltipX, tooltipY}
-        tooltip.Border.Size = {tooltipW, tooltipH}
-        tooltip.ConfigName.Position = {tooltipX + (padding / 2), tooltipY + 8}
-        tooltip.Author.Position = {tooltipX + (padding / 2), tooltipY + 28}
-        
-        self:_RenderGlowEffect(tooltip.Glow, tooltipX, tooltipY, tooltipW, tooltipH, tooltip.Background.Rounding, theme.Colors.GlowColor)
-    else
-        self:_HideGlowEffect(tooltip.Glow)
-    end
 end
 
 function Library:_AnimateAndApplyColor(drawingObject, targetColor, masterOpacity)
     if not drawingObject or type(targetColor) ~= "table" then return end
-
     local state = self.AnimationState[drawingObject]
     if not state then
         state = { CurrentColor = self:_DeepCopy(targetColor) }
         self.AnimationState[drawingObject] = state
     end
-
     local speed_value = self.UI.Values["AboutAnimationSpeed"] or 1.6 
     local animationSpeed = speed_value / 16.0
-
     state.CurrentColor = self:_LerpColor(state.CurrentColor, targetColor, animationSpeed)
-
     local color = state.CurrentColor
     if color then
         drawingObject.Color = {color[1], color[2], color[3]}
         local baseOpacity = (color[4] or 255) / 255
-        
-        --[[ НОВОЕ: Умножаем на общую прозрачность ]]
         masterOpacity = (masterOpacity == nil) and 1 or masterOpacity
         drawingObject.Opacity = baseOpacity * masterOpacity
     end
@@ -303,12 +264,8 @@ end
 
 function Library:_GetTextColorForBackground(backgroundColor)
     local theme = self.ActiveTheme
-    if not backgroundColor or type(backgroundColor) ~= "table" then
-        return theme.Colors.TextLight 
-    end
-    
+    if not backgroundColor or type(backgroundColor) ~= "table" then return theme.Colors.TextLight end
     local brightness = (backgroundColor[1] * 0.299 + backgroundColor[2] * 0.587 + backgroundColor[3] * 0.114)
-    
     return brightness > 140 and theme.Colors.TextDark or theme.Colors.TextLight
 end
 
