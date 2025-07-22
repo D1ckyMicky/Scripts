@@ -413,9 +413,11 @@ function Library:_Internal_CreateGlowSet(zIndex, count)
     return glowSet
 end
 
-function Library:_RenderGlowEffect(glowSet, x, y, width, height, rounding, targetColor, sides)
+function Library:_RenderGlowEffect(glowSet, x, y, width, height, rounding, targetColor, sides, masterOpacity)
     if not glowSet or #glowSet == 0 or not targetColor then return end
     
+    masterOpacity = masterOpacity or 1 -- Значение по умолчанию на случай, если прозрачность не передана
+
     -- Используем первый квадрат в наборе как ключ для нашего хранилища состояний
     local stateHolder = glowSet[1]
 
@@ -446,9 +448,10 @@ function Library:_RenderGlowEffect(glowSet, x, y, width, height, rounding, targe
         
         glowSquare.Position = {glowX, glowY}
         glowSquare.Size = {glowW, glowH}
-        glowSquare.Rounding = rounding + spread -- Теперь 'rounding' это корректное число
+        glowSquare.Rounding = rounding + spread
         glowSquare.Color = glowColorRGB
-        glowSquare.Opacity = glowOpacity * alpha_factor
+        -- [[ ИСПРАВЛЕНИЕ: Умножаем итоговую прозрачность на общую прозрачность окна ]]
+        glowSquare.Opacity = glowOpacity * alpha_factor * masterOpacity
         self:_SetVisibility(glowSquare, true)
     end
 end
@@ -1059,12 +1062,17 @@ function Library:_RenderAboutWindow(mouse_pos)
     local animatedOpacity = popupState.CurrentOpacity
     local isVisible = popupState.IsOpen
 
-    if animatedOpacity == 0 then
+    if animatedOpacity < 0.01 then
         if about.Glow then self:_HideGlowEffect(about.Glow) end
         if about.AnimationSpeedSlider.Glow then self:_HideGlowEffect(about.AnimationSpeedSlider.Glow) end
         local dropdown = about.DpiScaleDropdown
-        if dropdown.IsOpen then
-            dropdown.IsOpen = false
+        if dropdown.IsOpen then dropdown.IsOpen = false end
+        -- [[ ИСПРАВЛЕНИЕ: Принудительно скрываем круги, когда окно невидимо ]]
+        for _, circle in ipairs(about.StyleCircles) do
+            self:_SetVisibility(circle.Circle, false); 
+            self:_SetVisibility(circle.Border, false);
+            if circle.Inner then self:_SetVisibility(circle.Inner, false) end
+            if circle.PlusLine1 then self:_SetVisibility(circle.PlusLine1, false); self:_SetVisibility(circle.PlusLine2, false) end
         end
         return
     end
@@ -1087,6 +1095,8 @@ function Library:_RenderAboutWindow(mouse_pos)
     setAboutVisibility(about, true)
     self:_SetVisibility(about.Tooltip.Background, false)
     self:_SetVisibility(about.Tooltip.Text, false)
+
+    -- [[ ИСПРАВЛЕНИЕ: Делаем видимыми только нужные части кругов ]]
     for _, circle in ipairs(about.StyleCircles) do
         self:_SetVisibility(circle.Circle, true); 
         self:_SetVisibility(circle.Border, self.UI.Values.AboutSelectedStyle == circle.Name);
@@ -1094,7 +1104,7 @@ function Library:_RenderAboutWindow(mouse_pos)
         if circle.PlusLine1 then self:_SetVisibility(circle.PlusLine1, true); self:_SetVisibility(circle.PlusLine2, true) end
     end
     
-    local theme = self.ActiveTheme
+     local theme = self.ActiveTheme
     self:_AnimateAndApplyColor(about.Background, theme.Colors.SectionBackground, animatedOpacity)
     self:_AnimateAndApplyColor(about.Border, theme.Colors.Separator, animatedOpacity)
     self:_AnimateAndApplyColor(about.HeaderIcon, theme.Colors.TextSecondary, animatedOpacity)
@@ -1115,12 +1125,16 @@ function Library:_RenderAboutWindow(mouse_pos)
     self:_AnimateAndApplyColor(about.StyleLabel, theme.Colors.TextSecondary, animatedOpacity)
     self:_AnimateAndApplyColor(about.Tooltip.Background, theme.Colors.MainBackground, animatedOpacity)
     self:_AnimateAndApplyColor(about.Tooltip.Text, theme.Colors.TextPrimary, animatedOpacity)
+    
+    -- [[ ИСПРАВЛЕНИЕ: Применяем прозрачность ко всем элементам кругов ]]
     for _, circle in ipairs(about.StyleCircles) do
+        if circle.Circle then circle.Circle.Opacity = animatedOpacity end
         self:_AnimateAndApplyColor(circle.Border, theme.Colors.Accent, animatedOpacity)
+        if circle.Inner then circle.Inner.Opacity = animatedOpacity end
         if circle.PlusLine1 then self:_AnimateAndApplyColor(circle.PlusLine1, theme.Colors.TextSecondary, animatedOpacity) end
         if circle.PlusLine2 then self:_AnimateAndApplyColor(circle.PlusLine2, theme.Colors.TextSecondary, animatedOpacity) end
     end
-    self:_AnimateAndApplyColor(about.AutoSaveToggle.Label, theme.Colors.TextSecondary, animatedOpacity)
+self:_AnimateAndApplyColor(about.AutoSaveToggle.Label, theme.Colors.TextSecondary, animatedOpacity)
     local slider = about.AnimationSpeedSlider; 
     self:_AnimateAndApplyColor(slider.Label, theme.Colors.TextSecondary, animatedOpacity); 
     self:_AnimateAndApplyColor(slider.Back, theme.Colors.DarkBlue, animatedOpacity); 
@@ -1143,7 +1157,7 @@ function Library:_RenderAboutWindow(mouse_pos)
     about.ClickRegion = {x1 = winX, y1 = winY, x2 = winX + winW, y2 = winY + winH}
     about.Background.Position = {winX, winY}; about.Background.Size = {winW, winH}
     about.Border.Position = {winX, winY}; about.Border.Size = {winW, winH}
-    if about.Glow then self:_RenderGlowEffect(about.Glow, winX, winY, winW, winH, about.Background.Rounding, theme.Colors.GlowColor) end
+    if about.Glow then self:_RenderGlowEffect(about.Glow, winX, winY, winW, winH, about.Background.Rounding, theme.Colors.GlowColor, nil, animatedOpacity) end
     about.HeaderIcon.Position = {winX + 15, winY + 12}
     about.HeaderTitle.Position = {winX + 15 + about.HeaderIcon.Size.x + 8, winY + 13}
     about.CloseButton.Line1.From = {winX + winW - 25, winY + 12}; about.CloseButton.Line1.To = {winX + winW - 15, winY + 22}
@@ -1235,7 +1249,7 @@ function Library:_RenderPlayerESPSettingsPopup()
     local isVisible = popupState.IsOpen
     local theme = self.ActiveTheme
 
-    if animatedOpacity == 0 then
+    if animatedOpacity < 0.01 then
         if popup.Glow then self:_HideGlowEffect(popup.Glow) end
         return
     end
@@ -1283,7 +1297,7 @@ function Library:_RenderPlayerESPSettingsPopup()
     popup.ClickRegion = {x1 = pX, y1 = pY, x2 = pX + pW, y2 = pY + totalHeight}
     if popup.Background then popup.Background.Position = {pX, pY}; popup.Background.Size = {pW, totalHeight}; end
     if popup.Border then popup.Border.Position = {pX, pY}; popup.Border.Size = {pW, totalHeight}; end
-    if popup.Glow then self:_RenderGlowEffect(popup.Glow, pX, pY, pW, totalHeight, popup.Background.Rounding, theme.Colors.GlowColor) end
+    if popup.Glow then self:_RenderGlowEffect(popup.Glow, pX, pY, pW, totalHeight, popup.Background.Rounding, theme.Colors.GlowColor, nil, animatedOpacity) end
 end
 
 function Library:_RenderEditStyleWindow()
