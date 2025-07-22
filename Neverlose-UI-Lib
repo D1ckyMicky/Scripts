@@ -1068,7 +1068,7 @@ function Library:_RenderAboutWindow(mouse_pos)
         popupState.CurrentOpacity = targetOpacity
     end
     local animatedOpacity = popupState.CurrentOpacity
-    
+
     -- [[ НОВЫЙ ПОДХОД: Создаем плоский список всех элементов для надёжного управления видимостью ]]
     if not about.AllElements then
         about.AllElements = {
@@ -1092,7 +1092,7 @@ function Library:_RenderAboutWindow(mouse_pos)
     end
 
     if animatedOpacity < 0.01 then
-        for _, obj in ipairs(about.AllElements) do self:_SetVisibility(obj, false) end
+        for _, obj in ipairs(about.AllElements) do if obj then self:_SetVisibility(obj, false) end end
         self:_SetVisibility(about.DpiScaleDropdown.OptionBackground, false)
         for _, opt in ipairs(about.DpiScaleDropdown.OptionList) do self:_SetVisibility(opt, false) end
         if about.Glow then self:_HideGlowEffect(about.Glow) end
@@ -1101,10 +1101,10 @@ function Library:_RenderAboutWindow(mouse_pos)
         return
     end
 
-    for _, obj in ipairs(about.AllElements) do self:_SetVisibility(obj, true) end
+    for _, obj in ipairs(about.AllElements) do if obj then self:_SetVisibility(obj, true) end end
     self:_SetVisibility(about.Tooltip.Background, false)
     self:_SetVisibility(about.Tooltip.Text, false)
-    for _, circle in ipairs(about.StyleCircles) do self:_SetVisibility(circle.Border, self.UI.Values.AboutSelectedStyle == circle.Name) end
+    for _, circle in ipairs(about.StyleCircles) do if circle.Border then self:_SetVisibility(circle.Border, self.UI.Values.AboutSelectedStyle == circle.Name) end end
 
     
     self:_AnimateAndApplyColor(about.Background, theme.Colors.SectionBackground, animatedOpacity)
@@ -1135,7 +1135,6 @@ function Library:_RenderAboutWindow(mouse_pos)
         if circle.PlusLine1 then self:_AnimateAndApplyColor(circle.PlusLine1, theme.Colors.TextSecondary, animatedOpacity) end
         if circle.PlusLine2 then self:_AnimateAndApplyColor(circle.PlusLine2, theme.Colors.TextSecondary, animatedOpacity) end
     end
-
     self:_AnimateAndApplyColor(about.AutoSaveToggle.Label, theme.Colors.TextSecondary, animatedOpacity)
     local slider = about.AnimationSpeedSlider; 
     self:_AnimateAndApplyColor(slider.Label, theme.Colors.TextSecondary, animatedOpacity); 
@@ -1153,23 +1152,6 @@ function Library:_RenderAboutWindow(mouse_pos)
     self:_AnimateAndApplyColor(dd.BorderLeft, theme.Colors.Separator, animatedOpacity); 
     self:_AnimateAndApplyColor(dd.BorderRight, theme.Colors.Separator, animatedOpacity); 
     self:_AnimateAndApplyColor(dd.BorderBottom, theme.Colors.Separator, animatedOpacity);
-
-    if about.Glow then self:_RenderGlowEffect(about.Glow, winX, winY, winW, winH, about.Background.Rounding, theme.Colors.GlowColor, nil, animatedOpacity) end
-    if slider.Glow then
-        local glowWidth = slider.LeftFill.Size.x
-        if glowWidth > 0 then
-            self:_RenderGlowEffect(slider.Glow, slider.LeftFill.Position.x, slider.Nub.Position.y - 4, glowWidth, 8, slider.LeftFill.Rounding, theme.Colors.GlowAccent, {top=true, bottom=true, left=true, right=false}, animatedOpacity)
-        else
-            self:_HideGlowEffect(slider.Glow)
-        end
-    end
-
-    if about.DpiScaleDropdown.IsOpen then
-        for i, option in ipairs(about.DpiScaleDropdown.OptionList) do 
-            local targetOptColor = (self.UI.Values[about.DpiScaleDropdown.id] == about.DpiScaleDropdown.Options[i]) and theme.Colors.Accent or theme.Colors.TextPrimary
-            self:_AnimateAndApplyColor(option, targetOptColor, animatedOpacity)
-        end
-    end
 
     local winW, winH = 360, 500
     local winX, winY = self.Window.X + (self.Window.Width / 2) - (winW / 2), self.Window.Y + (self.Window.Height / 2) - (winH / 2)
@@ -1190,7 +1172,7 @@ function Library:_RenderAboutWindow(mouse_pos)
     about.Separator2.From = {winX + 10, currentY}; about.Separator2.To = {winX + winW - 10, currentY}
     currentY = currentY + 20
     local infoX = winX + 30
-    local function renderInfoLine(y, label, value) if label and value then label.Position = {infoX, y}; if label.TextBounds then value.Position = {infoX + label.TextBounds.x + 5, y} end; return y + 25; end; return y; end
+    local function renderInfoLine(y, label, value) if label and value and label.TextBounds then label.Position = {infoX, y}; value.Position = {infoX + label.TextBounds.x + 5, y} return y + 25; end; return y; end
     currentY = renderInfoLine(currentY, about.InfoVersionLabel, about.InfoVersionValue)
     currentY = renderInfoLine(currentY, about.InfoBuildDateLabel, about.InfoBuildDateValue)
     currentY = renderInfoLine(currentY, about.InfoBuildTypeLabel, about.InfoBuildTypeValue)
@@ -1217,7 +1199,6 @@ function Library:_RenderAboutWindow(mouse_pos)
     slider.Nub.Position = {nubX, currentY + 9}; 
     local glowWidth = nubX - sliderBackX; local glowHeight = 8; 
     if glowWidth > 0 and slider.Glow then
-        -- [[ ИСПРАВЛЕНИЕ: Добавляем animatedOpacity в вызов glow-эффекта ]]
         self:_RenderGlowEffect(slider.Glow, sliderBackX, currentY + 9 - (glowHeight / 2), glowWidth, glowHeight, slider.LeftFill.Rounding, theme.Colors.GlowAccent, {top=true, bottom=true, left=true, right=false}, animatedOpacity)
     elseif slider.Glow then
         self:_HideGlowEffect(slider.Glow)
