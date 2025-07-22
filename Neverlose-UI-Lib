@@ -414,21 +414,18 @@ function Library:_Internal_CreateGlowSet(zIndex, count)
 end
 
 function Library:_RenderGlowEffect(glowSet, x, y, width, height, rounding, targetColor, sides, masterOpacity)
-    if not glowSet or #glowSet == 0 or not targetColor then return end
+    -- [[ ИСПРАВЛЕНИЕ: Защита от некорректных координат ]]
+    if not glowSet or not x or not y or not width or not height or not targetColor then return end
     
-    masterOpacity = masterOpacity or 1 -- Значение по умолчанию на случай, если прозрачность не передана
+    masterOpacity = masterOpacity or 1
 
-    -- Используем первый квадрат в наборе как ключ для нашего хранилища состояний
     local stateHolder = glowSet[1]
-
-    -- Получаем или создаем состояние для этого ключа
     local state = self.AnimationState[stateHolder]
     if not state then
         state = { CurrentColor = self:_DeepCopy(targetColor) }
         self.AnimationState[stateHolder] = state
     end
     
-    -- Анимируем цвет
     state.CurrentColor = self:_LerpColor(state.CurrentColor, targetColor, 0.1)
     local animatedColor = state.CurrentColor
     
@@ -450,7 +447,6 @@ function Library:_RenderGlowEffect(glowSet, x, y, width, height, rounding, targe
         glowSquare.Size = {glowW, glowH}
         glowSquare.Rounding = rounding + spread
         glowSquare.Color = glowColorRGB
-        -- [[ ИСПРАВЛЕНИЕ: Умножаем итоговую прозрачность на общую прозрачность окна ]]
         glowSquare.Opacity = glowOpacity * alpha_factor * masterOpacity
         self:_SetVisibility(glowSquare, true)
     end
@@ -2800,7 +2796,7 @@ end
 
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3x521")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3x51")
     local is_first_frame = true
     while self.Window.Visible do
         if is_first_frame then
