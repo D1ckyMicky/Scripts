@@ -902,6 +902,7 @@ function Library:_LoadConfig(name)
     if decodedData.ActiveThemeName and self.Themes[decodedData.ActiveThemeName] then
         self.ActiveTheme = self.Themes[decodedData.ActiveThemeName]
         self.UI.Values.AboutSelectedStyle = decodedData.ActiveThemeName
+        self.AnimationState = {}
     end
 
     self.UI.Core.ConfigsTab.LoadedConfigName = name
@@ -2376,6 +2377,7 @@ function Library:_InputLoop()
                     self:_RebuildStyleCircles()
                     self.UI.Values.AboutSelectedStyle = newTheme.Name
                     self.ActiveTheme = newTheme
+                    self.AnimationState = {}
                     
                     self.TempTheme = nil
                     self.PreEditThemeName = nil
@@ -2388,8 +2390,10 @@ function Library:_InputLoop()
                         self.PreEditThemeName = self.ActiveTheme.Name
                         self.TempTheme = self:_DeepCopy(style_window.EditingTheme)
                         self.ActiveTheme = self.TempTheme
+                        self.AnimationState = {}
                     else
                         self.ActiveTheme = self.Themes[self.PreEditThemeName] or self.Themes.Blue
+                        self.AnimationState = {}
                         self.UI.Values.AboutSelectedStyle = self.ActiveTheme.Name
                         self.TempTheme = nil
                         self.PreEditThemeName = nil
@@ -2451,6 +2455,7 @@ function Library:_InputLoop()
                             else
                                 self.UI.Values.AboutSelectedStyle = circle.Name
                                 self.ActiveTheme = self.Themes[circle.Name]
+                                self.AnimationState = {}
                             end
                             break
                         end
@@ -2649,7 +2654,7 @@ end
 
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3x5x1")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3x51")
     local is_first_frame = true
     while self.Window.Visible do
         if is_first_frame then
