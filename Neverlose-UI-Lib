@@ -2750,7 +2750,8 @@ function Library:_MainLoop()
             self:_AddPresetsTab()
             is_first_frame = false
         end
-        pcall(function() self:_InputLoop(); self:_RenderLoop() end)
+        self:_InputLoop()
+        self:_RenderLoop()
         wait(0.01)
     end
 end
