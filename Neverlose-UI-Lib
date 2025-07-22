@@ -435,9 +435,12 @@ function Library:_Internal_CreateGlowSet(zIndex, count)
     return glowSet
 end
 
-function Library:_RenderGlowEffect(glowSet, x, y, width, height, rounding, targetColor, sides)
+function Library:_RenderGlowEffect(glowSet, x, y, width, height, rounding, targetColor, sides, masterOpacity)
     if not glowSet or #glowSet == 0 or not targetColor then return end
     
+    -- Устанавливаем общую прозрачность по умолчанию, если она не передана
+    masterOpacity = (masterOpacity == nil) and 1 or masterOpacity
+
     -- Используем первый квадрат в наборе как ключ для нашего хранилища состояний
     local stateHolder = glowSet[1]
 
@@ -454,7 +457,14 @@ function Library:_RenderGlowEffect(glowSet, x, y, width, height, rounding, targe
     
     sides = sides or {top=true, bottom=true, left=true, right=true}
     local glowColorRGB = {animatedColor[1], animatedColor[2], animatedColor[3]}
-    local glowOpacity = (animatedColor[4] or 255) / 255
+    local baseGlowOpacity = (animatedColor[4] or 255) / 255
+
+    --[[ ИСПРАВЛЕНИЕ: Умножаем прозрачность на masterOpacity ]]
+    local finalGlowOpacity = baseGlowOpacity * masterOpacity
+    if finalGlowOpacity < 0.01 then
+        self:_HideGlowEffect(glowSet)
+        return
+    end
 
     for i, glowSquare in ipairs(glowSet) do
         local alpha_factor = 0.24 * math.exp(-0.24 * i)
@@ -468,9 +478,9 @@ function Library:_RenderGlowEffect(glowSet, x, y, width, height, rounding, targe
         
         glowSquare.Position = {glowX, glowY}
         glowSquare.Size = {glowW, glowH}
-        glowSquare.Rounding = rounding + spread -- Теперь 'rounding' это корректное число
+        glowSquare.Rounding = rounding + spread
         glowSquare.Color = glowColorRGB
-        glowSquare.Opacity = glowOpacity * alpha_factor
+        glowSquare.Opacity = finalGlowOpacity * alpha_factor -- Используем итоговую прозрачность
         self:_SetVisibility(glowSquare, true)
     end
 end
@@ -1085,7 +1095,7 @@ function Library:_RenderAboutWindow(mouse_pos)
     --[[ АНИМАЦИЯ: Логика плавного появления/исчезновения ]]
     local animState = about.AnimState
     local speed_value = self.UI.Values["AboutAnimationSpeed"] or 1.6
-    local animationSpeed = speed_value / 12.0 -- Немного быстрее для pop-up
+    local animationSpeed = speed_value / 12.0
 
     local targetOpacity = isVisible and 1 or 0
     local targetScale = isVisible and 1 or 0.8
@@ -1093,58 +1103,57 @@ function Library:_RenderAboutWindow(mouse_pos)
     animState.Opacity = self:_LerpNumber(animState.Opacity, targetOpacity, animationSpeed)
     animState.Scale = self:_LerpNumber(animState.Scale, targetScale, animationSpeed)
 
-    -- Если окно почти невидимо, не рендерим его содержимое
+    --[[ ИСПРАВЛЕНИЕ: Полная логика скрытия ]]
     if animState.Opacity < 0.01 then
-        self:_HideGlowEffect(about.Glow)
-        -- Убедимся, что все элементы скрыты
+        -- Если окно было видимо в прошлом кадре, скрываем всё и выходим
         if about.lastVisibilityState == true or about.lastVisibilityState == nil then
-            setAboutVisibility(about, false)
+            local function setAboutVisibilityRecursive(tbl, visible)
+                for key, obj in pairs(tbl) do
+                    if type(obj) == 'table' then
+                        if obj.Visible ~= nil then self:_SetVisibility(obj, visible)
+                        elseif obj.Label and (obj.Back or obj.Button or obj.LeftFill) then -- Для элементов управления
+                             for _, sub_obj in pairs(obj) do if type(sub_obj) == 'table' and sub_obj.Visible ~= nil then self:_SetVisibility(sub_obj, visible) end end
+                        -- Рекурсивно идем вглубь, пропуская системные таблицы
+                        elseif key ~= "ClickRegion" and key ~= "StyleCircles" and key ~= "Glow" and key ~= "Tooltip" and key ~= "HoveredThemeCircle" and key ~= "AnimState" then
+                            setAboutVisibilityRecursive(obj, visible)
+                        end
+                    end
+                end
+            end
+            setAboutVisibilityRecursive(about, false)
+            self:_HideGlowEffect(about.Glow)
+            self:_HideGlowEffect(about.AnimationSpeedSlider.Glow)
+            for _, circle in ipairs(about.StyleCircles) do -- Прячем круги тем
+                if circle.Circle then self:_SetVisibility(circle.Circle, false) end
+                if circle.Border then self:_SetVisibility(circle.Border, false) end
+                if circle.Inner then self:_SetVisibility(circle.Inner, false) end
+                if circle.PlusLine1 then self:_SetVisibility(circle.PlusLine1, false) end
+                if circle.PlusLine2 then self:_SetVisibility(circle.PlusLine2, false) end
+            end
+            self:_SetVisibility(about.Tooltip.Background, false)
+            self:_SetVisibility(about.Tooltip.Text, false)
             about.lastVisibilityState = false
         end
         return
     end
 
     -- Если окно становится видимым, показываем все его элементы
-    if about.lastVisibilityState == false then
-        setAboutVisibility(about, true)
+    if not about.lastVisibilityState then
+        -- Пропускаем рекурсивную функцию, т.к. видимость управляется masterOpacity
         about.lastVisibilityState = true
     end
-    -- Конец блока анимации
-
-    local function setAboutVisibility(tbl, visible)
-        for key, obj in pairs(tbl) do
-            if type(obj) == 'table' then
-                if obj.Visible ~= nil then self:_SetVisibility(obj, visible)
-                elseif obj.Label and (obj.Back or obj.Button or (obj.LeftFill and obj.Nub)) then
-                    self:_SetVisibility(obj.Label, visible);
-                    if obj.Back then self:_SetVisibility(obj.Back, visible); self:_SetVisibility(obj.Nub, visible); end
-                    if obj.LeftFill then 
-                        self:_SetVisibility(obj.LeftFill, visible); 
-                        self:_SetVisibility(obj.Nub, visible); 
-                        self:_SetVisibility(obj.ValueText, visible); 
-                    end
-                    if obj.Button then self:_SetVisibility(obj.Button, visible); self:_SetVisibility(obj.ButtonText, visible); self:_SetVisibility(obj.ArrowLine1, visible); self:_SetVisibility(obj.ArrowLine2, visible); end
-                elseif key ~= "ClickRegion" and key ~= "StyleCircles" and key ~= "Glow" and key ~= "Tooltip" and key ~= "HoveredThemeCircle" and key ~= "AnimState" then
-                     setAboutVisibility(obj, visible)
-                end
-            end
-        end
-    end
-
-    -- Скрываем подсказку по умолчанию
-    self:_SetVisibility(about.Tooltip.Background, false)
-    self:_SetVisibility(about.Tooltip.Text, false)
-
-    -- Устанавливаем видимость для кружков стилей
-    for _, circle in ipairs(about.StyleCircles) do
-        self:_SetVisibility(circle.Circle, true); 
-        self:_SetVisibility(circle.Border, self.UI.Values.AboutSelectedStyle == circle.Name);
-        if circle.Inner then self:_SetVisibility(circle.Inner, true) end
-        if circle.PlusLine1 then self:_SetVisibility(circle.PlusLine1, true); self:_SetVisibility(circle.PlusLine2, true) end
-    end
+    -- Конец блока исправления
 
     -- Применяем общую прозрачность и цвета
     local masterOpacity = animState.Opacity
+    
+    -- Устанавливаем видимость для кружков стилей, они будут управляться общей прозрачностью
+    for _, circle in ipairs(about.StyleCircles) do
+        self:_SetVisibility(circle.Circle, true); self:_SetVisibility(circle.Border, self.UI.Values.AboutSelectedStyle == circle.Name);
+        if circle.Inner then self:_SetVisibility(circle.Inner, true) end
+        if circle.PlusLine1 then self:_SetVisibility(circle.PlusLine1, true); self:_SetVisibility(circle.PlusLine2, true) end
+    end
+    
     self:_AnimateAndApplyColor(about.Background, theme.Colors.SectionBackground, masterOpacity)
     self:_AnimateAndApplyColor(about.Border, theme.Colors.Separator, masterOpacity)
     self:_AnimateAndApplyColor(about.HeaderIcon, theme.Colors.TextSecondary, masterOpacity)
@@ -1166,7 +1175,9 @@ function Library:_RenderAboutWindow(mouse_pos)
     self:_AnimateAndApplyColor(about.Tooltip.Background, theme.Colors.MainBackground, masterOpacity)
     self:_AnimateAndApplyColor(about.Tooltip.Text, theme.Colors.TextPrimary, masterOpacity)
     for _, circle in ipairs(about.StyleCircles) do
+        self:_AnimateAndApplyColor(circle.Circle, (self.Themes[circle.Name] and self.Themes[circle.Name].Colors.MainBackground) or {40,40,40}, masterOpacity)
         self:_AnimateAndApplyColor(circle.Border, theme.Colors.Accent, masterOpacity)
+        if circle.Inner then self:_AnimateAndApplyColor(circle.Inner, (self.Themes[circle.Name] and self.Themes[circle.Name].Colors.Accent) or {255,255,255}, masterOpacity) end
         if circle.PlusLine1 then self:_AnimateAndApplyColor(circle.PlusLine1, theme.Colors.TextSecondary, masterOpacity) end
         if circle.PlusLine2 then self:_AnimateAndApplyColor(circle.PlusLine2, theme.Colors.TextSecondary, masterOpacity) end
     end
@@ -1190,26 +1201,19 @@ function Library:_RenderAboutWindow(mouse_pos)
     self:_AnimateAndApplyColor(dd.BorderRight, theme.Colors.Separator, masterOpacity); 
     self:_AnimateAndApplyColor(dd.BorderBottom, theme.Colors.Separator, masterOpacity);
 
-    --[[ АНИМАЦИЯ: Расчет размера и позиции с учетом анимации ]]
     local winW, winH = 360, 500
     local animW, animH = winW * animState.Scale, winH * animState.Scale
     local winCenterX, winCenterY = self.Window.X + (self.Window.Width / 2), self.Window.Y + (self.Window.Height / 2)
     local winX, winY = winCenterX - (animW / 2), winCenterY - (animH / 2)
-    -- Конец блока
 
     about.ClickRegion = {x1 = winX, y1 = winY, x2 = winX + animW, y2 = winY + animH}
     about.Background.Position = {winX, winY}; about.Background.Size = {animW, animH}
     about.Border.Position = {winX, winY}; about.Border.Size = {animW, animH}
-    if about.Glow then self:_RenderGlowEffect(about.Glow, winX, winY, animW, animH, about.Background.Rounding, theme.Colors.GlowColor) end
     
-    --[[
-        ВАЖНО: Позиции всех внутренних элементов теперь должны рассчитываться относительно анимированных winX, winY и winW.
-        Так как в твоем коде используется много абсолютных значений и сложная верстка,
-        я просто заменю все вызовы, чтобы они использовали новые анимированные значения.
-        Это может немного "сжать" интерфейс во время анимации, но создаст нужный эффект "зума".
-    ]]
-    local headerX = winX + 15
-    local headerY = winY + 12
+    --[[ ИСПРАВЛЕНИЕ: Передаем masterOpacity в glow-эффект ]]
+    if about.Glow then self:_RenderGlowEffect(about.Glow, winX, winY, animW, animH, about.Background.Rounding, theme.Colors.GlowColor, nil, masterOpacity) end
+    
+    local headerX = winX + 15; local headerY = winY + 12
     about.HeaderIcon.Position = {headerX, headerY}
     about.HeaderTitle.Position = {headerX + about.HeaderIcon.Size.x + 8, headerY + 1}
     about.CloseButton.Line1.From = {winX + animW - 25, headerY}; about.CloseButton.Line1.To = {winX + animW - 15, headerY + 10}
@@ -1218,12 +1222,9 @@ function Library:_RenderAboutWindow(mouse_pos)
     
     local currentY = winY + 40
     about.Separator1.From = {winX + 10, currentY}; about.Separator1.To = {winX + animW - 10, currentY}
-    currentY = currentY + 25
-    about.MainTitle.Position = {winX + animW / 2, currentY}
-    currentY = currentY + 40
+    currentY = currentY + 25; about.MainTitle.Position = {winX + animW / 2, currentY}; currentY = currentY + 40
     about.Separator2.From = {winX + 10, currentY}; about.Separator2.To = {winX + animW - 10, currentY}
-    currentY = currentY + 20
-    local infoX = winX + 30
+    currentY = currentY + 20; local infoX = winX + 30
     local function renderInfoLine(y, label, value) if label and value then label.Position = {infoX, y}; if label.TextBounds then value.Position = {infoX + label.TextBounds.x + 5, y} end; return y + 25; end; return y; end
     currentY = renderInfoLine(currentY, about.InfoVersionLabel, about.InfoVersionValue)
     currentY = renderInfoLine(currentY, about.InfoBuildDateLabel, about.InfoBuildDateValue)
@@ -1242,19 +1243,16 @@ function Library:_RenderAboutWindow(mouse_pos)
     
     slider.Label.Position = {controlX, currentY}; 
     local valueTextWidth = 40; local sliderRightEdge = rightEdge - valueTextWidth; local sliderBackX = controlX + 140; local sliderBackWidth = sliderRightEdge - sliderBackX
-    slider.Back.Position = {sliderBackX, currentY + 8}; 
-    slider.Back.Size = {sliderBackWidth, 2}; 
+    slider.Back.Position = {sliderBackX, currentY + 8}; slider.Back.Size = {sliderBackWidth, 2}; 
     slider.ClickRegion = { x1 = sliderBackX, y1 = currentY - 2, x2 = sliderBackX + sliderBackWidth, y2 = currentY + 18 }; 
     local value_percentage = math.clamp((self.UI.Values[slider.id] - slider.Min) / (slider.Max - slider.Min), 0, 1); 
     local nubX = sliderBackX + sliderBackWidth * value_percentage; 
-    slider.LeftFill.Position = {sliderBackX, currentY + 8}; 
-    slider.LeftFill.Size = {nubX - sliderBackX, 2}; 
+    slider.LeftFill.Position = {sliderBackX, currentY + 8}; slider.LeftFill.Size = {nubX - sliderBackX, 2}; 
     slider.Nub.Position = {nubX, currentY + 9}; 
     local glowWidth = nubX - sliderBackX; local glowHeight = 8; 
-    if glowWidth > 0 and slider.Glow then self:_RenderGlowEffect(slider.Glow, sliderBackX, currentY + 9 - (glowHeight / 2), glowWidth, glowHeight, slider.LeftFill.Rounding, theme.Colors.GlowAccent, {top=true, bottom=true, left=true, right=false}) elseif slider.Glow then self:_HideGlowEffect(slider.Glow) end
+    if glowWidth > 0 and slider.Glow then self:_RenderGlowEffect(slider.Glow, sliderBackX, currentY + 9 - (glowHeight / 2), glowWidth, glowHeight, slider.LeftFill.Rounding, theme.Colors.GlowAccent, {top=true, bottom=true, left=true, right=false}, masterOpacity) elseif slider.Glow then self:_HideGlowEffect(slider.Glow) end
     local valueText = string.format("%.1f", self.UI.Values[slider.id]); local valueTextX = rightEdge - valueTextWidth + 10; 
-    slider.ValueText.Text = valueText; 
-    slider.ValueText.Position = {valueTextX, currentY}; 
+    slider.ValueText.Text = valueText; slider.ValueText.Position = {valueTextX, currentY}; 
     currentY = currentY + controlSpacing
     
     local dropdown = about.DpiScaleDropdown
@@ -1286,13 +1284,16 @@ function Library:_RenderAboutWindow(mouse_pos)
         if circle.PlusLine1 then circle.PlusLine1.From = {circleX - 4, circleY}; circle.PlusLine1.To = {circleX + 4, circleY}; circle.PlusLine2.From = {circleX, circleY - 4}; circle.PlusLine2.To = {circleX, circleY + 4}; end
         circle.ClickRegion = {x1 = circleX - 10, y1 = circleY - 5, x2 = circleX + 10, y2 = circleY + 15}
     end
-    if about.HoveredThemeCircle.Name and (tick() - about.HoveredThemeCircle.HoverStartTime > 1) then
+    if isVisible and about.HoveredThemeCircle.Name and (tick() - about.HoveredThemeCircle.HoverStartTime > 1) then
         local tooltip = about.Tooltip; local text = about.HoveredThemeCircle.Name; tooltip.Text.Text = text
         if tooltip.Text.TextBounds then
             local ttW = tooltip.Text.TextBounds.x + 16; local ttH = tooltip.Text.TextBounds.y + 10; local ttX = mouse_pos.x + 15; local ttY = mouse_pos.y
             tooltip.Background.Position = {ttX, ttY}; tooltip.Background.Size = {ttW, ttH}; tooltip.Text.Position = {ttX + 8, ttY + 5}
             self:_SetVisibility(tooltip.Background, true); self:_SetVisibility(tooltip.Text, true)
         end
+    else
+        self:_SetVisibility(tooltip.Tooltip.Background, false)
+        self:_SetVisibility(tooltip.Tooltip.Text, false)
     end
     about.CreditText.Position = {winX + animW / 2, winY + animH - 25}
 end
