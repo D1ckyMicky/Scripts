@@ -1059,50 +1059,58 @@ end
 function Library:_RenderAboutWindow(mouse_pos)
     local about = self.UI.Core.AboutWindow
     local popupState = self.UI.Popups.About
-    local animatedOpacity = popupState.CurrentOpacity
-    local isVisible = popupState.IsOpen
+    local theme = self.ActiveTheme
 
-    if animatedOpacity < 0.01 then
-        if about.Glow then self:_HideGlowEffect(about.Glow) end
-        if about.AnimationSpeedSlider.Glow then self:_HideGlowEffect(about.AnimationSpeedSlider.Glow) end
-        local dropdown = about.DpiScaleDropdown
-        if dropdown.IsOpen then dropdown.IsOpen = false end
-        for _, circle in ipairs(about.StyleCircles) do
-            self:_SetVisibility(circle.Circle, false); 
-            self:_SetVisibility(circle.Border, false);
-            if circle.Inner then self:_SetVisibility(circle.Inner, false) end
-            if circle.PlusLine1 then self:_SetVisibility(circle.PlusLine1, false); self:_SetVisibility(circle.PlusLine2, false) end
-        end
-        return
+    -- Анимация прозрачности
+    local targetOpacity = popupState.IsOpen and 1 or 0
+    if popupState.CurrentOpacity == nil then popupState.CurrentOpacity = targetOpacity end
+    if math.abs(popupState.CurrentOpacity - targetOpacity) > 0.01 then
+        local speed_value = self.UI.Values["AboutAnimationSpeed"] or 1.6
+        local animationSpeed = speed_value / 12.0
+        popupState.CurrentOpacity = popupState.CurrentOpacity + (targetOpacity - popupState.CurrentOpacity) * animationSpeed
+    else
+        popupState.CurrentOpacity = targetOpacity
     end
+    local animatedOpacity = popupState.CurrentOpacity
 
-    local function setAboutVisibility(tbl, visible)
-        for key, obj in pairs(tbl) do
+    -- Локальная функция для принудительного скрытия/отображения всех элементов
+    local function setAboutVisibility(visible)
+        for key, obj in pairs(about) do
             if type(obj) == 'table' then
                 if obj.Visible ~= nil then self:_SetVisibility(obj, visible)
-                elseif obj.Label and (obj.Back or obj.Button or (obj.LeftFill and obj.Nub)) then
-                    self:_SetVisibility(obj.Label, visible);
-                    if obj.Back then self:_SetVisibility(obj.Back, visible); self:_SetVisibility(obj.Nub, visible); end
-                    if obj.LeftFill then self:_SetVisibility(obj.LeftFill, visible); self:_SetVisibility(obj.Nub, visible); self:_SetVisibility(obj.ValueText, visible); end
-                    if obj.Button then self:_SetVisibility(obj.Button, visible); self:_SetVisibility(obj.ButtonText, visible); self:_SetVisibility(obj.ArrowLine1, visible); self:_SetVisibility(obj.ArrowLine2, visible); end
-                elseif key ~= "ClickRegion" and key ~= "StyleCircles" and key ~= "Glow" and key ~= "Tooltip" and key ~= "HoveredThemeCircle" then
-                     setAboutVisibility(obj, visible)
+                elseif obj.Label and (obj.Back or obj.Button or obj.LeftFill) then
+                    self:_SetVisibility(obj.Label, visible)
+                    if obj.Back then self:_SetVisibility(obj.Back, visible); self:_SetVisibility(obj.Nub, visible) end
+                    if obj.LeftFill then self:_SetVisibility(obj.LeftFill, visible); self:_SetVisibility(obj.Nub, visible); self:_SetVisibility(obj.ValueText, visible) end
+                    if obj.Button then self:_SetVisibility(obj.Button, visible); self:_SetVisibility(obj.ButtonText, visible); self:_SetVisibility(obj.ArrowLine1, visible); self:_SetVisibility(obj.ArrowLine2, visible) end
+                elseif key == "StyleCircles" then
+                    for _, circle in ipairs(obj) do
+                        if circle.Circle then self:_SetVisibility(circle.Circle, visible) end
+                        if circle.Border then self:_SetVisibility(circle.Border, visible) end
+                        if circle.Inner then self:_SetVisibility(circle.Inner, visible) end
+                        if circle.PlusLine1 then self:_SetVisibility(circle.PlusLine1, visible) end
+                        if circle.PlusLine2 then self:_SetVisibility(circle.PlusLine2, visible) end
+                    end
+                elseif key ~= "ClickRegion" and key ~= "Glow" and key ~= "HoveredThemeCircle" then
+                    pcall(function() setAboutVisibility(obj, visible) end)
                 end
             end
         end
     end
-    setAboutVisibility(about, true)
+
+    if animatedOpacity < 0.01 then
+        setAboutVisibility(false)
+        if about.Glow then self:_HideGlowEffect(about.Glow) end
+        if about.AnimationSpeedSlider.Glow then self:_HideGlowEffect(about.AnimationSpeedSlider.Glow) end
+        if about.DpiScaleDropdown.IsOpen then about.DpiScaleDropdown.IsOpen = false end
+        return
+    end
+
+    setAboutVisibility(true)
     self:_SetVisibility(about.Tooltip.Background, false)
     self:_SetVisibility(about.Tooltip.Text, false)
-
-    for _, circle in ipairs(about.StyleCircles) do
-        self:_SetVisibility(circle.Circle, true); 
-        self:_SetVisibility(circle.Border, self.UI.Values.AboutSelectedStyle == circle.Name);
-        if circle.Inner then self:_SetVisibility(circle.Inner, true) end
-        if circle.PlusLine1 then self:_SetVisibility(circle.PlusLine1, true); self:_SetVisibility(circle.PlusLine2, true) end
-    end
+    for _, circle in ipairs(about.StyleCircles) do self:_SetVisibility(circle.Border, self.UI.Values.AboutSelectedStyle == circle.Name) end
     
-    local theme = self.ActiveTheme
     self:_AnimateAndApplyColor(about.Background, theme.Colors.SectionBackground, animatedOpacity)
     self:_AnimateAndApplyColor(about.Border, theme.Colors.Separator, animatedOpacity)
     self:_AnimateAndApplyColor(about.HeaderIcon, theme.Colors.TextSecondary, animatedOpacity)
@@ -1131,6 +1139,7 @@ function Library:_RenderAboutWindow(mouse_pos)
         if circle.PlusLine1 then self:_AnimateAndApplyColor(circle.PlusLine1, theme.Colors.TextSecondary, animatedOpacity) end
         if circle.PlusLine2 then self:_AnimateAndApplyColor(circle.PlusLine2, theme.Colors.TextSecondary, animatedOpacity) end
     end
+
     self:_AnimateAndApplyColor(about.AutoSaveToggle.Label, theme.Colors.TextSecondary, animatedOpacity)
     local slider = about.AnimationSpeedSlider; 
     self:_AnimateAndApplyColor(slider.Label, theme.Colors.TextSecondary, animatedOpacity); 
@@ -1148,6 +1157,23 @@ function Library:_RenderAboutWindow(mouse_pos)
     self:_AnimateAndApplyColor(dd.BorderLeft, theme.Colors.Separator, animatedOpacity); 
     self:_AnimateAndApplyColor(dd.BorderRight, theme.Colors.Separator, animatedOpacity); 
     self:_AnimateAndApplyColor(dd.BorderBottom, theme.Colors.Separator, animatedOpacity);
+
+    if about.Glow then self:_RenderGlowEffect(about.Glow, winX, winY, winW, winH, about.Background.Rounding, theme.Colors.GlowColor, nil, animatedOpacity) end
+    if slider.Glow then
+        local glowWidth = slider.LeftFill.Size.x
+        if glowWidth > 0 then
+            self:_RenderGlowEffect(slider.Glow, slider.LeftFill.Position.x, slider.Nub.Position.y - 4, glowWidth, 8, slider.LeftFill.Rounding, theme.Colors.GlowAccent, {top=true, bottom=true, left=true, right=false}, animatedOpacity)
+        else
+            self:_HideGlowEffect(slider.Glow)
+        end
+    end
+
+    if about.DpiScaleDropdown.IsOpen then
+        for i, option in ipairs(about.DpiScaleDropdown.OptionList) do 
+            local targetOptColor = (self.UI.Values[about.DpiScaleDropdown.id] == about.DpiScaleDropdown.Options[i]) and theme.Colors.Accent or theme.Colors.TextPrimary
+            self:_AnimateAndApplyColor(option, targetOptColor, animatedOpacity)
+        end
+    end
 
     local winW, winH = 360, 500
     local winX, winY = self.Window.X + (self.Window.Width / 2) - (winW / 2), self.Window.Y + (self.Window.Height / 2) - (winH / 2)
@@ -1245,17 +1271,28 @@ end
 
 function Library:_RenderPlayerESPSettingsPopup()
     local popup = self.UI.Popups.PlayerESP
-    local popupState = self.UI.Popups.PlayerESP
-    local animatedOpacity = popupState.CurrentOpacity
-    local isVisible = popupState.IsOpen
     local theme = self.ActiveTheme
 
+    local targetOpacity = popup.IsOpen and 1 or 0
+    if popup.CurrentOpacity == nil then popup.CurrentOpacity = targetOpacity end
+    if math.abs(popup.CurrentOpacity - targetOpacity) > 0.01 then
+        local speed_value = self.UI.Values["AboutAnimationSpeed"] or 1.6
+        local animationSpeed = speed_value / 12.0
+        popup.CurrentOpacity = popup.CurrentOpacity + (targetOpacity - popup.CurrentOpacity) * animationSpeed
+    else
+        popup.CurrentOpacity = targetOpacity
+    end
+    local animatedOpacity = popup.CurrentOpacity
+
+    local all_elements = {popup.Background, popup.Border, popup.Title, popup.Separator, popup.BindLabel, popup.Keybind.Button, popup.Keybind.ButtonText}
+    
     if animatedOpacity < 0.01 then
+        for _, obj in ipairs(all_elements) do self:_SetVisibility(obj, false) end
         if popup.Glow then self:_HideGlowEffect(popup.Glow) end
         return
     end
 
-    self:_SetVisibility(popup.Background, true); self:_SetVisibility(popup.Border, true); self:_SetVisibility(popup.Title, true); self:_SetVisibility(popup.Separator, true); self:_SetVisibility(popup.BindLabel, true); self:_SetVisibility(popup.Keybind.Button, true); self:_SetVisibility(popup.Keybind.ButtonText, true);
+    for _, obj in ipairs(all_elements) do self:_SetVisibility(obj, true) end
     
     self:_AnimateAndApplyColor(popup.Background, theme.Colors.SectionBackground, animatedOpacity)
     self:_AnimateAndApplyColor(popup.Border, theme.Colors.Separator, animatedOpacity)
@@ -1303,24 +1340,31 @@ end
 
 function Library:_RenderEditStyleWindow()
     local style_window = self.UI.Popups.EditStyle
-    local popupState = self.UI.Popups.EditStyle
-    local animatedOpacity = popupState.CurrentOpacity
-    local isVisible = popupState.IsOpen
     local theme = self.ActiveTheme
 
+    local targetOpacity = style_window.IsOpen and 1 or 0
+    if style_window.CurrentOpacity == nil then style_window.CurrentOpacity = targetOpacity end
+    if math.abs(style_window.CurrentOpacity - targetOpacity) > 0.01 then
+        local speed_value = self.UI.Values["AboutAnimationSpeed"] or 1.6
+        local animationSpeed = speed_value / 12.0
+        style_window.CurrentOpacity = style_window.CurrentOpacity + (targetOpacity - style_window.CurrentOpacity) * animationSpeed
+    else
+        style_window.CurrentOpacity = targetOpacity
+    end
+    local animatedOpacity = style_window.CurrentOpacity
+
+    local all_elements = {style_window.Background, style_window.Border, style_window.HeaderIcon, style_window.HeaderTitle, style_window.CloseButton.Line1, style_window.CloseButton.Line2, style_window.Separator1, style_window.StyleNameLabel, style_window.StyleNameInputBg, style_window.StyleNameInputText, style_window.Separator2, style_window.Separator3, style_window.StyleNameInputCursor, style_window.RealTimeToggle.Label, style_window.RealTimeToggle.Back, style_window.RealTimeToggle.Nub, style_window.CancelButton.Background, style_window.CancelButton.Border, style_window.CancelButton.IconLine1, style_window.CancelButton.IconLine2, style_window.CancelButton.Label, style_window.SaveButton.Background, style_window.SaveButton.Label, style_window.SaveButton.Icon}
+    for _, item in ipairs(style_window.ColorItems) do table.insert(all_elements, item.Label); table.insert(all_elements, item.ColorCircle); table.insert(all_elements, item.ColorBorder); end
+
     if animatedOpacity < 0.01 then
+        for _, obj in ipairs(all_elements) do self:_SetVisibility(obj, false) end
         self:_HideGlowEffect(style_window.Glow)
         return
     end
 
-    self:_SetVisibility(style_window.Background, true); self:_SetVisibility(style_window.Border, true); self:_SetVisibility(style_window.HeaderIcon, true); self:_SetVisibility(style_window.HeaderTitle, true); self:_SetVisibility(style_window.CloseButton.Line1, true); self:_SetVisibility(style_window.CloseButton.Line2, true); self:_SetVisibility(style_window.Separator1, true);
-    self:_SetVisibility(style_window.StyleNameLabel, true); self:_SetVisibility(style_window.StyleNameInputBg, true); self:_SetVisibility(style_window.StyleNameInputText, true); self:_SetVisibility(style_window.Separator2, true); self:_SetVisibility(style_window.Separator3, true);
-    self:_SetVisibility(style_window.StyleNameInputCursor, isVisible and style_window.IsEditingName and math.sin(tick() * 5) > 0)
-    for _, item in ipairs(style_window.ColorItems) do self:_SetVisibility(item.Label, true); self:_SetVisibility(item.ColorCircle, true); self:_SetVisibility(item.ColorBorder, true); end
-    self:_SetVisibility(style_window.RealTimeToggle.Label, true); self:_SetVisibility(style_window.RealTimeToggle.Back, true); self:_SetVisibility(style_window.RealTimeToggle.Nub, true);
-    self:_SetVisibility(style_window.CancelButton.Background, true); self:_SetVisibility(style_window.CancelButton.Border, true); self:_SetVisibility(style_window.CancelButton.IconLine1, true); self:_SetVisibility(style_window.CancelButton.IconLine2, true); self:_SetVisibility(style_window.CancelButton.Label, true);
-    self:_SetVisibility(style_window.SaveButton.Background, true); self:_SetVisibility(style_window.SaveButton.Label, true); self:_SetVisibility(style_window.SaveButton.Icon, true);
-    
+    for _, obj in ipairs(all_elements) do self:_SetVisibility(obj, true) end
+    self:_SetVisibility(style_window.StyleNameInputCursor, style_window.IsOpen and style_window.IsEditingName and math.sin(tick() * 5) > 0)
+
     self:_AnimateAndApplyColor(style_window.Background, theme.Colors.SectionBackground, animatedOpacity)
     self:_AnimateAndApplyColor(style_window.Border, theme.Colors.Separator, animatedOpacity)
     self:_AnimateAndApplyColor(style_window.HeaderTitle, theme.Colors.TextPrimary, animatedOpacity)
@@ -1334,8 +1378,8 @@ function Library:_RenderEditStyleWindow()
     self:_AnimateAndApplyColor(style_window.StyleNameInputText, theme.Colors.TextPrimary, animatedOpacity)
     self:_AnimateAndApplyColor(style_window.StyleNameInputCursor, theme.Colors.Accent, animatedOpacity)
     for _, item in ipairs(style_window.ColorItems) do 
-        self:_AnimateAndApplyColor(item.Label, theme.Colors.TextSecondary, animatedOpacity)
-        self:_AnimateAndApplyColor(item.ColorBorder, theme.Colors.LightGray, animatedOpacity)
+        self:_AnimateAndApplyColor(item.Label, theme.Colors.TextSecondary, animatedOpacity); 
+        self:_AnimateAndApplyColor(item.ColorBorder, theme.Colors.LightGray, animatedOpacity);
         local c = style_window.EditingTheme.Colors[item.Name] or {255,0,255,255}
         self:_AnimateAndApplyColor(item.ColorCircle, c, animatedOpacity)
     end
@@ -1442,30 +1486,32 @@ function Library:_RenderEditStyleWindow()
           toggle.Nub.Position = {toggleBackX + 5, toggleY + 7 + toggle.Size.height/2}
       end
     end
+    self:_RenderGlowEffect(style_window.Glow, winX, winY, winW, winH, style_window.Background.Rounding, theme.Colors.GlowColor, nil, animatedOpacity)
 end
 
 function Library:_RenderColorPickerWindow()
     local picker = self.UI.Popups.ColorPicker
-    local popupState = self.UI.Popups.ColorPicker
-    local animatedOpacity = popupState.CurrentOpacity
+    
+    local targetOpacity = picker.IsOpen and 1 or 0
+    if picker.CurrentOpacity == nil then picker.CurrentOpacity = targetOpacity end
+    if math.abs(picker.CurrentOpacity - targetOpacity) > 0.01 then
+        local speed_value = self.UI.Values["AboutAnimationSpeed"] or 1.6
+        local animationSpeed = speed_value / 12.0
+        picker.CurrentOpacity = picker.CurrentOpacity + (targetOpacity - picker.CurrentOpacity) * animationSpeed
+    else
+        picker.CurrentOpacity = targetOpacity
+    end
+    local animatedOpacity = picker.CurrentOpacity
+
+    local all_elements = {picker.Background, picker.Border, picker.ColorSquare, picker.GradientOverlay, picker.SaturationValueNub, picker.HueSlider, picker.HueNub, picker.HueNubBorder, picker.OpacitySliderBackground, picker.OpacitySliderGradient, picker.OpacityNub, picker.OpacityNubBorder}
 
     if animatedOpacity < 0.01 then
+        for _, obj in ipairs(all_elements) do self:_SetVisibility(obj, false) end
         self:_HideGlowEffect(picker.Glow)
         return
     end
-
-    self:_SetVisibility(picker.Background, true)
-    self:_SetVisibility(picker.Border, true)
-    self:_SetVisibility(picker.ColorSquare, true)
-    self:_SetVisibility(picker.GradientOverlay, true)
-    self:_SetVisibility(picker.SaturationValueNub, true)
-    self:_SetVisibility(picker.HueSlider, true)
-    self:_SetVisibility(picker.HueNub, true)
-    self:_SetVisibility(picker.HueNubBorder, true)
-    self:_SetVisibility(picker.OpacitySliderBackground, true)
-    self:_SetVisibility(picker.OpacitySliderGradient, true)
-    self:_SetVisibility(picker.OpacityNub, true)
-    self:_SetVisibility(picker.OpacityNubBorder, true)
+    
+    for _, obj in ipairs(all_elements) do self:_SetVisibility(obj, true) end
     
     local padding = 10; local squareSize = 160; local sliderHeight = 8; local sliderSpacing = 12
     local pickerW = squareSize + (padding * 2); local pickerH = squareSize + (padding * 2) + (sliderHeight * 2) + (sliderSpacing * 2)
@@ -1528,21 +1574,6 @@ function Library:_RenderLoop()
     end
 
     -- [[ НОВОЕ: Анимация прозрачности для Pop-up окон ]]
-    local popups_to_animate = { self.UI.Popups.About, self.UI.Popups.PlayerESP, self.UI.Popups.EditStyle, self.UI.Popups.ColorPicker, self.UI.Core.ConfigsTab.OptionsPopup }
-    for _, popup in ipairs(popups_to_animate) do
-        if popup then
-             local targetOpacity = popup.IsOpen and 1 or 0
-             if not popup.CurrentOpacity then popup.CurrentOpacity = targetOpacity end
-             
-             if math.abs(popup.CurrentOpacity - targetOpacity) > 0.01 then
-                local speed_value = self.UI.Values["AboutAnimationSpeed"] or 1.6
-                local animationSpeed = speed_value / 12.0
-                popup.CurrentOpacity = popup.CurrentOpacity + (targetOpacity - popup.CurrentOpacity) * animationSpeed
-             else
-                popup.CurrentOpacity = targetOpacity
-             end
-        end
-    end
 
     self:_UpdateAnimationStates()
 
@@ -2129,20 +2160,28 @@ end
 function Library:_RenderConfigOptionsPopup()
     local configs = self.UI.Core.ConfigsTab
     local popup = configs.OptionsPopup
-    local animatedOpacity = popup.CurrentOpacity
-    local isVisible = popup.IsOpen
     local theme = self.ActiveTheme
     
+    local targetOpacity = popup.IsOpen and 1 or 0
+    if popup.CurrentOpacity == nil then popup.CurrentOpacity = targetOpacity end
+    if math.abs(popup.CurrentOpacity - targetOpacity) > 0.01 then
+        local speed_value = self.UI.Values["AboutAnimationSpeed"] or 1.6
+        local animationSpeed = speed_value / 12.0
+        popup.CurrentOpacity = popup.CurrentOpacity + (targetOpacity - popup.CurrentOpacity) * animationSpeed
+    else
+        popup.CurrentOpacity = targetOpacity
+    end
+    local animatedOpacity = popup.CurrentOpacity
+    
+    local all_elements = {popup.Background, popup.Border, popup.IncludeStyleToggle.Label, popup.IncludeStyleToggle.Back, popup.IncludeStyleToggle.Nub}
+
     if animatedOpacity < 0.01 then
+        for _, obj in ipairs(all_elements) do self:_SetVisibility(obj, false) end
         if popup.Glow then self:_HideGlowEffect(popup.Glow) end
         return
     end
 
-    self:_SetVisibility(popup.Background, true)
-    self:_SetVisibility(popup.Border, true)
-    self:_SetVisibility(popup.IncludeStyleToggle.Label, true)
-    self:_SetVisibility(popup.IncludeStyleToggle.Back, true)
-    self:_SetVisibility(popup.IncludeStyleToggle.Nub, true)
+    for _, obj in ipairs(all_elements) do self:_SetVisibility(obj, true) end
 
     self:_AnimateAndApplyColor(popup.Background, theme.Colors.SectionBackground, animatedOpacity)
     self:_AnimateAndApplyColor(popup.Border, theme.Colors.Separator, animatedOpacity)
@@ -2647,7 +2686,7 @@ end
 
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3x5x1")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3x5gh1")
     local is_first_frame = true
     while self.Window.Visible do
         if is_first_frame then
