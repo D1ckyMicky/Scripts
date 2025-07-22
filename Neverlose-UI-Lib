@@ -235,45 +235,63 @@ end
 function Library:_RenderSaveTooltip()
     local tooltip = self.UI.Core.SaveTooltip
     local saveBtn = self.UI.Core.HeaderButtons.Save
-    local isVisible = saveBtn.IsHovered
     local theme = self.ActiveTheme
 
-    self:_SetVisibility(tooltip.Background, isVisible)
-    self:_SetVisibility(tooltip.Border, isVisible)
-    self:_SetVisibility(tooltip.ConfigName, isVisible)
-    self:_SetVisibility(tooltip.Author, isVisible)
-
-    if isVisible then
-        self:_AnimateAndApplyColor(tooltip.Background, theme.Colors.SectionBackground)
-        self:_AnimateAndApplyColor(tooltip.Border, theme.Colors.Separator)
-        self:_AnimateAndApplyColor(tooltip.ConfigName, theme.Colors.TextPrimary)
-        self:_AnimateAndApplyColor(tooltip.Author, theme.Colors.TextSecondary)
-    
-        local configName = self.UI.Core.ConfigsTab.LoadedConfigName
-        if configName == "" then configName = "default" end
-        tooltip.ConfigName.Text = "Config \"" .. configName .. "\""
-        tooltip.Author.Text = "Author: " .. (self.UI.Core.PlayerDisplayName.Text or "user")
-
-        local padding = 16
-        local configNameWidth = tooltip.ConfigName.TextBounds and tooltip.ConfigName.TextBounds.x or 100
-        local authorWidth = tooltip.Author.TextBounds and tooltip.Author.TextBounds.x or 100
-        local tooltipW = math.max(configNameWidth, authorWidth) + padding
-        local tooltipH = 50
-
-        local btnRegion = saveBtn.ClickRegion
-        local tooltipX, tooltipY = btnRegion.x2 + 10, btnRegion.y1
-
-        tooltip.Background.Position = {tooltipX, tooltipY}
-        tooltip.Background.Size = {tooltipW, tooltipH}
-        tooltip.Border.Position = {tooltipX, tooltipY}
-        tooltip.Border.Size = {tooltipW, tooltipH}
-        tooltip.ConfigName.Position = {tooltipX + (padding / 2), tooltipY + 8}
-        tooltip.Author.Position = {tooltipX + (padding / 2), tooltipY + 28}
-        
-        self:_RenderGlowEffect(tooltip.Glow, tooltipX, tooltipY, tooltipW, tooltipH, tooltip.Background.Rounding, theme.Colors.GlowColor)
-    else
-        self:_HideGlowEffect(tooltip.Glow)
+    --[[ АНИМАЦИЯ: Добавляем состояние, если его нет ]]
+    if not tooltip.AnimState then
+        tooltip.AnimState = { Opacity = 0 }
     end
+    local animState = tooltip.AnimState
+    local isVisible = saveBtn.IsHovered
+    
+    --[[ АНИМАЦИЯ: Логика плавного появления/исчезновения ]]
+    local speed_value = self.UI.Values["AboutAnimationSpeed"] or 1.6
+    local animationSpeed = speed_value / 10.0
+    local targetOpacity = isVisible and 1 or 0
+    animState.Opacity = self:_LerpNumber(animState.Opacity, targetOpacity, animationSpeed)
+
+    if animState.Opacity < 0.01 then
+        self:_SetVisibility(tooltip.Background, false)
+        self:_SetVisibility(tooltip.Border, false)
+        self:_SetVisibility(tooltip.ConfigName, false)
+        self:_SetVisibility(tooltip.Author, false)
+        self:_HideGlowEffect(tooltip.Glow)
+        return
+    end
+
+    local masterOpacity = animState.Opacity
+    self:_SetVisibility(tooltip.Background, true)
+    self:_SetVisibility(tooltip.Border, true)
+    self:_SetVisibility(tooltip.ConfigName, true)
+    self:_SetVisibility(tooltip.Author, true)
+
+    self:_AnimateAndApplyColor(tooltip.Background, theme.Colors.SectionBackground, masterOpacity)
+    self:_AnimateAndApplyColor(tooltip.Border, theme.Colors.Separator, masterOpacity)
+    self:_AnimateAndApplyColor(tooltip.ConfigName, theme.Colors.TextPrimary, masterOpacity)
+    self:_AnimateAndApplyColor(tooltip.Author, theme.Colors.TextSecondary, masterOpacity)
+
+    local configName = self.UI.Core.ConfigsTab.LoadedConfigName
+    if configName == "" then configName = "default" end
+    tooltip.ConfigName.Text = "Config \"" .. configName .. "\""
+    tooltip.Author.Text = "Author: " .. (self.UI.Core.PlayerDisplayName.Text or "user")
+
+    local padding = 16
+    local configNameWidth = tooltip.ConfigName.TextBounds and tooltip.ConfigName.TextBounds.x or 100
+    local authorWidth = tooltip.Author.TextBounds and tooltip.Author.TextBounds.x or 100
+    local tooltipW = math.max(configNameWidth, authorWidth) + padding
+    local tooltipH = 50
+
+    local btnRegion = saveBtn.ClickRegion
+    local tooltipX, tooltipY = btnRegion.x2 + 10, btnRegion.y1
+
+    tooltip.Background.Position = {tooltipX, tooltipY}
+    tooltip.Background.Size = {tooltipW, tooltipH}
+    tooltip.Border.Position = {tooltipX, tooltipY}
+    tooltip.Border.Size = {tooltipW, tooltipH}
+    tooltip.ConfigName.Position = {tooltipX + (padding / 2), tooltipY + 8}
+    tooltip.Author.Position = {tooltipX + (padding / 2), tooltipY + 28}
+    
+    self:_RenderGlowEffect(tooltip.Glow, tooltipX, tooltipY, tooltipW, tooltipH, tooltip.Background.Rounding, theme.Colors.GlowColor)
 end
 
 function Library:_AnimateAndApplyColor(drawingObject, targetColor, masterOpacity)
@@ -393,6 +411,10 @@ function Library:_EnsureDefaults(data_table, default_table)
         end
     end
     return result
+end
+
+function Library:_LerpNumber(from, to, alpha)
+    return from + (to - from) * alpha
 end
 
 --================================================================
@@ -557,7 +579,9 @@ function Library:_InitializeCoreUI()
 end
 
 function Library:_InitializeAboutWindow()
-    local about = {}; self.UI.Core.AboutWindow = about; local about_z = 32
+local about = {}; self.UI.Core.AboutWindow = about; local about_z = 32
+    -- [АНИМАЦИЯ] Добавляем состояние для анимации появления
+    about.AnimState = { Opacity = 0, Scale = 0.8 }
     about.StyleCircles = {}
     about.HoveredThemeCircle = { Name = nil, HoverStartTime = 0 } -- For tooltip
     about.Background = self:_CreateDrawingObject("Square"); if about.Background then about.Background.Filled = true; about.Background.zIndex = 30; about.Background.Rounding = self.ActiveTheme.Rounding.Section; end
@@ -1058,114 +1082,146 @@ function Library:_RenderAboutWindow(mouse_pos)
     local isVisible = self.UI.Popups.About.IsOpen
     local theme = self.ActiveTheme
     
+    --[[ АНИМАЦИЯ: Логика плавного появления/исчезновения ]]
+    local animState = about.AnimState
+    local speed_value = self.UI.Values["AboutAnimationSpeed"] or 1.6
+    local animationSpeed = speed_value / 12.0 -- Немного быстрее для pop-up
+
+    local targetOpacity = isVisible and 1 or 0
+    local targetScale = isVisible and 1 or 0.8
+
+    animState.Opacity = self:_LerpNumber(animState.Opacity, targetOpacity, animationSpeed)
+    animState.Scale = self:_LerpNumber(animState.Scale, targetScale, animationSpeed)
+
+    -- Если окно почти невидимо, не рендерим его содержимое
+    if animState.Opacity < 0.01 then
+        self:_HideGlowEffect(about.Glow)
+        -- Убедимся, что все элементы скрыты
+        if about.lastVisibilityState == true or about.lastVisibilityState == nil then
+            setAboutVisibility(about, false)
+            about.lastVisibilityState = false
+        end
+        return
+    end
+
+    -- Если окно становится видимым, показываем все его элементы
+    if about.lastVisibilityState == false then
+        setAboutVisibility(about, true)
+        about.lastVisibilityState = true
+    end
+    -- Конец блока анимации
+
     local function setAboutVisibility(tbl, visible)
         for key, obj in pairs(tbl) do
             if type(obj) == 'table' then
                 if obj.Visible ~= nil then self:_SetVisibility(obj, visible)
-                --[[ ИСПРАВЛЕНИЕ: Добавлена проверка на существование RightFill перед его использованием ]]
                 elseif obj.Label and (obj.Back or obj.Button or (obj.LeftFill and obj.Nub)) then
                     self:_SetVisibility(obj.Label, visible);
                     if obj.Back then self:_SetVisibility(obj.Back, visible); self:_SetVisibility(obj.Nub, visible); end
                     if obj.LeftFill then 
                         self:_SetVisibility(obj.LeftFill, visible); 
-                        -- self:_SetVisibility(obj.RightFill, visible); -- Убрали
                         self:_SetVisibility(obj.Nub, visible); 
                         self:_SetVisibility(obj.ValueText, visible); 
                     end
                     if obj.Button then self:_SetVisibility(obj.Button, visible); self:_SetVisibility(obj.ButtonText, visible); self:_SetVisibility(obj.ArrowLine1, visible); self:_SetVisibility(obj.ArrowLine2, visible); end
-                elseif key ~= "ClickRegion" and key ~= "StyleCircles" and key ~= "Glow" and key ~= "Tooltip" and key ~= "HoveredThemeCircle" then
+                elseif key ~= "ClickRegion" and key ~= "StyleCircles" and key ~= "Glow" and key ~= "Tooltip" and key ~= "HoveredThemeCircle" and key ~= "AnimState" then
                      setAboutVisibility(obj, visible)
                 end
             end
         end
     end
-    setAboutVisibility(about, isVisible)
+
+    -- Скрываем подсказку по умолчанию
     self:_SetVisibility(about.Tooltip.Background, false)
     self:_SetVisibility(about.Tooltip.Text, false)
 
+    -- Устанавливаем видимость для кружков стилей
     for _, circle in ipairs(about.StyleCircles) do
-        self:_SetVisibility(circle.Circle, isVisible); 
-        self:_SetVisibility(circle.Border, isVisible and self.UI.Values.AboutSelectedStyle == circle.Name);
-        if circle.Inner then self:_SetVisibility(circle.Inner, isVisible) end
-        if circle.PlusLine1 then self:_SetVisibility(circle.PlusLine1, isVisible); self:_SetVisibility(circle.PlusLine2, isVisible) end
+        self:_SetVisibility(circle.Circle, true); 
+        self:_SetVisibility(circle.Border, self.UI.Values.AboutSelectedStyle == circle.Name);
+        if circle.Inner then self:_SetVisibility(circle.Inner, true) end
+        if circle.PlusLine1 then self:_SetVisibility(circle.PlusLine1, true); self:_SetVisibility(circle.PlusLine2, true) end
     end
 
-    if not isVisible then
-        if about.Glow then self:_HideGlowEffect(about.Glow) end
-        if about.AnimationSpeedSlider.Glow then self:_HideGlowEffect(about.AnimationSpeedSlider.Glow) end
-        local dropdown = about.DpiScaleDropdown
-        if dropdown.IsOpen then
-            dropdown.IsOpen = false
-            self:_SetVisibility(dropdown.OptionBackground, false); self:_SetVisibility(dropdown.BorderLeft, false); self:_SetVisibility(dropdown.BorderRight, false); self:_SetVisibility(dropdown.BorderBottom, false)
-            for _, option in ipairs(dropdown.OptionList) do self:_SetVisibility(option, false) end
-        end
-        return
-    end
-
-    self:_AnimateAndApplyColor(about.Background, theme.Colors.SectionBackground)
-    self:_AnimateAndApplyColor(about.Border, theme.Colors.Separator)
-    self:_AnimateAndApplyColor(about.HeaderIcon, theme.Colors.TextSecondary)
-    self:_AnimateAndApplyColor(about.HeaderTitle, theme.Colors.TextPrimary)
-    self:_AnimateAndApplyColor(about.CloseButton.Line1, theme.Colors.TextSecondary)
-    self:_AnimateAndApplyColor(about.CloseButton.Line2, theme.Colors.TextSecondary)
-    self:_AnimateAndApplyColor(about.Separator1, theme.Colors.Separator)
-    self:_AnimateAndApplyColor(about.MainTitle, theme.Colors.TextPrimary)
-    self:_AnimateAndApplyColor(about.Separator2, theme.Colors.Separator)
-    self:_AnimateAndApplyColor(about.InfoVersionLabel, theme.Colors.TextSecondary); self:_AnimateAndApplyColor(about.InfoVersionValue, theme.Colors.Accent)
-    self:_AnimateAndApplyColor(about.InfoBuildDateLabel, theme.Colors.TextSecondary); self:_AnimateAndApplyColor(about.InfoBuildDateValue, theme.Colors.Accent)
-    self:_AnimateAndApplyColor(about.InfoBuildTypeLabel, theme.Colors.TextSecondary); self:_AnimateAndApplyColor(about.InfoBuildTypeValue, theme.Colors.Accent)
-    self:_AnimateAndApplyColor(about.InfoRegisteredToLabel, theme.Colors.TextSecondary); self:_AnimateAndApplyColor(about.InfoRegisteredToValue, theme.Colors.Accent)
-    self:_AnimateAndApplyColor(about.InfoSubscriptionLabel, theme.Colors.TextSecondary); self:_AnimateAndApplyColor(about.InfoSubscriptionValue, theme.Colors.Accent)
-    self:_AnimateAndApplyColor(about.FooterText, theme.Colors.TextSecondary)
-    self:_AnimateAndApplyColor(about.Separator3, theme.Colors.Separator)
-    self:_AnimateAndApplyColor(about.CreditText, theme.Colors.TextSecondary)
-    self:_AnimateAndApplyColor(about.StyleLabel, theme.Colors.TextSecondary)
-    self:_AnimateAndApplyColor(about.Tooltip.Background, theme.Colors.MainBackground)
-    self:_AnimateAndApplyColor(about.Tooltip.Text, theme.Colors.TextPrimary)
+    -- Применяем общую прозрачность и цвета
+    local masterOpacity = animState.Opacity
+    self:_AnimateAndApplyColor(about.Background, theme.Colors.SectionBackground, masterOpacity)
+    self:_AnimateAndApplyColor(about.Border, theme.Colors.Separator, masterOpacity)
+    self:_AnimateAndApplyColor(about.HeaderIcon, theme.Colors.TextSecondary, masterOpacity)
+    self:_AnimateAndApplyColor(about.HeaderTitle, theme.Colors.TextPrimary, masterOpacity)
+    self:_AnimateAndApplyColor(about.CloseButton.Line1, theme.Colors.TextSecondary, masterOpacity)
+    self:_AnimateAndApplyColor(about.CloseButton.Line2, theme.Colors.TextSecondary, masterOpacity)
+    self:_AnimateAndApplyColor(about.Separator1, theme.Colors.Separator, masterOpacity)
+    self:_AnimateAndApplyColor(about.MainTitle, theme.Colors.TextPrimary, masterOpacity)
+    self:_AnimateAndApplyColor(about.Separator2, theme.Colors.Separator, masterOpacity)
+    self:_AnimateAndApplyColor(about.InfoVersionLabel, theme.Colors.TextSecondary, masterOpacity); self:_AnimateAndApplyColor(about.InfoVersionValue, theme.Colors.Accent, masterOpacity)
+    self:_AnimateAndApplyColor(about.InfoBuildDateLabel, theme.Colors.TextSecondary, masterOpacity); self:_AnimateAndApplyColor(about.InfoBuildDateValue, theme.Colors.Accent, masterOpacity)
+    self:_AnimateAndApplyColor(about.InfoBuildTypeLabel, theme.Colors.TextSecondary, masterOpacity); self:_AnimateAndApplyColor(about.InfoBuildTypeValue, theme.Colors.Accent, masterOpacity)
+    self:_AnimateAndApplyColor(about.InfoRegisteredToLabel, theme.Colors.TextSecondary, masterOpacity); self:_AnimateAndApplyColor(about.InfoRegisteredToValue, theme.Colors.Accent, masterOpacity)
+    self:_AnimateAndApplyColor(about.InfoSubscriptionLabel, theme.Colors.TextSecondary, masterOpacity); self:_AnimateAndApplyColor(about.InfoSubscriptionValue, theme.Colors.Accent, masterOpacity)
+    self:_AnimateAndApplyColor(about.FooterText, theme.Colors.TextSecondary, masterOpacity)
+    self:_AnimateAndApplyColor(about.Separator3, theme.Colors.Separator, masterOpacity)
+    self:_AnimateAndApplyColor(about.CreditText, theme.Colors.TextSecondary, masterOpacity)
+    self:_AnimateAndApplyColor(about.StyleLabel, theme.Colors.TextSecondary, masterOpacity)
+    self:_AnimateAndApplyColor(about.Tooltip.Background, theme.Colors.MainBackground, masterOpacity)
+    self:_AnimateAndApplyColor(about.Tooltip.Text, theme.Colors.TextPrimary, masterOpacity)
     for _, circle in ipairs(about.StyleCircles) do
-        self:_AnimateAndApplyColor(circle.Border, theme.Colors.Accent)
-        if circle.PlusLine1 then self:_AnimateAndApplyColor(circle.PlusLine1, theme.Colors.TextSecondary) end
-        if circle.PlusLine2 then self:_AnimateAndApplyColor(circle.PlusLine2, theme.Colors.TextSecondary) end
+        self:_AnimateAndApplyColor(circle.Border, theme.Colors.Accent, masterOpacity)
+        if circle.PlusLine1 then self:_AnimateAndApplyColor(circle.PlusLine1, theme.Colors.TextSecondary, masterOpacity) end
+        if circle.PlusLine2 then self:_AnimateAndApplyColor(circle.PlusLine2, theme.Colors.TextSecondary, masterOpacity) end
     end
-    self:_AnimateAndApplyColor(about.AutoSaveToggle.Label, theme.Colors.TextSecondary)
+    self:_AnimateAndApplyColor(about.AutoSaveToggle.Label, theme.Colors.TextSecondary, masterOpacity)
     
-    -- [[ ИСПРАВЛЕНИЕ СЛАЙДЕРА В ABOUT МЕНЮ ]]
     local slider = about.AnimationSpeedSlider; 
-    self:_AnimateAndApplyColor(slider.Label, theme.Colors.TextSecondary); 
-    self:_AnimateAndApplyColor(slider.Back, theme.Colors.DarkBlue); -- Задаем цвет фоновой полоске
-    self:_AnimateAndApplyColor(slider.LeftFill, theme.Colors.Accent); 
-    -- self:_AnimateAndApplyColor(slider.RightFill, theme.Colors.DarkBlue); -- Убрали
-    self:_AnimateAndApplyColor(slider.Nub, theme.Colors.Accent); 
-    self:_AnimateAndApplyColor(slider.ValueText, theme.Colors.TextPrimary);
+    self:_AnimateAndApplyColor(slider.Label, theme.Colors.TextSecondary, masterOpacity); 
+    self:_AnimateAndApplyColor(slider.Back, theme.Colors.DarkBlue, masterOpacity);
+    self:_AnimateAndApplyColor(slider.LeftFill, theme.Colors.Accent, masterOpacity); 
+    self:_AnimateAndApplyColor(slider.Nub, theme.Colors.Accent, masterOpacity); 
+    self:_AnimateAndApplyColor(slider.ValueText, theme.Colors.TextPrimary, masterOpacity);
     
     local dd = about.DpiScaleDropdown; 
-    self:_AnimateAndApplyColor(dd.Label, theme.Colors.TextSecondary); 
-    self:_AnimateAndApplyColor(dd.Button, theme.Colors.DarkBlue); 
-    self:_AnimateAndApplyColor(dd.ButtonText, theme.Colors.TextPrimary); 
-    self:_AnimateAndApplyColor(dd.ArrowLine1, theme.Colors.TextPrimary); 
-    self:_AnimateAndApplyColor(dd.ArrowLine2, theme.Colors.TextPrimary); 
-    self:_AnimateAndApplyColor(dd.OptionBackground, theme.Colors.SectionBackground); 
-    self:_AnimateAndApplyColor(dd.BorderLeft, theme.Colors.Separator); 
-    self:_AnimateAndApplyColor(dd.BorderRight, theme.Colors.Separator); 
-    self:_AnimateAndApplyColor(dd.BorderBottom, theme.Colors.Separator);
+    self:_AnimateAndApplyColor(dd.Label, theme.Colors.TextSecondary, masterOpacity); 
+    self:_AnimateAndApplyColor(dd.Button, theme.Colors.DarkBlue, masterOpacity); 
+    self:_AnimateAndApplyColor(dd.ButtonText, theme.Colors.TextPrimary, masterOpacity); 
+    self:_AnimateAndApplyColor(dd.ArrowLine1, theme.Colors.TextPrimary, masterOpacity); 
+    self:_AnimateAndApplyColor(dd.ArrowLine2, theme.Colors.TextPrimary, masterOpacity); 
+    self:_AnimateAndApplyColor(dd.OptionBackground, theme.Colors.SectionBackground, masterOpacity); 
+    self:_AnimateAndApplyColor(dd.BorderLeft, theme.Colors.Separator, masterOpacity); 
+    self:_AnimateAndApplyColor(dd.BorderRight, theme.Colors.Separator, masterOpacity); 
+    self:_AnimateAndApplyColor(dd.BorderBottom, theme.Colors.Separator, masterOpacity);
 
+    --[[ АНИМАЦИЯ: Расчет размера и позиции с учетом анимации ]]
     local winW, winH = 360, 500
-    local winX, winY = self.Window.X + (self.Window.Width / 2) - (winW / 2), self.Window.Y + (self.Window.Height / 2) - (winH / 2)
-    about.ClickRegion = {x1 = winX, y1 = winY, x2 = winX + winW, y2 = winY + winH}
-    about.Background.Position = {winX, winY}; about.Background.Size = {winW, winH}
-    about.Border.Position = {winX, winY}; about.Border.Size = {winW, winH}
-    if about.Glow then self:_RenderGlowEffect(about.Glow, winX, winY, winW, winH, about.Background.Rounding, theme.Colors.GlowColor) end
-    about.HeaderIcon.Position = {winX + 15, winY + 12}
-    about.HeaderTitle.Position = {winX + 15 + about.HeaderIcon.Size.x + 8, winY + 13}
-    about.CloseButton.Line1.From = {winX + winW - 25, winY + 12}; about.CloseButton.Line1.To = {winX + winW - 15, winY + 22}
-    about.CloseButton.Line2.From = {winX + winW - 25, winY + 22}; about.CloseButton.Line2.To = {winX + winW - 15, winY + 12}
-    about.CloseButton.ClickRegion = {x1 = winX + winW - 30, y1 = winY + 10, x2 = winX + winW - 10, y2 = winY + 25}
+    local animW, animH = winW * animState.Scale, winH * animState.Scale
+    local winCenterX, winCenterY = self.Window.X + (self.Window.Width / 2), self.Window.Y + (self.Window.Height / 2)
+    local winX, winY = winCenterX - (animW / 2), winCenterY - (animH / 2)
+    -- Конец блока
+
+    about.ClickRegion = {x1 = winX, y1 = winY, x2 = winX + animW, y2 = winY + animH}
+    about.Background.Position = {winX, winY}; about.Background.Size = {animW, animH}
+    about.Border.Position = {winX, winY}; about.Border.Size = {animW, animH}
+    if about.Glow then self:_RenderGlowEffect(about.Glow, winX, winY, animW, animH, about.Background.Rounding, theme.Colors.GlowColor) end
+    
+    --[[
+        ВАЖНО: Позиции всех внутренних элементов теперь должны рассчитываться относительно анимированных winX, winY и winW.
+        Так как в твоем коде используется много абсолютных значений и сложная верстка,
+        я просто заменю все вызовы, чтобы они использовали новые анимированные значения.
+        Это может немного "сжать" интерфейс во время анимации, но создаст нужный эффект "зума".
+    ]]
+    local headerX = winX + 15
+    local headerY = winY + 12
+    about.HeaderIcon.Position = {headerX, headerY}
+    about.HeaderTitle.Position = {headerX + about.HeaderIcon.Size.x + 8, headerY + 1}
+    about.CloseButton.Line1.From = {winX + animW - 25, headerY}; about.CloseButton.Line1.To = {winX + animW - 15, headerY + 10}
+    about.CloseButton.Line2.From = {winX + animW - 25, headerY + 10}; about.CloseButton.Line2.To = {winX + animW - 15, headerY}
+    about.CloseButton.ClickRegion = {x1 = winX + animW - 30, y1 = winY + 10, x2 = winX + animW - 10, y2 = winY + 25}
+    
     local currentY = winY + 40
-    about.Separator1.From = {winX + 10, currentY}; about.Separator1.To = {winX + winW - 10, currentY}
+    about.Separator1.From = {winX + 10, currentY}; about.Separator1.To = {winX + animW - 10, currentY}
     currentY = currentY + 25
-    about.MainTitle.Position = {winX + winW / 2, currentY}
+    about.MainTitle.Position = {winX + animW / 2, currentY}
     currentY = currentY + 40
-    about.Separator2.From = {winX + 10, currentY}; about.Separator2.To = {winX + winW - 10, currentY}
+    about.Separator2.From = {winX + 10, currentY}; about.Separator2.To = {winX + animW - 10, currentY}
     currentY = currentY + 20
     local infoX = winX + 30
     local function renderInfoLine(y, label, value) if label and value then label.Position = {infoX, y}; if label.TextBounds then value.Position = {infoX + label.TextBounds.x + 5, y} end; return y + 25; end; return y; end
@@ -1174,17 +1230,16 @@ function Library:_RenderAboutWindow(mouse_pos)
     currentY = renderInfoLine(currentY, about.InfoBuildTypeLabel, about.InfoBuildTypeValue)
     currentY = renderInfoLine(currentY, about.InfoRegisteredToLabel, about.InfoRegisteredToValue)
     currentY = renderInfoLine(currentY, about.InfoSubscriptionLabel, about.InfoSubscriptionValue)
-    about.FooterText.Position = {winX + winW / 2, currentY}
-    currentY = currentY + 50; about.Separator3.From = {winX + 10, currentY}; about.Separator3.To = {winX + winW - 10, currentY}; currentY = currentY + 15
-    local controlX = winX + 20; local controlW = winW - 40; local controlSpacing = 35
-    local rightEdge = winX + winW - 25
+    about.FooterText.Position = {winX + animW / 2, currentY}
+    currentY = currentY + 50; about.Separator3.From = {winX + 10, currentY}; about.Separator3.To = {winX + animW - 10, currentY}; currentY = currentY + 15
+    local controlX = winX + 20; local controlW = animW - 40; local controlSpacing = 35
+    local rightEdge = winX + animW - 25
     local toggle = about.AutoSaveToggle
     toggle.Label.Position = {controlX, currentY}; local toggleBackX = rightEdge - toggle.Size.width; toggle.Back.Position = {toggleBackX, currentY + 4}; toggle.Back.Size = {toggle.Size.width, toggle.Size.height}; toggle.ClickRegion = {x1 = toggleBackX, y1 = currentY, x2 = toggleBackX + toggle.Size.width, y2 = currentY + toggle.Size.height + 8}; 
     local targetBackColor, targetNubColor; if self.UI.Values[toggle.id] then targetBackColor = self:_DarkenColor(theme.Colors.Accent, 0.3); targetNubColor = theme.Colors.Accent; toggle.Nub.Position = {toggleBackX + toggle.Size.width - 5, currentY + 4 + toggle.Size.height/2} else targetBackColor = theme.Colors.DarkGray; targetNubColor = theme.Colors.LightGray; toggle.Nub.Position = {toggleBackX + 5, currentY + 4 + toggle.Size.height/2} end;
-    self:_AnimateAndApplyColor(toggle.Back, targetBackColor); self:_AnimateAndApplyColor(toggle.Nub, targetNubColor);
+    self:_AnimateAndApplyColor(toggle.Back, targetBackColor, masterOpacity); self:_AnimateAndApplyColor(toggle.Nub, targetNubColor, masterOpacity);
     currentY = currentY + controlSpacing
     
-    -- [[ ИСПРАВЛЕНИЕ СЛАЙДЕРА В ABOUT МЕНЮ ]]
     slider.Label.Position = {controlX, currentY}; 
     local valueTextWidth = 40; local sliderRightEdge = rightEdge - valueTextWidth; local sliderBackX = controlX + 140; local sliderBackWidth = sliderRightEdge - sliderBackX
     slider.Back.Position = {sliderBackX, currentY + 8}; 
@@ -1194,8 +1249,6 @@ function Library:_RenderAboutWindow(mouse_pos)
     local nubX = sliderBackX + sliderBackWidth * value_percentage; 
     slider.LeftFill.Position = {sliderBackX, currentY + 8}; 
     slider.LeftFill.Size = {nubX - sliderBackX, 2}; 
-    -- slider.RightFill.Position = {nubX, currentY + 8}; -- Убрали
-    -- slider.RightFill.Size = {sliderBackX + sliderBackWidth - nubX, 2}; -- Убрали
     slider.Nub.Position = {nubX, currentY + 9}; 
     local glowWidth = nubX - sliderBackX; local glowHeight = 8; 
     if glowWidth > 0 and slider.Glow then self:_RenderGlowEffect(slider.Glow, sliderBackX, currentY + 9 - (glowHeight / 2), glowWidth, glowHeight, slider.LeftFill.Rounding, theme.Colors.GlowAccent, {top=true, bottom=true, left=true, right=false}) elseif slider.Glow then self:_HideGlowEffect(slider.Glow) end
@@ -1207,19 +1260,19 @@ function Library:_RenderAboutWindow(mouse_pos)
     local dropdown = about.DpiScaleDropdown
     local dropdownY = currentY - 4
     dropdown.Label.Position = {controlX, dropdownY + 5}; local dropdownButtonX = rightEdge - dropdown.Size.width; dropdown.Button.Position = {dropdownButtonX, dropdownY}; dropdown.Button.Size = {dropdown.Size.width, dropdown.Size.height}; dropdown.ButtonText.Position = {dropdownButtonX + 5, dropdownY + dropdown.Size.height / 2 - dropdown.ButtonText.Size / 2}; dropdown.ButtonText.Text = self.UI.Values[dropdown.id]; local arrowX, arrowY = dropdownButtonX + dropdown.Size.width - 15, dropdownY + dropdown.Size.height / 2; dropdown.ArrowLine1.From = {arrowX, arrowY - 2}; dropdown.ArrowLine1.To = {arrowX + 5, arrowY + 3}; dropdown.ArrowLine2.From = {arrowX + 5, arrowY + 3}; dropdown.ArrowLine2.To = {arrowX + 10, arrowY - 2}; dropdown.ClickRegion = { x1 = dropdownButtonX, y1 = dropdownY, x2 = dropdownButtonX + dropdown.Size.width, y2 = dropdownY + dropdown.Size.height }
-    self:_SetVisibility(dropdown.BorderLeft, dropdown.IsOpen); self:_SetVisibility(dropdown.BorderRight, dropdown.IsOpen); self:_SetVisibility(dropdown.BorderBottom, dropdown.IsOpen)
     if dropdown.IsOpen then
+        self:_SetVisibility(dropdown.OptionBackground, true); self:_SetVisibility(dropdown.BorderLeft, true); self:_SetVisibility(dropdown.BorderRight, true); self:_SetVisibility(dropdown.BorderBottom, true)
         local optionListHeight = #dropdown.Options * 20 + 5; local bgX, bgY, bgW, bgH = dropdownButtonX, dropdownY + dropdown.Size.height, dropdown.Size.width, optionListHeight
-        self:_SetVisibility(dropdown.OptionBackground, true); dropdown.OptionBackground.Position = {bgX, bgY}; dropdown.OptionBackground.Size = {bgW, bgH}; dropdown.BorderLeft.From = {bgX, bgY}; dropdown.BorderLeft.To = {bgX, bgY + bgH}; dropdown.BorderRight.From = {bgX + bgW, bgY}; dropdown.BorderRight.To = {bgX + bgW, bgY + bgH}; dropdown.BorderBottom.From = {bgX, bgY + bgH}; dropdown.BorderBottom.To = {bgX + bgW, bgY + bgH};
+        dropdown.OptionBackground.Position = {bgX, bgY}; dropdown.OptionBackground.Size = {bgW, bgH}; dropdown.BorderLeft.From = {bgX, bgY}; dropdown.BorderLeft.To = {bgX, bgY + bgH}; dropdown.BorderRight.From = {bgX + bgW, bgY}; dropdown.BorderRight.To = {bgX + bgW, bgY + bgH}; dropdown.BorderBottom.From = {bgX, bgY + bgH}; dropdown.BorderBottom.To = {bgX + bgW, bgY + bgH};
         local optionY = dropdownY + dropdown.Size.height + 5
         for i, option in ipairs(dropdown.OptionList) do 
             self:_SetVisibility(option, true); option.Position = {dropdownButtonX + 5, optionY}; option.Text = dropdown.Options[i]; 
             local targetOptColor = (self.UI.Values[dropdown.id] == dropdown.Options[i]) and theme.Colors.Accent or theme.Colors.TextPrimary
-            self:_AnimateAndApplyColor(option, targetOptColor)
+            self:_AnimateAndApplyColor(option, targetOptColor, masterOpacity)
             optionY = optionY + 20 
         end
     else
-        self:_SetVisibility(dropdown.OptionBackground, false); for _, option in ipairs(dropdown.OptionList) do self:_SetVisibility(option, false) end
+        self:_SetVisibility(dropdown.OptionBackground, false); self:_SetVisibility(dropdown.BorderLeft, false); self:_SetVisibility(dropdown.BorderRight, false); self:_SetVisibility(dropdown.BorderBottom, false); for _, option in ipairs(dropdown.OptionList) do self:_SetVisibility(option, false) end
     end
     currentY = currentY + controlSpacing
     local styleY = currentY + 4
@@ -1241,7 +1294,7 @@ function Library:_RenderAboutWindow(mouse_pos)
             self:_SetVisibility(tooltip.Background, true); self:_SetVisibility(tooltip.Text, true)
         end
     end
-    about.CreditText.Position = {winX + winW / 2, winY + winH - 25}
+    about.CreditText.Position = {winX + animW / 2, winY + animH - 25}
 end
 
 function Library:_RenderPlayerESPSettingsPopup()
