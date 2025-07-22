@@ -1067,7 +1067,6 @@ function Library:_RenderAboutWindow(mouse_pos)
         if about.AnimationSpeedSlider.Glow then self:_HideGlowEffect(about.AnimationSpeedSlider.Glow) end
         local dropdown = about.DpiScaleDropdown
         if dropdown.IsOpen then dropdown.IsOpen = false end
-        -- [[ ИСПРАВЛЕНИЕ: Принудительно скрываем круги, когда окно невидимо ]]
         for _, circle in ipairs(about.StyleCircles) do
             self:_SetVisibility(circle.Circle, false); 
             self:_SetVisibility(circle.Border, false);
@@ -1096,7 +1095,6 @@ function Library:_RenderAboutWindow(mouse_pos)
     self:_SetVisibility(about.Tooltip.Background, false)
     self:_SetVisibility(about.Tooltip.Text, false)
 
-    -- [[ ИСПРАВЛЕНИЕ: Делаем видимыми только нужные части кругов ]]
     for _, circle in ipairs(about.StyleCircles) do
         self:_SetVisibility(circle.Circle, true); 
         self:_SetVisibility(circle.Border, self.UI.Values.AboutSelectedStyle == circle.Name);
@@ -1104,7 +1102,7 @@ function Library:_RenderAboutWindow(mouse_pos)
         if circle.PlusLine1 then self:_SetVisibility(circle.PlusLine1, true); self:_SetVisibility(circle.PlusLine2, true) end
     end
     
-     local theme = self.ActiveTheme
+    local theme = self.ActiveTheme
     self:_AnimateAndApplyColor(about.Background, theme.Colors.SectionBackground, animatedOpacity)
     self:_AnimateAndApplyColor(about.Border, theme.Colors.Separator, animatedOpacity)
     self:_AnimateAndApplyColor(about.HeaderIcon, theme.Colors.TextSecondary, animatedOpacity)
@@ -1126,7 +1124,6 @@ function Library:_RenderAboutWindow(mouse_pos)
     self:_AnimateAndApplyColor(about.Tooltip.Background, theme.Colors.MainBackground, animatedOpacity)
     self:_AnimateAndApplyColor(about.Tooltip.Text, theme.Colors.TextPrimary, animatedOpacity)
     
-    -- [[ ИСПРАВЛЕНИЕ: Применяем прозрачность ко всем элементам кругов ]]
     for _, circle in ipairs(about.StyleCircles) do
         if circle.Circle then circle.Circle.Opacity = animatedOpacity end
         self:_AnimateAndApplyColor(circle.Border, theme.Colors.Accent, animatedOpacity)
@@ -1134,7 +1131,7 @@ function Library:_RenderAboutWindow(mouse_pos)
         if circle.PlusLine1 then self:_AnimateAndApplyColor(circle.PlusLine1, theme.Colors.TextSecondary, animatedOpacity) end
         if circle.PlusLine2 then self:_AnimateAndApplyColor(circle.PlusLine2, theme.Colors.TextSecondary, animatedOpacity) end
     end
-self:_AnimateAndApplyColor(about.AutoSaveToggle.Label, theme.Colors.TextSecondary, animatedOpacity)
+    self:_AnimateAndApplyColor(about.AutoSaveToggle.Label, theme.Colors.TextSecondary, animatedOpacity)
     local slider = about.AnimationSpeedSlider; 
     self:_AnimateAndApplyColor(slider.Label, theme.Colors.TextSecondary, animatedOpacity); 
     self:_AnimateAndApplyColor(slider.Back, theme.Colors.DarkBlue, animatedOpacity); 
@@ -1197,7 +1194,12 @@ self:_AnimateAndApplyColor(about.AutoSaveToggle.Label, theme.Colors.TextSecondar
     slider.LeftFill.Size = {nubX - sliderBackX, 2}; 
     slider.Nub.Position = {nubX, currentY + 9}; 
     local glowWidth = nubX - sliderBackX; local glowHeight = 8; 
-    if glowWidth > 0 and slider.Glow then self:_RenderGlowEffect(slider.Glow, sliderBackX, currentY + 9 - (glowHeight / 2), glowWidth, glowHeight, slider.LeftFill.Rounding, theme.Colors.GlowAccent) elseif slider.Glow then self:_HideGlowEffect(slider.Glow) end
+    if glowWidth > 0 and slider.Glow then
+        -- [[ ИСПРАВЛЕНИЕ: Добавляем animatedOpacity в вызов glow-эффекта ]]
+        self:_RenderGlowEffect(slider.Glow, sliderBackX, currentY + 9 - (glowHeight / 2), glowWidth, glowHeight, slider.LeftFill.Rounding, theme.Colors.GlowAccent, {top=true, bottom=true, left=true, right=false}, animatedOpacity)
+    elseif slider.Glow then
+        self:_HideGlowEffect(slider.Glow)
+    end
     local valueText = string.format("%.1f", self.UI.Values[slider.id]); local valueTextX = rightEdge - valueTextWidth + 10; 
     slider.ValueText.Text = valueText; 
     slider.ValueText.Position = {valueTextX, currentY}; 
@@ -1205,7 +1207,6 @@ self:_AnimateAndApplyColor(about.AutoSaveToggle.Label, theme.Colors.TextSecondar
     local dropdown = about.DpiScaleDropdown
     local dropdownY = currentY - 4
     dropdown.Label.Position = {controlX, dropdownY + 5}; local dropdownButtonX = rightEdge - dropdown.Size.width; dropdown.Button.Position = {dropdownButtonX, dropdownY}; dropdown.Button.Size = {dropdown.Size.width, dropdown.Size.height}; dropdown.ButtonText.Position = {dropdownButtonX + 5, dropdownY + dropdown.Size.height / 2 - dropdown.ButtonText.Size / 2}; dropdown.ButtonText.Text = self.UI.Values[dropdown.id]; local arrowX, arrowY = dropdownButtonX + dropdown.Size.width - 15, dropdownY + dropdown.Size.height / 2; dropdown.ArrowLine1.From = {arrowX, arrowY - 2}; dropdown.ArrowLine1.To = {arrowX + 5, arrowY + 3}; dropdown.ArrowLine2.From = {arrowX + 5, arrowY + 3}; dropdown.ArrowLine2.To = {arrowX + 10, arrowY - 2}; dropdown.ClickRegion = { x1 = dropdownButtonX, y1 = dropdownY, x2 = dropdownButtonX + dropdown.Size.width, y2 = dropdownY + dropdown.Size.height }
-    self:_SetVisibility(dropdown.BorderLeft, dropdown.IsOpen); self:_SetVisibility(dropdown.BorderRight, dropdown.IsOpen); self:_SetVisibility(dropdown.BorderBottom, dropdown.IsOpen)
     if dropdown.IsOpen then
         local optionListHeight = #dropdown.Options * 20 + 5; local bgX, bgY, bgW, bgH = dropdownButtonX, dropdownY + dropdown.Size.height, dropdown.Size.width, optionListHeight
         self:_SetVisibility(dropdown.OptionBackground, true); dropdown.OptionBackground.Position = {bgX, bgY}; dropdown.OptionBackground.Size = {bgW, bgH}; dropdown.BorderLeft.From = {bgX, bgY}; dropdown.BorderLeft.To = {bgX, bgY + bgH}; dropdown.BorderRight.From = {bgX + bgW, bgY}; dropdown.BorderRight.To = {bgX + bgW, bgY + bgH}; dropdown.BorderBottom.From = {bgX, bgY + bgH}; dropdown.BorderBottom.To = {bgX + bgW, bgY + bgH};
@@ -1228,7 +1229,7 @@ self:_AnimateAndApplyColor(about.AutoSaveToggle.Label, theme.Colors.TextSecondar
         local circleX = circleStartX - (col * circleSpacing); local circleY = styleY + 5 + (row * circleSpacing)
         circle.Circle.Position = {circleX, circleY}; circle.Border.Position = {circleX, circleY}
         if circle.Inner then circle.Inner.Position = {circleX, circleY} end
-        if circle.PlusLine1 then circle.PlusLine1.From = {circleX - 4, circleY}; circle.PlusLine1.To = {circleX + 4, circleY}; circle.PlusLine2.From = {circleX, circleY - 4}; circle.PlusLine2.To = {circleX, circleY + 4}; end
+        if circle.PlusLine1 then circle.PlusLine1.From = {circleX, circleY - 4}; circle.PlusLine1.To = {circleX, circleY + 4}; circle.PlusLine2.From = {circleX - 4, circleY}; circle.PlusLine2.To = {circleX + 4, circleY}; end
         circle.ClickRegion = {x1 = circleX - 10, y1 = circleY - 5, x2 = circleX + 10, y2 = circleY + 15}
     end
     if about.HoveredThemeCircle.Name and (tick() - about.HoveredThemeCircle.HoverStartTime > 1) then
