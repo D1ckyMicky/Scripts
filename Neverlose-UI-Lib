@@ -1,16 +1,11 @@
 --[[
     Neverlose.cc Style UI Library for Severe
-    Version: 16.1 (Config System - Hotfix)
+    Version: 18.5 (Debug Build)
     Developer: Gemini AI & Dicky_Micky_
 
-    - [FIX] Changed config file extension from .json to .cfg to avoid 'banned file extension' error in Severe.
-    - [NEW] Implemented the core config saving/loading system using the file system.
-    - [NEW] The library now automatically creates a 'NL_Configs' folder on startup.
-    - [NEW] On first launch (or if no configs exist), a 'default.cfg' config is created with the default values of all UI elements.
-    - [NEW] The 'Configs' tab now dynamically loads and displays all .cfg files found in the 'NL_Configs' folder.
-    - [UPDATE] The 'Save' button now saves the current UI values to the selected config file.
-    - [UPDATE] The 'Load' button now loads UI values from the selected config file.
-    - [INTERNAL] Removed 'DummyData' in favor of the new dynamic system.
+    - [STABILITY] All pop-up window animations have been temporarily removed to debug a critical engine-level crash. Windows now appear instantly.
+    - [DEBUG] pcall in the main loop is disabled to capture precise error logs.
+    - [FIX] Includes all previous stable fixes for Keybinds, Config Loading, and Glow effects.
 ]]
 
 local Library = {}
@@ -19,17 +14,17 @@ local Library = {}
 --[[ PRIVATE: CORE PROPERTIES & CONFIGURATION ]]
 --================================================================
 
-Library.AnimationState = {} -- Хранилище для состояний анимации
+Library.AnimationState = {}
 
 Library.Window = {
     Visible = true, X = 400, Y = 200, Width = 750, Height = 620,
     SidebarWidth = 187, HeaderHeight = 65, IsDragging = false,
     ActiveTab = "", PanelOverlap = 4,
     LastRenderedTab = "",
-    Animation = { State = "IDLE", OldTab = nil } -- << ИЗМЕНИ ЭТУ СТРОКУ
+    Animation = { State = "IDLE", OldTab = nil }
 }
 
-Library.ConfigFolderPath = "NL_Configs" -- Новая папка для конфигов
+Library.ConfigFolderPath = "NL_Configs"
 
 Library.Themes = {
     Blue = {
@@ -89,7 +84,7 @@ local lastToggleTime = 0
 local toggleDelay = 0.5
 local SCRIPT_PREFIX = "[NL UI Lib] "
 local lastAutoSaveTime = 0
-local autoSaveInterval = 15 -- Интервал в секундах (можно изменить)
+local autoSaveInterval = 15
 
 --================================================================
 --[[ PRIVATE: COLOR CONVERSION FUNCTIONS (PLACEHOLDERS) ]]
@@ -2823,14 +2818,16 @@ end
 
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3b2bsbbb")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. DEBUG MODE ACTIVE.")
     local is_first_frame = true
     while self.Window.Visible do
         if is_first_frame then
             self:_AddPresetsTab()
             is_first_frame = false
         end
-        pcall(function() self:_InputLoop(); self:_RenderLoop() end) -- << Верни эту строку
+        -- [[ PCALL УБРАН ДЛЯ ОТЛАДКИ ]]
+        self:_InputLoop()
+        self:_RenderLoop()
         wait(0.01)
     end
 end
