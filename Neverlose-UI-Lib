@@ -25,7 +25,8 @@ Library.Window = {
     Visible = true, X = 400, Y = 200, Width = 750, Height = 620,
     SidebarWidth = 187, HeaderHeight = 65, IsDragging = false,
     ActiveTab = "", PanelOverlap = 4,
-    LastRenderedTab = "" -- << ДОБАВЬТЕ ЭТУ СТРОКУ
+    LastRenderedTab = "", -- << ДОБАВЬТЕ ЭТУ СТРОКУ
+    Animation = { State = "IDLE" } -- << ДОБАВЬ ЭТУ СТРОКУ
 }
 
 Library.ConfigFolderPath = "NL_Configs" -- Новая папка для конфигов
@@ -1929,74 +1930,91 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
 end
 
 function Library:_RenderSections(panelX, panelY, headerHeight)
-    local leftColumnY = panelY + headerHeight + 20
-    local rightColumnY = panelY + headerHeight + 20
+    local leftColumnY, rightColumnY = panelY + headerHeight + 20, panelY + headerHeight + 20
     local columnSpacing = 20
     local columnWidth = ((self.Window.Width - self.Window.SidebarWidth + self.Window.PanelOverlap) - (columnSpacing * 3)) / 2
-    local leftColumnX = panelX + columnSpacing
-    local rightColumnX = leftColumnX + columnWidth + columnSpacing
+    local leftColumnX, rightColumnX = panelX + columnSpacing, panelX + columnSpacing + columnWidth + columnSpacing
     
     local ANIMATION_SLIDE_DISTANCE = 20
     local tab_changed = self.Window.ActiveTab ~= self.Window.LastRenderedTab
 
+    -- При смене вкладки запускаем процесс, переводя систему в состояние "исчезновения"
+    if tab_changed and self.Window.Animation.State == "IDLE" then
+        self.Window.Animation.State = "FADING_OUT"
+    end
+
+    local still_fading_out = false
+    local still_fading_in = false
+
+    -- === Главный цикл рендера ===
     for _, section in ipairs(self.UI.Sections) do
         local anim_state = self.AnimationState[section.Drawing.Background]
         if not anim_state then
-            -- IsVisible - наш новый "выключатель"
             anim_state = { Opacity = 0, YOffset = 0, IsVisible = false }
             self.AnimationState[section.Drawing.Background] = anim_state
         end
 
-        local is_active = (section.ParentTab == self.Window.ActiveTab)
-
-        -- ШАГ 1: ВКЛЮЧАЕМ. Если секция должна стать активной, а её объекты выключены - включаем их.
-        if is_active and not anim_state.IsVisible then
-            self:_SetSectionAndElementsVisibility(section, true)
-            anim_state.IsVisible = true
-        end
-
-        if tab_changed and is_active then
-            anim_state.YOffset = ANIMATION_SLIDE_DISTANCE -- Начнут снизу
-        end
-        
-        local targetOpacity = is_active and 1 or 0
-        local targetYOffset = is_active and 0 or ANIMATION_SLIDE_DISTANCE -- Исчезнут вниз
-
         local speed_value = self.UI.Values["AboutAnimationSpeed"] or 1.6
         local animationSpeed = speed_value / 15.0
-        anim_state.Opacity = anim_state.Opacity + (targetOpacity - anim_state.Opacity) * animationSpeed
-        anim_state.YOffset = anim_state.YOffset + (targetYOffset - anim_state.YOffset) * animationSpeed
-
-        if math.abs(anim_state.Opacity - targetOpacity) < 0.01 then anim_state.Opacity = targetOpacity end
-        if math.abs(anim_state.YOffset - targetYOffset) < 0.5 then anim_state.YOffset = targetYOffset end
         
-        -- ШАГ 2: ВЫКЛЮЧАЕМ. Если анимация исчезновения завершилась, принудительно выключаем все объекты.
-        if not is_active and anim_state.Opacity == 0 and anim_state.IsVisible then
-            self:_SetSectionAndElementsVisibility(section, false)
-            anim_state.IsVisible = false
+        local is_on_old_tab = (section.ParentTab == self.Window.LastRenderedTab) and tab_changed
+        local is_on_active_tab = (section.ParentTab == self.Window.ActiveTab)
+
+        -- --- ЛОГИКА ИСЧЕЗНОВЕНИЯ (FADING_OUT) ---
+        if self.Window.Animation.State == "FADING_OUT" and is_on_old_tab then
+            if not anim_state.IsVisible then self:_SetSectionAndElementsVisibility(section, true); anim_state.IsVisible = true end
+            
+            local targetOpacity, targetYOffset = 0, ANIMATION_SLIDE_DISTANCE
+            anim_state.Opacity = anim_state.Opacity + (targetOpacity - anim_state.Opacity) * animationSpeed
+            if math.abs(anim_state.Opacity - targetOpacity) < 0.01 then anim_state.Opacity = 0 end
+            
+            if anim_state.Opacity > 0 then
+                still_fading_out = true -- Отмечаем, что процесс еще не завершен
+                if section.LastPos then self:_RenderSingleSection(section, section.LastPos.X, section.LastPos.Y, columnWidth, anim_state.YOffset, anim_state.Opacity) end
+            elseif anim_state.IsVisible then
+                self:_SetSectionAndElementsVisibility(section, false)
+                anim_state.IsVisible = false
+            end
+        
+        -- --- ЛОГИКА ПОЯВЛЕНИЯ (FADING_IN) ---
+        elseif self.Window.Animation.State == "FADING_IN" and is_on_active_tab then
+            if not anim_state.IsVisible then 
+                self:_SetSectionAndElementsVisibility(section, true); anim_state.IsVisible = true
+                anim_state.YOffset = ANIMATION_SLIDE_DISTANCE -- Задаем начальную позицию снизу
+            end
+            
+            local targetOpacity, targetYOffset = 1, 0
+            anim_state.Opacity = anim_state.Opacity + (targetOpacity - anim_state.Opacity) * animationSpeed
+            anim_state.YOffset = anim_state.YOffset + (targetYOffset - anim_state.YOffset) * animationSpeed
+            if math.abs(anim_state.Opacity - targetOpacity) < 0.01 then anim_state.Opacity = 1 end
+            if math.abs(anim_state.YOffset - targetYOffset) < 0.5 then anim_state.YOffset = 0 end
+            
+            if anim_state.Opacity < 1 then still_fading_in = true end
         end
 
-        -- ШАГ 3: РИСУЕМ. Только если объекты секции включены.
-        if anim_state.IsVisible then
+        -- --- ЛОГИКА РАСПОЛОЖЕНИЯ И ОБЫЧНОГО ОТОБРАЖЕНИЯ ---
+        if (self.Window.Animation.State == "FADING_IN" or self.Window.Animation.State == "IDLE") and is_on_active_tab then
             local sectionX, sectionY
-            if is_active then
-                if section.Side == "Left" then sectionX, sectionY = leftColumnX, leftColumnY
-                else sectionX, sectionY = rightColumnX, rightColumnY end
-                
-                local sectionHeight = self:_RenderSingleSection(section, sectionX, sectionY, columnWidth, anim_state.YOffset, anim_state.Opacity)
-                section.LastPos = { X = sectionX, Y = sectionY }
-                
-                if section.Side == "Left" then leftColumnY = leftColumnY + sectionHeight + columnSpacing
-                else rightColumnY = rightColumnY + sectionHeight + columnSpacing end
-            else
-                if section.LastPos then
-                    self:_RenderSingleSection(section, section.LastPos.X, section.LastPos.Y, columnWidth, anim_state.YOffset, anim_state.Opacity)
-                end
-            end
+            if section.Side == "Left" then sectionX, sectionY = leftColumnX, leftColumnY
+            else sectionX, sectionY = rightColumnX, rightColumnY end
+            
+            local sectionHeight = self:_RenderSingleSection(section, sectionX, sectionY, columnWidth, anim_state.YOffset, anim_state.Opacity)
+            section.LastPos = { X = sectionX, Y = sectionY }
+            
+            if section.Side == "Left" then leftColumnY = leftColumnY + sectionHeight + columnSpacing
+            else rightColumnY = rightColumnY + sectionHeight + columnSpacing end
         end
     end
 
-    self.Window.LastRenderedTab = self.Window.ActiveTab
+    -- === Переключение состояний анимации ===
+    if self.Window.Animation.State == "FADING_OUT" and not still_fading_out then
+        self.Window.Animation.State = "FADING_IN" -- Исчезновение завершено, начинаем появление
+    elseif self.Window.Animation.State == "FADING_IN" and not still_fading_in then
+        self.Window.Animation.State = "IDLE" -- Появление завершено, переходим в обычный режим
+        self.Window.LastRenderedTab = self.Window.ActiveTab
+    end
+
+    if not tab_changed then self.Window.LastRenderedTab = self.Window.ActiveTab end
 end
 
 function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
@@ -2612,7 +2630,7 @@ end
 
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 361")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3x1")
     local is_first_frame = true
     while self.Window.Visible do
         if is_first_frame then
