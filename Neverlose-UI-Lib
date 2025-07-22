@@ -1105,7 +1105,6 @@ function Library:_RenderAboutWindow(mouse_pos)
     self:_SetVisibility(about.Tooltip.Background, false)
     self:_SetVisibility(about.Tooltip.Text, false)
     for _, circle in ipairs(about.StyleCircles) do if circle.Border then self:_SetVisibility(circle.Border, self.UI.Values.AboutSelectedStyle == circle.Name) end end
-
     
     self:_AnimateAndApplyColor(about.Background, theme.Colors.SectionBackground, animatedOpacity)
     self:_AnimateAndApplyColor(about.Border, theme.Colors.Separator, animatedOpacity)
@@ -1159,6 +1158,23 @@ function Library:_RenderAboutWindow(mouse_pos)
     about.Background.Position = {winX, winY}; about.Background.Size = {winW, winH}
     about.Border.Position = {winX, winY}; about.Border.Size = {winW, winH}
     if about.Glow then self:_RenderGlowEffect(about.Glow, winX, winY, winW, winH, about.Background.Rounding, theme.Colors.GlowColor, nil, animatedOpacity) end
+    
+    local slider = about.AnimationSpeedSlider
+    if slider.LeftFill and slider.LeftFill.Position and slider.Nub and slider.Nub.Position then
+        local glowWidth = slider.LeftFill.Size.x
+        if glowWidth > 0 and slider.Glow then
+            self:_RenderGlowEffect(slider.Glow, slider.LeftFill.Position.x, slider.Nub.Position.y - 4, glowWidth, 8, slider.LeftFill.Rounding, theme.Colors.GlowAccent, {top=true, bottom=true, left=true, right=false}, animatedOpacity)
+        elseif slider.Glow then
+            self:_HideGlowEffect(slider.Glow)
+        end
+    end
+
+    if about.DpiScaleDropdown.IsOpen then
+        for i, option in ipairs(about.DpiScaleDropdown.OptionList) do 
+            local targetOptColor = (self.UI.Values[about.DpiScaleDropdown.id] == about.DpiScaleDropdown.Options[i]) and theme.Colors.Accent or theme.Colors.TextPrimary
+            self:_AnimateAndApplyColor(option, targetOptColor, animatedOpacity)
+        end
+    end
     about.HeaderIcon.Position = {winX + 15, winY + 12}
     about.HeaderTitle.Position = {winX + 15 + about.HeaderIcon.Size.x + 8, winY + 13}
     about.CloseButton.Line1.From = {winX + winW - 25, winY + 12}; about.CloseButton.Line1.To = {winX + winW - 15, winY + 22}
