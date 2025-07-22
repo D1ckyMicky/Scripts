@@ -348,6 +348,32 @@ function Library:_UpdateAnimationStates()
     end
 end
 
+function Library:_SetSectionAndElementsVisibility(section, visible)
+    -- Сначала обрабатываем собственные объекты секции (фон, заголовок и т.д.)
+    for _, obj in pairs(section.Drawing) do
+        if obj and obj.Visible ~= nil then self:_SetVisibility(obj, visible) end
+    end
+
+    -- Затем обрабатываем все элементы внутри секции
+    for _, el in ipairs(section.Elements) do
+        for key, val in pairs(el) do
+            -- Проверяем, является ли значение в паре объектом для отрисовки
+            if type(val) == 'table' and val.Visible ~= nil then
+                self:_SetVisibility(val, visible)
+            -- Отдельно обрабатываем вложенные списки, как в Dropdown
+            elseif (key == 'OptionList' or key == 'Glow') and type(val) == 'table' then
+                 for _, nested_obj in ipairs(val) do
+                    if nested_obj and nested_obj.Visible ~= nil then self:_SetVisibility(nested_obj, visible) end
+                 end
+            end
+        end
+        -- Если мы скрываем секцию, также нужно закрыть все открытые в ней выпадающие списки
+        if not visible and el.IsOpen then
+            el.IsOpen = false
+        end
+    end
+end
+
 --================================================================
 --[[ PRIVATE: GLOW EFFECT HELPERS ]]
 --================================================================
@@ -1913,60 +1939,56 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
     local ANIMATION_SLIDE_DISTANCE = 20
     local tab_changed = self.Window.ActiveTab ~= self.Window.LastRenderedTab
 
-    -- Сначала обновляем состояние анимации для ВСЕХ секций
     for _, section in ipairs(self.UI.Sections) do
         local anim_state = self.AnimationState[section.Drawing.Background]
         if not anim_state then
-            anim_state = { Opacity = 0, YOffset = ANIMATION_SLIDE_DISTANCE }
+            -- IsVisible - наш новый "выключатель"
+            anim_state = { Opacity = 0, YOffset = 0, IsVisible = false }
             self.AnimationState[section.Drawing.Background] = anim_state
         end
 
         local is_active = (section.ParentTab == self.Window.ActiveTab)
-        
+
+        -- ШАГ 1: ВКЛЮЧАЕМ. Если секция должна стать активной, а её объекты выключены - включаем их.
+        if is_active and not anim_state.IsVisible then
+            self:_SetSectionAndElementsVisibility(section, true)
+            anim_state.IsVisible = true
+        end
+
         if tab_changed and is_active then
             anim_state.YOffset = ANIMATION_SLIDE_DISTANCE -- Начнут снизу
         end
-
+        
         local targetOpacity = is_active and 1 or 0
         local targetYOffset = is_active and 0 or ANIMATION_SLIDE_DISTANCE -- Исчезнут вниз
 
         local speed_value = self.UI.Values["AboutAnimationSpeed"] or 1.6
         local animationSpeed = speed_value / 15.0
-
         anim_state.Opacity = anim_state.Opacity + (targetOpacity - anim_state.Opacity) * animationSpeed
         anim_state.YOffset = anim_state.YOffset + (targetYOffset - anim_state.YOffset) * animationSpeed
 
-        -- Более агрессивное "прищёлкивание" к конечным значениям
         if math.abs(anim_state.Opacity - targetOpacity) < 0.01 then anim_state.Opacity = targetOpacity end
         if math.abs(anim_state.YOffset - targetYOffset) < 0.5 then anim_state.YOffset = targetYOffset end
-    end
-    
-    -- Затем отрисовываем, разделяя логику для активных и неактивных
-    for _, section in ipairs(self.UI.Sections) do
-        local anim_state = self.AnimationState[section.Drawing.Background]
+        
+        -- ШАГ 2: ВЫКЛЮЧАЕМ. Если анимация исчезновения завершилась, принудительно выключаем все объекты.
+        if not is_active and anim_state.Opacity == 0 and anim_state.IsVisible then
+            self:_SetSectionAndElementsVisibility(section, false)
+            anim_state.IsVisible = false
+        end
 
-        if anim_state.Opacity > 0 then
-            local is_active = (section.ParentTab == self.Window.ActiveTab)
-            
+        -- ШАГ 3: РИСУЕМ. Только если объекты секции включены.
+        if anim_state.IsVisible then
+            local sectionX, sectionY
             if is_active then
-                -- АКТИВНЫЕ секции рассчитывают сетку и обновляют её
-                local sectionX, sectionY
-                if section.Side == "Left" then
-                    sectionX, sectionY = leftColumnX, leftColumnY
-                else
-                    sectionX, sectionY = rightColumnX, rightColumnY
-                end
+                if section.Side == "Left" then sectionX, sectionY = leftColumnX, leftColumnY
+                else sectionX, sectionY = rightColumnX, rightColumnY end
                 
                 local sectionHeight = self:_RenderSingleSection(section, sectionX, sectionY, columnWidth, anim_state.YOffset, anim_state.Opacity)
-                section.LastPos = { X = sectionX, Y = sectionY } -- Запоминаем их последнюю позицию
+                section.LastPos = { X = sectionX, Y = sectionY }
                 
-                if section.Side == "Left" then
-                    leftColumnY = leftColumnY + sectionHeight + columnSpacing
-                else
-                    rightColumnY = rightColumnY + sectionHeight + columnSpacing
-                end
+                if section.Side == "Left" then leftColumnY = leftColumnY + sectionHeight + columnSpacing
+                else rightColumnY = rightColumnY + sectionHeight + columnSpacing end
             else
-                -- НЕАКТИВНЫЕ ("призраки") просто рисуются на своей старой позиции и НЕ влияют на сетку
                 if section.LastPos then
                     self:_RenderSingleSection(section, section.LastPos.X, section.LastPos.Y, columnWidth, anim_state.YOffset, anim_state.Opacity)
                 end
@@ -2590,7 +2612,7 @@ end
 
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3x1x2")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 361")
     local is_first_frame = true
     while self.Window.Visible do
         if is_first_frame then
