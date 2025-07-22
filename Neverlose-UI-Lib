@@ -860,22 +860,26 @@ function Library:_LoadConfig(name)
     local success, decodedData = pcall(JSONDecode, fileContent)
     if not success or not decodedData then warn(SCRIPT_PREFIX .. "Failed to decode config JSON: " .. name); return end
 
-    -- Загружаем темы, восстанавливая их полную структуру
+    -- [[ НАЧАЛО ИЗМЕНЕНИЙ ]]
+    -- Загружаем темы, восстанавливая их полную структуру с использованием "Blue" как шаблона по умолчанию
     if decodedData.Themes then
         for themeName, savedThemeData in pairs(decodedData.Themes) do
+            local baseTheme = self.Themes.Blue -- Используем "Blue" как основу для недостающих полей
             local fullTheme = {
                 Name = themeName,
                 IsPreset = false,
-                Colors = savedThemeData.Colors,
-                Rounding = savedThemeData.Rounding,
-                Transparency = savedThemeData.Transparency,
-                IconSize = savedThemeData.IconSize,
-                Fonts = self:_DeepCopy(self.Themes.Blue.Fonts) -- Используем шрифты из темы по умолчанию
+                -- Если поле в конфиге есть, используем его. Если нет - берём из baseTheme.
+                Colors = savedThemeData.Colors or self:_DeepCopy(baseTheme.Colors),
+                Rounding = savedThemeData.Rounding or self:_DeepCopy(baseTheme.Rounding),
+                Transparency = savedThemeData.Transparency or self:_DeepCopy(baseTheme.Transparency),
+                IconSize = savedThemeData.IconSize or baseTheme.IconSize,
+                Fonts = self:_DeepCopy(baseTheme.Fonts) -- Шрифты всегда берём из стандарта
             }
             self.Themes[themeName] = fullTheme
         end
         self:_RebuildStyleCircles()
     end
+    -- [[ КОНЕЦ ИЗМЕНЕНИЙ ]]
 
     -- Применяем значения и вызываем коллбэки для обновления
     if decodedData.Values then
