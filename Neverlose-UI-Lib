@@ -1049,7 +1049,10 @@ function Library:_RenderAboutWindow(mouse_pos)
     local about = self.UI.Core.AboutWindow
     local isVisible = self.UI.Popups.About.IsOpen
     local theme = self.ActiveTheme
-    
+
+    -- [[ ЗАЩИТА ОТ ОШИБОК ПЕРВОГО КАДРА И РЕКУРСИИ ]]
+    if not self.Window.X or not self.Window.Y then return end -- Защита от nil
+
     if not about.AllElements then
         about.AllElements = {
             about.Background, about.Border, about.HeaderIcon, about.HeaderTitle, about.CloseButton.Line1, about.CloseButton.Line2, 
@@ -1083,9 +1086,6 @@ function Library:_RenderAboutWindow(mouse_pos)
         return
     end
 
-    for _, obj in ipairs(about.AllElements) do if obj then self:_SetVisibility(obj, true) end end
-    self:_SetVisibility(about.Tooltip.Background, false)
-    self:_SetVisibility(about.Tooltip.Text, false)
     for _, circle in ipairs(about.StyleCircles) do if circle.Border then self:_SetVisibility(circle.Border, self.UI.Values.AboutSelectedStyle == circle.Name) end end
         
     self:_AnimateAndApplyColor(about.Background, theme.Colors.SectionBackground, animatedOpacity)
