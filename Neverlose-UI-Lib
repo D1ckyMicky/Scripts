@@ -1055,6 +1055,10 @@ function Library:_RenderAboutWindow(mouse_pos)
     local about = self.UI.Core.AboutWindow
     local popupState = self.UI.Popups.About
     local theme = self.ActiveTheme
+
+    -- [[ ЗАЩИТА ОТ ПЕРВОГО КАДРА ]]
+    -- Если основные координаты окна еще не определены, пропускаем кадр, чтобы избежать ошибки
+    if not self.Window.X or not self.Window.Y then return end
     -- [[ НОВАЯ СТАБИЛЬНАЯ АНИМАЦИЯ ]]
     -- 1. Определяем цель (1 - видимо, 0 - невидимо)
     local targetOpacity = popupState.IsOpen and 1 or 0
@@ -2735,15 +2739,14 @@ end
 
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3b22sb")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3bbbbb")
     local is_first_frame = true
     while self.Window.Visible do
         if is_first_frame then
             self:_AddPresetsTab()
             is_first_frame = false
         end
-        self:_InputLoop()
-        self:_RenderLoop()
+        pcall(function() self:_InputLoop(); self:_RenderLoop() end) -- << Верни эту строку
         wait(0.01)
     end
 end
