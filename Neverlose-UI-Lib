@@ -1146,13 +1146,11 @@ function Library:_RenderAboutWindow(mouse_pos)
         for key, obj in pairs(tbl) do
             if type(obj) == 'table' then
                 if obj.Visible ~= nil then self:_SetVisibility(obj, visible)
-                --[[ ИСПРАВЛЕНИЕ: Добавлена проверка на существование RightFill перед его использованием ]]
                 elseif obj.Label and (obj.Back or obj.Button or (obj.LeftFill and obj.Nub)) then
                     self:_SetVisibility(obj.Label, visible);
                     if obj.Back then self:_SetVisibility(obj.Back, visible); self:_SetVisibility(obj.Nub, visible); end
                     if obj.LeftFill then 
                         self:_SetVisibility(obj.LeftFill, visible); 
-                        -- self:_SetVisibility(obj.RightFill, visible); -- Убрали
                         self:_SetVisibility(obj.Nub, visible); 
                         self:_SetVisibility(obj.ValueText, visible); 
                     end
@@ -1213,12 +1211,10 @@ function Library:_RenderAboutWindow(mouse_pos)
     end
     self:_AnimateAndApplyColor(about.AutoSaveToggle.Label, theme.Colors.TextSecondary)
     
-    -- [[ ИСПРАВЛЕНИЕ СЛАЙДЕРА В ABOUT МЕНЮ ]]
     local slider = about.AnimationSpeedSlider; 
     self:_AnimateAndApplyColor(slider.Label, theme.Colors.TextSecondary); 
-    self:_AnimateAndApplyColor(slider.Back, theme.Colors.DarkBlue); -- Задаем цвет фоновой полоске
+    self:_AnimateAndApplyColor(slider.Back, theme.Colors.DarkBlue);
     self:_AnimateAndApplyColor(slider.LeftFill, theme.Colors.Accent); 
-    -- self:_AnimateAndApplyColor(slider.RightFill, theme.Colors.DarkBlue); -- Убрали
     self:_AnimateAndApplyColor(slider.Nub, theme.Colors.Accent); 
     self:_AnimateAndApplyColor(slider.ValueText, theme.Colors.TextPrimary);
     
@@ -1262,13 +1258,30 @@ function Library:_RenderAboutWindow(mouse_pos)
     currentY = currentY + 50; about.Separator3.From = {winX + 10, currentY}; about.Separator3.To = {winX + winW - 10, currentY}; currentY = currentY + 15
     local controlX = winX + 20; local controlW = winW - 40; local controlSpacing = 35
     local rightEdge = winX + winW - 25
-    local toggle = about.AutoSaveToggle
-    toggle.Label.Position = {controlX, currentY}; local toggleBackX = rightEdge - toggle.Size.width; toggle.Back.Position = {toggleBackX, currentY + 4}; toggle.Back.Size = {toggle.Size.width, toggle.Size.height}; toggle.ClickRegion = {x1 = toggleBackX, y1 = currentY, x2 = toggleBackX + toggle.Size.width, y2 = currentY + toggle.Size.height + 8}; 
-    local targetBackColor, targetNubColor; if self.UI.Values[toggle.id] then targetBackColor = self:_DarkenColor(theme.Colors.Accent, 0.3); targetNubColor = theme.Colors.Accent; toggle.Nub.Position = {toggleBackX + toggle.Size.width - 5, currentY + 4 + toggle.Size.height/2} else targetBackColor = theme.Colors.DarkGray; targetNubColor = theme.Colors.LightGray; toggle.Nub.Position = {toggleBackX + 5, currentY + 4 + toggle.Size.height/2} end;
-    self:_AnimateAndApplyColor(toggle.Back, targetBackColor); self:_AnimateAndApplyColor(toggle.Nub, targetNubColor);
-    currentY = currentY + controlSpacing
     
-    -- [[ ИСПРАВЛЕНИЕ СЛАЙДЕРА В ABOUT МЕНЮ ]]
+    -- [[ ИСПРАВЛЕНИЕ ПОЗИЦИИ ПЕРЕКЛЮЧАТЕЛЯ В ABOUT ]]
+    local toggle = about.AutoSaveToggle
+    local toggleY = currentY - 1
+    toggle.Label.Position = {controlX, currentY}; 
+    local toggleBackX = rightEdge - toggle.Size.width; 
+    toggle.Back.Position = {toggleBackX, toggleY}; 
+    toggle.Back.Size = {toggle.Size.width, toggle.Size.height}; 
+    toggle.ClickRegion = {x1 = toggleBackX, y1 = toggleY, x2 = toggleBackX + toggle.Size.width, y2 = toggleY + toggle.Size.height}; 
+    local targetBackColor, targetNubColor; 
+    local nubY = toggleY + toggle.Size.height / 2
+    if self.UI.Values[toggle.id] then 
+        targetBackColor = self:_DarkenColor(theme.Colors.Accent, 0.3); 
+        targetNubColor = theme.Colors.Accent; 
+        toggle.Nub.Position = {toggleBackX + toggle.Size.width - toggle.Size.height / 2, nubY}
+    else 
+        targetBackColor = theme.Colors.DarkGray; 
+        targetNubColor = theme.Colors.LightGray; 
+        toggle.Nub.Position = {toggleBackX + toggle.Size.height / 2, nubY}
+    end;
+    self:_AnimateAndApplyColor(toggle.Back, targetBackColor); 
+    self:_AnimateAndApplyColor(toggle.Nub, targetNubColor);
+    
+    currentY = currentY + controlSpacing
     slider.Label.Position = {controlX, currentY}; 
     local valueTextWidth = 40; local sliderRightEdge = rightEdge - valueTextWidth; local sliderBackX = controlX + 140; local sliderBackWidth = sliderRightEdge - sliderBackX
     slider.Back.Position = {sliderBackX, currentY + 8}; 
@@ -1278,8 +1291,6 @@ function Library:_RenderAboutWindow(mouse_pos)
     local nubX = sliderBackX + sliderBackWidth * value_percentage; 
     slider.LeftFill.Position = {sliderBackX, currentY + 8}; 
     slider.LeftFill.Size = {nubX - sliderBackX, 2}; 
-    -- slider.RightFill.Position = {nubX, currentY + 8}; -- Убрали
-    -- slider.RightFill.Size = {sliderBackX + sliderBackWidth - nubX, 2}; -- Убрали
     slider.Nub.Position = {nubX, currentY + 9}; 
     local glowWidth = nubX - sliderBackX; local glowHeight = 8; 
     if glowWidth > 0 and slider.Glow then self:_RenderGlowEffect(slider.Glow, sliderBackX, currentY + 9 - (glowHeight / 2), glowWidth, glowHeight, slider.LeftFill.Rounding, theme.Colors.GlowAccent, {top=true, bottom=true, left=true, right=false}) elseif slider.Glow then self:_HideGlowEffect(slider.Glow) end
@@ -1516,22 +1527,28 @@ function Library:_RenderEditStyleWindow()
     cancelBtn.IconLine2.From = {cancelIconCenterX - 4, cancelIconCenterY + 4}; cancelBtn.IconLine2.To = {cancelIconCenterX + 4, cancelIconCenterY - 4}
     cancelBtn.Label.Position = {cancelIconCenterX + 10, cancelBtnY + (cancelBtnH / 2) - (cancelBtn.Label.Size / 2)}
     cancelBtn.ClickRegion = {x1 = cancelBtnX, y1 = cancelBtnY, x2 = cancelBtnX + cancelBtnW, y2 = cancelBtnY + cancelBtnH}
-
+    
+    -- [[ ИСПРАВЛЕНИЕ ПОЗИЦИИ ПЕРЕКЛЮЧАТЕЛЯ В EDIT STYLE ]]
     local toggleY = footerY + cancelBtnH + 15
     local toggle = style_window.RealTimeToggle
     toggle.Label.Position = {winX + 15, toggleY + 5}
     if toggle.Label.TextBounds then
       local toggleBackX = winX + 15 + toggle.Label.TextBounds.x + 10
-      toggle.Back.Position = {toggleBackX, toggleY + 7}; toggle.Back.Size = {toggle.Size.width, toggle.Size.height}; toggle.ClickRegion = {x1 = toggleBackX, y1 = toggleY, x2 = toggleBackX + toggle.Size.width, y2 = toggleY + toggle.Size.height + 14}
+      local toggleBackY = toggleY + 7 - 2 -- Корректировка для выравнивания
+      toggle.Back.Position = {toggleBackX, toggleBackY}; 
+      toggle.Back.Size = {toggle.Size.width, toggle.Size.height}; 
+      toggle.ClickRegion = {x1 = toggleBackX, y1 = toggleBackY, x2 = toggleBackX + toggle.Size.width, y2 = toggleBackY + toggle.Size.height}
+      
       local backColor, nubColor
+      local nubY = toggleBackY + toggle.Size.height/2
       if self.UI.Values[toggle.id] then
           backColor = theme.Colors.ToggleEnabledBackground or self:_DarkenColor(theme.Colors.Accent, 0.3)
           nubColor = theme.Colors.Accent
-          toggle.Nub.Position = {toggleBackX + toggle.Size.width - 5, toggleY + 7 + toggle.Size.height/2}
+          toggle.Nub.Position = {toggleBackX + toggle.Size.width - toggle.Size.height / 2, nubY}
       else
           backColor = theme.Colors.DarkGray
           nubColor = theme.Colors.LightGray
-          toggle.Nub.Position = {toggleBackX + 5, toggleY + 7 + toggle.Size.height/2}
+          toggle.Nub.Position = {toggleBackX + toggle.Size.height / 2, nubY}
       end
       self:_AnimateAndApplyColor(toggle.Back, backColor)
       self:_AnimateAndApplyColor(toggle.Nub, nubColor)
