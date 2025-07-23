@@ -1913,8 +1913,7 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
     for _, el in ipairs(section.Elements) do
         self:_SetVisibility(el.Label, true)
         if el.type == "Toggle" then
-            self:_SetVisibility(el.Back, true)
-            self:_SetVisibility(el.Nub, true)
+            self:_SetVisibility(el.Back, true); self:_SetVisibility(el.Nub, true)
             local currentElementY = animatedY + elementY_offset
             self:_AnimateAndApplyColor(el.Label, theme.Colors.TextSecondary, masterOpacity)
             el.Label.Position = {sectionX + 10, currentElementY}
@@ -1934,20 +1933,15 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
                 targetNubColor = theme.Colors.LightGray
                 el.Nub.Position = {toggleBackX + el.Size.height / 2, nubY}
             end
-            self:_AnimateAndApplyColor(el.Back, targetBackColor, masterOpacity)
-            self:_AnimateAndApplyColor(el.Nub, targetNubColor, masterOpacity)
+            self:_AnimateAndApplyColor(el.Back, targetBackColor, masterOpacity); self:_AnimateAndApplyColor(el.Nub, targetNubColor, masterOpacity)
             local iconAreaX = toggleBackX - 10
             if el.HasColor and el.ColorCircle then
-                self:_SetVisibility(el.ColorCircle, true)
-                self:_SetVisibility(el.ColorBorder, true)
+                self:_SetVisibility(el.ColorCircle, true); self:_SetVisibility(el.ColorBorder, true)
                 local colorValue = self.UI.Values[el.HasColor.id]
-                self:_AnimateAndApplyColor(el.ColorCircle, colorValue, masterOpacity)
-                self:_AnimateAndApplyColor(el.ColorBorder, theme.Colors.LightGray, masterOpacity)
-                local radius = el.ColorCircle.Radius
-                local iconWidth = radius * 2
+                self:_AnimateAndApplyColor(el.ColorCircle, colorValue, masterOpacity); self:_AnimateAndApplyColor(el.ColorBorder, theme.Colors.LightGray, masterOpacity)
+                local radius = el.ColorCircle.Radius; local iconWidth = radius * 2
                 local iconX = iconAreaX - iconWidth
-                el.ColorCircle.Position = {iconX + radius, currentElementY + 7}
-                el.ColorBorder.Position = {iconX + radius, currentElementY + 7}
+                el.ColorCircle.Position = {iconX + radius, currentElementY + 7}; el.ColorBorder.Position = {iconX + radius, currentElementY + 7}
                 el.ColorClickRegion = {x1 = iconX, y1 = currentElementY, x2 = iconX + iconWidth, y2 = currentElementY + 14}
                 iconAreaX = iconX - 5
             else
@@ -1995,40 +1989,38 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
             el.ClickRegion = { x1 = dropdownButtonX, y1 = dropdownButtonY, x2 = dropdownButtonX + el.Size.width, y2 = dropdownButtonY + el.Size.height }
             self:_AnimateAndApplyColor(el.Button, theme.Colors.DarkBlue, masterOpacity); self:_AnimateAndApplyColor(el.ButtonText, theme.Colors.TextPrimary, masterOpacity); self:_AnimateAndApplyColor(el.ArrowLine1, theme.Colors.TextPrimary, masterOpacity); self:_AnimateAndApplyColor(el.ArrowLine2, theme.Colors.TextPrimary, masterOpacity)
             elementY_offset = elementY_offset + 35
-            
-            -- << НАЧАЛО НОВОЙ ЛОГИКИ ОТРИСОВКИ DROPDOWN POP-UP >>
+
             if el.IsOpen or el.IsClosing then
                 if el.IsOpen and not el.IsClosing then el.FadeOpacity = math.min(1, el.FadeOpacity + 0.15)
                 elseif el.IsClosing then el.FadeOpacity = math.max(0, el.FadeOpacity - 0.15); if el.FadeOpacity == 0 then el.IsClosing = false end end
-                
+
                 if el.FadeOpacity > 0 then
                     local finalOpacity = masterOpacity * el.FadeOpacity
                     local popupWidth = 150; local optionHeight = 25; local popupHeight = (#el.Options * optionHeight) + 10
                     local popupX = dropdownButtonX + (el.Size.width / 2) - (popupWidth / 2); local popupY = dropdownButtonY + (el.Size.height / 2) - (popupHeight / 2)
-                    
+
                     self:_SetVisibility(el.OptionBackground, true); self:_SetVisibility(el.Border, true)
-                    
                     self:_AnimateAndApplyColor(el.OptionBackground, theme.Colors.SectionBackground, finalOpacity)
                     self:_AnimateAndApplyColor(el.Border, theme.Colors.Separator, finalOpacity)
-                    
                     el.OptionBackground.Position = {popupX, popupY}; el.OptionBackground.Size = {popupWidth, popupHeight}
                     el.Border.Position = {popupX, popupY}; el.Border.Size = {popupWidth, popupHeight}
-                    
                     self:_RenderGlowEffect(el.Glow, popupX, popupY, popupWidth, popupHeight, el.OptionBackground.Rounding, theme.Colors.GlowColor)
-                    
+
                     local currentOptionY = popupY + 5
+                    local hasSelection = el.type == "Multidropdown" and #self.UI.Values[el.id] > 0
+                    local textX = popupX + (hasSelection and 20 or 10)
+
                     for i, option in ipairs(el.OptionList) do
                         self:_SetVisibility(option.Text, true); self:_SetVisibility(option.Highlight, true)
                         option.ClickRegion = {x1 = popupX, y1 = currentOptionY, x2 = popupX + popupWidth, y2 = currentOptionY + optionHeight}
-                        option.Text.Position = {popupX + 10, currentOptionY + (optionHeight / 2) - (option.Text.Size / 2)}
+                        option.Text.Position = {textX, currentOptionY + (optionHeight / 2) - (option.Text.Size / 2)}
                         option.Highlight.Position = {popupX + 5, currentOptionY}; option.Highlight.Size = {popupWidth - 10, optionHeight}
-                        
+
                         local isSelected = (el.type == "Dropdown" and self.UI.Values[el.id] == el.Options[i]) or (el.type == "Multidropdown" and table.find(self.UI.Values[el.id], el.Options[i]))
                         local isHovered = (el.HoveredOptionIndex == i)
-                        
+
                         local targetTextColor
                         if el.type == "Multidropdown" and isSelected then
-                             -- Чтобы изменить цвет ВЫБРАННОГО текста в Multidropdown, измените это значение:
                             targetTextColor = theme.Colors.TextLight
                         elseif isSelected then
                             targetTextColor = theme.Colors.Accent
@@ -2036,19 +2028,40 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
                             targetTextColor = theme.Colors.TextPrimary
                         end
                         self:_AnimateAndApplyColor(option.Text, targetTextColor, finalOpacity)
-                        
+
                         if isHovered then
-                            -- Чтобы изменить цвет ПОДСВЕТКИ при наведении, измените это значение:
                             local highlightColor = theme.Colors.Separator
                             self:_AnimateAndApplyColor(option.Highlight, highlightColor, finalOpacity * 0.4)
                         else
                             option.Highlight.Opacity = 0
                         end
+
+                        if el.type == "Multidropdown" then
+                            self:_SetVisibility(option.CheckmarkLine1, isSelected); self:_SetVisibility(option.CheckmarkLine2, isSelected)
+                            if isSelected then
+                                local checkY = currentOptionY + (optionHeight / 2)
+                                option.CheckmarkLine1.From = {popupX + 8, checkY}; option.CheckmarkLine1.To = {popupX + 11, checkY + 3}
+                                option.CheckmarkLine2.From = {popupX + 11, checkY + 3}; option.CheckmarkLine2.To = {popupX + 15, checkY - 2}
+                                self:_AnimateAndApplyColor(option.CheckmarkLine1, theme.Colors.TextLight, finalOpacity)
+                                self:_AnimateAndApplyColor(option.CheckmarkLine2, theme.Colors.TextLight, finalOpacity)
+                            end
+                        end
                         currentOptionY = currentOptionY + optionHeight
                     end
                 end
+            else
+                -- << ИСПРАВЛЕНИЕ БАГА С "ПРИЗРАКАМИ" >>
+                self:_SetVisibility(el.OptionBackground, false)
+                self:_SetVisibility(el.Border, false)
+                for _, option in ipairs(el.OptionList) do
+                    self:_SetVisibility(option.Text, false)
+                    self:_SetVisibility(option.Highlight, false)
+                    if el.type == "Multidropdown" then
+                        self:_SetVisibility(option.CheckmarkLine1, false)
+                        self:_SetVisibility(option.CheckmarkLine2, false)
+                    end
+                end
             end
-            -- << КОНЕЦ НОВОЙ ЛОГИКИ >>
         end
     end
 
@@ -2707,7 +2720,7 @@ end
 
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 35xx41")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3541")
     local is_first_frame = true
     while self.Window.Visible do
         if is_first_frame then
@@ -2841,6 +2854,7 @@ function Library:_Internal_CreateDropdown(options)
     end
     return dropdown
 end
+
 function Library:_Internal_CreateMultidropdown(options)
     if self.UI.Values[options.id] == nil then
         self.UI.Values[options.id] = options.Default or {}
@@ -2871,10 +2885,15 @@ function Library:_Internal_CreateMultidropdown(options)
         local optionEntry = {
             Text = self:_CreateDrawingObject("Text"),
             Highlight = self:_CreateDrawingObject("Square"),
+            CheckmarkLine1 = self:_CreateDrawingObject("Line"), -- << ДОБАВЛЕНО
+            CheckmarkLine2 = self:_CreateDrawingObject("Line"), -- << ДОБАВЛЕНО
             ClickRegion = {}
         }
         if optionEntry.Text then optionEntry.Text.Font = self.ActiveTheme.Fonts.Main; optionEntry.Text.Size = self.ActiveTheme.Fonts.Size; optionEntry.Text.Text = option; optionEntry.Text.Center = false; optionEntry.Text.Outline = false; optionEntry.Text.zIndex = z + 11; optionEntry.Text.Visible = false; end
         if optionEntry.Highlight then optionEntry.Highlight.Filled = true; optionEntry.Highlight.zIndex = z + 10; optionEntry.Highlight.Visible = false; optionEntry.Highlight.Rounding = self.ActiveTheme.Rounding.Element; end
+        -- << НАСТРОЙКА ГАЛОЧКИ >>
+        if optionEntry.CheckmarkLine1 then optionEntry.CheckmarkLine1.Thickness = 2; optionEntry.CheckmarkLine1.zIndex = z + 12; optionEntry.CheckmarkLine1.Visible = false; end
+        if optionEntry.CheckmarkLine2 then optionEntry.CheckmarkLine2.Thickness = 2; optionEntry.CheckmarkLine2.zIndex = z + 12; optionEntry.CheckmarkLine2.Visible = false; end
         table.insert(multidropdown.OptionList, optionEntry)
     end
     return multidropdown
