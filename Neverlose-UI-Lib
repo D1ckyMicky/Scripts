@@ -614,7 +614,7 @@ end
 function Library:_InitializeAboutWindow()
     local about = {}; self.UI.Core.AboutWindow = about; local about_z = 32
     about.StyleCircles = {}
-    about.HoveredThemeCircle = { Name = nil, HoverStartTime = 0 } -- For tooltip
+    about.HoveredThemeCircle = { Name = nil, HoverStartTime = 0 }
     about.Background = self:_CreateDrawingObject("Square"); if about.Background then about.Background.Filled = true; about.Background.zIndex = 30; about.Background.Rounding = self.ActiveTheme.Rounding.Section; end
     about.Border = self:_CreateDrawingObject("Square"); if about.Border then about.Border.Filled = false; about.Border.Thickness = 1; about.Border.zIndex = 31; about.Border.Rounding = self.ActiveTheme.Rounding.Section; end
     about.Glow = self:_Internal_CreateGlowSet(29)
@@ -644,17 +644,14 @@ function Library:_InitializeAboutWindow()
     about.CreditText = self:_CreateDrawingObject("Text"); if about.CreditText then about.CreditText.Font = self.ActiveTheme.Fonts.Main; about.CreditText.Size = self.ActiveTheme.Fonts.Size; about.CreditText.Text = "UI by Dicky_Micky_"; about.CreditText.Center = true; about.CreditText.zIndex = about_z; end
 
     about.AutoSaveToggle = self:_Internal_CreateToggle({ id = "AboutAutoSave", Name = "Auto Save", Default = false, zIndex = about_z });
+    -- << ИЗМЕНЕНО: ИСПОЛЬЗУЕМ НОВЫЙ DROPDOWN >>
     about.DpiScaleDropdown = self:_Internal_CreateDropdown({ id = "AboutDpiScale", Name = "Dpi Scale", Options = {"100%", "125%", "150%"}, Default = "100%", Size = {width = 100, height = 25}, zIndex = about_z });
-    about.AnimationSpeedSlider = self:_Internal_CreateSlider({ id = "AboutAnimationSpeed", Name = "Animation Speed", Min = 0, Max = 5, Default = 2.5, Increment = 0.1, zIndex = about_z });
+    about.AnimationSpeedSlider = self:_Internal_CreateSlider({ id = "AboutAnimationSpeed", Name = "Animation Speed", Min = 0, Max = 5, Default = 1.6, Increment = 0.1, zIndex = about_z });
 
     about.StyleLabel, _ = setupInfoText("Style", "");
 
-    -- Tooltip initialization
     local tooltip_z = 60
-    about.Tooltip = {
-        Background = self:_CreateDrawingObject("Square"),
-        Text = self:_CreateDrawingObject("Text")
-    }
+    about.Tooltip = { Background = self:_CreateDrawingObject("Square"), Text = self:_CreateDrawingObject("Text") }
     if about.Tooltip.Background then about.Tooltip.Background.Filled = true; about.Tooltip.Background.zIndex = tooltip_z; about.Tooltip.Background.Rounding = self.ActiveTheme.Rounding.Element; end
     if about.Tooltip.Text then about.Tooltip.Text.Font = self.ActiveTheme.Fonts.Main; about.Tooltip.Text.Size = self.ActiveTheme.Fonts.Size; about.Tooltip.Text.Center = false; about.Tooltip.Text.zIndex = tooltip_z + 1; end
 
@@ -1149,11 +1146,7 @@ function Library:_RenderAboutWindow(mouse_pos)
                 elseif obj.Label and (obj.Back or obj.Button or (obj.LeftFill and obj.Nub)) then
                     self:_SetVisibility(obj.Label, visible);
                     if obj.Back then self:_SetVisibility(obj.Back, visible); self:_SetVisibility(obj.Nub, visible); end
-                    if obj.LeftFill then 
-                        self:_SetVisibility(obj.LeftFill, visible); 
-                        self:_SetVisibility(obj.Nub, visible); 
-                        self:_SetVisibility(obj.ValueText, visible); 
-                    end
+                    if obj.LeftFill then self:_SetVisibility(obj.LeftFill, visible); self:_SetVisibility(obj.Nub, visible); self:_SetVisibility(obj.ValueText, visible); end
                     if obj.Button then self:_SetVisibility(obj.Button, visible); self:_SetVisibility(obj.ButtonText, visible); self:_SetVisibility(obj.ArrowLine1, visible); self:_SetVisibility(obj.ArrowLine2, visible); end
                 elseif key ~= "ClickRegion" and key ~= "StyleCircles" and key ~= "Glow" and key ~= "Tooltip" and key ~= "HoveredThemeCircle" then
                      setAboutVisibility(obj, visible)
@@ -1177,9 +1170,7 @@ function Library:_RenderAboutWindow(mouse_pos)
         if about.AnimationSpeedSlider.Glow then self:_HideGlowEffect(about.AnimationSpeedSlider.Glow) end
         local dropdown = about.DpiScaleDropdown
         if dropdown.IsOpen then
-            dropdown.IsOpen = false
-            self:_SetVisibility(dropdown.OptionBackground, false); self:_SetVisibility(dropdown.BorderLeft, false); self:_SetVisibility(dropdown.BorderRight, false); self:_SetVisibility(dropdown.BorderBottom, false)
-            for _, option in ipairs(dropdown.OptionList) do self:_SetVisibility(option, false) end
+            dropdown.IsOpen = false; dropdown.IsClosing = true
         end
         return
     end
@@ -1224,10 +1215,6 @@ function Library:_RenderAboutWindow(mouse_pos)
     self:_AnimateAndApplyColor(dd.ButtonText, theme.Colors.TextPrimary); 
     self:_AnimateAndApplyColor(dd.ArrowLine1, theme.Colors.TextPrimary); 
     self:_AnimateAndApplyColor(dd.ArrowLine2, theme.Colors.TextPrimary); 
-    self:_AnimateAndApplyColor(dd.OptionBackground, theme.Colors.SectionBackground); 
-    self:_AnimateAndApplyColor(dd.BorderLeft, theme.Colors.Separator); 
-    self:_AnimateAndApplyColor(dd.BorderRight, theme.Colors.Separator); 
-    self:_AnimateAndApplyColor(dd.BorderBottom, theme.Colors.Separator);
 
     local winW, winH = 360, 500
     local winX, winY = self.Window.X + (self.Window.Width / 2) - (winW / 2), self.Window.Y + (self.Window.Height / 2) - (winH / 2)
@@ -1259,7 +1246,6 @@ function Library:_RenderAboutWindow(mouse_pos)
     local controlX = winX + 20; local controlW = winW - 40; local controlSpacing = 35
     local rightEdge = winX + winW - 25
     
-    -- [[ ИСПРАВЛЕНИЕ ПОЗИЦИИ ПЕРЕКЛЮЧАТЕЛЯ В ABOUT ]]
     local toggle = about.AutoSaveToggle
     local toggleY = currentY - 1
     toggle.Label.Position = {controlX, currentY}; 
@@ -1299,23 +1285,71 @@ function Library:_RenderAboutWindow(mouse_pos)
     slider.ValueText.Position = {valueTextX, currentY}; 
     currentY = currentY + controlSpacing
     
+    -- << НАЧАЛО НОВОЙ ЛОГИКИ ОТРИСОВКИ DROPDOWN >>
     local dropdown = about.DpiScaleDropdown
     local dropdownY = currentY - 4
-    dropdown.Label.Position = {controlX, dropdownY + 5}; local dropdownButtonX = rightEdge - dropdown.Size.width; dropdown.Button.Position = {dropdownButtonX, dropdownY}; dropdown.Button.Size = {dropdown.Size.width, dropdown.Size.height}; dropdown.ButtonText.Position = {dropdownButtonX + 5, dropdownY + dropdown.Size.height / 2 - dropdown.ButtonText.Size / 2}; dropdown.ButtonText.Text = self.UI.Values[dropdown.id]; local arrowX, arrowY = dropdownButtonX + dropdown.Size.width - 15, dropdownY + dropdown.Size.height / 2; dropdown.ArrowLine1.From = {arrowX, arrowY - 2}; dropdown.ArrowLine1.To = {arrowX + 5, arrowY + 3}; dropdown.ArrowLine2.From = {arrowX + 5, arrowY + 3}; dropdown.ArrowLine2.To = {arrowX + 10, arrowY - 2}; dropdown.ClickRegion = { x1 = dropdownButtonX, y1 = dropdownY, x2 = dropdownButtonX + dropdown.Size.width, y2 = dropdownY + dropdown.Size.height }
-    self:_SetVisibility(dropdown.BorderLeft, dropdown.IsOpen); self:_SetVisibility(dropdown.BorderRight, dropdown.IsOpen); self:_SetVisibility(dropdown.BorderBottom, dropdown.IsOpen)
-    if dropdown.IsOpen then
-        local optionListHeight = #dropdown.Options * 20 + 5; local bgX, bgY, bgW, bgH = dropdownButtonX, dropdownY + dropdown.Size.height, dropdown.Size.width, optionListHeight
-        self:_SetVisibility(dropdown.OptionBackground, true); dropdown.OptionBackground.Position = {bgX, bgY}; dropdown.OptionBackground.Size = {bgW, bgH}; dropdown.BorderLeft.From = {bgX, bgY}; dropdown.BorderLeft.To = {bgX, bgY + bgH}; dropdown.BorderRight.From = {bgX + bgW, bgY}; dropdown.BorderRight.To = {bgX + bgW, bgY + bgH}; dropdown.BorderBottom.From = {bgX, bgY + bgH}; dropdown.BorderBottom.To = {bgX + bgW, bgY + bgH};
-        local optionY = dropdownY + dropdown.Size.height + 5
-        for i, option in ipairs(dropdown.OptionList) do 
-            self:_SetVisibility(option, true); option.Position = {dropdownButtonX + 5, optionY}; option.Text = dropdown.Options[i]; 
-            local targetOptColor = (self.UI.Values[dropdown.id] == dropdown.Options[i]) and theme.Colors.Accent or theme.Colors.TextPrimary
-            self:_AnimateAndApplyColor(option, targetOptColor)
-            optionY = optionY + 20 
+    dropdown.Label.Position = {controlX, dropdownY + 5};
+    local dropdownButtonX = rightEdge - dropdown.Size.width;
+    dropdown.Button.Position = {dropdownButtonX, dropdownY}; dropdown.Button.Size = {dropdown.Size.width, dropdown.Size.height};
+    dropdown.ButtonText.Position = {dropdownButtonX + 5, dropdownY + dropdown.Size.height / 2 - dropdown.ButtonText.Size / 2};
+    dropdown.ButtonText.Text = self.UI.Values[dropdown.id];
+    local arrowX, arrowY = dropdownButtonX + dropdown.Size.width - 15, dropdownY + dropdown.Size.height / 2;
+    dropdown.ArrowLine1.From = {arrowX, arrowY - 2}; dropdown.ArrowLine1.To = {arrowX + 5, arrowY + 3};
+    dropdown.ArrowLine2.From = {arrowX + 5, arrowY + 3}; dropdown.ArrowLine2.To = {arrowX + 10, arrowY - 2};
+    dropdown.ClickRegion = { x1 = dropdownButtonX, y1 = dropdownY, x2 = dropdownButtonX + dropdown.Size.width, y2 = dropdownY + dropdown.Size.height }
+
+    if dropdown.IsOpen or dropdown.IsClosing then
+        local speed_value = self.UI.Values["AboutAnimationSpeed"] or 1.6
+        local animationSpeed = speed_value / 10.0
+        if dropdown.IsOpen and not dropdown.IsClosing then dropdown.FadeOpacity = math.min(1, dropdown.FadeOpacity + animationSpeed)
+        elseif dropdown.IsClosing then dropdown.FadeOpacity = math.max(0, dropdown.FadeOpacity - animationSpeed); if dropdown.FadeOpacity == 0 then dropdown.IsClosing = false end end
+
+        if dropdown.FadeOpacity > 0 then
+            local finalOpacity = dropdown.FadeOpacity
+            local popupWidth = 150; local optionHeight = 25; local popupHeight = (#dropdown.Options * optionHeight) + 10
+            local popupX = dropdownButtonX + (dropdown.Size.width / 2) - (popupWidth / 2); local popupY = dropdownY + (dropdown.Size.height / 2) - (popupHeight / 2)
+            
+            self:_SetVisibility(dropdown.OptionBackground, true); self:_SetVisibility(dropdown.Border, true)
+            self:_AnimateAndApplyColor(dropdown.OptionBackground, theme.Colors.SectionBackground, finalOpacity)
+            self:_AnimateAndApplyColor(dropdown.Border, theme.Colors.Separator, finalOpacity)
+            dropdown.OptionBackground.Position = {popupX, popupY}; dropdown.OptionBackground.Size = {popupWidth, popupHeight}
+            dropdown.Border.Position = {popupX, popupY}; dropdown.Border.Size = {popupWidth, popupHeight}
+            
+            local glowColor = self.ActiveTheme.Colors.GlowColor
+            local animatedGlowColor = {glowColor[1], glowColor[2], glowColor[3], (glowColor[4] or 255) * finalOpacity}
+            self:_RenderGlowEffect(dropdown.Glow, popupX, popupY, popupWidth, popupHeight, dropdown.OptionBackground.Rounding, animatedGlowColor)
+            
+            local currentOptionY_popup = popupY + 5
+            for i, option in ipairs(dropdown.OptionList) do
+                self:_SetVisibility(option.Text, true); self:_SetVisibility(option.Highlight, true)
+                option.ClickRegion = {x1 = popupX, y1 = currentOptionY_popup, x2 = popupX + popupWidth, y2 = currentOptionY_popup + optionHeight}
+                option.Text.Position = {popupX + 10, currentOptionY_popup + (optionHeight / 2) - (option.Text.Size / 2)}
+                option.Highlight.Position = {popupX + 5, currentOptionY_popup}; option.Highlight.Size = {popupWidth - 10, optionHeight}
+                
+                local isSelected = (self.UI.Values[dropdown.id] == dropdown.Options[i])
+                local isHovered = (dropdown.HoveredOptionIndex == i)
+                
+                local targetTextColor = isSelected and theme.Colors.Accent or theme.Colors.TextPrimary
+                self:_AnimateAndApplyColor(option.Text, targetTextColor, finalOpacity)
+                
+                if isHovered then
+                    local highlightColor = theme.Colors.Separator
+                    self:_AnimateAndApplyColor(option.Highlight, highlightColor, finalOpacity * 0.4)
+                else
+                    option.Highlight.Opacity = 0
+                end
+                currentOptionY_popup = currentOptionY_popup + optionHeight
+            end
         end
     else
-        self:_SetVisibility(dropdown.OptionBackground, false); for _, option in ipairs(dropdown.OptionList) do self:_SetVisibility(option, false) end
+        self:_HideGlowEffect(dropdown.Glow)
+        self:_SetVisibility(dropdown.OptionBackground, false); self:_SetVisibility(dropdown.Border, false)
+        for _, option in ipairs(dropdown.OptionList) do
+            self:_SetVisibility(option.Text, false); self:_SetVisibility(option.Highlight, false)
+        end
     end
+    -- << КОНЕЦ НОВОЙ ЛОГИКИ >>
+    
     currentY = currentY + controlSpacing
     local styleY = currentY + 4
     about.StyleLabel.Position = {controlX, styleY}; 
@@ -1991,8 +2025,11 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
             elementY_offset = elementY_offset + 35
             
             if el.IsOpen or el.IsClosing then
-                if el.IsOpen and not el.IsClosing then el.FadeOpacity = math.min(1, el.FadeOpacity + 0.15)
-                elseif el.IsClosing then el.FadeOpacity = math.max(0, el.FadeOpacity - 0.15); if el.FadeOpacity == 0 then el.IsClosing = false end end
+                -- << ИСПРАВЛЕНИЕ СКОРОСТИ АНИМАЦИИ >>
+                local speed_value = self.UI.Values["AboutAnimationSpeed"] or 1.6
+                local animationSpeed = speed_value / 10.0 -- Делаем чуть быстрее, чем анимация секций
+                if el.IsOpen and not el.IsClosing then el.FadeOpacity = math.min(1, el.FadeOpacity + animationSpeed)
+                elseif el.IsClosing then el.FadeOpacity = math.max(0, el.FadeOpacity - animationSpeed); if el.FadeOpacity == 0 then el.IsClosing = false end end
 
                 if el.FadeOpacity > 0 then
                     local finalOpacity = masterOpacity * el.FadeOpacity
@@ -2004,16 +2041,14 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
                     self:_AnimateAndApplyColor(el.Border, theme.Colors.Separator, finalOpacity)
                     el.OptionBackground.Position = {popupX, popupY}; el.OptionBackground.Size = {popupWidth, popupHeight}
                     el.Border.Position = {popupX, popupY}; el.Border.Size = {popupWidth, popupHeight}
-                    self:_RenderGlowEffect(el.Glow, popupX, popupY, popupWidth, popupHeight, el.OptionBackground.Rounding, theme.Colors.GlowColor)
+                    
+                    -- << ИСПРАВЛЕНИЕ АНИМАЦИИ GLOW >>
+                    local glowColor = self.ActiveTheme.Colors.GlowColor
+                    local animatedGlowColor = {glowColor[1], glowColor[2], glowColor[3], (glowColor[4] or 255) * finalOpacity}
+                    self:_RenderGlowEffect(el.Glow, popupX, popupY, popupWidth, popupHeight, el.OptionBackground.Rounding, animatedGlowColor)
 
                     local currentOptionY = popupY + 5
                     local hasSelection = el.type == "Multidropdown" and #self.UI.Values[el.id] > 0
-                    
-                    --[[
-                        ИЗМЕНЕНИЕ ОТСТУПА ТЕКСТА
-                        Чтобы увеличить/уменьшить расстояние от галочки до текста,
-                        измените значение '25' в следующей строке.
-                    ]]
                     local textX = popupX + (hasSelection and 25 or 10)
 
                     for i, option in ipairs(el.OptionList) do
@@ -2046,11 +2081,6 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
                             self:_SetVisibility(option.CheckmarkLine1, isSelected); self:_SetVisibility(option.CheckmarkLine2, isSelected)
                             if isSelected then
                                 local checkY = currentOptionY + (optionHeight / 2)
-                                --[[
-                                    ИЗМЕНЕНИЕ ФОРМЫ ГАЛОЧКИ
-                                    Чтобы сделать галочку выше, уменьшите последнее значение Y
-                                    в строке 'option.CheckmarkLine2.To' (например, с -2 на -4).
-                                ]]
                                 option.CheckmarkLine1.From = {popupX + 8, checkY}; option.CheckmarkLine1.To = {popupX + 11, checkY + 3}
                                 option.CheckmarkLine2.From = {popupX + 11, checkY + 3}; option.CheckmarkLine2.To = {popupX + 15, checkY - 4}
                                 self:_AnimateAndApplyColor(option.CheckmarkLine1, theme.Colors.TextLight, finalOpacity)
@@ -2061,7 +2091,7 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
                     end
                 end
             else
-                self:_HideGlowEffect(el.Glow) -- << ИСПРАВЛЕНИЕ БАГА С "ПРИЗРАЧНЫМ" GLOW
+                self:_HideGlowEffect(el.Glow)
                 self:_SetVisibility(el.OptionBackground, false)
                 self:_SetVisibility(el.Border, false)
                 for _, option in ipairs(el.OptionList) do
