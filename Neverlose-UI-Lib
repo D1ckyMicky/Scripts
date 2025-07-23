@@ -1915,39 +1915,28 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
         if el.type == "Toggle" then
             self:_SetVisibility(el.Back, true)
             self:_SetVisibility(el.Nub, true)
-
             local currentElementY = animatedY + elementY_offset
             self:_AnimateAndApplyColor(el.Label, theme.Colors.TextSecondary, masterOpacity)
             el.Label.Position = {sectionX + 10, currentElementY}
-
             local toggleBackX = sectionX + columnWidth - el.Size.width - 15
-            local toggleBackY = currentElementY - 1 -- Небольшая корректировка для идеального выравнивания по центру текста
+            local toggleBackY = currentElementY - 1
             el.Back.Position = {toggleBackX, toggleBackY}; el.Back.Size = {el.Size.width, el.Size.height};
             el.ClickRegion = {x1 = toggleBackX, y1 = toggleBackY, x2 = toggleBackX + el.Size.width, y2 = toggleBackY + el.Size.height}
-
             local is_on = self.UI.Values[el.id]
             local nubY = toggleBackY + el.Size.height / 2
             local targetBackColor, targetNubColor
-
             if is_on then
                 targetBackColor = self:_DarkenColor(theme.Colors.Accent, 0.3)
                 targetNubColor = theme.Colors.Accent
                 el.Nub.Position = {toggleBackX + el.Size.width - el.Size.height / 2, nubY}
             else
-                --[[
-                    Чтобы изменить цвет выключенного переключателя,
-                    измени значения в следующих двух строках.
-                ]]
                 targetBackColor = theme.Colors.DarkGray
                 targetNubColor = theme.Colors.LightGray
                 el.Nub.Position = {toggleBackX + el.Size.height / 2, nubY}
             end
-
             self:_AnimateAndApplyColor(el.Back, targetBackColor, masterOpacity)
             self:_AnimateAndApplyColor(el.Nub, targetNubColor, masterOpacity)
-
             local iconAreaX = toggleBackX - 10
-
             if el.HasColor and el.ColorCircle then
                 self:_SetVisibility(el.ColorCircle, true)
                 self:_SetVisibility(el.ColorBorder, true)
@@ -1965,7 +1954,6 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
                 if el.ColorCircle then self:_SetVisibility(el.ColorCircle, false) end
                 if el.ColorBorder then self:_SetVisibility(el.ColorBorder, false) end
             end
-
             if el.HasSettings and el.SettingsIcon then
                 self:_SetVisibility(el.SettingsIcon, true)
                 self:_AnimateAndApplyColor(el.SettingsIcon, theme.Colors.TextSecondary, masterOpacity)
@@ -1975,37 +1963,26 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
             else
                 if el.SettingsIcon then self:_SetVisibility(el.SettingsIcon, false) end
             end
-
             elementY_offset = elementY_offset + 35
         elseif el.type == "Slider" then
-            self:_SetVisibility(el.Back, true)
-            self:_SetVisibility(el.LeftFill, true)
-            self:_SetVisibility(el.Nub, true)
-            self:_SetVisibility(el.ValueText, true)
+            self:_SetVisibility(el.Back, true); self:_SetVisibility(el.LeftFill, true); self:_SetVisibility(el.Nub, true); self:_SetVisibility(el.ValueText, true)
             local currentElementY = animatedY + elementY_offset
             self:_AnimateAndApplyColor(el.Label, theme.Colors.TextSecondary, masterOpacity)
             el.Label.Position = {sectionX + 10, currentElementY}
             local sliderBackX = sectionX + 100; local sliderBackWidth = columnWidth - 110 - 50
-            el.Back.Position = {sliderBackX, currentElementY + 8};
-            el.Back.Size = {sliderBackWidth, 2};
+            el.Back.Position = {sliderBackX, currentElementY + 8}; el.Back.Size = {sliderBackWidth, 2};
             el.ClickRegion = { x1 = sliderBackX, y1 = currentElementY - 2, x2 = sliderBackX + sliderBackWidth, y2 = currentElementY + 18 };
             local value_percentage = math.clamp(((self.UI.Values[el.id] or el.Min) - el.Min) / (el.Max - el.Min), 0, 1)
             local nubX = sliderBackX + sliderBackWidth * value_percentage
-            el.LeftFill.Position = {sliderBackX, currentElementY + 8};
-            el.LeftFill.Size = {nubX - sliderBackX, 2}
+            el.LeftFill.Position = {sliderBackX, currentElementY + 8}; el.LeftFill.Size = {nubX - sliderBackX, 2}
             el.Nub.Position = {nubX, currentElementY + 9}
             local valueText = tostring(math.floor(self.UI.Values[el.id] or el.Min)); local valueTextX = sectionX + columnWidth - 40
             el.ValueText.Text = valueText; el.ValueText.Position = {valueTextX, currentElementY}
-            self:_AnimateAndApplyColor(el.Back, theme.Colors.DarkBlue, masterOpacity)
-            self:_AnimateAndApplyColor(el.LeftFill, theme.Colors.Accent, masterOpacity)
-            self:_AnimateAndApplyColor(el.Nub, theme.Colors.Accent, masterOpacity)
-            self:_AnimateAndApplyColor(el.ValueText, theme.Colors.TextPrimary, masterOpacity)
+            self:_AnimateAndApplyColor(el.Back, theme.Colors.DarkBlue, masterOpacity); self:_AnimateAndApplyColor(el.LeftFill, theme.Colors.Accent, masterOpacity)
+            self:_AnimateAndApplyColor(el.Nub, theme.Colors.Accent, masterOpacity); self:_AnimateAndApplyColor(el.ValueText, theme.Colors.TextPrimary, masterOpacity)
             elementY_offset = elementY_offset + 35
         elseif el.type == "Dropdown" or el.type == "Multidropdown" then
-            self:_SetVisibility(el.Button, true)
-            self:_SetVisibility(el.ButtonText, true)
-            self:_SetVisibility(el.ArrowLine1, true)
-            self:_SetVisibility(el.ArrowLine2, true)
+            self:_SetVisibility(el.Button, true); self:_SetVisibility(el.ButtonText, true); self:_SetVisibility(el.ArrowLine1, true); self:_SetVisibility(el.ArrowLine2, true)
             local currentElementY = animatedY + elementY_offset
             self:_AnimateAndApplyColor(el.Label, theme.Colors.TextSecondary, masterOpacity)
             el.Label.Position = {sectionX + 10, currentElementY + 5}
@@ -2018,71 +1995,66 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
             el.ClickRegion = { x1 = dropdownButtonX, y1 = dropdownButtonY, x2 = dropdownButtonX + el.Size.width, y2 = dropdownButtonY + el.Size.height }
             self:_AnimateAndApplyColor(el.Button, theme.Colors.DarkBlue, masterOpacity); self:_AnimateAndApplyColor(el.ButtonText, theme.Colors.TextPrimary, masterOpacity); self:_AnimateAndApplyColor(el.ArrowLine1, theme.Colors.TextPrimary, masterOpacity); self:_AnimateAndApplyColor(el.ArrowLine2, theme.Colors.TextPrimary, masterOpacity)
             elementY_offset = elementY_offset + 35
-            if el.IsOpen then
-                self:_SetVisibility(el.OptionBackground, true)
-                self:_SetVisibility(el.BorderLeft, true)
-                self:_SetVisibility(el.BorderRight, true)
-                self:_SetVisibility(el.BorderBottom, true)
-                for _, option in ipairs(el.OptionList) do self:_SetVisibility(option, true) end
-                local optionListHeight = #el.Options * 20 + 5
-                local bgX, bgY, bgW, bgH = dropdownButtonX, dropdownButtonY + el.Size.height, el.Size.width, optionListHeight
-                el.OptionBackground.Position = {bgX, bgY}; el.OptionBackground.Size = {bgW, bgH}
-                el.BorderLeft.From = {bgX, bgY}; el.BorderLeft.To = {bgX, bgY + bgH}
-                el.BorderRight.From = {bgX + bgW, bgY}; el.BorderRight.To = {bgX + bgW, bgY + bgH}
-                el.BorderBottom.From = {bgX, bgY + bgH}; el.BorderBottom.To = {bgX + bgW, bgY + bgH}
-                self:_RenderGlowEffect(el.Glow, bgX, bgY, bgW, bgH, el.OptionBackground.Rounding, theme.Colors.GlowColor, {top=false, left=true, right=true, bottom=true})
-                self:_AnimateAndApplyColor(el.OptionBackground, theme.Colors.SectionBackground, masterOpacity)
-                self:_AnimateAndApplyColor(el.BorderLeft, theme.Colors.Separator, masterOpacity)
-                self:_AnimateAndApplyColor(el.BorderRight, theme.Colors.Separator, masterOpacity)
-                self:_AnimateAndApplyColor(el.BorderBottom, theme.Colors.Separator, masterOpacity)
-                local optionY_abs = dropdownButtonY + el.Size.height + 5
-                for i, option in ipairs(el.OptionList) do
-                    option.Position = {dropdownButtonX + 5, optionY_abs}
-                    local isSelected = (el.type == "Dropdown" and self.UI.Values[el.id] == el.Options[i]) or (el.type == "Multidropdown" and table.find(self.UI.Values[el.id], el.Options[i]))
-                    local targetOptColor = isSelected and theme.Colors.Accent or theme.Colors.TextPrimary
-                    self:_AnimateAndApplyColor(option, targetOptColor, masterOpacity)
-                    optionY_abs = optionY_abs + 20
+            
+            -- << НАЧАЛО НОВОЙ ЛОГИКИ ОТРИСОВКИ DROPDOWN POP-UP >>
+            if el.IsOpen or el.IsClosing then
+                if el.IsOpen and not el.IsClosing then el.FadeOpacity = math.min(1, el.FadeOpacity + 0.15)
+                elseif el.IsClosing then el.FadeOpacity = math.max(0, el.FadeOpacity - 0.15); if el.FadeOpacity == 0 then el.IsClosing = false end end
+                
+                if el.FadeOpacity > 0 then
+                    local finalOpacity = masterOpacity * el.FadeOpacity
+                    local popupWidth = 150; local optionHeight = 25; local popupHeight = (#el.Options * optionHeight) + 10
+                    local popupX = dropdownButtonX + (el.Size.width / 2) - (popupWidth / 2); local popupY = dropdownButtonY + (el.Size.height / 2) - (popupHeight / 2)
+                    
+                    self:_SetVisibility(el.OptionBackground, true); self:_SetVisibility(el.Border, true)
+                    
+                    self:_AnimateAndApplyColor(el.OptionBackground, theme.Colors.SectionBackground, finalOpacity)
+                    self:_AnimateAndApplyColor(el.Border, theme.Colors.Separator, finalOpacity)
+                    
+                    el.OptionBackground.Position = {popupX, popupY}; el.OptionBackground.Size = {popupWidth, popupHeight}
+                    el.Border.Position = {popupX, popupY}; el.Border.Size = {popupWidth, popupHeight}
+                    
+                    self:_RenderGlowEffect(el.Glow, popupX, popupY, popupWidth, popupHeight, el.OptionBackground.Rounding, theme.Colors.GlowColor)
+                    
+                    local currentOptionY = popupY + 5
+                    for i, option in ipairs(el.OptionList) do
+                        self:_SetVisibility(option.Text, true); self:_SetVisibility(option.Highlight, true)
+                        option.ClickRegion = {x1 = popupX, y1 = currentOptionY, x2 = popupX + popupWidth, y2 = currentOptionY + optionHeight}
+                        option.Text.Position = {popupX + 10, currentOptionY + (optionHeight / 2) - (option.Text.Size / 2)}
+                        option.Highlight.Position = {popupX + 5, currentOptionY}; option.Highlight.Size = {popupWidth - 10, optionHeight}
+                        
+                        local isSelected = (el.type == "Dropdown" and self.UI.Values[el.id] == el.Options[i]) or (el.type == "Multidropdown" and table.find(self.UI.Values[el.id], el.Options[i]))
+                        local isHovered = (el.HoveredOptionIndex == i)
+                        
+                        local targetTextColor
+                        if el.type == "Multidropdown" and isSelected then
+                             -- Чтобы изменить цвет ВЫБРАННОГО текста в Multidropdown, измените это значение:
+                            targetTextColor = theme.Colors.TextLight
+                        elseif isSelected then
+                            targetTextColor = theme.Colors.Accent
+                        else
+                            targetTextColor = theme.Colors.TextPrimary
+                        end
+                        self:_AnimateAndApplyColor(option.Text, targetTextColor, finalOpacity)
+                        
+                        if isHovered then
+                            -- Чтобы изменить цвет ПОДСВЕТКИ при наведении, измените это значение:
+                            local highlightColor = theme.Colors.Separator
+                            self:_AnimateAndApplyColor(option.Highlight, highlightColor, finalOpacity * 0.4)
+                        else
+                            option.Highlight.Opacity = 0
+                        end
+                        currentOptionY = currentOptionY + optionHeight
+                    end
                 end
-            else
-                self:_HideGlowEffect(el.Glow)
-                self:_SetVisibility(el.OptionBackground, false)
-                self:_SetVisibility(el.BorderLeft, false)
-                self:_SetVisibility(el.BorderRight, false)
-                self:_SetVisibility(el.BorderBottom, false)
-                for _, option in ipairs(el.OptionList) do self:_SetVisibility(option, false) end
             end
-        elseif el.type == "Keybind" then
-            self:_SetVisibility(el.Button, true)
-            self:_SetVisibility(el.ButtonText, true)
-            local currentElementY = animatedY + elementY_offset
-            self:_AnimateAndApplyColor(el.Label, theme.Colors.TextSecondary, masterOpacity)
-            el.Label.Position = {sectionX + 10, currentElementY + 5}
-            local keybindButtonX, keybindButtonY = sectionX + columnWidth - el.Size.width - 15, currentElementY
-            el.Button.Position = {keybindButtonX, keybindButtonY};
-            el.Button.Size = {el.Size.width, el.Size.height}
-            el.ButtonText.Position = { keybindButtonX + (el.Size.width / 2), keybindButtonY + el.Size.height / 2 - el.ButtonText.Size / 2 };
-            el.ButtonText.Text = el.IsListening and "..." or string.upper(self.UI.Values[el.id])
-            el.ClickRegion = { x1 = keybindButtonX, y1 = keybindButtonY, x2 = keybindButtonX + el.Size.width, y2 = keybindButtonY + el.Size.height }
-            local targetButtonColor = el.IsListening and theme.Colors.Accent or theme.Colors.DarkBlue
-            local targetTextColor = el.IsListening and self:_GetTextColorForBackground(targetButtonColor) or theme.Colors.TextPrimary
-            self:_AnimateAndApplyColor(el.Button, targetButtonColor, masterOpacity)
-            self:_AnimateAndApplyColor(el.ButtonText, targetTextColor, masterOpacity)
-            elementY_offset = elementY_offset + 35
+            -- << КОНЕЦ НОВОЙ ЛОГИКИ >>
         end
     end
 
     local sectionHeight = elementY_offset - ((separatorY_abs - animatedY) + 15) + 45
-
-    if #section.Elements > 0 then
-        local lastElement = section.Elements[#section.Elements]
-        if lastElement.type == "Dropdown" or lastElement.type == "Multidropdown" or lastElement.type == "Keybind" then
-            sectionHeight = sectionHeight + 13
-        end
-    end
-
-    sDrawing.Background.Size = {columnWidth, sectionHeight}
-    sDrawing.Border.Size = {columnWidth, sectionHeight}
-
+    if #section.Elements > 0 then local lastElement = section.Elements[#section.Elements]; if lastElement.type == "Dropdown" or lastElement.type == "Multidropdown" or lastElement.type == "Keybind" then sectionHeight = sectionHeight + 13 end end
+    sDrawing.Background.Size = {columnWidth, sectionHeight}; sDrawing.Border.Size = {columnWidth, sectionHeight}
     return sectionHeight
 end
 
@@ -2284,6 +2256,32 @@ function Library:_InputLoop()
     local about_window = self.UI.Core.AboutWindow
     local settings_popup = self.UI.Popups.Settings
 
+    --[[
+        НОВАЯ ЛОГИКА: ОБРАБОТКА НАВЕДЕНИЯ МЫШИ (HOVER)
+        Этот блок выполняется в каждом кадре, чтобы отслеживать, на какую опцию наведен курсор.
+    ]]
+    local anyDropdownOpen = false
+    for _, section in ipairs(self.UI.Sections) do
+        if section.ParentTab == self.Window.ActiveTab then
+            for _, el in ipairs(section.Elements) do
+                if (el.type == "Dropdown" or el.type == "Multidropdown") and el.IsOpen then
+                    anyDropdownOpen = true
+                    local hoveredFound = false
+                    for i, option in ipairs(el.OptionList) do
+                        if self:_IsPointInRegion(mouse_x, mouse_y, option.ClickRegion) then
+                            el.HoveredOptionIndex = i
+                            hoveredFound = true
+                            break
+                        end
+                    end
+                    if not hoveredFound then
+                        el.HoveredOptionIndex = 0
+                    end
+                end
+            end
+        end
+    end
+
     -- [НАЧАЛО ЛОГИКИ ПЕРЕТАСКИВАНИЯ]
     if is_left_pressed_now then
         if not is_dragging_something then
@@ -2297,7 +2295,7 @@ function Library:_InputLoop()
                 picker.isDraggingOpacity = true
             elseif picker.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, picker.SaturationValueRegion) then
                 picker.isDraggingSaturationValue = true
-            elseif not self.UI.Popups.About.IsOpen and not settings_popup.IsOpen and not self.UI.Popups.EditStyle.IsOpen and not self.UI.Popups.ColorPicker.IsOpen and not configsTab.OptionsPopup.IsOpen then
+            elseif not self.UI.Popups.About.IsOpen and not settings_popup.IsOpen and not self.UI.Popups.EditStyle.IsOpen and not self.UI.Popups.ColorPicker.IsOpen and not configsTab.OptionsPopup.IsOpen and not anyDropdownOpen then
                  local started_slider_drag = false
                  if self.Window.ActiveTab ~= "Configs" then
                     for _, section in ipairs(self.UI.Sections) do
@@ -2359,11 +2357,9 @@ function Library:_InputLoop()
         if clamped_value ~= self.UI.Values[about_slider.id] then self.UI.Values[about_slider.id] = clamped_value; end
     end
 
-    -- << ИЗМЕНЕНА: эта функция теперь универсальна >>
     local function update_color_picker()
         local new_rgb = self:_HSVtoRGB(picker.h, picker.s, picker.v)
         local new_color = {new_rgb[1], new_rgb[2], new_rgb[3], picker.a * 255}
-
         if picker.EditingValueID then
             self.UI.Values[picker.EditingValueID] = new_color
         elseif picker.EditingColorName then
@@ -2400,14 +2396,52 @@ function Library:_InputLoop()
     end
     -- [КОНЕЦ ЛОГИКИ ПЕРЕТАСКИВАНИЯ]
 
-    if is_left_clicked then
-        if is_dragging_something then
-            is_dragging_something = false
-        else
-            local click_was_handled = false
-            local clicked_dropdown_button = nil
+    if is_left_clicked and not is_dragging_something then
+        local click_was_handled = false
 
-            -- [НАЧАЛО ЛОГИКИ КЛИКОВ]
+        -- Приоритетная проверка: если открыт какой-либо dropdown
+        if anyDropdownOpen then
+            local clickedInsideADropdown = false
+            for _, section in ipairs(self.UI.Sections) do
+                for _, el in ipairs(section.Elements) do
+                    if (el.type == "Dropdown" or el.type == "Multidropdown") and el.IsOpen and el.HoveredOptionIndex > 0 then
+                        -- Кликнули на опцию внутри открытого списка
+                        clickedInsideADropdown = true
+                        click_was_handled = true
+                        local i = el.HoveredOptionIndex
+                        if el.type == "Dropdown" then
+                            self.UI.Values[el.id] = el.Options[i]
+                            if el.Callback then el.Callback(self.UI.Values[el.id]) end
+                            el.IsOpen = false
+                            el.IsClosing = true -- Запускаем анимацию закрытия
+                        else -- Multidropdown
+                            local opt = el.Options[i]
+                            local found_idx = table.find(self.UI.Values[el.id], opt)
+                            if found_idx then table.remove(self.UI.Values[el.id], found_idx)
+                            else table.insert(self.UI.Values[el.id], opt) end
+                            if el.Callback then el.Callback(self.UI.Values[el.id]) end
+                        end
+                        break
+                    end
+                end
+                if click_was_handled then break end
+            end
+
+            if not clickedInsideADropdown then
+                -- Кликнули вне опций, закрываем все открытые dropdown'ы
+                for _, section in ipairs(self.UI.Sections) do
+                    for _, el in ipairs(section.Elements) do
+                        if (el.type == "Dropdown" or el.type == "Multidropdown") and el.IsOpen then
+                            el.IsOpen = false
+                            el.IsClosing = true
+                        end
+                    end
+                end
+            end
+        end
+
+        -- Если клик еще не был обработан, проверяем остальные элементы
+        if not click_was_handled then
             if settings_popup.IsOpen then
                 click_was_handled = true
                 if self:_IsPointInRegion(mouse_x, mouse_y, settings_popup.ClickRegion) then
@@ -2516,19 +2550,30 @@ function Library:_InputLoop()
                     for _, section in ipairs(self.UI.Sections) do
                         if section.ParentTab == self.Window.ActiveTab then
                             for _, el in ipairs(section.Elements) do
-                                if (el.type == "Dropdown" or el.type == "Multidropdown") and el.IsOpen then
-                                    local option_region_y = el.Button.Position.y + el.Size.height
-                                    if self:_IsPointInRegion(mouse_x, mouse_y, {x1=el.Button.Position.x, y1=option_region_y, x2=el.Button.Position.x + el.OptionBackground.Size.x, y2=option_region_y + el.OptionBackground.Size.y}) then
-                                        local optionY = el.Button.Position.y + el.Size.height + 5
-                                        for i, option_text in ipairs(el.OptionList) do
-                                            local optionRegion = {x1 = el.Button.Position.x, y1 = optionY, x2 = el.Button.Position.x + el.Size.width, y2 = optionY + 20}
-                                            if self:_IsPointInRegion(mouse_x, mouse_y, optionRegion) then
-                                                if el.type == "Dropdown" then self.UI.Values[el.id] = el.Options[i]; if el.Callback then el.Callback(self.UI.Values[el.id]) end; el.IsOpen = false;
-                                                else local opt = el.Options[i]; local found_idx = table.find(self.UI.Values[el.id], opt); if found_idx then table.remove(self.UI.Values[el.id], found_idx) else table.insert(self.UI.Values[el.id], opt) end; if el.Callback then el.Callback(self.UI.Values[el.id]) end; clicked_dropdown_button = el end
-                                                click_was_handled = true; break
-                                            end; optionY = optionY + 20
-                                        end; if click_was_handled then break end
+                                if el.type == "Toggle" and el.HasColor and self:_IsPointInRegion(mouse_x, mouse_y, el.ColorClickRegion) then
+                                    picker.IsOpen = true
+                                    picker.EditingValueID = el.HasColor.id
+                                    picker.EditingColorName = nil
+                                    picker.Pos = {x = mouse_x, y = mouse_y}
+                                    local color_to_edit = self.UI.Values[el.HasColor.id]
+                                    picker.h, picker.s, picker.v, picker.a = self:_RGBtoHSV(color_to_edit[1], color_to_edit[2], color_to_edit[3], color_to_edit[4])
+                                    click_was_handled = true; break
+                                elseif el.HasSettings and self:_IsPointInRegion(mouse_x, mouse_y, el.SettingsClickRegion) then
+                                    settings_popup.IsOpen = true; settings_popup.ActiveToggle = el; settings_popup.Pos = {x = mouse_x, y = mouse_y}; click_was_handled = true; break
+                                elseif self:_IsPointInRegion(mouse_x, mouse_y, el.ClickRegion) then
+                                    if el.type == "Toggle" then
+                                        self.UI.Values[el.id] = not self.UI.Values[el.id]
+                                        if el.Callback then el.Callback(self.UI.Values[el.id]) end
+                                    elseif el.type == "Dropdown" or el.type == "Multidropdown" then
+                                        local openingThisOne = not el.IsOpen
+                                        for _, s_inner in ipairs(self.UI.Sections) do for _, el_inner in ipairs(s_inner.Elements) do if (el_inner.type == "Dropdown" or el_inner.type == "Multidropdown") and el_inner.IsOpen then el_inner.IsOpen = false; el_inner.IsClosing = true end end end
+                                        if openingThisOne then
+                                            el.IsOpen = true
+                                            el.IsClosing = false
+                                            el.FadeOpacity = 0.0
+                                        end
                                     end
+                                    click_was_handled = true; break
                                 end
                             end
                         end; if click_was_handled then break end
@@ -2545,30 +2590,6 @@ function Library:_InputLoop()
                             elseif self:_IsPointInRegion(mouse_x, mouse_y, d.OptionsButton.ClickRegion) then
                                 local popup = configsTab.OptionsPopup; popup.IsOpen = not popup.IsOpen; popup.ItemIndex = i; popup.Pos = {x = mouse_x - 155, y = mouse_y}; click_was_handled = true; break
                             end
-                        end
-                    else
-                        for _, section in ipairs(self.UI.Sections) do
-                            if section.ParentTab == self.Window.ActiveTab then
-                                for _, el in ipairs(section.Elements) do
-                                    -- << НАЧАЛО ИЗМЕНЕНИЙ: ОБРАБОТКА КЛИКА ПО ЦВЕТУ >>
-                                    if el.type == "Toggle" and el.HasColor and self:_IsPointInRegion(mouse_x, mouse_y, el.ColorClickRegion) then
-                                        picker.IsOpen = true
-                                        picker.EditingValueID = el.HasColor.id -- Устанавливаем ID значения
-                                        picker.EditingColorName = nil -- Сбрасываем имя цвета темы
-                                        picker.Pos = {x = mouse_x, y = mouse_y}
-                                        local color_to_edit = self.UI.Values[el.HasColor.id]
-                                        picker.h, picker.s, picker.v, picker.a = self:_RGBtoHSV(color_to_edit[1], color_to_edit[2], color_to_edit[3], color_to_edit[4])
-                                        click_was_handled = true; break
-                                    -- << КОНЕЦ ИЗМЕНЕНИЙ >>
-                                    elseif el.HasSettings and self:_IsPointInRegion(mouse_x, mouse_y, el.SettingsClickRegion) then
-                                        settings_popup.IsOpen = true; settings_popup.ActiveToggle = el; settings_popup.Pos = {x = mouse_x, y = mouse_y}; click_was_handled = true; break
-                                    elseif self:_IsPointInRegion(mouse_x, mouse_y, el.ClickRegion) then
-                                        if el.type == "Toggle" then self.UI.Values[el.id] = not self.UI.Values[el.id]; if el.Callback then el.Callback(self.UI.Values[el.id]) end
-                                        elseif el.type == "Dropdown" or el.type == "Multidropdown" then clicked_dropdown_button = el; el.IsOpen = not el.IsOpen
-                                        end; click_was_handled = true; break
-                                    end
-                                end
-                            end; if click_was_handled then break end
                         end
                     end
                 end
@@ -2590,7 +2611,6 @@ function Library:_InputLoop()
                     end
                 end
             end
-            for _, section in ipairs(self.UI.Sections) do for _, el in ipairs(section.Elements) do if (el.type == "Dropdown" or el.type == "Multidropdown") and el ~= clicked_dropdown_button then el.IsOpen = false; end end end
         end
     end
 
@@ -2645,6 +2665,7 @@ function Library:_InputLoop()
     was_left_pressed = is_left_pressed_now
 end
 
+
 function Library:_AddPresetsTab()
     local tabGroupName = "PRESETS"
     local tabName = "Configs"
@@ -2686,7 +2707,7 @@ end
 
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3541")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 35xx41")
     local is_first_frame = true
     while self.Window.Visible do
         if is_first_frame then
@@ -2789,28 +2810,37 @@ function Library:_Internal_CreateDropdown(options)
     local z = options.zIndex or 4
     local dropdown = {
         id = options.id, type = "Dropdown", Name = options.Name, Options = options.Options,
-        IsOpen = false, Size = options.Size or {width = 120, height = 25}, Callback = options.Callback,
+        IsOpen = false, IsClosing = false, FadeOpacity = 0.0,
+        HoveredOptionIndex = 0,
+        Size = options.Size or {width = 120, height = 25}, Callback = options.Callback,
         Label = self:_CreateDrawingObject("Text"), Button = self:_CreateDrawingObject("Square"),
         ButtonText = self:_CreateDrawingObject("Text"), OptionList = {},
         OptionBackground = self:_CreateDrawingObject("Square"), ArrowLine1 = self:_CreateDrawingObject("Line"),
         ArrowLine2 = self:_CreateDrawingObject("Line"), ClickRegion = {},
-        BorderLeft = self:_CreateDrawingObject("Line"), BorderRight = self:_CreateDrawingObject("Line"),
-        BorderBottom = self:_CreateDrawingObject("Line"), Glow = self:_Internal_CreateGlowSet(z + 8),
-        CurrentButtonColor = {0,0,0,0} -- Цвет для анимации
+        Border = self:_CreateDrawingObject("Square"),
+        Glow = self:_Internal_CreateGlowSet(z + 8),
+        CurrentButtonColor = {0,0,0,0}
     }
     if dropdown.Label then dropdown.Label.Font = self.ActiveTheme.Fonts.Main; dropdown.Label.Size = self.ActiveTheme.Fonts.Size + 2; dropdown.Label.Text = dropdown.Name; dropdown.Label.Center = false; dropdown.Label.Outline = false; dropdown.Label.zIndex = z; end
     if dropdown.Button then dropdown.Button.Filled = true; dropdown.Button.zIndex = z; dropdown.Button.Rounding = self.ActiveTheme.Rounding.Element; end
     if dropdown.ButtonText then dropdown.ButtonText.Font = self.ActiveTheme.Fonts.Main; dropdown.ButtonText.Size = self.ActiveTheme.Fonts.Size + 3; dropdown.ButtonText.Text = self.UI.Values[dropdown.id]; dropdown.ButtonText.Center = false; dropdown.ButtonText.Outline = false; dropdown.ButtonText.zIndex = z + 1; end
-    if dropdown.OptionBackground then dropdown.OptionBackground.Filled = true; dropdown.OptionBackground.zIndex = z + 9; dropdown.OptionBackground.Visible = false; dropdown.OptionBackground.Rounding = self.ActiveTheme.Rounding.Element; end
+    if dropdown.OptionBackground then dropdown.OptionBackground.Filled = true; dropdown.OptionBackground.zIndex = z + 9; dropdown.OptionBackground.Visible = false; dropdown.OptionBackground.Rounding = self.ActiveTheme.Rounding.Section; end
     if dropdown.ArrowLine1 then dropdown.ArrowLine1.Thickness = 2; dropdown.ArrowLine1.zIndex = z + 2; end
     if dropdown.ArrowLine2 then dropdown.ArrowLine2.Thickness = 2; dropdown.ArrowLine2.zIndex = z + 2; end
-    if dropdown.BorderLeft then dropdown.BorderLeft.Thickness = 1; dropdown.BorderLeft.zIndex = z + 10; dropdown.BorderLeft.Visible = false; end
-    if dropdown.BorderRight then dropdown.BorderRight.Thickness = 1; dropdown.BorderRight.zIndex = z + 10; dropdown.BorderRight.Visible = false; end
-    if dropdown.BorderBottom then dropdown.BorderBottom.Thickness = 1; dropdown.BorderBottom.zIndex = z + 10; dropdown.BorderBottom.Visible = false; end
-    for i, option in ipairs(dropdown.Options) do local optionText = self:_CreateDrawingObject("Text"); if optionText then optionText.Font = self.ActiveTheme.Fonts.Main; optionText.Size = self.ActiveTheme.Fonts.Size; optionText.Text = option; optionText.Center = false; optionText.Outline = false; optionText.zIndex = z + 10; optionText.Visible = false; end table.insert(dropdown.OptionList, optionText) end
+    if dropdown.Border then dropdown.Border.Filled = false; dropdown.Border.Thickness = 1; dropdown.Border.zIndex = z + 12; dropdown.Border.Visible = false; dropdown.Border.Rounding = self.ActiveTheme.Rounding.Section; end
+
+    for i, option in ipairs(dropdown.Options) do
+        local optionEntry = {
+            Text = self:_CreateDrawingObject("Text"),
+            Highlight = self:_CreateDrawingObject("Square"),
+            ClickRegion = {}
+        }
+        if optionEntry.Text then optionEntry.Text.Font = self.ActiveTheme.Fonts.Main; optionEntry.Text.Size = self.ActiveTheme.Fonts.Size; optionEntry.Text.Text = option; optionEntry.Text.Center = false; optionEntry.Text.Outline = false; optionEntry.Text.zIndex = z + 11; optionEntry.Text.Visible = false; end
+        if optionEntry.Highlight then optionEntry.Highlight.Filled = true; optionEntry.Highlight.zIndex = z + 10; optionEntry.Highlight.Visible = false; optionEntry.Highlight.Rounding = self.ActiveTheme.Rounding.Element; end
+        table.insert(dropdown.OptionList, optionEntry)
+    end
     return dropdown
 end
-
 function Library:_Internal_CreateMultidropdown(options)
     if self.UI.Values[options.id] == nil then
         self.UI.Values[options.id] = options.Default or {}
@@ -2818,25 +2848,35 @@ function Library:_Internal_CreateMultidropdown(options)
     local z = options.zIndex or 4
     local multidropdown = {
         id = options.id, type = "Multidropdown", Name = options.Name, Options = options.Options,
-        IsOpen = false, Size = {width = 120, height = 25}, Callback = options.Callback,
+        IsOpen = false, IsClosing = false, FadeOpacity = 0.0,
+        HoveredOptionIndex = 0,
+        Size = {width = 120, height = 25}, Callback = options.Callback,
         Label = self:_CreateDrawingObject("Text"), Button = self:_CreateDrawingObject("Square"),
         ButtonText = self:_CreateDrawingObject("Text"), OptionList = {},
         OptionBackground = self:_CreateDrawingObject("Square"), ArrowLine1 = self:_CreateDrawingObject("Line"),
         ArrowLine2 = self:_CreateDrawingObject("Line"), ClickRegion = {},
-        BorderLeft = self:_CreateDrawingObject("Line"), BorderRight = self:_CreateDrawingObject("Line"),
-        BorderBottom = self:_CreateDrawingObject("Line"), Glow = self:_Internal_CreateGlowSet(z + 8),
-        CurrentButtonColor = {0,0,0,0} -- Цвет для анимации
+        Border = self:_CreateDrawingObject("Square"),
+        Glow = self:_Internal_CreateGlowSet(z + 8),
+        CurrentButtonColor = {0,0,0,0}
     }
     if multidropdown.Label then multidropdown.Label.Font = self.ActiveTheme.Fonts.Main; multidropdown.Label.Size = self.ActiveTheme.Fonts.Size + 2; multidropdown.Label.Text = multidropdown.Name; multidropdown.Label.Center = false; multidropdown.Label.Outline = false; multidropdown.Label.zIndex = z; end
     if multidropdown.Button then multidropdown.Button.Filled = true; multidropdown.Button.zIndex = z; multidropdown.Button.Rounding = self.ActiveTheme.Rounding.Element; end
     if multidropdown.ButtonText then multidropdown.ButtonText.Font = self.ActiveTheme.Fonts.Main; multidropdown.ButtonText.Size = self.ActiveTheme.Fonts.Size + 3; multidropdown.ButtonText.Text = ""; multidropdown.ButtonText.Center = false; multidropdown.ButtonText.Outline = false; multidropdown.ButtonText.zIndex = z + 1; end
-    if multidropdown.OptionBackground then multidropdown.OptionBackground.Filled = true; multidropdown.OptionBackground.zIndex = z + 9; multidropdown.OptionBackground.Visible = false; multidropdown.OptionBackground.Rounding = self.ActiveTheme.Rounding.Element; end
+    if multidropdown.OptionBackground then multidropdown.OptionBackground.Filled = true; multidropdown.OptionBackground.zIndex = z + 9; multidropdown.OptionBackground.Visible = false; multidropdown.OptionBackground.Rounding = self.ActiveTheme.Rounding.Section; end
     if multidropdown.ArrowLine1 then multidropdown.ArrowLine1.Thickness = 2; multidropdown.ArrowLine1.zIndex = z + 2; end
     if multidropdown.ArrowLine2 then multidropdown.ArrowLine2.Thickness = 2; multidropdown.ArrowLine2.zIndex = z + 2; end
-    if multidropdown.BorderLeft then multidropdown.BorderLeft.Thickness = 1; multidropdown.BorderLeft.zIndex = z + 10; multidropdown.BorderLeft.Visible = false; end
-    if multidropdown.BorderRight then multidropdown.BorderRight.Thickness = 1; multidropdown.BorderRight.zIndex = z + 10; multidropdown.BorderRight.Visible = false; end
-    if multidropdown.BorderBottom then multidropdown.BorderBottom.Thickness = 1; multidropdown.BorderBottom.zIndex = z + 10; multidropdown.BorderBottom.Visible = false; end
-    for i, option in ipairs(multidropdown.Options) do local optionText = self:_CreateDrawingObject("Text"); if optionText then optionText.Font = self.ActiveTheme.Fonts.Main; optionText.Size = self.ActiveTheme.Fonts.Size; optionText.Text = option; optionText.Center = false; optionText.Outline = false; optionText.zIndex = z + 10; optionText.Visible = false; end table.insert(multidropdown.OptionList, optionText) end
+    if multidropdown.Border then multidropdown.Border.Filled = false; multidropdown.Border.Thickness = 1; multidropdown.Border.zIndex = z + 12; multidropdown.Border.Visible = false; multidropdown.Border.Rounding = self.ActiveTheme.Rounding.Section; end
+
+    for i, option in ipairs(multidropdown.Options) do
+        local optionEntry = {
+            Text = self:_CreateDrawingObject("Text"),
+            Highlight = self:_CreateDrawingObject("Square"),
+            ClickRegion = {}
+        }
+        if optionEntry.Text then optionEntry.Text.Font = self.ActiveTheme.Fonts.Main; optionEntry.Text.Size = self.ActiveTheme.Fonts.Size; optionEntry.Text.Text = option; optionEntry.Text.Center = false; optionEntry.Text.Outline = false; optionEntry.Text.zIndex = z + 11; optionEntry.Text.Visible = false; end
+        if optionEntry.Highlight then optionEntry.Highlight.Filled = true; optionEntry.Highlight.zIndex = z + 10; optionEntry.Highlight.Visible = false; optionEntry.Highlight.Rounding = self.ActiveTheme.Rounding.Element; end
+        table.insert(multidropdown.OptionList, optionEntry)
+    end
     return multidropdown
 end
 
