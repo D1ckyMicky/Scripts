@@ -936,6 +936,22 @@ function Library:_LoadConfig(name)
     local success, decodedData = pcall(JSONDecode, fileContent)
     if not success or not decodedData then warn(SCRIPT_PREFIX .. "Failed to decode config JSON: " .. name); return end
 
+    -- << НАЧАЛО ИСПРАВЛЕНИЯ: ОЧИСТКА СТАРЫХ КАСТОМНЫХ ТЕМ >>
+    do
+        local themesToRemove = {}
+        -- Сначала собираем имена всех тем, которые не являются стандартными
+        for themeName, themeData in pairs(self.Themes) do
+            if not themeData.IsPreset then
+                table.insert(themesToRemove, themeName)
+            end
+        end
+        -- Затем удаляем их
+        for _, themeNameToRemove in ipairs(themesToRemove) do
+            self.Themes[themeNameToRemove] = nil
+        end
+    end
+    -- << КОНЕЦ ИСПРАВЛЕНИЯ >>
+
     if decodedData.Themes then
         for themeName, savedThemeData in pairs(decodedData.Themes) do
             local baseTheme = self.Themes.Blue
@@ -945,16 +961,14 @@ function Library:_LoadConfig(name)
             fullTheme.IsPreset = false
             fullTheme.Fonts = self:_DeepCopy(baseTheme.Fonts)
 
-            -- [[ ФИНАЛЬНОЕ ИСПРАВЛЕНИЕ: Принудительная коррекция значения ]]
-            -- Если ActiveTabHighlight по какой-то причине сохранился как 0, восстанавливаем значение по умолчанию.
             if fullTheme.Transparency and fullTheme.Transparency.ActiveTabHighlight == 0 then
                 fullTheme.Transparency.ActiveTabHighlight = baseTheme.Transparency.ActiveTabHighlight
             end
 
             self.Themes[themeName] = fullTheme
         end
-        self:_RebuildStyleCircles()
     end
+    self:_RebuildStyleCircles() -- Перестраиваем кружки стилей уже с правильным набором тем
 
     if decodedData.Values then
         for id, value in pairs(decodedData.Values) do
@@ -971,10 +985,14 @@ function Library:_LoadConfig(name)
             end
         end
     end
-    
+
     if decodedData.ActiveThemeName and self.Themes[decodedData.ActiveThemeName] then
         self.ActiveTheme = self.Themes[decodedData.ActiveThemeName]
         self.UI.Values.AboutSelectedStyle = decodedData.ActiveThemeName
+    else
+        -- Если активной темы из конфига нет, ставим стандартную
+        self.ActiveTheme = self.Themes.Blue
+        self.UI.Values.AboutSelectedStyle = "Blue"
     end
 
     self.UI.Core.ConfigsTab.LoadedConfigName = name
