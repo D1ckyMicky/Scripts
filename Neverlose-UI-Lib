@@ -1284,8 +1284,9 @@ function Library:_RenderSettingsPopup()
     local popup = self.UI.Popups.Settings
     local isVisible = popup.IsOpen and popup.ActiveToggle
     local theme = self.ActiveTheme
+    local z = 20 -- Базовый z-index для всплывающего окна
 
-    -- Управляем видимостью базовых элементов [cite: 46, 125]
+    -- Управляем видимостью базовых элементов
     self:_SetVisibility(popup.Background, isVisible); self:_SetVisibility(popup.Border, isVisible); self:_SetVisibility(popup.Title, isVisible); self:_SetVisibility(popup.Separator, isVisible);
 
     if not isVisible then
@@ -1293,14 +1294,15 @@ function Library:_RenderSettingsPopup()
         return
     end
 
-    -- Анимируем цвета базовых элементов 
+    -- Анимируем цвета базовых элементов
     self:_AnimateAndApplyColor(popup.Background, theme.Colors.SectionBackground)
     self:_AnimateAndApplyColor(popup.Border, theme.Colors.Separator)
     self:_AnimateAndApplyColor(popup.Separator, theme.Colors.Separator)
-    
-    -- Устанавливаем заголовок окна по имени родительского Toggle 
+
+    -- Устанавливаем заголовок и его z-index
     popup.Title.Text = popup.ActiveToggle.Name .. " Settings"
     self:_AnimateAndApplyColor(popup.Title, theme.Colors.TextPrimary)
+    popup.Title.zIndex = z + 2
 
     local pX, pY = popup.Pos.x, popup.Pos.y
     local pW = 250
@@ -1309,21 +1311,32 @@ function Library:_RenderSettingsPopup()
     currentY = currentY + popup.Title.Size + 8
     if popup.Separator then popup.Separator.From = {pX + 10, currentY}; popup.Separator.To = {pX + pW - 10, currentY}; end
     currentY = currentY + 15
-    
-    -- Рендерим дочерние элементы (например, Keybind) 
+
+    -- Рендерим дочерние элементы (Keybind)
     for _, element in ipairs(popup.ActiveToggle.SettingsElements or {}) do
         if element.type == "Keybind" then
-            self:_SetVisibility(element.Button, true)
-            self:_SetVisibility(element.ButtonText, true)
-
             local keybind = element
+            self:_SetVisibility(keybind.Button, true)
+            self:_SetVisibility(keybind.Border, true) -- << ДОБАВЛЕНО
+            self:_SetVisibility(keybind.ButtonText, true)
+
+            -- << НАЧАЛО ИСПРАВЛЕНИЯ Z-INDEX >>
+            keybind.Button.zIndex = z + 2
+            keybind.Border.zIndex = z + 3
+            keybind.ButtonText.zIndex = z + 3
+            -- << КОНЕЦ ИСПРАВЛЕНИЯ Z-INDEX >>
+
             local buttonBackgroundColor = keybind.IsListening and theme.Colors.Accent or theme.Colors.DarkBlue
             local buttonTextColor = keybind.IsListening and self:_GetTextColorForBackground(buttonBackgroundColor) or theme.Colors.TextPrimary
+            local buttonBorderColor = keybind.IsListening and theme.Colors.Accent or theme.Colors.Separator -- << ДОБАВЛЕНО
+
             self:_AnimateAndApplyColor(keybind.Button, buttonBackgroundColor)
+            self:_AnimateAndApplyColor(keybind.Border, buttonBorderColor) -- << ДОБАВЛЕНО
             self:_AnimateAndApplyColor(keybind.ButtonText, buttonTextColor)
 
             local bindButtonX = pX + pW - keybind.Size.width - 15
             keybind.Button.Position = {bindButtonX, currentY - 5}; keybind.Button.Size = {keybind.Size.width, keybind.Size.height};
+            keybind.Border.Position = {bindButtonX, currentY - 5}; keybind.Border.Size = {keybind.Size.width, keybind.Size.height}; -- << ДОБАВЛЕНО
             keybind.ButtonText.Text = keybind.IsListening and "..." or string.upper(self.UI.Values[keybind.id] or "none")
             keybind.ButtonText.Position = { bindButtonX + (keybind.Size.width / 2), currentY - 5 + (keybind.Size.height / 2) - (keybind.ButtonText.Size / 2) }
             keybind.ClickRegion = {x1 = bindButtonX, y1 = currentY - 5, x2 = bindButtonX + keybind.Size.width, y2 = currentY - 5 + keybind.Size.height}
@@ -1576,6 +1589,15 @@ end
 
 function Library:_RenderLoop()
     if not self.Window.Visible then return end
+
+        -- << НАЧАЛО ИСПРАВЛЕНИЯ АНИМАЦИИ >>
+    -- Проверяем, изменилась ли вкладка с прошлого кадра
+    if self.Window.ActiveTab ~= self.Window.LastRenderedTab and self.Window.LastRenderedTab ~= "" then
+        -- Если да, запускаем анимацию "исчезновения" старой вкладки
+        self.Window.Animation.State = "FADING_OUT"
+        self.Window.Animation.OldTab = self.Window.LastRenderedTab
+    end
+    -- << КОНЕЦ ИСПРАВЛЕНИЯ АНИМАЦИИ >>
 
     if self.UI.Core.ConfigsTab.NeedsRefresh then
         self:_RefreshConfigList()
@@ -2696,7 +2718,6 @@ function Library:_Internal_CreateMultidropdown(options)
 end
 
 function Library:_Internal_CreateKeybind(options)
-    -- Если для этого ID еще нет значения, устанавливаем значение по умолчанию
     if self.UI.Values[options.id] == nil then
         self.UI.Values[options.id] = options.Default or "none"
     end
@@ -2705,20 +2726,20 @@ function Library:_Internal_CreateKeybind(options)
         id = options.id,
         type = "Keybind",
         Name = options.Name,
-        -- Задаем стандартный размер кнопки
         Size = {width = 100, height = 25},
         Callback = options.Callback,
-        -- Создаем объекты для отрисовки кнопки и текста
         Button = self:_CreateDrawingObject("Square"),
+        Border = self:_CreateDrawingObject("Square"), -- << ДОБАВЛЕНО
         ButtonText = self:_CreateDrawingObject("Text"),
-        IsListening = false, -- Флаг для ожидания нажатия клавиши
+        IsListening = false,
         ClickRegion = {}
     }
-    -- Настраиваем свойства кнопки
     if keybind.Button then
-        keybind.Button.Filled = true; keybind.Button.Thickness = 1; keybind.Button.zIndex = z; keybind.Button.Rounding = self.ActiveTheme.Rounding.Element;
+        keybind.Button.Filled = true; keybind.Button.zIndex = z; keybind.Button.Rounding = self.ActiveTheme.Rounding.Element;
     end
-    -- Настраиваем свойства текста на кнопке
+    if keybind.Border then -- << ДОБАВЛЕНО
+        keybind.Border.Filled = false; keybind.Border.Thickness = 1; keybind.Border.zIndex = z + 1; keybind.Border.Rounding = self.ActiveTheme.Rounding.Element;
+    end
     if keybind.ButtonText then
         keybind.ButtonText.Font = self.ActiveTheme.Fonts.Main; keybind.ButtonText.Size = self.ActiveTheme.Fonts.Size; keybind.ButtonText.Text = self.UI.Values[keybind.id]; keybind.ButtonText.Center = true; keybind.ButtonText.Outline = false; keybind.ButtonText.zIndex = z + 1;
     end
@@ -2869,4 +2890,3 @@ function Library:Create()
 end
 
 return Library
-
