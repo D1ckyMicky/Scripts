@@ -2046,7 +2046,7 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
 
                     if el.IsOpen and not el.IsClosing then
                         -- Анимация появления (Fading IN)
-                        local threshold = 0.25 -- Порог в 25% непрозрачности для начала появления свечения
+                        local threshold = 0.5 -- Порог в 50% непрозрачности для начала появления свечения
                         if el.FadeOpacity > threshold then
                             -- Пересчитываем прогресс анимации свечения в диапазоне от 0 до 1
                             local glowProgress = (el.FadeOpacity - threshold) / (1.0 - threshold)
@@ -2786,7 +2786,7 @@ end
 
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3541")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3505041")
     local is_first_frame = true
     while self.Window.Visible do
         if is_first_frame then
