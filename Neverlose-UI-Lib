@@ -435,6 +435,21 @@ function Library:_HideSettingsPopupElements(popup)
     end
 end
 
+-- Вставьте эту новую функцию в раздел PRIVATE: HELPER FUNCTIONS
+function Library:_SetDrawingTableVisibility(tbl, visible)
+    for _, v in pairs(tbl) do
+        if type(v) == 'table' then
+            if v.Remove and type(v.Remove) == 'function' then
+                -- Это объект отрисовки, меняем его видимость
+                self:_SetVisibility(v, visible)
+            else
+                -- Это обычная таблица, идем глубже
+                self:_SetDrawingTableVisibility(v, visible)
+            end
+        end
+    end
+end
+
 --================================================================
 --[[ PRIVATE: GLOW EFFECT HELPERS ]]
 --================================================================
@@ -1604,14 +1619,12 @@ end
 function Library:_RenderLoop()
     if not self.Window.Visible then return end
 
-        -- << НАЧАЛО ИСПРАВЛЕНИЯ АНИМАЦИИ >>
     -- Проверяем, изменилась ли вкладка с прошлого кадра
     if self.Window.ActiveTab ~= self.Window.LastRenderedTab and self.Window.LastRenderedTab ~= "" then
         -- Если да, запускаем анимацию "исчезновения" старой вкладки
         self.Window.Animation.State = "FADING_OUT"
         self.Window.Animation.OldTab = self.Window.LastRenderedTab
     end
-    -- << КОНЕЦ ИСПРАВЛЕНИЯ АНИМАЦИИ >>
 
     if self.UI.Core.ConfigsTab.NeedsRefresh then
         self:_RefreshConfigList()
@@ -1627,7 +1640,7 @@ function Library:_RenderLoop()
 
     self:_UpdateAnimationStates()
 
-    local mouse_pos = getmouseposition() -- [cite: 39]
+    local mouse_pos = getmouseposition()
     if not mouse_pos then return end
 
     local Core = self.UI.Core
@@ -1676,13 +1689,13 @@ function Library:_RenderLoop()
         local startX, startY = rightPanelX + 35, windowY + (headerHeight / 2)
         local function renderHeaderButton(button, x, y, width, height, has_icon, is_accent)
              self:_SetVisibility(button.Background, true); self:_SetVisibility(button.Border, true); self:_SetVisibility(button.Label, true); if button.Icon then self:_SetVisibility(button.Icon, button.Icon.Visible) end
-             
-             button.Background.Position = {x, y}; button.Background.Size = {width, height}; 
-             button.Border.Position = {x, y}; button.Border.Size = {width, height}; 
-             
+
+             button.Background.Position = {x, y}; button.Background.Size = {width, height};
+             button.Border.Position = {x, y}; button.Border.Size = {width, height};
+
              local isHovered = self:_IsPointInRegion(mouse_pos.x, mouse_pos.y, button.ClickRegion)
-             button.IsHovered = isHovered 
-             
+             button.IsHovered = isHovered
+
              local targetBgColor, targetTextColor
 
              if button == Core.HeaderButtons.CreateNew then
@@ -1696,7 +1709,7 @@ function Library:_RenderLoop()
              end
 
              local targetBorderColor = (tick() - (button.ClickTime or 0) < 0.1 or (button.IsOpen)) and theme.Colors.Accent or theme.Colors.Separator
-             
+
              self:_AnimateAndApplyColor(button.Background, targetBgColor)
              self:_AnimateAndApplyColor(button.Border, targetBorderColor)
              self:_AnimateAndApplyColor(button.Label, targetTextColor)
@@ -1713,7 +1726,7 @@ function Library:_RenderLoop()
 
         renderHeaderButton(Core.HeaderButtons.Save, currentX, btnY, btnWidth, btnHeight, true, false)
         currentX = currentX + btnWidth + spacing
-        
+
         renderHeaderButton(Core.HeaderButtons.ViewESP, currentX, btnY, btnWidth, btnHeight, false, false)
         currentX = currentX + btnWidth + spacing
 
@@ -1722,29 +1735,29 @@ function Library:_RenderLoop()
         else
             self:_SetVisibility(Core.HeaderButtons.CreateNew.Background, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Border, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Label, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Icon, false);
         end
-        
+
         local settingsIcon = Core.HeaderButtons.Settings.Icon
         local settingsX = rightPanelX + (self.Window.Width - sidebarWidth + self.Window.PanelOverlap) - settingsIcon.Size.x - 20 - 30
         local settingsY = startY - (settingsIcon.Size.y / 2)
         self:_SetVisibility(settingsIcon, true); settingsIcon.Position = {settingsX, settingsY}; Core.HeaderButtons.Settings.ClickRegion = {x1 = settingsX, y1 = settingsY, x2 = settingsX + settingsIcon.Size.x, y2 = settingsY + settingsIcon.Size.y}
         self:_AnimateAndApplyColor(settingsIcon, theme.Colors.TextSecondary)
     end
-    
+
     self:_SetVisibility(Core.ViewESPPanel, Core.HeaderButtons.ViewESP.IsOpen); self:_SetVisibility(Core.ViewESPPanelBorder, Core.HeaderButtons.ViewESP.IsOpen)
-    if Core.HeaderButtons.ViewESP.IsOpen then 
-        local panelX = windowX + self.Window.Width + 11; 
+    if Core.HeaderButtons.ViewESP.IsOpen then
+        local panelX = windowX + self.Window.Width + 11;
         self:_AnimateAndApplyColor(Core.ViewESPPanel, theme.Colors.SectionBackground)
         self:_AnimateAndApplyColor(Core.ViewESPPanelBorder, theme.Colors.Separator)
         self:_AnimateAndApplyColor(Core.ViewESPImage, {255,255,255,255})
-        Core.ViewESPPanel.Position = {panelX, windowY}; Core.ViewESPPanel.Size = {200, 310}; 
-        Core.ViewESPPanelBorder.Position = {panelX, windowY}; Core.ViewESPPanelBorder.Size = {200, 310}; 
+        Core.ViewESPPanel.Position = {panelX, windowY}; Core.ViewESPPanel.Size = {200, 310};
+        Core.ViewESPPanelBorder.Position = {panelX, windowY}; Core.ViewESPPanelBorder.Size = {200, 310};
         if Core.ViewESPImage then self:_SetVisibility(Core.ViewESPImage, true); local imageX, imageY = panelX + 3, windowY + 3; Core.ViewESPImage.Position = {imageX, imageY}; Core.ViewESPImage.Size = {194, 304}; end
     elseif Core.ViewESPImage then self:_SetVisibility(Core.ViewESPImage, false) end
 
     self:_RenderTabs(windowX, windowY + headerHeight, sidebarWidth)
-    
+
     if self.Window.ActiveTab == "Configs" then
-        -- Скрываем все секции, если активна вкладка конфигов 
+        -- Скрываем все секции, если активна вкладка конфигов
         for _, section in ipairs(self.UI.Sections) do
             local anim_state = self.AnimationState[section.Drawing.Background]
             if anim_state and anim_state.IsVisible then
@@ -1754,28 +1767,29 @@ function Library:_RenderLoop()
         end
         self:_RenderConfigsTab(rightPanelX, windowY, headerHeight)
     else
-        -- Скрываем вкладку конфигов, если активна другая вкладка 
+        -- << НАЧАЛО ИСПРАВЛЕНИЯ: СКРЫВАЕМ ЭЛЕМЕНТЫ CONFIGS БЕЗОПАСНО >>
         local configsTab = self.UI.Core.ConfigsTab
         if configsTab.MyItemsLabel.Visible then
             self:_SetVisibility(configsTab.MyItemsLabel, false)
             self:_SetVisibility(configsTab.Scrollbar.Background, false)
             self:_SetVisibility(configsTab.Scrollbar.Nub, false)
             for _, item in ipairs(configsTab.Items) do
-                self:_CleanupDrawingObjects(item.Drawing) -- Используем очистку, чтобы скрыть всё 
+                self:_SetDrawingTableVisibility(item.Drawing, false) -- Используем новую функцию
             end
         end
+        -- << КОНЕЦ ИСПРАВЛЕНИЯ >>
         self:_RenderSections(rightPanelX, windowY, headerHeight)
     end
-    
-    -- Рендерим все pop-up окна поверх 
+
+    -- Рендерим все pop-up окна поверх
     self:_RenderSaveTooltip()
     self:_RenderConfigOptionsPopup()
-    self:_RenderSettingsPopup() -- Используем новое универсальное меню 
+    self:_RenderSettingsPopup()
     self:_RenderAboutWindow(mouse_pos)
     self:_RenderEditStyleWindow()
     self:_RenderColorPickerWindow()
 
-    -- Запоминаем текущую вкладку для следующего кадра 
+    -- Запоминаем текущую вкладку для следующего кадра
     self.Window.LastRenderedTab = self.Window.ActiveTab
 end
 
@@ -2628,7 +2642,7 @@ end
 
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3541")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 352241")
     local is_first_frame = true
     while self.Window.Visible do
         if is_first_frame then
