@@ -1271,11 +1271,19 @@ function Library:_RenderAboutWindow(mouse_pos)
     slider.LeftFill.Position = {sliderBackX, currentY + 8}; 
     slider.LeftFill.Size = {nubX - sliderBackX, 2}; 
     slider.Nub.Position = {nubX, currentY + 9}; 
-    local glowWidth = nubX - sliderBackX; local glowHeight = 8; 
-    if glowWidth > 0 and slider.Glow then self:_RenderGlowEffect(slider.Glow, sliderBackX, currentY + 9 - (glowHeight / 2), glowWidth, glowHeight, slider.LeftFill.Rounding, theme.Colors.GlowAccent, {top=true, bottom=true, left=true, right=false}) elseif slider.Glow then self:_HideGlowEffect(slider.Glow) end
+    
+    -- Обновленная логика Glow для слайдера в "About"
+    local glowWidth = nubX - sliderBackX; 
+    local glowHeight = 6; -- Используем новую уменьшенную высоту
+    if glowWidth > 0 and slider.Glow then 
+        self:_RenderGlowEffect(slider.Glow, sliderBackX, currentY + 9 - (glowHeight / 2), glowWidth, glowHeight, slider.LeftFill.Rounding, theme.Colors.GlowAccent, {top=true, bottom=true, left=true, right=false}) 
+    elseif slider.Glow then 
+        self:_HideGlowEffect(slider.Glow) 
+    end
+
     local valueText = string.format("%.1f", self.UI.Values[slider.id]); local valueTextX = rightEdge - valueTextWidth + 10; 
     slider.ValueText.Text = valueText; 
-    slider.ValueText.Position = {valueTextX, currentY}; 
+    slider.ValueText.Position = {valueTextX, currentY};
     currentY = currentY + controlSpacing
     
     -- << НАЧАЛО НОВОЙ ЛОГИКИ ОТРИСОВКИ DROPDOWN >>
@@ -1300,16 +1308,27 @@ function Library:_RenderAboutWindow(mouse_pos)
         if dropdown.FadeOpacity > 0 then
             local finalOpacity = dropdown.FadeOpacity
             local popupWidth = 150; local optionHeight = 25; local popupHeight = (#dropdown.Options * optionHeight) + 10
-            local popupX = dropdownButtonX + (dropdown.Size.width / 2) - (popupWidth / 2); local popupY = dropdownY + (dropdown.Size.height / 2) - (popupHeight / 2)
-            
+            local popupX = dropdownButtonX + (dropdown.Size.width / 2) - (popupWidth / 2); local popupY = dropdownY - popupHeight - 5 -- Позиция над кнопкой
+
             self:_SetVisibility(dropdown.OptionBackground, true); self:_SetVisibility(dropdown.Border, true)
             self:_AnimateAndApplyColor(dropdown.OptionBackground, theme.Colors.SectionBackground, finalOpacity)
             self:_AnimateAndApplyColor(dropdown.Border, theme.Colors.Separator, finalOpacity)
             dropdown.OptionBackground.Position = {popupX, popupY}; dropdown.OptionBackground.Size = {popupWidth, popupHeight}
             dropdown.Border.Position = {popupX, popupY}; dropdown.Border.Size = {popupWidth, popupHeight}
             
+            -- Адаптированная логика Glow
+            local glowFinalOpacity = 0
+            if dropdown.IsOpen and not dropdown.IsClosing then
+                local threshold = 0.25
+                if dropdown.FadeOpacity > threshold then
+                    local glowProgress = (dropdown.FadeOpacity - threshold) / (1.0 - threshold)
+                    glowFinalOpacity = glowProgress
+                end
+            elseif dropdown.IsClosing then
+                glowFinalOpacity = dropdown.FadeOpacity * dropdown.FadeOpacity
+            end
             local glowColor = self.ActiveTheme.Colors.GlowColor
-            local animatedGlowColor = {glowColor[1], glowColor[2], glowColor[3], (glowColor[4] or 255) * finalOpacity}
+            local animatedGlowColor = {glowColor[1], glowColor[2], glowColor[3], (glowColor[4] or 255) * glowFinalOpacity}
             self:_RenderGlowEffect(dropdown.Glow, popupX, popupY, popupWidth, popupHeight, dropdown.OptionBackground.Rounding, animatedGlowColor)
             
             local currentOptionY_popup = popupY + 5
@@ -1320,6 +1339,7 @@ function Library:_RenderAboutWindow(mouse_pos)
                 option.Highlight.Position = {popupX + 5, currentOptionY_popup}; option.Highlight.Size = {popupWidth - 10, optionHeight}
                 
                 local isSelected = (self.UI.Values[dropdown.id] == dropdown.Options[i])
+                -- Логика для наведения мыши теперь должна быть в _InputLoop, но для консистентности добавим базовый рендер
                 local isHovered = (dropdown.HoveredOptionIndex == i)
                 
                 local targetTextColor = isSelected and theme.Colors.Accent or theme.Colors.TextPrimary
@@ -1997,6 +2017,26 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
             local nubX = sliderBackX + sliderBackWidth * value_percentage
             el.LeftFill.Position = {sliderBackX, currentElementY + 8}; el.LeftFill.Size = {nubX - sliderBackX, 2}
             el.Nub.Position = {nubX, currentElementY + 9}
+            
+            -- [[[ НАЧАЛО: НОВАЯ ЛОГИКА GLOW ДЛЯ ВСЕХ СЛАЙДЕРОВ ]]]
+            local glowWidth = nubX - sliderBackX
+            local glowHeight = 6 -- Уменьшенная высота свечения
+            if glowWidth > 0 and el.Glow then
+                self:_RenderGlowEffect(
+                    el.Glow,
+                    sliderBackX,                                   -- x
+                    currentElementY + 9 - (glowHeight / 2),        -- y (вертикальное центрирование)
+                    glowWidth,                                     -- width
+                    glowHeight,                                    -- height
+                    el.LeftFill.Rounding,                          -- rounding
+                    theme.Colors.GlowAccent,                       -- color
+                    {top=true, bottom=true, left=true, right=false} -- sides
+                )
+            elseif el.Glow then
+                 self:_HideGlowEffect(el.Glow)
+            end
+            -- [[[ КОНЕЦ НОВОЙ ЛОГИКИ ]]]
+
             local valueText = tostring(math.floor(self.UI.Values[el.id] or el.Min)); local valueTextX = sectionX + columnWidth - 40
             el.ValueText.Text = valueText; el.ValueText.Position = {valueTextX, currentElementY}
             self:_AnimateAndApplyColor(el.Back, theme.Colors.DarkBlue, masterOpacity); self:_AnimateAndApplyColor(el.LeftFill, theme.Colors.Accent, masterOpacity)
