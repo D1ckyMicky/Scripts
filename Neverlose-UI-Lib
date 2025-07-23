@@ -2067,6 +2067,8 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
                         local isSelected = (el.type == "Dropdown" and self.UI.Values[el.id] == el.Options[i]) or (el.type == "Multidropdown" and table.find(self.UI.Values[el.id], el.Options[i]))
                         local isHovered = (el.HoveredOptionIndex == i)
 
+                        -- [[ ИЗМЕНЕНИЕ ЦВЕТА АКТИВНЫХ ЭЛЕМЕНТОВ ]]
+                        -- Теперь и в Multidropdown, и в Dropdown выбранные элементы будут цвета акцента
                         local targetTextColor = isSelected and theme.Colors.Accent or theme.Colors.TextPrimary
                         self:_AnimateAndApplyColor(option.Text, targetTextColor, finalOpacity)
 
@@ -2089,6 +2091,8 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
                                 option.CheckmarkLine1.From = {popupX + 8, checkY}; option.CheckmarkLine1.To = {popupX + 11, checkY + 3}
                                 option.CheckmarkLine2.From = {popupX + 11, checkY + 3}; option.CheckmarkLine2.To = {popupX + 15, checkY - 4}
                                 
+                                -- [[ ИЗМЕНЕНИЕ ЦВЕТА ГАЛОЧКИ ]]
+                                -- Теперь галочка также будет цвета акцента
                                 self:_AnimateAndApplyColor(option.CheckmarkLine1, theme.Colors.Accent, finalOpacity)
                                 self:_AnimateAndApplyColor(option.CheckmarkLine2, theme.Colors.Accent, finalOpacity)
                             end
