@@ -1904,41 +1904,53 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
             local currentElementY = animatedY + elementY_offset
             self:_AnimateAndApplyColor(el.Label, theme.Colors.TextSecondary, masterOpacity)
             el.Label.Position = {sectionX + 10, currentElementY}
+
             local toggleBackX = sectionX + columnWidth - el.Size.width - 15
-            el.Back.Position = {toggleBackX, currentElementY + 2}; el.Back.Size = {el.Size.width, el.Size.height}; el.ClickRegion = {x1 = toggleBackX, y1 = currentElementY, x2 = toggleBackX + el.Size.width, y2 = currentElementY + el.Size.height + 4}
+            local toggleBackY = currentElementY - 1 -- Небольшая корректировка для идеального выравнивания по центру текста
+            el.Back.Position = {toggleBackX, toggleBackY}; el.Back.Size = {el.Size.width, el.Size.height};
+            el.ClickRegion = {x1 = toggleBackX, y1 = toggleBackY, x2 = toggleBackX + el.Size.width, y2 = toggleBackY + el.Size.height}
+
             local is_on = self.UI.Values[el.id]
-            local nubY = currentElementY + 2 + el.Size.height / 2
-            el.Nub.Position = is_on and {toggleBackX + el.Size.width - 5, nubY} or {toggleBackX + 5, nubY}
-            local targetBackColor = is_on and self:_DarkenColor(theme.Colors.Accent, 0.3) or theme.Colors.DarkGray
-            local targetNubColor = is_on and theme.Colors.Accent or theme.Colors.LightGray
+            local nubY = toggleBackY + el.Size.height / 2
+            local targetBackColor, targetNubColor
+
+            if is_on then
+                targetBackColor = self:_DarkenColor(theme.Colors.Accent, 0.3)
+                targetNubColor = theme.Colors.Accent
+                el.Nub.Position = {toggleBackX + el.Size.width - el.Size.height / 2, nubY}
+            else
+                --[[
+                    Чтобы изменить цвет выключенного переключателя,
+                    измени значения в следующих двух строках.
+                ]]
+                targetBackColor = theme.Colors.DarkGray
+                targetNubColor = theme.Colors.LightGray
+                el.Nub.Position = {toggleBackX + el.Size.height / 2, nubY}
+            end
+
             self:_AnimateAndApplyColor(el.Back, targetBackColor, masterOpacity)
             self:_AnimateAndApplyColor(el.Nub, targetNubColor, masterOpacity)
 
-            -- << НАЧАЛО ИЗМЕНЕНИЙ: ЛОГИКА РАСПОЛОЖЕНИЯ ИКОНОК >>
-            local iconAreaX = toggleBackX - 10 -- Начальная позиция для иконок, слева от переключателя
+            local iconAreaX = toggleBackX - 10
 
-            -- Рисуем кружок цвета (он теперь правее)
             if el.HasColor and el.ColorCircle then
                 self:_SetVisibility(el.ColorCircle, true)
                 self:_SetVisibility(el.ColorBorder, true)
                 local colorValue = self.UI.Values[el.HasColor.id]
                 self:_AnimateAndApplyColor(el.ColorCircle, colorValue, masterOpacity)
                 self:_AnimateAndApplyColor(el.ColorBorder, theme.Colors.LightGray, masterOpacity)
-
                 local radius = el.ColorCircle.Radius
                 local iconWidth = radius * 2
                 local iconX = iconAreaX - iconWidth
                 el.ColorCircle.Position = {iconX + radius, currentElementY + 7}
                 el.ColorBorder.Position = {iconX + radius, currentElementY + 7}
                 el.ColorClickRegion = {x1 = iconX, y1 = currentElementY, x2 = iconX + iconWidth, y2 = currentElementY + 14}
-
-                iconAreaX = iconX - 7 -- Сдвигаем позицию для следующей иконки левее
+                iconAreaX = iconX - 5
             else
                 if el.ColorCircle then self:_SetVisibility(el.ColorCircle, false) end
                 if el.ColorBorder then self:_SetVisibility(el.ColorBorder, false) end
             end
 
-            -- Рисуем иконку настроек (она теперь левее)
             if el.HasSettings and el.SettingsIcon then
                 self:_SetVisibility(el.SettingsIcon, true)
                 self:_AnimateAndApplyColor(el.SettingsIcon, theme.Colors.TextSecondary, masterOpacity)
@@ -1948,7 +1960,6 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
             else
                 if el.SettingsIcon then self:_SetVisibility(el.SettingsIcon, false) end
             end
-            -- << КОНЕЦ ИЗМЕНЕНИЙ >>
 
             elementY_offset = elementY_offset + 35
         elseif el.type == "Slider" then
@@ -2683,7 +2694,8 @@ function Library:_Internal_CreateToggle(options)
     end
     local z = options.zIndex or 4
     local toggle = {
-        id = options.id, type = "Toggle", Name = options.Name, Size = {width = 35, height = 12},
+        id = options.id, type = "Toggle", Name = options.Name,
+        Size = {width = 35, height = 18}, -- << ИЗМЕНЕНА ВЫСОТА
         HasSettings = options.HasSettings or false,
         HasColor = options.HasColor or false,
         Callback = options.Callback,
@@ -2703,11 +2715,9 @@ function Library:_Internal_CreateToggle(options)
         toggle.ColorCircle = self:_CreateDrawingObject("Circle")
         toggle.ColorBorder = self:_CreateDrawingObject("Circle")
         if toggle.ColorCircle then
-            -- << ИЗМЕНЕНО: РАДИУС УВЕЛИЧЕН >>
             toggle.ColorCircle.Filled = true; toggle.ColorCircle.zIndex = z + 1; toggle.ColorCircle.Radius = 6;
         end
         if toggle.ColorBorder then
-            -- << ИЗМЕНЕНО: РАДИУС УВЕЛИЧЕН >>
             toggle.ColorBorder.Filled = false; toggle.ColorBorder.Thickness = 1; toggle.ColorBorder.zIndex = z + 2; toggle.ColorBorder.Radius = 7;
         end
     end
@@ -2723,10 +2733,12 @@ function Library:_Internal_CreateToggle(options)
         toggle.Label.Font = self.ActiveTheme.Fonts.Main; toggle.Label.Size = self.ActiveTheme.Fonts.Size + 2; toggle.Label.Text = toggle.Name; toggle.Label.Center = false; toggle.Label.Outline = false; toggle.Label.zIndex = z;
     end
     if toggle.Back then
-        toggle.Back.Filled = true; toggle.Back.zIndex = z; toggle.Back.Rounding = 6;
+        toggle.Back.Filled = true; toggle.Back.zIndex = z;
+        toggle.Back.Rounding = 9; -- << ИЗМЕНЕНО СКРУГЛЕНИЕ (ВЫСОТА / 2) ДЛЯ ЭФФЕКТА КАПСУЛЫ
     end
     if toggle.Nub then
-        toggle.Nub.Filled = true; toggle.Nub.zIndex = z + 1; toggle.Nub.Radius = 9;
+        toggle.Nub.Filled = true; toggle.Nub.zIndex = z + 1;
+        toggle.Nub.Radius = 7; -- << ИЗМЕНЕН РАДИУС, ЧТОБЫ КРУЖОК БЫЛ ВНУТРИ
     end
     return toggle
 end
