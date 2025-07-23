@@ -1914,7 +1914,7 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
                 el.ColorBorder.Position = {iconX + radius, currentElementY + 7}
                 el.ColorClickRegion = {x1 = iconX, y1 = currentElementY, x2 = iconX + iconWidth, y2 = currentElementY + 14}
 
-                iconAreaX = iconX - 5 -- Сдвигаем позицию для следующей иконки левее
+                iconAreaX = iconX - 7 -- Сдвигаем позицию для следующей иконки левее
             else
                 if el.ColorCircle then self:_SetVisibility(el.ColorCircle, false) end
                 if el.ColorBorder then self:_SetVisibility(el.ColorBorder, false) end
@@ -2642,7 +2642,7 @@ end
 
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 352241")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3541")
     local is_first_frame = true
     while self.Window.Visible do
         if is_first_frame then
