@@ -2563,7 +2563,7 @@ end
 
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3x5x1")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3x5x41")
     local is_first_frame = true
     while self.Window.Visible do
         if is_first_frame then
@@ -2789,16 +2789,15 @@ function Library:Section(options)
         local chain = {}
         function chain:Keybind(keybindOptions)
             local keybind_element = self_lib:_Internal_CreateKeybind(keybindOptions)
-            -- Привязываем keybind к toggle 
+            -- Привязываем keybind к toggle
             if not toggle_element.SettingsElements then toggle_element.SettingsElements = {} end
             table.insert(toggle_element.SettingsElements, keybind_element)
-            
-            -- [[ НОВАЯ ЛОГИКА ОБРАБОТКИ КЛАВИШ ]]
-            -- Эта функция будет вызываться при нажатии на бинд
+
+            -- Логика обработки нажатия на бинд
             local original_keybind_callback = keybindOptions.Callback
             keybind_element.Callback = function()
                 if original_keybind_callback then
-                    -- Если у бинда есть своя функция (как для телепорта), вызываем её
+                    -- Если у бинда есть своя функция, вызываем её
                     original_keybind_callback()
                 else
                     -- Иначе, переключаем родительский Toggle
@@ -2808,8 +2807,8 @@ function Library:Section(options)
                     end
                 end
             end
-            
-            return SectionObject -- Возвращаем объект секции для продолжения цепочки 
+
+            return SectionObject -- Возвращаем объект секции для продолжения цепочки
         end
         return chain
     end
@@ -2817,13 +2816,24 @@ function Library:Section(options)
     function SectionObject:Toggle(toggleOptions)
         last_element = self_lib:_Internal_CreateToggle(toggleOptions)
         table.insert(section.Elements, last_element)
-        return CreateToggleChain(last_element) -- Возвращаем объект цепочки для Keybind 
+        -- ИСПРАВЛЕНИЕ: Вместо того чтобы возвращать ТОЛЬКО цепочку для Keybind,
+        -- мы возвращаем саму секцию, чтобы можно было вызывать другие методы.
+        -- А метод Keybind добавляем прямо в объект секции, но он будет работать
+        -- только с последним созданным Toggle.
+        function SectionObject:Keybind(keybindOptions)
+            if last_element and last_element.type == "Toggle" then
+                return CreateToggleChain(last_element):Keybind(keybindOptions)
+            end
+            -- Если последний элемент не Toggle, просто продолжаем цепочку
+            return SectionObject
+        end
+        return SectionObject
     end
-    
+
     function SectionObject:Slider(sliderOptions) table.insert(section.Elements, self_lib:_Internal_CreateSlider(sliderOptions)); return SectionObject end
     function SectionObject:Dropdown(dropdownOptions) table.insert(section.Elements, self_lib:_Internal_CreateDropdown(dropdownOptions)); return SectionObject end
     function SectionObject:Multidropdown(multidropdownOptions) table.insert(section.Elements, self_lib:_Internal_CreateMultidropdown(multidropdownOptions)); return SectionObject end
-    
+
     return SectionObject
 end
 
