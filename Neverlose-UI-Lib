@@ -2025,9 +2025,8 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
             elementY_offset = elementY_offset + 35
             
             if el.IsOpen or el.IsClosing then
-                -- << ИСПРАВЛЕНИЕ СКОРОСТИ АНИМАЦИИ >>
                 local speed_value = self.UI.Values["AboutAnimationSpeed"] or 1.6
-                local animationSpeed = speed_value / 10.0 -- Делаем чуть быстрее, чем анимация секций
+                local animationSpeed = speed_value / 10.0
                 if el.IsOpen and not el.IsClosing then el.FadeOpacity = math.min(1, el.FadeOpacity + animationSpeed)
                 elseif el.IsClosing then el.FadeOpacity = math.max(0, el.FadeOpacity - animationSpeed); if el.FadeOpacity == 0 then el.IsClosing = false end end
 
@@ -2042,7 +2041,6 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
                     el.OptionBackground.Position = {popupX, popupY}; el.OptionBackground.Size = {popupWidth, popupHeight}
                     el.Border.Position = {popupX, popupY}; el.Border.Size = {popupWidth, popupHeight}
                     
-                    -- << ИСПРАВЛЕНИЕ АНИМАЦИИ GLOW >>
                     local glowColor = self.ActiveTheme.Colors.GlowColor
                     local animatedGlowColor = {glowColor[1], glowColor[2], glowColor[3], (glowColor[4] or 255) * finalOpacity}
                     self:_RenderGlowEffect(el.Glow, popupX, popupY, popupWidth, popupHeight, el.OptionBackground.Rounding, animatedGlowColor)
@@ -2060,14 +2058,9 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
                         local isSelected = (el.type == "Dropdown" and self.UI.Values[el.id] == el.Options[i]) or (el.type == "Multidropdown" and table.find(self.UI.Values[el.id], el.Options[i]))
                         local isHovered = (el.HoveredOptionIndex == i)
 
-                        local targetTextColor
-                        if el.type == "Multidropdown" and isSelected then
-                            targetTextColor = theme.Colors.TextLight
-                        elseif isSelected then
-                            targetTextColor = theme.Colors.Accent
-                        else
-                            targetTextColor = theme.Colors.TextPrimary
-                        end
+                        -- [[ ИЗМЕНЕНИЕ ЦВЕТА АКТИВНЫХ ЭЛЕМЕНТОВ ]]
+                        -- Теперь и в Multidropdown, и в Dropdown выбранные элементы будут цвета акцента
+                        local targetTextColor = isSelected and theme.Colors.Accent or theme.Colors.TextPrimary
                         self:_AnimateAndApplyColor(option.Text, targetTextColor, finalOpacity)
 
                         if isHovered then
@@ -2083,8 +2076,10 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
                                 local checkY = currentOptionY + (optionHeight / 2)
                                 option.CheckmarkLine1.From = {popupX + 8, checkY}; option.CheckmarkLine1.To = {popupX + 11, checkY + 3}
                                 option.CheckmarkLine2.From = {popupX + 11, checkY + 3}; option.CheckmarkLine2.To = {popupX + 15, checkY - 4}
-                                self:_AnimateAndApplyColor(option.CheckmarkLine1, theme.Colors.TextLight, finalOpacity)
-                                self:_AnimateAndApplyColor(option.CheckmarkLine2, theme.Colors.TextLight, finalOpacity)
+                                -- [[ ИЗМЕНЕНИЕ ЦВЕТА ГАЛОЧКИ ]]
+                                -- Теперь галочка также будет цвета акцента
+                                self:_AnimateAndApplyColor(option.CheckmarkLine1, theme.Colors.Accent, finalOpacity)
+                                self:_AnimateAndApplyColor(option.CheckmarkLine2, theme.Colors.Accent, finalOpacity)
                             end
                         end
                         currentOptionY = currentOptionY + optionHeight
