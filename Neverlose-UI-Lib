@@ -2041,12 +2041,27 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
                     el.OptionBackground.Position = {popupX, popupY}; el.OptionBackground.Size = {popupWidth, popupHeight}
                     el.Border.Position = {popupX, popupY}; el.Border.Size = {popupWidth, popupHeight}
                     
-                    -- << ИСПРАВЛЕНИЕ АНИМАЦИИ GLOW >>
-                    -- Применяем квадратичную функцию затухания, чтобы glow исчезал быстрее, чем контент
-                    local glowFinalOpacity = finalOpacity * finalOpacity
+                    -- << НАЧАЛО ИСПРАВЛЕНИЯ АНИМАЦИИ GLOW >>
+                    local glowFinalOpacity = 0 -- По умолчанию свечение невидимо
+
+                    if el.IsOpen and not el.IsClosing then
+                        -- Анимация появления (Fading IN)
+                        local threshold = 0.25 -- Порог в 25% непрозрачности для начала появления свечения
+                        if el.FadeOpacity > threshold then
+                            -- Пересчитываем прогресс анимации свечения в диапазоне от 0 до 1
+                            local glowProgress = (el.FadeOpacity - threshold) / (1.0 - threshold)
+                            glowFinalOpacity = masterOpacity * glowProgress
+                        end
+                    elseif el.IsClosing then
+                        -- Анимация исчезновения (Fading OUT): используем квадратичную функцию для ускорения
+                        glowFinalOpacity = masterOpacity * (el.FadeOpacity * el.FadeOpacity)
+                    end
+
                     local glowColor = self.ActiveTheme.Colors.GlowColor
+                    -- Применяем рассчитанную непрозрачность к цвету свечения
                     local animatedGlowColor = {glowColor[1], glowColor[2], glowColor[3], (glowColor[4] or 255) * glowFinalOpacity}
                     self:_RenderGlowEffect(el.Glow, popupX, popupY, popupWidth, popupHeight, el.OptionBackground.Rounding, animatedGlowColor)
+                    -- << КОНЕЦ ИСПРАВЛЕНИЯ АНИМАЦИИ GLOW >>
 
                     local currentOptionY = popupY + 5
                     local hasSelection = el.type == "Multidropdown" and #self.UI.Values[el.id] > 0
