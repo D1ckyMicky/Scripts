@@ -1832,7 +1832,8 @@ function Library:_RenderTabs(x, y, width)
             if tab.Icon then
                 self:_SetVisibility(tab.Icon, true)
                 tab.Icon.Position = {startX, currentY + (tabHeight / 2) - (theme.IconSize / 2)}
-                local iconColor = (tab.Name == "Configs") and theme.Colors.Accent or target_text_color
+                -- << ИСПРАВЛЕНО: Теперь все иконки используют цвет акцента >>
+                local iconColor = theme.Colors.Accent
                 self:_AnimateAndApplyColor(tab.Icon, iconColor)
                 startX = startX + theme.IconSize + 8
             end
@@ -1845,16 +1846,13 @@ function Library:_RenderTabs(x, y, width)
 
             tab.ClickRegion = {x1 = x + 10, y1 = currentY, x2 = x + width - 10, y2 = currentY + tabHeight}
 
-            -- [[ ИСПРАВЛЕННАЯ ЛОГИКА АНИМАЦИИ ]]
             if tab.Highlight then
                 tab.Highlight.Position = {x + 10, currentY}
                 tab.Highlight.Size = {self.Window.SidebarWidth - 20, tabHeight}
                 
-                -- Устанавливаем цвет напрямую, без лишней анимации
                 local accentColor = theme.Colors.Accent
                 tab.Highlight.Color = {accentColor[1], accentColor[2], accentColor[3]}
 
-                -- Анимируем ТОЛЬКО прозрачность
                 local state = self.AnimationState[tab.Highlight]
                 if not state then
                     local initialOpacity = is_active and (theme.Transparency.ActiveTabHighlight or 0.28) or 0
@@ -1863,7 +1861,7 @@ function Library:_RenderTabs(x, y, width)
                 end
 
                 local targetOpacity = is_active and (theme.Transparency.ActiveTabHighlight or 0.28) or 0
-                local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.5
+                local speed_value = self.UI.Values["AboutAnimationSpeed"] or 1.6
                 local animationSpeed = speed_value / 16.0
 
                 state.CurrentOpacity = state.CurrentOpacity + (targetOpacity - state.CurrentOpacity) * animationSpeed
