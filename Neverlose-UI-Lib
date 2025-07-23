@@ -2277,7 +2277,18 @@ function Library:_InputLoop()
     end
     
     if about_window and self.UI.Popups.About.IsOpen then
-        -- (логика для подсказок в окне About)
+        local is_hovering_any_circle = false
+        for _, circle in ipairs(about_window.StyleCircles) do
+            if self:_IsPointInRegion(mouse_x, mouse_y, circle.ClickRegion) then
+                is_hovering_any_circle = true
+                if about_window.HoveredThemeCircle.Name ~= circle.Name then
+                    about_window.HoveredThemeCircle.Name = circle.Name
+                    about_window.HoveredThemeCircle.HoverStartTime = tick()
+                end
+                break
+            end
+        end
+        if not is_hovering_any_circle then about_window.HoveredThemeCircle.Name = nil end
     end
     -- [КОНЕЦ ЛОГИКИ ПЕРЕТАСКИВАНИЯ]
 
@@ -2301,13 +2312,92 @@ function Library:_InputLoop()
                     settings_popup.IsOpen = false; settings_popup.ActiveToggle = nil;
                 end
             elseif configsTab.OptionsPopup.IsOpen then
-                click_was_handled = true; --( ... )
+                click_was_handled = true
+                local popup = configsTab.OptionsPopup
+                if self:_IsPointInRegion(mouse_x, mouse_y, popup.IncludeStyleToggle.ClickRegion) then
+                    self.UI.Values[popup.IncludeStyleToggle.id] = not self.UI.Values[popup.IncludeStyleToggle.id]
+                elseif not self:_IsPointInRegion(mouse_x, mouse_y, popup.ClickRegion) then
+                    popup.IsOpen = false
+                end
             elseif picker.IsOpen then
-                click_was_handled = true; --( ... )
+                click_was_handled = true
+                local picker_region = {x1=picker.Background.Position.x, y1=picker.Background.Position.y, x2=picker.Background.Position.x+picker.Background.Size.x, y2=picker.Background.Position.y+picker.Background.Size.y}
+                if not self:_IsPointInRegion(mouse_x, mouse_y, picker_region) then
+                    picker.IsOpen = false
+                end
             elseif style_window.IsOpen then
-                click_was_handled = true; --( ... )
+                click_was_handled = true
+                if self:_IsPointInRegion(mouse_x, mouse_y, style_window.CloseButton.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, style_window.CancelButton.ClickRegion) then
+                    self:_revert_realtime_changes()
+                    style_window.IsOpen = false; style_window.IsEditingName = false
+                elseif self:_IsPointInRegion(mouse_x, mouse_y, style_window.SaveButton.ClickRegion) then
+                    local newTheme = self:_DeepCopy(style_window.EditingTheme)
+                    local newName = style_window.StyleNameInputText.Text; local originalName = style_window.EditingThemeName
+                    if newName == "" then newName = "Custom" end
+                    if newName ~= originalName and self.Themes[originalName] and not self.Themes[originalName].IsPreset then self.Themes[originalName] = nil end
+                    if self.Themes[newName] and newName ~= originalName then local i = 1; while self.Themes[newName .. " (" .. i .. ")"] do i = i + 1 end; newName = newName .. " (" .. i .. ")" end
+                    newTheme.Name = newName; newTheme.IsPreset = false; self.Themes[newName] = newTheme
+                    self:_RebuildStyleCircles(); self.UI.Values.AboutSelectedStyle = newTheme.Name; self.ActiveTheme = newTheme
+                    self.TempTheme = nil; self.PreEditThemeName = nil; self.UI.Values.EditStyleRealTime = false
+                    style_window.IsOpen = false; style_window.IsEditingName = false
+                elseif self:_IsPointInRegion(mouse_x, mouse_y, style_window.RealTimeToggle.ClickRegion) then
+                    self.UI.Values.EditStyleRealTime = not self.UI.Values.EditStyleRealTime
+                    if self.UI.Values.EditStyleRealTime then
+                        self.PreEditThemeName = self.ActiveTheme.Name; self.TempTheme = self:_DeepCopy(style_window.EditingTheme); self.ActiveTheme = self.TempTheme
+                    else
+                        self.ActiveTheme = self.Themes[self.PreEditThemeName] or self.Themes.Blue
+                        self.UI.Values.AboutSelectedStyle = self.ActiveTheme.Name; self.TempTheme = nil; self.PreEditThemeName = nil
+                    end
+                elseif self:_IsPointInRegion(mouse_x, mouse_y, style_window.StyleNameInputClickRegion) then
+                    style_window.IsEditingName = true
+                else
+                    local clicked_color = false
+                    for _, item in ipairs(style_window.ColorItems) do
+                        if self:_IsPointInRegion(mouse_x, mouse_y, item.ClickRegion) then
+                            picker.IsOpen = true; picker.EditingColorName = item.Name; picker.Pos = {x = mouse_x, y = mouse_y}
+                            local color_to_edit = style_window.EditingTheme.Colors[item.Name]
+                            picker.h, picker.s, picker.v, picker.a = self:_RGBtoHSV(color_to_edit[1], color_to_edit[2], color_to_edit[3], color_to_edit[4])
+                            clicked_color = true; break
+                        end
+                    end
+                    if not clicked_color then style_window.IsEditingName = false end
+                end
             elseif self.UI.Popups.About.IsOpen then
-                click_was_handled = true; --( ... )
+                click_was_handled = true
+                local about = self.UI.Core.AboutWindow; local about_dropdown = about.DpiScaleDropdown
+                if self:_IsPointInRegion(mouse_x, mouse_y, about.CloseButton.ClickRegion) then 
+                    self.UI.Popups.About.IsOpen = false; if about_dropdown.IsOpen then about_dropdown.IsOpen = false end
+                elseif self:_IsPointInRegion(mouse_x, mouse_y, about.AutoSaveToggle.ClickRegion) then 
+                    self.UI.Values.AboutAutoSave = not self.UI.Values.AboutAutoSave
+                elseif self:_IsPointInRegion(mouse_x, mouse_y, about_dropdown.ClickRegion) then 
+                    about_dropdown.IsOpen = not about_dropdown.IsOpen
+                elseif about_dropdown.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, {x1 = about_dropdown.Button.Position.x, y1 = about_dropdown.Button.Position.y + about_dropdown.Size.height, x2 = about_dropdown.Button.Position.x + about_dropdown.OptionBackground.Size.x, y2 = about_dropdown.Button.Position.y + about_dropdown.Size.height + about_dropdown.OptionBackground.Size.y}) then
+                    local optionY = about_dropdown.Button.Position.y + about_dropdown.Size.height + 5
+                    for i, option_text in ipairs(about_dropdown.OptionList) do
+                        local optionRegion = {x1 = about_dropdown.Button.Position.x, y1 = optionY, x2 = about_dropdown.Button.Position.x + about_dropdown.Size.width, y2 = optionY + 20}
+                        if self:_IsPointInRegion(mouse_x, mouse_y, optionRegion) then
+                            self.UI.Values[about_dropdown.id] = about_dropdown.Options[i]; about_dropdown.IsOpen = false; break
+                        end; optionY = optionY + 20
+                    end
+                else
+                    local circle_clicked = false
+                    for _, circle in ipairs(about.StyleCircles) do
+                        if self:_IsPointInRegion(mouse_x, mouse_y, circle.ClickRegion) then
+                            circle_clicked = true
+                            if circle.IsAddButton then
+                                self.CustomThemeCounter = self.CustomThemeCounter + 1; local newName = "Custom " .. self.CustomThemeCounter
+                                style_window.EditingTheme = self:_DeepCopy(self.ActiveTheme); style_window.EditingThemeName = newName
+                                style_window.StyleNameInputText.Text = newName; style_window.IsOpen = true
+                            else
+                                self.UI.Values.AboutSelectedStyle = circle.Name; self.ActiveTheme = self.Themes[circle.Name]
+                            end; break
+                        end
+                    end
+                    if not circle_clicked then
+                        if about_dropdown.IsOpen then about_dropdown.IsOpen = false
+                        elseif not self:_IsPointInRegion(mouse_x, mouse_y, about.ClickRegion) then self.UI.Popups.About.IsOpen = false end
+                    end
+                end
             else
                 if not click_was_handled and self.Window.ActiveTab ~= "Configs" then
                     for _, section in ipairs(self.UI.Sections) do
@@ -2333,7 +2423,16 @@ function Library:_InputLoop()
                 end
                 if not click_was_handled then
                     if self.Window.ActiveTab == "Configs" then
-                        -- ( ... )
+                        for i, item in ipairs(configsTab.Items) do
+                            local d = item.Drawing
+                            if configsTab.LoadedConfigName == item.Name and self:_IsPointInRegion(mouse_x, mouse_y, d.SaveButton.ClickRegion) then
+                                self:_SaveConfig(item.Name); click_was_handled = true; break
+                            elseif configsTab.LoadedConfigName ~= item.Name and self:_IsPointInRegion(mouse_x, mouse_y, d.LoadButton.ClickRegion) then
+                                self:_LoadConfig(item.Name); click_was_handled = true; break
+                            elseif self:_IsPointInRegion(mouse_x, mouse_y, d.OptionsButton.ClickRegion) then
+                                local popup = configsTab.OptionsPopup; popup.IsOpen = not popup.IsOpen; popup.ItemIndex = i; popup.Pos = {x = mouse_x - 155, y = mouse_y}; click_was_handled = true; break
+                            end
+                        end
                     else
                         for _, section in ipairs(self.UI.Sections) do
                             if section.ParentTab == self.Window.ActiveTab then
@@ -2351,7 +2450,21 @@ function Library:_InputLoop()
                     end
                 end
                 if not click_was_handled then
-                    -- ( ... )
+                    local create_btn_region = self.UI.Core.HeaderButtons.CreateNew.ClickRegion
+                    local save_btn_region = self.UI.Core.HeaderButtons.Save.ClickRegion
+                    local view_esp_region = self.UI.Core.HeaderButtons.ViewESP.ClickRegion
+                    local settings_region = self.UI.Core.HeaderButtons.Settings.ClickRegion
+                    if self:_IsPointInRegion(mouse_x, mouse_y, create_btn_region) and self.Window.ActiveTab == "Configs" then
+                        click_was_handled = true; self.UI.Core.HeaderButtons.CreateNew.ClickTime = tick(); self:_CreateNewConfig()
+                    elseif self:_IsPointInRegion(mouse_x, mouse_y, save_btn_region) then
+                        click_was_handled = true; self.UI.Core.HeaderButtons.Save.ClickTime = tick(); if configsTab.LoadedConfigName ~= "" then self:_SaveConfig(configsTab.LoadedConfigName) end
+                    elseif self:_IsPointInRegion(mouse_x, mouse_y, view_esp_region) then 
+                        click_was_handled = true; self.UI.Core.HeaderButtons.ViewESP.IsOpen = not self.UI.Core.HeaderButtons.ViewESP.IsOpen; self.UI.Core.HeaderButtons.ViewESP.ClickTime = tick();
+                    elseif self:_IsPointInRegion(mouse_x, mouse_y, settings_region) then 
+                        click_was_handled = true; self.UI.Popups.About.IsOpen = not self.UI.Popups.About.IsOpen;
+                    else
+                        for _, group in ipairs(self.UI.TabGroups) do for _, tab in ipairs(group.Tabs) do if self:_IsPointInRegion(mouse_x, mouse_y, tab.ClickRegion) then self.Window.ActiveTab = tab.Name; click_was_handled = true; break; end end if click_was_handled then break; end end
+                    end
                 end
             end
             for _, section in ipairs(self.UI.Sections) do for _, el in ipairs(section.Elements) do if (el.type == "Dropdown" or el.type == "Multidropdown") and el ~= clicked_dropdown_button then el.IsOpen = false; end end end
@@ -2732,4 +2845,3 @@ function Library:Create()
 end
 
 return Library
-
