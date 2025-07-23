@@ -802,14 +802,15 @@ function Library:_InitializeColorPickerWindow()
     local picker = {}; self.UI.Popups.ColorPicker = picker; local z = 50
     picker.IsOpen = false
     picker.EditingColorName = nil
+    picker.EditingValueID = nil -- << ДОБАВЛЕНО: ID для значения цвета (например, ESP)
     picker.Pos = {x=0, y=0}
-    
+
     -- State
     picker.h, picker.s, picker.v, picker.a = 0, 1, 1, 1
     picker.isDraggingHue = false
     picker.isDraggingOpacity = false
     picker.isDraggingSaturationValue = false
-    
+
     -- Drawing Objects
     picker.Background = self:_CreateDrawingObject("Square"); if picker.Background then picker.Background.Filled = true; picker.Background.zIndex = z; picker.Background.Rounding = self.ActiveTheme.Rounding.Window; end
     picker.Border = self:_CreateDrawingObject("Square"); if picker.Border then picker.Border.Filled = false; picker.Border.Thickness = 1; picker.Border.zIndex = z; picker.Border.Rounding = self.ActiveTheme.Rounding.Window; end
@@ -817,7 +818,7 @@ function Library:_InitializeColorPickerWindow()
     picker.ColorSquare = self:_CreateDrawingObject("Square"); if picker.ColorSquare then picker.ColorSquare.Filled = true; picker.ColorSquare.zIndex = z + 1; picker.ColorSquare.Rounding = self.ActiveTheme.Rounding.Element; end
     picker.GradientOverlay = self:_CreateDrawingObject("Image"); if picker.GradientOverlay then picker.GradientOverlay.Url = "https://pixeldrain.com/api/filesystem/6mLiDUiK"; picker.GradientOverlay.zIndex = z + 2; picker.GradientOverlay.Rounding = self.ActiveTheme.Rounding.Element; end
     picker.SaturationValueNub = self:_CreateDrawingObject("Circle"); if picker.SaturationValueNub then picker.SaturationValueNub.Filled = false; picker.SaturationValueNub.Thickness = 2; picker.SaturationValueNub.Radius = 5; picker.SaturationValueNub.zIndex = z + 3; end
-    
+
     picker.HueSlider = self:_CreateDrawingObject("Image"); if picker.HueSlider then picker.HueSlider.Url = "https://s6.imgcdn.dev/Y40GWM.jpg"; picker.HueSlider.zIndex = z + 1; picker.HueSlider.Rounding = 4; end
     picker.HueNub = self:_CreateDrawingObject("Circle"); if picker.HueNub then picker.HueNub.Filled = true; picker.HueNub.Radius = 7; picker.HueNub.zIndex = z + 3; end
     picker.HueNubBorder = self:_CreateDrawingObject("Circle"); if picker.HueNubBorder then picker.HueNubBorder.Filled = false; picker.HueNubBorder.Thickness = 2; picker.HueNubBorder.Radius = 7; picker.HueNubBorder.zIndex = z + 2; end
@@ -826,7 +827,7 @@ function Library:_InitializeColorPickerWindow()
     picker.OpacitySliderGradient = self:_CreateDrawingObject("Image"); if picker.OpacitySliderGradient then picker.OpacitySliderGradient.Url = "https://pixeldrain.com/api/filesystem/2py1vehq"; picker.OpacitySliderGradient.zIndex = z + 2; picker.OpacitySliderGradient.Rounding = 4; end
     picker.OpacityNub = self:_CreateDrawingObject("Circle"); if picker.OpacityNub then picker.OpacityNub.Filled = true; picker.OpacityNub.Radius = 7; picker.OpacityNub.zIndex = z + 3; end
     picker.OpacityNubBorder = self:_CreateDrawingObject("Circle"); if picker.OpacityNubBorder then picker.OpacityNubBorder.Filled = false; picker.OpacityNubBorder.Thickness = 2; picker.OpacityNubBorder.Radius = 7; picker.OpacityNubBorder.zIndex = z + 2; end
-    
+
     -- Click Regions
     picker.SaturationValueRegion = {}
     picker.HueSliderRegion = {}
@@ -1299,21 +1300,18 @@ function Library:_RenderSettingsPopup()
     local theme = self.ActiveTheme
     local z = 20 -- Базовый z-index для всплывающего окна
 
-    -- Управляем видимостью базовых элементов
     self:_SetVisibility(popup.Background, isVisible); self:_SetVisibility(popup.Border, isVisible); self:_SetVisibility(popup.Title, isVisible); self:_SetVisibility(popup.Separator, isVisible);
 
     if not isVisible then
         if popup.Glow then self:_HideGlowEffect(popup.Glow) end
-        self:_HideSettingsPopupElements(popup) -- << ДОБАВЛЕНО ДЛЯ НАДЁЖНОСТИ
+        self:_HideSettingsPopupElements(popup)
         return
     end
 
-    -- Анимируем цвета базовых элементов
     self:_AnimateAndApplyColor(popup.Background, theme.Colors.SectionBackground)
     self:_AnimateAndApplyColor(popup.Border, theme.Colors.Separator)
     self:_AnimateAndApplyColor(popup.Separator, theme.Colors.Separator)
 
-    -- Устанавливаем заголовок и его z-index
     popup.Title.Text = popup.ActiveToggle.Name .. " Settings"
     self:_AnimateAndApplyColor(popup.Title, theme.Colors.TextPrimary)
     popup.Title.zIndex = z + 2
@@ -1326,15 +1324,15 @@ function Library:_RenderSettingsPopup()
     if popup.Separator then popup.Separator.From = {pX + 10, currentY}; popup.Separator.To = {pX + pW - 10, currentY}; end
     currentY = currentY + 15
 
-    -- Рендерим дочерние элементы (Keybind)
     for _, element in ipairs(popup.ActiveToggle.SettingsElements or {}) do
         if element.type == "Keybind" then
             local keybind = element
+            self:_SetVisibility(keybind.Label, true) -- << ДОБАВЛЕНО
             self:_SetVisibility(keybind.Button, true)
             self:_SetVisibility(keybind.Border, true)
             self:_SetVisibility(keybind.ButtonText, true)
 
-            -- Управляем Z-index прямо во время рендера
+            keybind.Label.zIndex = z + 2 -- << ДОБАВЛЕНО
             keybind.Button.zIndex = z + 2
             keybind.Border.zIndex = z + 3
             keybind.ButtonText.zIndex = z + 3
@@ -1343,10 +1341,12 @@ function Library:_RenderSettingsPopup()
             local buttonTextColor = keybind.IsListening and self:_GetTextColorForBackground(buttonBackgroundColor) or theme.Colors.TextPrimary
             local buttonBorderColor = keybind.IsListening and theme.Colors.Accent or theme.Colors.Separator
 
+            self:_AnimateAndApplyColor(keybind.Label, theme.Colors.TextSecondary) -- << ДОБАВЛЕНО
             self:_AnimateAndApplyColor(keybind.Button, buttonBackgroundColor)
             self:_AnimateAndApplyColor(keybind.Border, buttonBorderColor)
             self:_AnimateAndApplyColor(keybind.ButtonText, buttonTextColor)
 
+            keybind.Label.Position = { pX + 15, currentY } -- << ДОБАВЛЕНО
             local bindButtonX = pX + pW - keybind.Size.width - 15
             keybind.Button.Position = {bindButtonX, currentY - 5}; keybind.Button.Size = {keybind.Size.width, keybind.Size.height};
             keybind.Border.Position = {bindButtonX, currentY - 5}; keybind.Border.Size = {keybind.Size.width, keybind.Size.height};
@@ -1846,48 +1846,30 @@ end
 function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, yOffset, masterOpacity)
     local theme = self.ActiveTheme
     local animatedY = sectionY + yOffset
-    
+
     local sDrawing = section.Drawing
     for _, obj in pairs(sDrawing) do self:_SetVisibility(obj, true) end
     self:_AnimateAndApplyColor(sDrawing.Background, theme.Colors.SectionBackground, masterOpacity)
     self:_AnimateAndApplyColor(sDrawing.Border, theme.Colors.Separator, masterOpacity)
     self:_AnimateAndApplyColor(sDrawing.Title, theme.Colors.TextPrimary, masterOpacity)
     self:_AnimateAndApplyColor(sDrawing.Separator, theme.Colors.Separator, masterOpacity)
-    
+
     sDrawing.Background.Position = {sectionX, animatedY}
     sDrawing.Border.Position = {sectionX, animatedY}
     sDrawing.Title.Position = {sectionX + 10, animatedY + 8}
     local separatorY_abs = sDrawing.Title.Position.y + sDrawing.Title.Size + 5
     sDrawing.Separator.From = {sectionX + 10, separatorY_abs}; sDrawing.Separator.To = {sectionX + columnWidth - 10, separatorY_abs}
-    
+
     local elementY_offset = (separatorY_abs - animatedY) + 15
-    
+
     for _, el in ipairs(section.Elements) do
         self:_SetVisibility(el.Label, true)
         if el.type == "Toggle" then
             self:_SetVisibility(el.Back, true)
             self:_SetVisibility(el.Nub, true)
-            if el.HasSettings and el.SettingsIcon then self:_SetVisibility(el.SettingsIcon, true) end
-        elseif el.type == "Slider" then
-            self:_SetVisibility(el.Back, true)
-            self:_SetVisibility(el.LeftFill, true)
-            -- self:_SetVisibility(el.RightFill, true) -- Убрали
-            self:_SetVisibility(el.Nub, true)
-            self:_SetVisibility(el.ValueText, true)
-        elseif el.type == "Dropdown" or el.type == "Multidropdown" then
-            self:_SetVisibility(el.Button, true)
-            self:_SetVisibility(el.ButtonText, true)
-            self:_SetVisibility(el.ArrowLine1, true)
-            self:_SetVisibility(el.ArrowLine2, true)
-        elseif el.type == "Keybind" then
-            self:_SetVisibility(el.Button, true)
-            self:_SetVisibility(el.ButtonText, true)
-        end
 
-        local currentElementY = animatedY + elementY_offset
-        self:_AnimateAndApplyColor(el.Label, theme.Colors.TextSecondary, masterOpacity)
-
-        if el.type == "Toggle" then
+            local currentElementY = animatedY + elementY_offset
+            self:_AnimateAndApplyColor(el.Label, theme.Colors.TextSecondary, masterOpacity)
             el.Label.Position = {sectionX + 10, currentElementY}
             local toggleBackX = sectionX + columnWidth - el.Size.width - 15
             el.Back.Position = {toggleBackX, currentElementY + 2}; el.Back.Size = {el.Size.width, el.Size.height}; el.ClickRegion = {x1 = toggleBackX, y1 = currentElementY, x2 = toggleBackX + el.Size.width, y2 = currentElementY + el.Size.height + 4}
@@ -1898,39 +1880,73 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
             local targetNubColor = is_on and theme.Colors.Accent or theme.Colors.LightGray
             self:_AnimateAndApplyColor(el.Back, targetBackColor, masterOpacity)
             self:_AnimateAndApplyColor(el.Nub, targetNubColor, masterOpacity)
-            if el.HasSettings and el.SettingsIcon then self:_AnimateAndApplyColor(el.SettingsIcon, theme.Colors.TextSecondary, masterOpacity); local iconX = toggleBackX - el.SettingsIcon.Size.x - 10; el.SettingsIcon.Position = {iconX, currentElementY}; el.SettingsClickRegion = {x1 = iconX, y1 = currentElementY, x2 = iconX + el.SettingsIcon.Size.x, y2 = currentElementY + el.SettingsIcon.Size.y} end
-            elementY_offset = elementY_offset + 35
 
-        -- [[ ИСПРАВЛЕНИЕ СЛАЙДЕРА ]]
+            -- << НАЧАЛО ЛОГИКИ РИСОВАНИЯ ИКОНОК >>
+            local iconAreaX = toggleBackX - 10 -- Начальная позиция для иконок слева от переключателя
+
+            -- Рисуем иконку настроек, если она есть
+            if el.HasSettings and el.SettingsIcon then
+                self:_SetVisibility(el.SettingsIcon, true)
+                self:_AnimateAndApplyColor(el.SettingsIcon, theme.Colors.TextSecondary, masterOpacity)
+                local iconX = iconAreaX - el.SettingsIcon.Size.x
+                el.SettingsIcon.Position = {iconX, currentElementY}
+                el.SettingsClickRegion = {x1 = iconX, y1 = currentElementY, x2 = iconX + el.SettingsIcon.Size.x, y2 = currentElementY + el.SettingsIcon.Size.y}
+                iconAreaX = iconX - 5 -- Сдвигаем позицию для следующей иконки
+            else
+                if el.SettingsIcon then self:_SetVisibility(el.SettingsIcon, false) end
+            end
+
+            -- Рисуем кружок цвета, если он есть
+            if el.HasColor and el.ColorCircle then
+                self:_SetVisibility(el.ColorCircle, true)
+                self:_SetVisibility(el.ColorBorder, true)
+                local colorValue = self.UI.Values[el.HasColor.id]
+                self:_AnimateAndApplyColor(el.ColorCircle, colorValue, masterOpacity)
+                self:_AnimateAndApplyColor(el.ColorBorder, theme.Colors.LightGray, masterOpacity)
+                local radius = el.ColorCircle.Radius
+                local iconX = iconAreaX - (radius * 2)
+                el.ColorCircle.Position = {iconX + radius, currentElementY + 7}
+                el.ColorBorder.Position = {iconX + radius, currentElementY + 7}
+                el.ColorClickRegion = {x1 = iconX, y1 = currentElementY, x2 = iconX + (radius * 2), y2 = currentElementY + 14}
+            else
+                if el.ColorCircle then self:_SetVisibility(el.ColorCircle, false) end
+                if el.ColorBorder then self:_SetVisibility(el.ColorBorder, false) end
+            end
+            -- << КОНЕЦ ЛОГИКИ РИСОВАНИЯ ИКОНОК >>
+
+            elementY_offset = elementY_offset + 35
+        -- (Код для других элементов: Slider, Dropdown и т.д. остается без изменений)
         elseif el.type == "Slider" then
+            self:_SetVisibility(el.Back, true)
+            self:_SetVisibility(el.LeftFill, true)
+            self:_SetVisibility(el.Nub, true)
+            self:_SetVisibility(el.ValueText, true)
+            local currentElementY = animatedY + elementY_offset
+            self:_AnimateAndApplyColor(el.Label, theme.Colors.TextSecondary, masterOpacity)
             el.Label.Position = {sectionX + 10, currentElementY}
             local sliderBackX = sectionX + 100; local sliderBackWidth = columnWidth - 110 - 50
-            
-            -- Задаем позицию и размер для всей полоски слайдера
-            el.Back.Position = {sliderBackX, currentElementY + 8}; 
-            el.Back.Size = {sliderBackWidth, 2}; 
+            el.Back.Position = {sliderBackX, currentElementY + 8};
+            el.Back.Size = {sliderBackWidth, 2};
             el.ClickRegion = { x1 = sliderBackX, y1 = currentElementY - 2, x2 = sliderBackX + sliderBackWidth, y2 = currentElementY + 18 };
-            
             local value_percentage = math.clamp(((self.UI.Values[el.id] or el.Min) - el.Min) / (el.Max - el.Min), 0, 1)
             local nubX = sliderBackX + sliderBackWidth * value_percentage
-            
-            -- Задаем позицию и размер для заполненной части
-            el.LeftFill.Position = {sliderBackX, currentElementY + 8}; 
+            el.LeftFill.Position = {sliderBackX, currentElementY + 8};
             el.LeftFill.Size = {nubX - sliderBackX, 2}
-            
-            -- Позиция ползунка и текста со значением
             el.Nub.Position = {nubX, currentElementY + 9}
             local valueText = tostring(math.floor(self.UI.Values[el.id] or el.Min)); local valueTextX = sectionX + columnWidth - 40
             el.ValueText.Text = valueText; el.ValueText.Position = {valueTextX, currentElementY}
-            
-            -- Применяем цвета и прозрачность ко всем элементам
-            self:_AnimateAndApplyColor(el.Back, theme.Colors.DarkBlue, masterOpacity) -- Применяем цвет и прозрачность к фону
+            self:_AnimateAndApplyColor(el.Back, theme.Colors.DarkBlue, masterOpacity)
             self:_AnimateAndApplyColor(el.LeftFill, theme.Colors.Accent, masterOpacity)
             self:_AnimateAndApplyColor(el.Nub, theme.Colors.Accent, masterOpacity)
             self:_AnimateAndApplyColor(el.ValueText, theme.Colors.TextPrimary, masterOpacity)
             elementY_offset = elementY_offset + 35
-
         elseif el.type == "Dropdown" or el.type == "Multidropdown" then
+            self:_SetVisibility(el.Button, true)
+            self:_SetVisibility(el.ButtonText, true)
+            self:_SetVisibility(el.ArrowLine1, true)
+            self:_SetVisibility(el.ArrowLine2, true)
+            local currentElementY = animatedY + elementY_offset
+            self:_AnimateAndApplyColor(el.Label, theme.Colors.TextSecondary, masterOpacity)
             el.Label.Position = {sectionX + 10, currentElementY + 5}
             local dropdownButtonX, dropdownButtonY = sectionX + columnWidth - el.Size.width - 15, currentElementY
             el.Button.Position = {dropdownButtonX, dropdownButtonY}; el.Button.Size = {el.Size.width, el.Size.height}
@@ -1939,39 +1955,32 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
             local arrowX, arrowY = dropdownButtonX + el.Size.width - 15, dropdownButtonY + el.Size.height / 2
             el.ArrowLine1.From = {arrowX, arrowY - 2}; el.ArrowLine1.To = {arrowX + 5, arrowY + 3}; el.ArrowLine2.From = {arrowX + 5, arrowY + 3}; el.ArrowLine2.To = {arrowX + 10, arrowY - 2}
             el.ClickRegion = { x1 = dropdownButtonX, y1 = dropdownButtonY, x2 = dropdownButtonX + el.Size.width, y2 = dropdownButtonY + el.Size.height }
-            
             self:_AnimateAndApplyColor(el.Button, theme.Colors.DarkBlue, masterOpacity); self:_AnimateAndApplyColor(el.ButtonText, theme.Colors.TextPrimary, masterOpacity); self:_AnimateAndApplyColor(el.ArrowLine1, theme.Colors.TextPrimary, masterOpacity); self:_AnimateAndApplyColor(el.ArrowLine2, theme.Colors.TextPrimary, masterOpacity)
-            
             elementY_offset = elementY_offset + 35
-            
             if el.IsOpen then
                 self:_SetVisibility(el.OptionBackground, true)
                 self:_SetVisibility(el.BorderLeft, true)
                 self:_SetVisibility(el.BorderRight, true)
                 self:_SetVisibility(el.BorderBottom, true)
                 for _, option in ipairs(el.OptionList) do self:_SetVisibility(option, true) end
-                
                 local optionListHeight = #el.Options * 20 + 5
                 local bgX, bgY, bgW, bgH = dropdownButtonX, dropdownButtonY + el.Size.height, el.Size.width, optionListHeight
-                
                 el.OptionBackground.Position = {bgX, bgY}; el.OptionBackground.Size = {bgW, bgH}
                 el.BorderLeft.From = {bgX, bgY}; el.BorderLeft.To = {bgX, bgY + bgH}
                 el.BorderRight.From = {bgX + bgW, bgY}; el.BorderRight.To = {bgX + bgW, bgY + bgH}
                 el.BorderBottom.From = {bgX, bgY + bgH}; el.BorderBottom.To = {bgX + bgW, bgY + bgH}
-                
                 self:_RenderGlowEffect(el.Glow, bgX, bgY, bgW, bgH, el.OptionBackground.Rounding, theme.Colors.GlowColor, {top=false, left=true, right=true, bottom=true})
                 self:_AnimateAndApplyColor(el.OptionBackground, theme.Colors.SectionBackground, masterOpacity)
                 self:_AnimateAndApplyColor(el.BorderLeft, theme.Colors.Separator, masterOpacity)
                 self:_AnimateAndApplyColor(el.BorderRight, theme.Colors.Separator, masterOpacity)
                 self:_AnimateAndApplyColor(el.BorderBottom, theme.Colors.Separator, masterOpacity)
-
                 local optionY_abs = dropdownButtonY + el.Size.height + 5
-                for i, option in ipairs(el.OptionList) do 
+                for i, option in ipairs(el.OptionList) do
                     option.Position = {dropdownButtonX + 5, optionY_abs}
                     local isSelected = (el.type == "Dropdown" and self.UI.Values[el.id] == el.Options[i]) or (el.type == "Multidropdown" and table.find(self.UI.Values[el.id], el.Options[i]))
                     local targetOptColor = isSelected and theme.Colors.Accent or theme.Colors.TextPrimary
                     self:_AnimateAndApplyColor(option, targetOptColor, masterOpacity)
-                    optionY_abs = optionY_abs + 20 
+                    optionY_abs = optionY_abs + 20
                 end
             else
                 self:_HideGlowEffect(el.Glow)
@@ -1981,31 +1990,28 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
                 self:_SetVisibility(el.BorderBottom, false)
                 for _, option in ipairs(el.OptionList) do self:_SetVisibility(option, false) end
             end
-        
         elseif el.type == "Keybind" then
+            self:_SetVisibility(el.Button, true)
+            self:_SetVisibility(el.ButtonText, true)
+            local currentElementY = animatedY + elementY_offset
+            self:_AnimateAndApplyColor(el.Label, theme.Colors.TextSecondary, masterOpacity)
             el.Label.Position = {sectionX + 10, currentElementY + 5}
             local keybindButtonX, keybindButtonY = sectionX + columnWidth - el.Size.width - 15, currentElementY
-            
-            el.Button.Position = {keybindButtonX, keybindButtonY}; 
+            el.Button.Position = {keybindButtonX, keybindButtonY};
             el.Button.Size = {el.Size.width, el.Size.height}
-            
-            el.ButtonText.Position = { keybindButtonX + (el.Size.width / 2), keybindButtonY + el.Size.height / 2 - el.ButtonText.Size / 2 }; 
+            el.ButtonText.Position = { keybindButtonX + (el.Size.width / 2), keybindButtonY + el.Size.height / 2 - el.ButtonText.Size / 2 };
             el.ButtonText.Text = el.IsListening and "..." or string.upper(self.UI.Values[el.id])
-            
             el.ClickRegion = { x1 = keybindButtonX, y1 = keybindButtonY, x2 = keybindButtonX + el.Size.width, y2 = keybindButtonY + el.Size.height }
-            
             local targetButtonColor = el.IsListening and theme.Colors.Accent or theme.Colors.DarkBlue
             local targetTextColor = el.IsListening and self:_GetTextColorForBackground(targetButtonColor) or theme.Colors.TextPrimary
-
             self:_AnimateAndApplyColor(el.Button, targetButtonColor, masterOpacity)
             self:_AnimateAndApplyColor(el.ButtonText, targetTextColor, masterOpacity)
-            
             elementY_offset = elementY_offset + 35
         end
     end
-    
+
     local sectionHeight = elementY_offset - ((separatorY_abs - animatedY) + 15) + 45
-    
+
     if #section.Elements > 0 then
         local lastElement = section.Elements[#section.Elements]
         if lastElement.type == "Dropdown" or lastElement.type == "Multidropdown" or lastElement.type == "Keybind" then
@@ -2015,7 +2021,7 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
 
     sDrawing.Background.Size = {columnWidth, sectionHeight}
     sDrawing.Border.Size = {columnWidth, sectionHeight}
-    
+
     return sectionHeight
 end
 
@@ -2292,12 +2298,18 @@ function Library:_InputLoop()
         if clamped_value ~= self.UI.Values[about_slider.id] then self.UI.Values[about_slider.id] = clamped_value; end
     end
 
+    -- << ИЗМЕНЕНА: эта функция теперь универсальна >>
     local function update_color_picker()
         local new_rgb = self:_HSVtoRGB(picker.h, picker.s, picker.v)
         local new_color = {new_rgb[1], new_rgb[2], new_rgb[3], picker.a * 255}
-        style_window.EditingTheme.Colors[picker.EditingColorName] = new_color
-        if self.UI.Values.EditStyleRealTime and self.TempTheme then
-             self.TempTheme.Colors[picker.EditingColorName] = new_color
+
+        if picker.EditingValueID then
+            self.UI.Values[picker.EditingValueID] = new_color
+        elseif picker.EditingColorName then
+            style_window.EditingTheme.Colors[picker.EditingColorName] = new_color
+            if self.UI.Values.EditStyleRealTime and self.TempTheme then
+                 self.TempTheme.Colors[picker.EditingColorName] = new_color
+            end
         end
     end
 
@@ -2345,7 +2357,8 @@ function Library:_InputLoop()
                     end
                 else
                     self:_HideSettingsPopupElements(settings_popup)
-                    settings_popup.IsOpen = false; settings_popup.ActiveToggle = nil;
+                    settings_popup.IsOpen = false;
+                    settings_popup.ActiveToggle = nil;
                 end
             elseif configsTab.OptionsPopup.IsOpen then
                 click_was_handled = true
@@ -2390,7 +2403,10 @@ function Library:_InputLoop()
                     local clicked_color = false
                     for _, item in ipairs(style_window.ColorItems) do
                         if self:_IsPointInRegion(mouse_x, mouse_y, item.ClickRegion) then
-                            picker.IsOpen = true; picker.EditingColorName = item.Name; picker.Pos = {x = mouse_x, y = mouse_y}
+                            picker.IsOpen = true;
+                            picker.EditingColorName = item.Name;
+                            picker.EditingValueID = nil; -- Сбрасываем ID значения
+                            picker.Pos = {x = mouse_x, y = mouse_y}
                             local color_to_edit = style_window.EditingTheme.Colors[item.Name]
                             picker.h, picker.s, picker.v, picker.a = self:_RGBtoHSV(color_to_edit[1], color_to_edit[2], color_to_edit[3], color_to_edit[4])
                             clicked_color = true; break
@@ -2473,7 +2489,17 @@ function Library:_InputLoop()
                         for _, section in ipairs(self.UI.Sections) do
                             if section.ParentTab == self.Window.ActiveTab then
                                 for _, el in ipairs(section.Elements) do
-                                    if el.HasSettings and self:_IsPointInRegion(mouse_x, mouse_y, el.SettingsClickRegion) then
+                                    -- << НАЧАЛО ИЗМЕНЕНИЙ: ОБРАБОТКА КЛИКА ПО ЦВЕТУ >>
+                                    if el.type == "Toggle" and el.HasColor and self:_IsPointInRegion(mouse_x, mouse_y, el.ColorClickRegion) then
+                                        picker.IsOpen = true
+                                        picker.EditingValueID = el.HasColor.id -- Устанавливаем ID значения
+                                        picker.EditingColorName = nil -- Сбрасываем имя цвета темы
+                                        picker.Pos = {x = mouse_x, y = mouse_y}
+                                        local color_to_edit = self.UI.Values[el.HasColor.id]
+                                        picker.h, picker.s, picker.v, picker.a = self:_RGBtoHSV(color_to_edit[1], color_to_edit[2], color_to_edit[3], color_to_edit[4])
+                                        click_was_handled = true; break
+                                    -- << КОНЕЦ ИЗМЕНЕНИЙ >>
+                                    elseif el.HasSettings and self:_IsPointInRegion(mouse_x, mouse_y, el.SettingsClickRegion) then
                                         settings_popup.IsOpen = true; settings_popup.ActiveToggle = el; settings_popup.Pos = {x = mouse_x, y = mouse_y}; click_was_handled = true; break
                                     elseif self:_IsPointInRegion(mouse_x, mouse_y, el.ClickRegion) then
                                         if el.type == "Toggle" then self.UI.Values[el.id] = not self.UI.Values[el.id]; if el.Callback then el.Callback(self.UI.Values[el.id]) end
@@ -2622,13 +2648,31 @@ function Library:_Internal_CreateToggle(options)
     local z = options.zIndex or 4
     local toggle = {
         id = options.id, type = "Toggle", Name = options.Name, Size = {width = 35, height = 12},
-        HasSettings = options.HasSettings or false, Callback = options.Callback,
+        HasSettings = options.HasSettings or false,
+        HasColor = options.HasColor or false, -- << ДОБАВЛЕНО
+        Callback = options.Callback,
         Label = self:_CreateDrawingObject("Text"), Back = self:_CreateDrawingObject("Square"),
         Nub = self:_CreateDrawingObject("Circle"), ClickRegion = {}, SettingsClickRegion = {},
         SettingsIcon = nil,
-        CurrentBackColor = {0,0,0,0}, -- Текущий цвет фона
-        CurrentNubColor = {0,0,0,0}   -- Текущий цвет ползунка
+        ColorCircle = nil, -- << ДОБАВЛЕНО
+        ColorBorder = nil, -- << ДОБАВЛЕНО
+        ColorClickRegion = {}, -- << ДОБАВЛЕНО
+        CurrentBackColor = {0,0,0,0},
+        CurrentNubColor = {0,0,0,0}
     }
+    if toggle.HasColor and type(toggle.HasColor) == 'table' then -- << ДОБАВЛЕН БЛОК
+        if self.UI.Values[toggle.HasColor.id] == nil then
+            self.UI.Values[toggle.HasColor.id] = toggle.HasColor.Default or {255, 255, 255, 255}
+        end
+        toggle.ColorCircle = self:_CreateDrawingObject("Circle")
+        toggle.ColorBorder = self:_CreateDrawingObject("Circle")
+        if toggle.ColorCircle then
+            toggle.ColorCircle.Filled = true; toggle.ColorCircle.zIndex = z + 1; toggle.ColorCircle.Radius = 5;
+        end
+        if toggle.ColorBorder then
+            toggle.ColorBorder.Filled = false; toggle.ColorBorder.Thickness = 1; toggle.ColorBorder.zIndex = z + 2; toggle.ColorBorder.Radius = 6;
+        end
+    end
     if toggle.HasSettings then
         toggle.SettingsIcon = self:_CreateDrawingObject("Image")
         if toggle.SettingsIcon then
@@ -2740,18 +2784,22 @@ function Library:_Internal_CreateKeybind(options)
         id = options.id,
         type = "Keybind",
         Name = options.Name,
+        Label = self:_CreateDrawingObject("Text"), -- << ДОБАВЛЕНО
         Size = {width = 100, height = 25},
         Callback = options.Callback,
         Button = self:_CreateDrawingObject("Square"),
-        Border = self:_CreateDrawingObject("Square"), -- << ДОБАВЛЕНО
+        Border = self:_CreateDrawingObject("Square"),
         ButtonText = self:_CreateDrawingObject("Text"),
         IsListening = false,
         ClickRegion = {}
     }
+    if keybind.Label then -- << ДОБАВЛЕН БЛОК
+        keybind.Label.Font = self.ActiveTheme.Fonts.Main; keybind.Label.Size = self.ActiveTheme.Fonts.Size + 2; keybind.Label.Text = keybind.Name; keybind.Label.Center = false; keybind.Label.Outline = false; keybind.Label.zIndex = z;
+    end
     if keybind.Button then
         keybind.Button.Filled = true; keybind.Button.zIndex = z; keybind.Button.Rounding = self.ActiveTheme.Rounding.Element;
     end
-    if keybind.Border then -- << ДОБАВЛЕНО
+    if keybind.Border then
         keybind.Border.Filled = false; keybind.Border.Thickness = 1; keybind.Border.zIndex = z + 1; keybind.Border.Rounding = self.ActiveTheme.Rounding.Element;
     end
     if keybind.ButtonText then
