@@ -1989,7 +1989,7 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
             el.ClickRegion = { x1 = dropdownButtonX, y1 = dropdownButtonY, x2 = dropdownButtonX + el.Size.width, y2 = dropdownButtonY + el.Size.height }
             self:_AnimateAndApplyColor(el.Button, theme.Colors.DarkBlue, masterOpacity); self:_AnimateAndApplyColor(el.ButtonText, theme.Colors.TextPrimary, masterOpacity); self:_AnimateAndApplyColor(el.ArrowLine1, theme.Colors.TextPrimary, masterOpacity); self:_AnimateAndApplyColor(el.ArrowLine2, theme.Colors.TextPrimary, masterOpacity)
             elementY_offset = elementY_offset + 35
-
+            
             if el.IsOpen or el.IsClosing then
                 if el.IsOpen and not el.IsClosing then el.FadeOpacity = math.min(1, el.FadeOpacity + 0.15)
                 elseif el.IsClosing then el.FadeOpacity = math.max(0, el.FadeOpacity - 0.15); if el.FadeOpacity == 0 then el.IsClosing = false end end
@@ -2008,7 +2008,13 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
 
                     local currentOptionY = popupY + 5
                     local hasSelection = el.type == "Multidropdown" and #self.UI.Values[el.id] > 0
-                    local textX = popupX + (hasSelection and 20 or 10)
+                    
+                    --[[
+                        ИЗМЕНЕНИЕ ОТСТУПА ТЕКСТА
+                        Чтобы увеличить/уменьшить расстояние от галочки до текста,
+                        измените значение '25' в следующей строке.
+                    ]]
+                    local textX = popupX + (hasSelection and 25 or 10)
 
                     for i, option in ipairs(el.OptionList) do
                         self:_SetVisibility(option.Text, true); self:_SetVisibility(option.Highlight, true)
@@ -2040,8 +2046,13 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
                             self:_SetVisibility(option.CheckmarkLine1, isSelected); self:_SetVisibility(option.CheckmarkLine2, isSelected)
                             if isSelected then
                                 local checkY = currentOptionY + (optionHeight / 2)
+                                --[[
+                                    ИЗМЕНЕНИЕ ФОРМЫ ГАЛОЧКИ
+                                    Чтобы сделать галочку выше, уменьшите последнее значение Y
+                                    в строке 'option.CheckmarkLine2.To' (например, с -2 на -4).
+                                ]]
                                 option.CheckmarkLine1.From = {popupX + 8, checkY}; option.CheckmarkLine1.To = {popupX + 11, checkY + 3}
-                                option.CheckmarkLine2.From = {popupX + 11, checkY + 3}; option.CheckmarkLine2.To = {popupX + 15, checkY - 2}
+                                option.CheckmarkLine2.From = {popupX + 11, checkY + 3}; option.CheckmarkLine2.To = {popupX + 15, checkY - 4}
                                 self:_AnimateAndApplyColor(option.CheckmarkLine1, theme.Colors.TextLight, finalOpacity)
                                 self:_AnimateAndApplyColor(option.CheckmarkLine2, theme.Colors.TextLight, finalOpacity)
                             end
@@ -2050,7 +2061,7 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
                     end
                 end
             else
-                -- << ИСПРАВЛЕНИЕ БАГА С "ПРИЗРАКАМИ" >>
+                self:_HideGlowEffect(el.Glow) -- << ИСПРАВЛЕНИЕ БАГА С "ПРИЗРАЧНЫМ" GLOW
                 self:_SetVisibility(el.OptionBackground, false)
                 self:_SetVisibility(el.Border, false)
                 for _, option in ipairs(el.OptionList) do
