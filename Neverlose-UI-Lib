@@ -427,6 +427,7 @@ function Library:_HideSettingsPopupElements(popup)
     end
     for _, element in ipairs(popup.ActiveToggle.SettingsElements) do
         if element.type == "Keybind" then
+            if element.Label then self:_SetVisibility(element.Label, false) end -- << ИСПРАВЛЕНИЕ
             if element.Button then self:_SetVisibility(element.Button, false) end
             if element.Border then self:_SetVisibility(element.Border, false) end
             if element.ButtonText then self:_SetVisibility(element.ButtonText, false) end
@@ -1881,41 +1882,43 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
             self:_AnimateAndApplyColor(el.Back, targetBackColor, masterOpacity)
             self:_AnimateAndApplyColor(el.Nub, targetNubColor, masterOpacity)
 
-            -- << НАЧАЛО ЛОГИКИ РИСОВАНИЯ ИКОНОК >>
-            local iconAreaX = toggleBackX - 10 -- Начальная позиция для иконок слева от переключателя
+            -- << НАЧАЛО ИЗМЕНЕНИЙ: ЛОГИКА РАСПОЛОЖЕНИЯ ИКОНОК >>
+            local iconAreaX = toggleBackX - 10 -- Начальная позиция для иконок, слева от переключателя
 
-            -- Рисуем иконку настроек, если она есть
-            if el.HasSettings and el.SettingsIcon then
-                self:_SetVisibility(el.SettingsIcon, true)
-                self:_AnimateAndApplyColor(el.SettingsIcon, theme.Colors.TextSecondary, masterOpacity)
-                local iconX = iconAreaX - el.SettingsIcon.Size.x
-                el.SettingsIcon.Position = {iconX, currentElementY}
-                el.SettingsClickRegion = {x1 = iconX, y1 = currentElementY, x2 = iconX + el.SettingsIcon.Size.x, y2 = currentElementY + el.SettingsIcon.Size.y}
-                iconAreaX = iconX - 5 -- Сдвигаем позицию для следующей иконки
-            else
-                if el.SettingsIcon then self:_SetVisibility(el.SettingsIcon, false) end
-            end
-
-            -- Рисуем кружок цвета, если он есть
+            -- Рисуем кружок цвета (он теперь правее)
             if el.HasColor and el.ColorCircle then
                 self:_SetVisibility(el.ColorCircle, true)
                 self:_SetVisibility(el.ColorBorder, true)
                 local colorValue = self.UI.Values[el.HasColor.id]
                 self:_AnimateAndApplyColor(el.ColorCircle, colorValue, masterOpacity)
                 self:_AnimateAndApplyColor(el.ColorBorder, theme.Colors.LightGray, masterOpacity)
+
                 local radius = el.ColorCircle.Radius
-                local iconX = iconAreaX - (radius * 2)
+                local iconWidth = radius * 2
+                local iconX = iconAreaX - iconWidth
                 el.ColorCircle.Position = {iconX + radius, currentElementY + 7}
                 el.ColorBorder.Position = {iconX + radius, currentElementY + 7}
-                el.ColorClickRegion = {x1 = iconX, y1 = currentElementY, x2 = iconX + (radius * 2), y2 = currentElementY + 14}
+                el.ColorClickRegion = {x1 = iconX, y1 = currentElementY, x2 = iconX + iconWidth, y2 = currentElementY + 14}
+
+                iconAreaX = iconX - 5 -- Сдвигаем позицию для следующей иконки левее
             else
                 if el.ColorCircle then self:_SetVisibility(el.ColorCircle, false) end
                 if el.ColorBorder then self:_SetVisibility(el.ColorBorder, false) end
             end
-            -- << КОНЕЦ ЛОГИКИ РИСОВАНИЯ ИКОНОК >>
+
+            -- Рисуем иконку настроек (она теперь левее)
+            if el.HasSettings and el.SettingsIcon then
+                self:_SetVisibility(el.SettingsIcon, true)
+                self:_AnimateAndApplyColor(el.SettingsIcon, theme.Colors.TextSecondary, masterOpacity)
+                local iconX = iconAreaX - el.SettingsIcon.Size.x
+                el.SettingsIcon.Position = {iconX, currentElementY}
+                el.SettingsClickRegion = {x1 = iconX, y1 = currentElementY, x2 = iconX + el.SettingsIcon.Size.x, y2 = currentElementY + el.SettingsIcon.Size.y}
+            else
+                if el.SettingsIcon then self:_SetVisibility(el.SettingsIcon, false) end
+            end
+            -- << КОНЕЦ ИЗМЕНЕНИЙ >>
 
             elementY_offset = elementY_offset + 35
-        -- (Код для других элементов: Slider, Dropdown и т.д. остается без изменений)
         elseif el.type == "Slider" then
             self:_SetVisibility(el.Back, true)
             self:_SetVisibility(el.LeftFill, true)
@@ -2649,28 +2652,30 @@ function Library:_Internal_CreateToggle(options)
     local toggle = {
         id = options.id, type = "Toggle", Name = options.Name, Size = {width = 35, height = 12},
         HasSettings = options.HasSettings or false,
-        HasColor = options.HasColor or false, -- << ДОБАВЛЕНО
+        HasColor = options.HasColor or false,
         Callback = options.Callback,
         Label = self:_CreateDrawingObject("Text"), Back = self:_CreateDrawingObject("Square"),
         Nub = self:_CreateDrawingObject("Circle"), ClickRegion = {}, SettingsClickRegion = {},
         SettingsIcon = nil,
-        ColorCircle = nil, -- << ДОБАВЛЕНО
-        ColorBorder = nil, -- << ДОБАВЛЕНО
-        ColorClickRegion = {}, -- << ДОБАВЛЕНО
+        ColorCircle = nil,
+        ColorBorder = nil,
+        ColorClickRegion = {},
         CurrentBackColor = {0,0,0,0},
         CurrentNubColor = {0,0,0,0}
     }
-    if toggle.HasColor and type(toggle.HasColor) == 'table' then -- << ДОБАВЛЕН БЛОК
+    if toggle.HasColor and type(toggle.HasColor) == 'table' then
         if self.UI.Values[toggle.HasColor.id] == nil then
             self.UI.Values[toggle.HasColor.id] = toggle.HasColor.Default or {255, 255, 255, 255}
         end
         toggle.ColorCircle = self:_CreateDrawingObject("Circle")
         toggle.ColorBorder = self:_CreateDrawingObject("Circle")
         if toggle.ColorCircle then
-            toggle.ColorCircle.Filled = true; toggle.ColorCircle.zIndex = z + 1; toggle.ColorCircle.Radius = 5;
+            -- << ИЗМЕНЕНО: РАДИУС УВЕЛИЧЕН >>
+            toggle.ColorCircle.Filled = true; toggle.ColorCircle.zIndex = z + 1; toggle.ColorCircle.Radius = 6;
         end
         if toggle.ColorBorder then
-            toggle.ColorBorder.Filled = false; toggle.ColorBorder.Thickness = 1; toggle.ColorBorder.zIndex = z + 2; toggle.ColorBorder.Radius = 6;
+            -- << ИЗМЕНЕНО: РАДИУС УВЕЛИЧЕН >>
+            toggle.ColorBorder.Filled = false; toggle.ColorBorder.Thickness = 1; toggle.ColorBorder.zIndex = z + 2; toggle.ColorBorder.Radius = 7;
         end
     end
     if toggle.HasSettings then
