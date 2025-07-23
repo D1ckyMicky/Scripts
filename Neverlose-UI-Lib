@@ -286,7 +286,7 @@ function Library:_AnimateAndApplyColor(drawingObject, targetColor, masterOpacity
         self.AnimationState[drawingObject] = state
     end
 
-    local speed_value = self.UI.Values["AboutAnimationSpeed"] or 1.6 
+    local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.5 
     local animationSpeed = speed_value / 16.0
 
     state.CurrentColor = self:_LerpColor(state.CurrentColor, targetColor, animationSpeed)
@@ -317,7 +317,7 @@ function Library:_UpdateAnimationStates()
     local still_fading_out = false
     local still_fading_in = false
     local ANIMATION_SLIDE_DISTANCE = 20
-    local speed_value = self.UI.Values["AboutAnimationSpeed"] or 1.6
+    local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.5
     local animationSpeed = speed_value / 15.0
 
     -- === Расчет состояний для каждой секции ===
@@ -367,7 +367,7 @@ function Library:_UpdateAnimationStates()
                 local anim_state = self.AnimationState[section.Drawing.Background]
                 if anim_state then
                     anim_state.Opacity = 0
-                    anim_state.YOffset = -ANIMATION_SLIDE_DISTANCE
+                    anim_state.YOffset = ANIMATION_SLIDE_DISTANCE
                 end
             end
         end
@@ -419,6 +419,19 @@ function Library:_EnsureDefaults(data_table, default_table)
         end
     end
     return result
+end
+
+function Library:_HideSettingsPopupElements(popup)
+    if not popup or not popup.ActiveToggle or not popup.ActiveToggle.SettingsElements then
+        return
+    end
+    for _, element in ipairs(popup.ActiveToggle.SettingsElements) do
+        if element.type == "Keybind" then
+            if element.Button then self:_SetVisibility(element.Button, false) end
+            if element.Border then self:_SetVisibility(element.Border, false) end
+            if element.ButtonText then self:_SetVisibility(element.ButtonText, false) end
+        end
+    end
 end
 
 --================================================================
@@ -616,7 +629,7 @@ function Library:_InitializeAboutWindow()
 
     about.AutoSaveToggle = self:_Internal_CreateToggle({ id = "AboutAutoSave", Name = "Auto Save", Default = false, zIndex = about_z });
     about.DpiScaleDropdown = self:_Internal_CreateDropdown({ id = "AboutDpiScale", Name = "Dpi Scale", Options = {"100%", "125%", "150%"}, Default = "100%", Size = {width = 100, height = 25}, zIndex = about_z });
-    about.AnimationSpeedSlider = self:_Internal_CreateSlider({ id = "AboutAnimationSpeed", Name = "Animation Speed", Min = 0, Max = 5, Default = 1.6, Increment = 0.1, zIndex = about_z });
+    about.AnimationSpeedSlider = self:_Internal_CreateSlider({ id = "AboutAnimationSpeed", Name = "Animation Speed", Min = 0, Max = 5, Default = 2.5, Increment = 0.1, zIndex = about_z });
 
     about.StyleLabel, _ = setupInfoText("Style", "");
 
@@ -1291,6 +1304,7 @@ function Library:_RenderSettingsPopup()
 
     if not isVisible then
         if popup.Glow then self:_HideGlowEffect(popup.Glow) end
+        self:_HideSettingsPopupElements(popup) -- << ДОБАВЛЕНО ДЛЯ НАДЁЖНОСТИ
         return
     end
 
@@ -1317,26 +1331,25 @@ function Library:_RenderSettingsPopup()
         if element.type == "Keybind" then
             local keybind = element
             self:_SetVisibility(keybind.Button, true)
-            self:_SetVisibility(keybind.Border, true) -- << ДОБАВЛЕНО
+            self:_SetVisibility(keybind.Border, true)
             self:_SetVisibility(keybind.ButtonText, true)
 
-            -- << НАЧАЛО ИСПРАВЛЕНИЯ Z-INDEX >>
+            -- Управляем Z-index прямо во время рендера
             keybind.Button.zIndex = z + 2
             keybind.Border.zIndex = z + 3
             keybind.ButtonText.zIndex = z + 3
-            -- << КОНЕЦ ИСПРАВЛЕНИЯ Z-INDEX >>
 
             local buttonBackgroundColor = keybind.IsListening and theme.Colors.Accent or theme.Colors.DarkBlue
             local buttonTextColor = keybind.IsListening and self:_GetTextColorForBackground(buttonBackgroundColor) or theme.Colors.TextPrimary
-            local buttonBorderColor = keybind.IsListening and theme.Colors.Accent or theme.Colors.Separator -- << ДОБАВЛЕНО
+            local buttonBorderColor = keybind.IsListening and theme.Colors.Accent or theme.Colors.Separator
 
             self:_AnimateAndApplyColor(keybind.Button, buttonBackgroundColor)
-            self:_AnimateAndApplyColor(keybind.Border, buttonBorderColor) -- << ДОБАВЛЕНО
+            self:_AnimateAndApplyColor(keybind.Border, buttonBorderColor)
             self:_AnimateAndApplyColor(keybind.ButtonText, buttonTextColor)
 
             local bindButtonX = pX + pW - keybind.Size.width - 15
             keybind.Button.Position = {bindButtonX, currentY - 5}; keybind.Button.Size = {keybind.Size.width, keybind.Size.height};
-            keybind.Border.Position = {bindButtonX, currentY - 5}; keybind.Border.Size = {keybind.Size.width, keybind.Size.height}; -- << ДОБАВЛЕНО
+            keybind.Border.Position = {bindButtonX, currentY - 5}; keybind.Border.Size = {keybind.Size.width, keybind.Size.height};
             keybind.ButtonText.Text = keybind.IsListening and "..." or string.upper(self.UI.Values[keybind.id] or "none")
             keybind.ButtonText.Position = { bindButtonX + (keybind.Size.width / 2), currentY - 5 + (keybind.Size.height / 2) - (keybind.ButtonText.Size / 2) }
             keybind.ClickRegion = {x1 = bindButtonX, y1 = currentY - 5, x2 = bindButtonX + keybind.Size.width, y2 = currentY - 5 + keybind.Size.height}
@@ -1817,7 +1830,7 @@ function Library:_RenderTabs(x, y, width)
                 end
 
                 local targetOpacity = is_active and (theme.Transparency.ActiveTabHighlight or 0.28) or 0
-                local speed_value = self.UI.Values["AboutAnimationSpeed"] or 1.6
+                local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.5
                 local animationSpeed = speed_value / 16.0
 
                 state.CurrentOpacity = state.CurrentOpacity + (targetOpacity - state.CurrentOpacity) * animationSpeed
@@ -2331,6 +2344,7 @@ function Library:_InputLoop()
                         end
                     end
                 else
+                    self:_HideSettingsPopupElements(settings_popup)
                     settings_popup.IsOpen = false; settings_popup.ActiveToggle = nil;
                 end
             elseif configsTab.OptionsPopup.IsOpen then
