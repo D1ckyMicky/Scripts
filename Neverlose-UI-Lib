@@ -1654,14 +1654,15 @@ function Library:_RenderLoop()
     local animationSpeed = (speed_value > 0) and (speed_value / 10.0) or 1 -- Ускоренная анимация для плавности
     
     if self.GlobalAnimation.IsHiding then
-        self.GlobalAnimation.Opacity = math.max(0, self.GlobalAnimation.Opacity - animationSpeed)
-        if self.GlobalAnimation.Opacity == 0 then
+        self.GlobalAnimation.Opacity = self.GlobalAnimation.Opacity - animationSpeed
+        if self.GlobalAnimation.Opacity <= 0 then
+            self.GlobalAnimation.Opacity = 0 -- Принудительно устанавливаем 0
             self.GlobalAnimation.IsHiding = false
-            self.Window.Visible = false -- << ВОТ КЛЮЧЕВОЕ ИЗМЕНЕНИЕ
         end
     elseif self.GlobalAnimation.IsShowing then
-        self.GlobalAnimation.Opacity = math.min(1, self.GlobalAnimation.Opacity + animationSpeed)
-        if self.GlobalAnimation.Opacity == 1 then
+        self.GlobalAnimation.Opacity = self.GlobalAnimation.Opacity + animationSpeed
+        if self.GlobalAnimation.Opacity >= 1 then
+            self.GlobalAnimation.Opacity = 1 -- Принудительно устанавливаем 1
             self.GlobalAnimation.IsShowing = false
         end
     end
@@ -1840,6 +1841,10 @@ function Library:_RenderLoop()
 
     -- Запоминаем текущую вкладку для следующего кадра
     self.Window.LastRenderedTab = self.Window.ActiveTab
+    
+    if not self.GlobalAnimation.IsHiding and self.GlobalAnimation.Opacity <= 0 then
+        self.Window.Visible = false
+    end
 end
 
 function Library:_RenderTabs(x, y, width)
