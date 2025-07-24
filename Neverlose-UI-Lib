@@ -322,7 +322,7 @@ function Library:_UpdateAnimationStates()
     local still_fading_in = false
     local ANIMATION_SLIDE_DISTANCE = 20
     local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.5
-    local animationSpeed = speed_value / 15.0
+    local animationSpeed = (speed_value * 1.5) / 15.0
 
     -- === Расчет состояний для каждой секции ===
     for _, section in ipairs(self.UI.Sections) do
@@ -642,7 +642,7 @@ function Library:_InitializeAboutWindow()
 
     about.ToggleUIKeybind = self:_Internal_CreateKeybind({ id = "ToggleUIBind", Name = "Toggle UI", Default = "insert", zIndex = about_z })
 
-    about.AnimationSpeedSlider = self:_Internal_CreateSlider({ id = "AboutAnimationSpeed", Name = "Animation Speed", Min = 0, Max = 5, Default = 1.6, Increment = 0.1, zIndex = about_z });
+    about.AnimationSpeedSlider = self:_Internal_CreateSlider({ id = "AboutAnimationSpeed", Name = "Animation Speed", Min = 0, Max = 5, Default = 2.4, Increment = 0.1, zIndex = about_z });
 
     about.StyleLabel, _ = setupInfoText("Style", "");
 
@@ -1650,7 +1650,7 @@ end
 
 function Library:_RenderLoop()
     -- << НАЧАЛО: Новая логика глобальной анимации >>
-    local speed_value = self.UI.Values["AboutAnimationSpeed"] or 1.6
+    local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4
     local animationSpeed = (speed_value > 0) and (speed_value / 10.0) or 1 -- Ускоренная анимация для плавности
     
     if self.GlobalAnimation.IsHiding then
@@ -1841,7 +1841,7 @@ function Library:_RenderLoop()
 
     -- Запоминаем текущую вкладку для следующего кадра
     self.Window.LastRenderedTab = self.Window.ActiveTab
-    
+
     if not self.GlobalAnimation.IsHiding and self.GlobalAnimation.Opacity <= 0 then
         self.Window.Visible = false
     end
@@ -1850,6 +1850,8 @@ end
 function Library:_RenderTabs(x, y, width)
     local currentY = y + 25
     local theme = self.ActiveTheme
+    -- [[ НОВОЕ: Получаем глобальную прозрачность для применения к подсветке ]]
+    local globalOpacity = self.GlobalAnimation and self.GlobalAnimation.Opacity or 1
 
     for _, group in ipairs(self.UI.TabGroups) do
         if group.Header then
@@ -1868,7 +1870,6 @@ function Library:_RenderTabs(x, y, width)
             if tab.Icon then
                 self:_SetVisibility(tab.Icon, true)
                 tab.Icon.Position = {startX, currentY + (tabHeight / 2) - (theme.IconSize / 2)}
-                -- << ИСПРАВЛЕНО: Теперь все иконки используют цвет акцента >>
                 local iconColor = theme.Colors.Accent
                 self:_AnimateAndApplyColor(tab.Icon, iconColor)
                 startX = startX + theme.IconSize + 8
@@ -1897,11 +1898,12 @@ function Library:_RenderTabs(x, y, width)
                 end
 
                 local targetOpacity = is_active and (theme.Transparency.ActiveTabHighlight or 0.28) or 0
-                local speed_value = self.UI.Values["AboutAnimationSpeed"] or 1.6
+                local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4
                 local animationSpeed = speed_value / 16.0
 
                 state.CurrentOpacity = state.CurrentOpacity + (targetOpacity - state.CurrentOpacity) * animationSpeed
-                tab.Highlight.Opacity = state.CurrentOpacity
+                -- [[ ИСПРАВЛЕНО: Домножаем на глобальную прозрачность ]]
+                tab.Highlight.Opacity = state.CurrentOpacity * globalOpacity
             end
 
             currentY = currentY + tabHeight + 5
@@ -2030,8 +2032,8 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
             elementY_offset = elementY_offset + 35
             
             if el.IsOpen or el.IsClosing then
-                local speed_value = self.UI.Values["AboutAnimationSpeed"] or 1.6
-                local animationSpeed = speed_value / 10.0
+                local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4
+                local animationSpeed = (speed_value / 1.5) / 10.0
                 if el.IsOpen and not el.IsClosing then el.FadeOpacity = math.min(1, el.FadeOpacity + animationSpeed)
                 elseif el.IsClosing then el.FadeOpacity = math.max(0, el.FadeOpacity - animationSpeed); if el.FadeOpacity == 0 then el.IsClosing = false end end
 
