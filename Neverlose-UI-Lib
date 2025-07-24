@@ -813,7 +813,8 @@ function Library:_InitializeEditStyleWindow()
     style_window.IsOpen = false
     style_window.IsEditingName = false -- For text input
     style_window.last_key_press_time = 0
-    style_window.key_press_delay = 0.04
+    style_window.key_press_delay = 0.05
+    style_window.is_in_repeat = false -- << ДОБАВЬ ЭТУ СТРОКУ
     style_window.last_key_pressed = ""
     style_window.ColorItems = {}
     style_window.EditingTheme = {}
@@ -2641,21 +2642,21 @@ function Library:_InputLoop()
         if not is_hovering_any_circle then about_window.HoveredThemeCircle.Name = nil end
     end
     
+    -- Обработка кликов мышью
     if is_left_clicked and not is_dragging_something then
-        local clicked_on_editing_slider = false
+        local active_slider_editing = nil
         for _, section in ipairs(self.UI.Sections) do
             for _, el in ipairs(section.Elements) do
                 if el.type == "Slider" and el.IsEditing then
-                    if self:_IsPointInRegion(mouse_x, mouse_y, el.ValueInputClickRegion) then
-                        clicked_on_editing_slider = true
-                    else
-                        applySliderInput(el)
-                    end
+                    active_slider_editing = el; break
                 end
             end
+            if active_slider_editing then break end
         end
 
-        if not clicked_on_editing_slider then
+        if active_slider_editing and not self:_IsPointInRegion(mouse_x, mouse_y, active_slider_editing.ValueInputClickRegion) then
+            applySliderInput(active_slider_editing)
+        elseif not active_slider_editing then
             local click_was_handled = false
             local any_popup_is_open = burger_popup.IsOpen or settings_popup.IsOpen or style_window.IsOpen or picker.IsOpen or configsTab.OptionsPopup.IsOpen or self.UI.Popups.About.IsOpen
 
@@ -2956,50 +2957,61 @@ function Library:_InputLoop()
         was_dragging_picker = false
     end
 
-    -- ИЗМЕНЕНИЕ: Полностью переработанная логика обработки клавиатуры
     do
+        local KEY_INITIAL_DELAY = 0.4 
+        local KEY_REPEAT_DELAY = 0.05
         local key = getpressedkey()
-        if key and key ~= "None" then
-            -- Сначала ищем активные поля для ввода
-            local active_slider = nil
+
+        local function handle_text_input(target, input_key)
+            if target.type == "Slider" then
+                if input_key == "Backspace" then
+                    if #target.InputText > 0 then target.InputText = string.sub(target.InputText, 1, -2) end
+                elseif input_key == "Enter" then
+                    applySliderInput(target)
+                elseif string.match(input_key, "%d") then
+                    if #target.InputText < 5 then target.InputText = target.InputText .. input_key end
+                end
+            elseif target == style_window then -- Target is EditStyle window
+                local current_text = target.StyleNameInputText.Text
+                if input_key == "Backspace" then
+                    if #current_text > 0 then target.StyleNameInputText.Text = string.sub(current_text, 1, -2) end
+                elseif input_key == "Space" then
+                    if #current_text < 20 then target.StyleNameInputText.Text = current_text .. " " end
+                elseif string.len(input_key) == 1 and string.match(input_key, "%w") then
+                    if #current_text < 20 then target.StyleNameInputText.Text = current_text .. input_key end
+                end
+            end
+        end
+
+        local active_target
+        if style_window.IsEditingName then
+            active_target = style_window
+        else
             for _, section in ipairs(self.UI.Sections) do
                 for _, el in ipairs(section.Elements) do
                     if el.type == "Slider" and el.IsEditing then
-                        active_slider = el; break
+                        active_target = el; break
                     end
                 end
-                if active_slider then break end
+                if active_target then break end
             end
-            local is_editing_style_name = style_window.IsEditingName
-            
-            -- Логика для поля ввода слайдера
-            if active_slider then
-                if key ~= active_slider.last_key_pressed and (tick() - active_slider.last_key_press_time > slider_key_press_delay) then
-                    if key == "Backspace" then
-                        if #active_slider.InputText > 0 then active_slider.InputText = string.sub(active_slider.InputText, 1, -2) end
-                    elseif key == "Enter" then
-                        applySliderInput(active_slider)
-                    elseif string.match(key, "%d") then
-                        if #active_slider.InputText < 5 then active_slider.InputText = active_slider.InputText .. key end
+        end
+
+        if key and key ~= "None" then
+            if active_target then
+                if key ~= active_target.last_key_pressed then
+                    handle_text_input(active_target, key)
+                    active_target.last_key_press_time = tick()
+                    active_target.last_key_pressed = key
+                    active_target.is_in_repeat = false
+                else
+                    local delay = active_target.is_in_repeat and KEY_REPEAT_DELAY or KEY_INITIAL_DELAY
+                    if (tick() - active_target.last_key_press_time) > delay then
+                        handle_text_input(active_target, key)
+                        active_target.last_key_press_time = tick()
+                        active_target.is_in_repeat = true
                     end
-                    active_slider.last_key_press_time = tick()
-                    active_slider.last_key_pressed = key
                 end
-            -- Логика для поля ввода имени стиля
-            elseif is_editing_style_name then
-                if key ~= style_window.last_key_pressed and (tick() - style_window.last_key_press_time > style_window.key_press_delay) then
-                    local current_text = style_window.StyleNameInputText.Text
-                    if key == "Backspace" then
-                        if #current_text > 0 then style_window.StyleNameInputText.Text = string.sub(current_text, 1, -2) end
-                    elseif key == "Space" then
-                        if #current_text < 20 then style_window.StyleNameInputText.Text = current_text .. " " end
-                    elseif string.len(key) == 1 and string.match(key, "%w") then
-                        if #current_text < 20 then style_window.StyleNameInputText.Text = current_text .. key end
-                    end
-                    style_window.last_key_press_time = tick()
-                    style_window.last_key_pressed = key
-                end
-            -- Логика для биндов (когда ни одно поле не активно)
             else
                 if about_window.ToggleUIKeybind and about_window.ToggleUIKeybind.IsListening then
                     if self.UI.Values[about_window.ToggleUIKeybind.id] ~= key then self.UI.Values[about_window.ToggleUIKeybind.id] = key end
@@ -3013,13 +3025,11 @@ function Library:_InputLoop()
                     end
                 end
             end
-        end
-        -- Сбрасываем last_key_pressed, когда клавиша отпущена
-        if key == "None" then
-            if style_window.IsEditingName then style_window.last_key_pressed = "None" end
+        else
+            if style_window.last_key_pressed ~= "None" then style_window.last_key_pressed = "None"; style_window.is_in_repeat = false end
             for _, section in ipairs(self.UI.Sections) do
                 for _, el in ipairs(section.Elements) do
-                    if el.type == "Slider" and el.IsEditing then el.last_key_pressed = "None"; break end
+                    if el.type == "Slider" and el.last_key_pressed ~= "None" then el.last_key_pressed = "None"; el.is_in_repeat = false; break end
                 end
             end
         end
@@ -3097,7 +3107,7 @@ function Library:_AddPresetsTab()
 end
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3541")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 322541")
     local is_first_frame = true
     while true do -- Цикл теперь работает всегда, чтобы ловить бинды
         self:_InputLoop() -- Проверка ввода выполняется всегда
@@ -3188,9 +3198,9 @@ function Library:_Internal_CreateSlider(options)
         InputText = tostring(math.floor(self.UI.Values[options.id] or options.Min)),
         AnimatedValue = self.UI.Values[options.id],
         
-        -- ИЗМЕНЕНИЕ: Добавляем недостающие переменные
         last_key_press_time = 0,
         last_key_pressed = "",
+        is_in_repeat = false, -- << ДОБАВЬ ЭТУ СТРОКУ
         
         Label = self:_CreateDrawingObject("Text"), 
         Back = self:_CreateDrawingObject("Square"),
