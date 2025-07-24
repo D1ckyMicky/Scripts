@@ -2411,18 +2411,7 @@ function Library:_InputLoop()
     local burger_popup = self.UI.Popups.BurgerMenu
     local burger_button = self.UI.Core.HeaderButtons.BurgerMenu
 
-    if burger_popup.IsOpen then
-        local hoveredFound = false
-        for i, item in ipairs(burger_popup.Items) do
-            if self:_IsPointInRegion(mouse_x, mouse_y, item.ClickRegion) then
-                burger_popup.HoveredItemIndex = i
-                hoveredFound = true
-                break
-            end
-        end
-        if not hoveredFound then burger_popup.HoveredItemIndex = 0 end
-    end
-    
+    -- Обновляем Hover-состояние для Dropdown
     local anyDropdownOpen = false
     for _, section in ipairs(self.UI.Sections) do
         if section.ParentTab == self.Window.ActiveTab then
@@ -2442,7 +2431,21 @@ function Library:_InputLoop()
             end
         end
     end
+    
+    -- Обновляем Hover-состояние для Бургер-меню
+    if burger_popup.IsOpen then
+        local hoveredFound = false
+        for i, item in ipairs(burger_popup.Items) do
+            if self:_IsPointInRegion(mouse_x, mouse_y, item.ClickRegion) then
+                burger_popup.HoveredItemIndex = i
+                hoveredFound = true
+                break
+            end
+        end
+        if not hoveredFound then burger_popup.HoveredItemIndex = 0 end
+    end
 
+    -- Логика перетаскивания
     if is_left_pressed_now then
         if not is_dragging_something then
             is_dragging_something = true
@@ -2504,6 +2507,7 @@ function Library:_InputLoop()
         is_dragging_something = false
     end
 
+    -- Обновление значений при перетаскивании
     if self.Window.IsDragging then 
         self.Window.X = mouse_x - drag_offset.x
         self.Window.Y = mouse_y - drag_offset.y
@@ -2585,11 +2589,13 @@ function Library:_InputLoop()
         end
         if not is_hovering_any_circle then about_window.HoveredThemeCircle.Name = nil end
     end
-
+    
+    -- Обработка кликов
     if is_left_clicked and not is_dragging_something then
         local click_was_handled = false
         local any_popup_is_open = burger_popup.IsOpen or settings_popup.IsOpen or style_window.IsOpen or picker.IsOpen or configsTab.OptionsPopup.IsOpen or self.UI.Popups.About.IsOpen
 
+        -- Приоритет 1: Клик внутри попапов (кроме дропдаунов)
         if not click_was_handled and any_popup_is_open then
             if burger_popup.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, burger_popup.ClickRegion) then
                 if burger_popup.HoveredItemIndex > 0 then
@@ -2703,6 +2709,44 @@ function Library:_InputLoop()
             end
         end
 
+        -- ИЗМЕНЕНИЕ: Приоритет 2: Клик внутри открытых дропдаунов (новая, надёжная логика)
+        if not click_was_handled and anyDropdownOpen then
+            for _, section in ipairs(self.UI.Sections) do
+                for _, el in ipairs(section.Elements) do
+                    if (el.type == "Dropdown" or el.type == "Multidropdown") and el.IsOpen then
+                        local click_is_inside_popup = false
+                        if el.PopupClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, el.PopupClickRegion) then
+                            click_is_inside_popup = true
+                        end
+
+                        if click_is_inside_popup then
+                            if el.HoveredOptionIndex > 0 then
+                                local i = el.HoveredOptionIndex
+                                if el.type == "Dropdown" then
+                                    self.UI.Values[el.id] = el.Options[i]
+                                    if el.Callback then el.Callback(self.UI.Values[el.id]) end
+                                    el.IsOpen, el.IsClosing = false, true
+                                else -- Multidropdown
+                                    local opt = el.Options[i]
+                                    local found_idx = table.find(self.UI.Values[el.id], opt)
+                                    if found_idx then 
+                                        table.remove(self.UI.Values[el.id], found_idx)
+                                    else 
+                                        table.insert(self.UI.Values[el.id], opt) 
+                                    end
+                                    if el.Callback then el.Callback(self.UI.Values[el.id]) end
+                                end
+                            end
+                            click_was_handled = true
+                            break
+                        end
+                    end
+                end
+                if click_was_handled then break end
+            end
+        end
+
+        -- Приоритет 3: Закрытие попапов по клику вне
         if not click_was_handled and (any_popup_is_open or anyDropdownOpen) then
             if burger_popup.IsOpen then burger_popup.IsOpen = false end
             if settings_popup.IsOpen then 
@@ -2710,7 +2754,7 @@ function Library:_InputLoop()
                 self:_HideSettingsPopupElements(settings_popup)
             end
             if configsTab.OptionsPopup.IsOpen then configsTab.OptionsPopup.IsOpen = false end
-            if picker.IsOpen and not was_dragging_picker then picker.IsOpen = false end -- ИЗМЕНЕНИЕ
+            if picker.IsOpen and not was_dragging_picker then picker.IsOpen = false end
             if self.UI.Popups.About.IsOpen and not self:_IsPointInRegion(mouse_x, mouse_y, about_window.ClickRegion) then
                 self.UI.Popups.About.IsOpen = false
             end
@@ -2726,6 +2770,7 @@ function Library:_InputLoop()
             click_was_handled = true
         end
 
+        -- Приоритет 4: Клик по остальным элементам
         if not click_was_handled then
             if self:_IsPointInRegion(mouse_x, mouse_y, burger_button.ClickRegion) then
                 burger_popup.IsOpen = not burger_popup.IsOpen
@@ -2842,7 +2887,7 @@ function Library:_InputLoop()
         end
     end
 
-    if was_left_pressed and not is_left_pressed_now then -- ИЗМЕНЕНИЕ
+    if was_left_pressed and not is_left_pressed_now then
         was_dragging_picker = false
     end
 
