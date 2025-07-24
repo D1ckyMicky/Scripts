@@ -1186,63 +1186,73 @@ function Library:_RenderBurgerMenuPopup(mouse_pos)
     local isVisible = popup.IsOpen
     local theme = self.ActiveTheme
 
-    self:_SetDrawingTableVisibility(popup, isVisible)
+    -- Устанавливаем видимость для основных элементов попапа
+    self:_SetVisibility(popup.Background, isVisible)
+    self:_SetVisibility(popup.Border, isVisible)
+
     if not isVisible then
         self:_HideGlowEffect(popup.Glow)
+        -- Убеждаемся, что все дочерние элементы скрыты, когда попап закрыт
+        for _, item in ipairs(popup.Items) do
+            self:_SetVisibility(item.Label, false)
+            self:_SetVisibility(item.Highlight, false)
+            self:_SetVisibility(item.CheckmarkLine1, false)
+            self:_SetVisibility(item.CheckmarkLine2, false)
+        end
         return
     end
-
-    -- Анимация цветов
+    
     self:_AnimateAndApplyColor(popup.Background, theme.Colors.SectionBackground)
     self:_AnimateAndApplyColor(popup.Border, theme.Colors.Separator)
 
-    -- Позиционирование
-    local burgerBtn = self.UI.Core.HeaderButtons.BurgerMenu
-    local btnX, btnY = burgerBtn.ClickRegion.x1, burgerBtn.ClickRegion.y1
-    
-    local pW, pH = 180, 30 + (#popup.Items * 30)
-    local pX, pY = btnX - pW + 15, btnY + 30
-    
-    popup.ClickRegion = {x1 = pX, y1 = pY, x2 = pX + pW, y2 = pY + pH}
+    -- Используем сохранённые координаты мыши для позиционирования
+    local pW, itemHeight, padding = 180, 30, 10
+    local pH = (#popup.Items * itemHeight) + (padding * 2)
+    local pX = (popup.Pos and popup.Pos.x) or 0
+    local pY = (popup.Pos and popup.Pos.y) or 0
+
+    popup.ClickRegion = {x1=pX, y1=pY, x2=pX+pW, y2=pY+pH}
     popup.Background.Position = {pX, pY}; popup.Background.Size = {pW, pH}
     popup.Border.Position = {pX, pY}; popup.Border.Size = {pW, pH}
     self:_RenderGlowEffect(popup.Glow, pX, pY, pW, pH, popup.Background.Rounding, theme.Colors.GlowColor)
-
-    local currentY = pY + 15
+    
+    local hasSelection = false
+    for _, item in ipairs(popup.Items) do if self.UI.Values[item.id] then hasSelection = true; break end end
+    
+    local currentY = pY + padding
     for i, item in ipairs(popup.Items) do
-        local itemHeight = 30
-        local isHovered = self:_IsPointInRegion(mouse_pos.x, mouse_pos.y, item.ClickRegion)
+        -- Устанавливаем видимость для элементов, которые всегда должны быть видны, когда меню открыто
+        self:_SetVisibility(item.Label, true)
+        self:_SetVisibility(item.Highlight, true)
+
+        item.ClickRegion = {x1=pX, y1=currentY, x2=pX+pW, y2=currentY+itemHeight-1}
+        local isHovered = (popup.HoveredItemIndex == i)
         
-        -- Подсветка при наведении
         if isHovered then
-            local highlightColor = theme.Colors.Separator
-            self:_AnimateAndApplyColor(item.Highlight, highlightColor, 0.4)
+            item.Highlight.Opacity = 0.4
+            self:_AnimateAndApplyColor(item.Highlight, theme.Colors.Separator)
         else
             item.Highlight.Opacity = 0
         end
+        item.Highlight.Position = {pX + 5, currentY + 2}; item.Highlight.Size = {pW - 10, itemHeight - 4}
 
-        -- Галочка
         local isSelected = self.UI.Values[item.id]
+        local targetTextColor = isSelected and theme.Colors.Accent or theme.Colors.TextPrimary
+        self:_AnimateAndApplyColor(item.Label, targetTextColor)
+        
+        -- Устанавливаем видимость галочек в зависимости от состояния
         self:_SetVisibility(item.CheckmarkLine1, isSelected)
         self:_SetVisibility(item.CheckmarkLine2, isSelected)
         if isSelected then
+            local checkCenterY = currentY + (itemHeight / 2)
+            item.CheckmarkLine1.From = {pX + 12, checkCenterY}; item.CheckmarkLine1.To = {pX + 15, checkCenterY + 3}
+            item.CheckmarkLine2.From = {pX + 15, checkCenterY + 3}; item.CheckmarkLine2.To = {pX + 19, checkCenterY - 4}
             self:_AnimateAndApplyColor(item.CheckmarkLine1, theme.Colors.Accent)
             self:_AnimateAndApplyColor(item.CheckmarkLine2, theme.Colors.Accent)
-            local checkY = currentY + (itemHeight / 2)
-            item.CheckmarkLine1.From = {pX + 10, checkY}; item.CheckmarkLine1.To = {pX + 13, checkY + 3}
-            item.CheckmarkLine2.From = {pX + 13, checkY + 3}; item.CheckmarkLine2.To = {pX + 17, checkY - 4}
         end
         
-        -- Иконка и текст
-        self:_AnimateAndApplyColor(item.Icon, theme.Colors.TextSecondary)
-        self:_AnimateAndApplyColor(item.Label, theme.Colors.TextPrimary)
-        
-        local iconX = pX + (isSelected and 30 or 15)
-        item.Icon.Position = {iconX, currentY + (itemHeight / 2) - (item.Icon.Size.y / 2)}
-        item.Label.Position = {iconX + item.Icon.Size.x + 10, currentY + (itemHeight / 2) - (item.Label.Size / 2)}
-        
-        item.ClickRegion = {x1 = pX, y1 = currentY, x2 = pX + pW, y2 = currentY + itemHeight}
-        item.Highlight.Position = {pX + 5, currentY}; item.Highlight.Size = {pW - 10, itemHeight}
+        local labelX = pX + (hasSelection and 35 or 15)
+        item.Label.Position = {labelX, currentY + (itemHeight / 2) - (item.Label.Size / 2)}
         
         currentY = currentY + itemHeight
     end
@@ -2688,6 +2698,9 @@ function Library:_InputLoop()
             -- ИСПРАВЛЕНИЕ: Переключаем правильный флаг burger_popup.IsOpen
             if self:_IsPointInRegion(mouse_x, mouse_y, burger_button.ClickRegion) then
                 burger_popup.IsOpen = not burger_popup.IsOpen
+                if burger_popup.IsOpen then
+                    burger_popup.Pos = {x = mouse_x, y = mouse_y}
+                end
                 click_was_handled = true
             elseif self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.Settings.ClickRegion) then
                 self.UI.Popups.About.IsOpen = not self.UI.Popups.About.IsOpen
