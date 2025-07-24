@@ -555,9 +555,14 @@ function Library:_InitializeCoreUI()
         IsOpen = false, Pos = {x=0, y=0}, ClickRegion = {}, HoveredItemIndex = 0,
         Background = self:_CreateDrawingObject("Square"),
         Border = self:_CreateDrawingObject("Square"),
-        Glow = self:_Internal_CreateGlowSet(28),
+        Glow = self:_Internal_CreateGlowSet(29), -- zIndex для glow должен быть ниже фона
         Items = {}
     }
+    -- Настройка фона и рамки попапа
+    local popup = self.UI.Popups.BurgerMenu
+    if popup.Background then popup.Background.Filled = true; popup.Background.zIndex = 30; popup.Background.Rounding = self.ActiveTheme.Rounding.Section; end
+    if popup.Border then popup.Border.Filled = false; popup.Border.Thickness = 1; popup.Border.zIndex = 31; popup.Border.Rounding = self.ActiveTheme.Rounding.Section; end
+
     local burgerItems = {
         { Name = "Watermark", id = "HeaderWatermark", icon_url = "" },
         { Name = "Hotkeys", id = "HeaderHotkeys", icon_url = "" },
@@ -571,12 +576,13 @@ function Library:_InitializeCoreUI()
             Highlight = self:_CreateDrawingObject("Square"),
             CheckmarkLine1 = self:_CreateDrawingObject("Line"),
             CheckmarkLine2 = self:_CreateDrawingObject("Line"),
-            -- Icon = self:_CreateDrawingObject("Image") -- Закомментировано до появления ссылок
+            -- Icon = self:_CreateDrawingObject("Image")
         }
+        -- Настройка элементов пункта меню с правильными zIndex
         item.Label.Font = self.ActiveTheme.Fonts.Main; item.Label.Size = self.ActiveTheme.Fonts.Size + 2; item.Label.Text = item.Name; item.Label.zIndex = 32;
         item.Highlight.Filled = true; item.Highlight.zIndex = 31; item.Highlight.Rounding = self.ActiveTheme.Rounding.Element;
-        item.CheckmarkLine1.Thickness = 2; item.CheckmarkLine1.zIndex = 32;
-        item.CheckmarkLine2.Thickness = 2; item.CheckmarkLine2.zIndex = 32;
+        item.CheckmarkLine1.Thickness = 2; item.CheckmarkLine1.zIndex = 33;
+        item.CheckmarkLine2.Thickness = 2; item.CheckmarkLine2.zIndex = 33;
         -- if item.Icon then item.Icon.Url = itemData.icon_url; item.Icon.Size = {16,16}; item.Icon.zIndex = 32; end
         table.insert(self.UI.Popups.BurgerMenu.Items, item)
     end
@@ -1454,63 +1460,79 @@ function Library:_RenderBurgerMenuPopup()
     local isVisible = burgerButton.IsOpen
     local theme = self.ActiveTheme
 
-    self:_SetVisibility(popup.Background, isVisible); self:_SetVisibility(popup.Border, isVisible)
-    for _, item in ipairs(popup.Items) do
-        self:_SetVisibility(item.Label, isVisible)
-        self:_SetVisibility(item.Highlight, isVisible)
-        self:_SetVisibility(item.CheckmarkLine1, isVisible and self.UI.Values[item.id])
-        self:_SetVisibility(item.CheckmarkLine2, isVisible and self.UI.Values[item.id])
-    end
+    -- Сначала управляем видимостью всех элементов
+    self:_SetDrawingTableVisibility(popup, isVisible)
 
     if not isVisible then
         self:_HideGlowEffect(popup.Glow)
         return
     end
     
+    -- Анимация цветов
     self:_AnimateAndApplyColor(popup.Background, theme.Colors.SectionBackground)
     self:_AnimateAndApplyColor(popup.Border, theme.Colors.Separator)
 
-    local pW, pH = 180, 30 + (#popup.Items * 30)
+    -- Расчет размеров и позиции
+    local pW = 180
+    local itemHeight = 30
+    local totalItemsHeight = #popup.Items * itemHeight
+    local padding = 10
+    local pH = totalItemsHeight + (padding * 2)
+
     local pX, pY = burgerButton.ClickRegion.x1, burgerButton.ClickRegion.y2 + 10
 
+    -- Применяем позицию и размеры
     popup.Pos = {x=pX, y=pY}
     popup.ClickRegion = {x1=pX, y1=pY, x2=pX+pW, y2=pY+pH}
-    popup.Background.Position = {pX, pY}; popup.Background.Size = {pW, pH}; popup.Background.Rounding = self.ActiveTheme.Rounding.Section
-    popup.Border.Position = {pX, pY}; popup.Border.Size = {pW, pH}; popup.Border.Rounding = self.ActiveTheme.Rounding.Section
+    popup.Background.Position = {pX, pY}; popup.Background.Size = {pW, pH}
+    popup.Border.Position = {pX, pY}; popup.Border.Size = {pW, pH}
     self:_RenderGlowEffect(popup.Glow, pX, pY, pW, pH, popup.Background.Rounding, theme.Colors.GlowColor)
     
-    local currentY = pY + 15
-    local optionHeight = 30
+    -- Отрисовка элементов списка
+    local currentY = pY + padding
     for i, item in ipairs(popup.Items) do
-        item.ClickRegion = {x1=pX, y1=currentY, x2=pX+pW, y2=currentY+optionHeight}
+        item.ClickRegion = {x1=pX, y1=currentY, x2=pX+pW, y2=currentY+itemHeight-1}
         local isHovered = (popup.HoveredItemIndex == i)
         
+        -- Отрисовка подсветки при наведении
         if isHovered then
+            item.Highlight.Opacity = 1
             local highlightColor = self:_DarkenColor(theme.Colors.Accent, 0.3)
             self:_AnimateAndApplyColor(item.Highlight, highlightColor)
         else
             item.Highlight.Opacity = 0
         end
-        item.Highlight.Position = {pX + 5, currentY}; item.Highlight.Size = {pW - 10, optionHeight}
+        item.Highlight.Position = {pX + 5, currentY + 2}; item.Highlight.Size = {pW - 10, itemHeight - 4}
 
         local isSelected = self.UI.Values[item.id]
+        
+        -- Позиция и цвет текста
+        -- Если выбрано, текст будет цвета акцента. Иначе - основного цвета текста.
+        local targetTextColor = isSelected and theme.Colors.Accent or theme.Colors.TextPrimary
+        self:_AnimateAndApplyColor(item.Label, targetTextColor)
+        
+        -- Позиция и видимость галочки
+        self:_SetVisibility(item.CheckmarkLine1, isSelected)
+        self:_SetVisibility(item.CheckmarkLine2, isSelected)
         if isSelected then
-            local checkY = currentY + (optionHeight / 2)
-            item.CheckmarkLine1.From = {pX + pW - 25, checkY}; item.CheckmarkLine1.To = {pX + pW - 22, checkY + 3}
-            item.CheckmarkLine2.From = {pX + pW - 22, checkY + 3}; item.CheckmarkLine2.To = {pX + pW - 18, checkY - 4}
+            local checkCenterY = currentY + (itemHeight / 2)
+            item.CheckmarkLine1.From = {pX + 12, checkCenterY}; item.CheckmarkLine1.To = {pX + 15, checkCenterY + 3}
+            item.CheckmarkLine2.From = {pX + 15, checkCenterY + 3}; item.CheckmarkLine2.To = {pX + 19, checkCenterY - 4}
             self:_AnimateAndApplyColor(item.CheckmarkLine1, theme.Colors.Accent)
             self:_AnimateAndApplyColor(item.CheckmarkLine2, theme.Colors.Accent)
         end
         
-        -- local iconX = pX + 15 -- для иконки в будущем
-        local labelX = pX + 15 -- изменится на iconX + 20, когда будут иконки
-        item.Label.Position = {labelX, currentY + (optionHeight / 2) - (item.Label.Size / 2)}
-        self:_AnimateAndApplyColor(item.Label, theme.Colors.TextPrimary)
+        -- [[ ВАЖНО: Текст НЕ уезжает, галочка появляется в отведенном месте слева ]]
+        -- Оставляем место для галочки (если выбрано) и для иконки (в будущем)
+        local iconPlaceholderWidth = 16
+        local paddingBetween = 8
+        local labelX = pX + iconPlaceholderWidth + paddingBetween + 10 -- 10 - отступ слева
         
-        currentY = currentY + optionHeight
+        item.Label.Position = {labelX, currentY + (itemHeight / 2) - (item.Label.Size / 2)}
+        
+        currentY = currentY + itemHeight
     end
 end
-
 function Library:_RenderEditStyleWindow()
     local style_window = self.UI.Popups.EditStyle
     local isVisible = style_window.IsOpen
