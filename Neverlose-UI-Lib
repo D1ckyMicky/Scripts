@@ -1134,10 +1134,8 @@ function Library:_RenderAboutWindow(mouse_pos)
     local about = self.UI.Core.AboutWindow
     local isVisible = self.UI.Popups.About.IsOpen
     local theme = self.ActiveTheme
-    -- [[ НОВОЕ: Получаем глобальную прозрачность для применения к элементам ]]
     local globalOpacity = self.GlobalAnimation.Opacity
     
-    -- Функция для рекурсивной установки видимости
     local function setAboutVisibility(tbl, visible)
         for key, obj in pairs(tbl) do
             if type(obj) == 'table' then
@@ -1159,15 +1157,14 @@ function Library:_RenderAboutWindow(mouse_pos)
     self:_SetVisibility(about.Tooltip.Background, false)
     self:_SetVisibility(about.Tooltip.Text, false)
 
-    -- Применение прозрачности к кругам тем
     for _, circle in ipairs(about.StyleCircles) do
         self:_SetVisibility(circle.Circle, isVisible); 
         self:_SetVisibility(circle.Border, isVisible and self.UI.Values.AboutSelectedStyle == circle.Name);
         if circle.Inner then self:_SetVisibility(circle.Inner, isVisible) end
         if circle.PlusLine1 then self:_SetVisibility(circle.PlusLine1, isVisible); self:_SetVisibility(circle.PlusLine2, isVisible) end
         
-        -- [[ ИСПРАВЛЕНО: Применение глобальной прозрачности ]]
-        if circle.Circle then circle.Circle.Opacity = globalOpacity end
+        local baseCircleOpacity = (circle.Circle and circle.Circle.Color and circle.Circle.Color[4]) and (circle.Circle.Color[4] / 255) or 1
+        if circle.Circle then circle.Circle.Opacity = baseCircleOpacity * globalOpacity end
         if circle.Border then circle.Border.Opacity = globalOpacity end
         if circle.Inner then circle.Inner.Opacity = globalOpacity end
         if circle.PlusLine1 then circle.PlusLine1.Opacity = globalOpacity end
@@ -1180,7 +1177,7 @@ function Library:_RenderAboutWindow(mouse_pos)
         return
     end
 
-    -- Анимация цветов (глобальная прозрачность применится в _AnimateAndApplyColor)
+    -- Анимация цветов
     self:_AnimateAndApplyColor(about.Background, theme.Colors.SectionBackground)
     self:_AnimateAndApplyColor(about.Border, theme.Colors.Separator)
     self:_AnimateAndApplyColor(about.HeaderIcon, theme.Colors.TextSecondary)
@@ -1201,6 +1198,14 @@ function Library:_RenderAboutWindow(mouse_pos)
     self:_AnimateAndApplyColor(about.StyleLabel, theme.Colors.TextSecondary)
     self:_AnimateAndApplyColor(about.Tooltip.Background, theme.Colors.MainBackground)
     self:_AnimateAndApplyColor(about.Tooltip.Text, theme.Colors.TextPrimary)
+    
+    -- [[ ИСПРАВЛЕНО: Добавлена анимация цвета для обводки кругов и надписи Auto Save ]]
+    for _, circle in ipairs(about.StyleCircles) do
+        self:_AnimateAndApplyColor(circle.Border, theme.Colors.Accent)
+        if circle.PlusLine1 then self:_AnimateAndApplyColor(circle.PlusLine1, theme.Colors.TextSecondary) end
+        if circle.PlusLine2 then self:_AnimateAndApplyColor(circle.PlusLine2, theme.Colors.TextSecondary) end
+    end
+    self:_AnimateAndApplyColor(about.AutoSaveToggle.Label, theme.Colors.TextSecondary)
     
     local slider = about.AnimationSpeedSlider; 
     self:_AnimateAndApplyColor(slider.Label, theme.Colors.TextSecondary); 
@@ -1328,6 +1333,7 @@ function Library:_RenderAboutWindow(mouse_pos)
     end
     about.CreditText.Position = {winX + winW / 2, winY + winH - 25}
 end
+
 
 
 function Library:_RenderSettingsPopup()
@@ -1651,7 +1657,7 @@ function Library:_RenderLoop()
         self.GlobalAnimation.Opacity = math.max(0, self.GlobalAnimation.Opacity - animationSpeed)
         if self.GlobalAnimation.Opacity == 0 then
             self.GlobalAnimation.IsHiding = false
-            self.Window.Visible = false -- Полностью скрываем окно после затухания
+            self.Window.Visible = false -- << ВОТ КЛЮЧЕВОЕ ИЗМЕНЕНИЕ
         end
     elseif self.GlobalAnimation.IsShowing then
         self.GlobalAnimation.Opacity = math.min(1, self.GlobalAnimation.Opacity + animationSpeed)
@@ -2318,6 +2324,8 @@ end
 function Library:_InputLoop()
     self:_CheckGlobalBinds()
 
+    if not self.Window.Visible then return end -- << БЛОКИРУЕМ КЛИКИ, ЕСЛИ UI СКРЫТ
+
     local mouse_pos = getmouseposition()
     if not mouse_pos then return end
 
@@ -2787,10 +2795,10 @@ end
 function Library:_MainLoop()
     print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3541")
     local is_first_frame = true
-    while true do -- Цикл теперь работает всегда
+    while true do -- Цикл теперь работает всегда, чтобы ловить бинды
         self:_InputLoop() -- Проверка ввода выполняется всегда
 
-        if self.Window.Visible then -- А отрисовка только когда окно видимо
+        if self.Window.Visible then -- А отрисовка - только когда окно видимо
             if is_first_frame then
                 self:_AddPresetsTab()
                 is_first_frame = false
