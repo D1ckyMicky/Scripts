@@ -1558,7 +1558,7 @@ function Library:_RenderEditStyleWindow()
     local style_window = self.UI.Popups.EditStyle
     local isVisible = style_window.IsOpen
     local theme = self.ActiveTheme
-    local isThemeLight = self:_IsThemeLight(theme) -- Добавляем проверку на яркость темы
+    local isThemeLight = self:_IsThemeLight(theme)
 
     self:_SetVisibility(style_window.Background, isVisible); self:_SetVisibility(style_window.Border, isVisible); self:_SetVisibility(style_window.HeaderIcon, isVisible); self:_SetVisibility(style_window.HeaderTitle, isVisible); self:_SetVisibility(style_window.CloseButton.Line1, isVisible); self:_SetVisibility(style_window.CloseButton.Line2, isVisible); self:_SetVisibility(style_window.Separator1, isVisible);
     self:_SetVisibility(style_window.StyleNameLabel, isVisible); self:_SetVisibility(style_window.StyleNameInputBg, isVisible); self:_SetVisibility(style_window.StyleNameInputText, isVisible); self:_SetVisibility(style_window.Separator2, isVisible); self:_SetVisibility(style_window.Separator3, isVisible);
@@ -1651,7 +1651,10 @@ function Library:_RenderEditStyleWindow()
 
         item.ColorCircle.Position = {circleX, currentY + 7}
         item.ColorBorder.Position = {circleX, currentY + 7}
-        item.ClickRegion = {x1 = winX + 15, y1 = currentY, x2 = winX + winW - 15, y2 = currentY + 20}
+        
+        -- ИЗМЕНЕНИЕ: Уменьшаем кликабельную область до самого кружка
+        item.ClickRegion = {x1 = circleX - 11, y1 = currentY - 4, x2 = circleX + 11, y2 = currentY + 18}
+        
         currentY = currentY + 25
     end
     
@@ -1687,7 +1690,6 @@ function Library:_RenderEditStyleWindow()
       toggle.Back.Size = {toggle.Size.width, toggle.Size.height}; 
       toggle.ClickRegion = {x1 = toggleBackX, y1 = toggleBackY, x2 = toggleBackX + toggle.Size.width, y2 = toggleBackY + toggle.Size.height}
       
-      -- ИЗМЕНЕНИЕ: Добавлена корректная логика рендеринга
       local is_on = self.UI.Values[toggle.id]
       local nubY = toggleBackY + toggle.Size.height/2
       local targetBackColor, targetNubColor
