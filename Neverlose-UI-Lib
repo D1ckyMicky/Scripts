@@ -366,13 +366,19 @@ function Library:_UpdateAnimationStates()
         self.Window.Animation.State = "FADING_IN"
         self.Window.Animation.OldTab = nil
         
-        -- Сбрасываем начальные позиции для новых элементов, чтобы они выезжали правильно 
         for _, section in ipairs(self.UI.Sections) do
             if section.ParentTab == self.Window.ActiveTab then
                 local anim_state = self.AnimationState[section.Drawing.Background]
                 if anim_state then
                     anim_state.Opacity = 0
                     anim_state.YOffset = ANIMATION_SLIDE_DISTANCE
+                end
+                
+                -- ИЗМЕНЕНИЕ: Сбрасываем анимацию для всех включенных переключателей на новой вкладке
+                for _, el in ipairs(section.Elements) do
+                    if el.type == "Toggle" and self.UI.Values[el.id] then
+                        el.AnimatedNubOffset = el.Size.height / 2 -- Сбрасываем в начальную позицию (выкл)
+                    end
                 end
             end
         end
@@ -2106,11 +2112,14 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
             local is_on = self.UI.Values[el.id]; local nubY = toggleBackY + el.Size.height / 2; local targetBackColor, targetNubColor
             if is_on then if isThemeLight then targetBackColor = theme.Colors.Accent; targetNubColor = theme.Colors.SectionBackground else targetBackColor = self:_DarkenColor(theme.Colors.Accent, 0.3); targetNubColor = theme.Colors.Accent end else targetBackColor = theme.Colors.DarkGray; targetNubColor = theme.Colors.LightGray end
             
-            -- ИЗМЕНЕНИЕ: Анимация кружка
             local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.5
             local animationSpeed = speed_value / 10.0
             local targetOffset = is_on and (el.Size.width - el.Size.height / 2) or (el.Size.height / 2)
-            el.AnimatedNubOffset = el.AnimatedNubOffset + (targetOffset - el.AnimatedNubOffset) * animationSpeed
+            
+            -- ИЗМЕНЕНИЕ: Небольшая правка для корректной работы сброса анимации
+            if el.AnimatedNubOffset ~= targetOffset or is_on then
+                el.AnimatedNubOffset = el.AnimatedNubOffset + (targetOffset - el.AnimatedNubOffset) * animationSpeed
+            end
             el.Nub.Position = {toggleBackX + el.AnimatedNubOffset, nubY}
 
             self:_AnimateAndApplyColor(el.Back, targetBackColor, masterOpacity); self:_AnimateAndApplyColor(el.Nub, targetNubColor, masterOpacity)
