@@ -475,16 +475,14 @@ end
 function Library:_RenderGlowEffect(glowSet, x, y, width, height, rounding, targetColor, sides)
     if not glowSet or #glowSet == 0 or not targetColor then return end
     
-    --[[ 
-        УДАЛЕНО: Внутреннее состояние и собственная анимация. 
-        Теперь функция напрямую использует переданный ей цвет, 
-        что решает проблему с "мерцанием" при открытии.
-    ]]
-    local animatedColor = targetColor 
+    local animatedColor = targetColor
+    -- [[ НОВОЕ: Получаем глобальную прозрачность и применяем её ]]
+    local globalOpacity = self.GlobalAnimation and self.GlobalAnimation.Opacity or 1
     
     sides = sides or {top=true, bottom=true, left=true, right=true}
     local glowColorRGB = {animatedColor[1], animatedColor[2], animatedColor[3]}
-    local glowOpacity = (animatedColor[4] or 255) / 255
+    -- Умножаем на глобальную прозрачность
+    local glowOpacity = ((animatedColor[4] or 255) / 255) * globalOpacity
 
     for i, glowSquare in ipairs(glowSet) do
         local alpha_factor = 0.24 * math.exp(-0.24 * i)
@@ -1136,19 +1134,21 @@ function Library:_RenderAboutWindow(mouse_pos)
     local about = self.UI.Core.AboutWindow
     local isVisible = self.UI.Popups.About.IsOpen
     local theme = self.ActiveTheme
+    -- [[ НОВОЕ: Получаем глобальную прозрачность для применения к элементам ]]
+    local globalOpacity = self.GlobalAnimation.Opacity
     
     -- Функция для рекурсивной установки видимости
     local function setAboutVisibility(tbl, visible)
         for key, obj in pairs(tbl) do
             if type(obj) == 'table' then
                 if obj.Visible ~= nil then self:_SetVisibility(obj, visible)
-                elseif obj.Label and (obj.Back or obj.Button or (obj.LeftFill and obj.Nub) or obj.Border) then -- Добавлена проверка на Border для Keybind
+                elseif obj.Label and (obj.Back or obj.Button or (obj.LeftFill and obj.Nub) or obj.Border) then
                     self:_SetVisibility(obj.Label, visible);
                     if obj.Back then self:_SetVisibility(obj.Back, visible); self:_SetVisibility(obj.Nub, visible); end
                     if obj.LeftFill then self:_SetVisibility(obj.LeftFill, visible); self:_SetVisibility(obj.Nub, visible); self:_SetVisibility(obj.ValueText, visible); end
                     if obj.Button then self:_SetVisibility(obj.Button, visible); self:_SetVisibility(obj.ButtonText, visible); end
                     if obj.ArrowLine1 then self:_SetVisibility(obj.ArrowLine1, visible); self:_SetVisibility(obj.ArrowLine2, visible); end
-                    if obj.Border then self:_SetVisibility(obj.Border, visible) end -- Для Keybind
+                    if obj.Border then self:_SetVisibility(obj.Border, visible) end
                 elseif key ~= "ClickRegion" and key ~= "StyleCircles" and key ~= "Glow" and key ~= "Tooltip" and key ~= "HoveredThemeCircle" then
                      setAboutVisibility(obj, visible)
                 end
@@ -1159,21 +1159,28 @@ function Library:_RenderAboutWindow(mouse_pos)
     self:_SetVisibility(about.Tooltip.Background, false)
     self:_SetVisibility(about.Tooltip.Text, false)
 
+    -- Применение прозрачности к кругам тем
     for _, circle in ipairs(about.StyleCircles) do
         self:_SetVisibility(circle.Circle, isVisible); 
         self:_SetVisibility(circle.Border, isVisible and self.UI.Values.AboutSelectedStyle == circle.Name);
         if circle.Inner then self:_SetVisibility(circle.Inner, isVisible) end
         if circle.PlusLine1 then self:_SetVisibility(circle.PlusLine1, isVisible); self:_SetVisibility(circle.PlusLine2, isVisible) end
+        
+        -- [[ ИСПРАВЛЕНО: Применение глобальной прозрачности ]]
+        if circle.Circle then circle.Circle.Opacity = globalOpacity end
+        if circle.Border then circle.Border.Opacity = globalOpacity end
+        if circle.Inner then circle.Inner.Opacity = globalOpacity end
+        if circle.PlusLine1 then circle.PlusLine1.Opacity = globalOpacity end
+        if circle.PlusLine2 then circle.PlusLine2.Opacity = globalOpacity end
     end
 
     if not isVisible then
         if about.Glow then self:_HideGlowEffect(about.Glow) end
         if about.AnimationSpeedSlider.Glow then self:_HideGlowEffect(about.AnimationSpeedSlider.Glow) end
-        -- [[ УДАЛЕНО: Логика для старого dropdown ]]
         return
     end
 
-    -- Анимация цветов
+    -- Анимация цветов (глобальная прозрачность применится в _AnimateAndApplyColor)
     self:_AnimateAndApplyColor(about.Background, theme.Colors.SectionBackground)
     self:_AnimateAndApplyColor(about.Border, theme.Colors.Separator)
     self:_AnimateAndApplyColor(about.HeaderIcon, theme.Colors.TextSecondary)
@@ -1194,12 +1201,6 @@ function Library:_RenderAboutWindow(mouse_pos)
     self:_AnimateAndApplyColor(about.StyleLabel, theme.Colors.TextSecondary)
     self:_AnimateAndApplyColor(about.Tooltip.Background, theme.Colors.MainBackground)
     self:_AnimateAndApplyColor(about.Tooltip.Text, theme.Colors.TextPrimary)
-    for _, circle in ipairs(about.StyleCircles) do
-        self:_AnimateAndApplyColor(circle.Border, theme.Colors.Accent)
-        if circle.PlusLine1 then self:_AnimateAndApplyColor(circle.PlusLine1, theme.Colors.TextSecondary) end
-        if circle.PlusLine2 then self:_AnimateAndApplyColor(circle.PlusLine2, theme.Colors.TextSecondary) end
-    end
-    self:_AnimateAndApplyColor(about.AutoSaveToggle.Label, theme.Colors.TextSecondary)
     
     local slider = about.AnimationSpeedSlider; 
     self:_AnimateAndApplyColor(slider.Label, theme.Colors.TextSecondary); 
@@ -1262,31 +1263,25 @@ function Library:_RenderAboutWindow(mouse_pos)
     
     currentY = currentY + controlSpacing
     
-    -- << НАЧАЛО: Рендеринг нового Keybind >>
     local keybind = about.ToggleUIKeybind
     local keybindY = currentY - 4
     self:_AnimateAndApplyColor(keybind.Label, theme.Colors.TextSecondary)
     keybind.Label.Position = {controlX, keybindY + 5}
-
     local bindButtonX = rightEdge - keybind.Size.width
     local buttonBackgroundColor = keybind.IsListening and theme.Colors.Accent or theme.Colors.DarkBlue
     local buttonTextColor = keybind.IsListening and self:_GetTextColorForBackground(buttonBackgroundColor) or theme.Colors.TextPrimary
     local buttonBorderColor = keybind.IsListening and theme.Colors.Accent or theme.Colors.Separator
-    
     self:_AnimateAndApplyColor(keybind.Button, buttonBackgroundColor)
     self:_AnimateAndApplyColor(keybind.Border, buttonBorderColor)
     self:_AnimateAndApplyColor(keybind.ButtonText, buttonTextColor)
-
     keybind.Button.Position = {bindButtonX, keybindY}; keybind.Button.Size = {keybind.Size.width, keybind.Size.height}
     keybind.Border.Position = {bindButtonX, keybindY}; keybind.Border.Size = {keybind.Size.width, keybind.Size.height}
     keybind.ButtonText.Text = keybind.IsListening and "..." or string.upper(self.UI.Values[keybind.id] or "none")
     keybind.ButtonText.Position = { bindButtonX + (keybind.Size.width / 2), keybindY + (keybind.Size.height / 2) - (keybind.ButtonText.Size / 2) }
     keybind.ClickRegion = {x1 = bindButtonX, y1 = keybindY, x2 = bindButtonX + keybind.Size.width, y2 = keybindY + keybind.Size.height}
-    -- << КОНЕЦ: Рендеринг нового Keybind >>
 
     currentY = currentY + controlSpacing
 
-    -- Рендеринг слайдера
     slider.Label.Position = {controlX, currentY}; 
     local valueTextWidth = 40; local sliderRightEdge = rightEdge - valueTextWidth; local sliderBackX = controlX + 140; local sliderBackWidth = sliderRightEdge - sliderBackX
     slider.Back.Position = {sliderBackX, currentY + 8}; 
@@ -1301,7 +1296,7 @@ function Library:_RenderAboutWindow(mouse_pos)
     local glowWidth = nubX - sliderBackX; 
     local glowHeight = 6;
     if glowWidth > 0 and slider.Glow then 
-        self:_RenderGlowEffect(slider.Glow, sliderBackX, currentY + 9 - (glowHeight / 2), glowWidth, glowHeight, slider.LeftFill.Rounding, theme.Colors.GlowAccent, {top=true, bottom=true, left=true, right=false}) 
+        self:_RenderGlowEffect(slider.Glow, sliderBackX, currentY + 9 - (glowHeight / 2), glowWidth, glowHeight, slider.LeftFill.Rounding, theme.Colors.GlowAccent) 
     elseif slider.Glow then 
         self:_HideGlowEffect(slider.Glow) 
     end
@@ -1312,7 +1307,6 @@ function Library:_RenderAboutWindow(mouse_pos)
     
     currentY = currentY + controlSpacing
     
-    -- Рендеринг стилей
     local styleY = currentY + 4
     about.StyleLabel.Position = {controlX, styleY}; 
     local maxPerRow = 8; local circleSpacing = 30; local circleStartX = rightEdge
@@ -1334,6 +1328,7 @@ function Library:_RenderAboutWindow(mouse_pos)
     end
     about.CreditText.Position = {winX + winW / 2, winY + winH - 25}
 end
+
 
 function Library:_RenderSettingsPopup()
     local popup = self.UI.Popups.Settings
@@ -2321,7 +2316,6 @@ function Library:_RenderConfigOptionsPopup()
 end
 
 function Library:_InputLoop()
-    -- [[ НОВОЕ: Проверка глобальных биндов (например, на скрытие UI) ]]
     self:_CheckGlobalBinds()
 
     local mouse_pos = getmouseposition()
@@ -2793,13 +2787,16 @@ end
 function Library:_MainLoop()
     print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3541")
     local is_first_frame = true
-    while self.Window.Visible do
-        if is_first_frame then
-            self:_AddPresetsTab()
-            is_first_frame = false
+    while true do -- Цикл теперь работает всегда
+        self:_InputLoop() -- Проверка ввода выполняется всегда
+
+        if self.Window.Visible then -- А отрисовка только когда окно видимо
+            if is_first_frame then
+                self:_AddPresetsTab()
+                is_first_frame = false
+            end
+            self:_RenderLoop()
         end
-        self:_InputLoop() 
-        self:_RenderLoop()
         wait(0.01)
     end
 end
@@ -3164,25 +3161,14 @@ function Library:_CheckGlobalBinds()
         return -- Не обрабатываем глобальные бинды, если открыты окна-попапы
     end
     
-    -- Делаем проверку раз в 0.1 секунды для производительности
-    if (tick() - (self.lastBindCheckTime or 0)) < 0.1 then return end
-
-    local pressed_keys = getpressedkeys() -- Получаем все зажатые клавиши
-    if #pressed_keys > 0 then
-        local toggle_key = self.UI.Values["ToggleUIBind"]
-        for _, key in ipairs(pressed_keys) do
-            if key == toggle_key then
-                -- Защита от многократного срабатывания при зажатии
-                if (tick() - self.lastUIToggleTime) > 0.3 then
-                    self:ToggleVisibility()
-                    self.lastUIToggleTime = tick()
-                end
-                break
-            end
+    local key = getpressedkey()
+    if key and key ~= "None" and key == self.UI.Values["ToggleUIBind"] then
+        -- Защита от многократного срабатывания при зажатии
+        if (tick() - self.lastUIToggleTime) > 0.3 then
+            self:ToggleVisibility()
+            self.lastUIToggleTime = tick()
         end
     end
-
-    self.lastBindCheckTime = tick()
 end
 
 return Library
