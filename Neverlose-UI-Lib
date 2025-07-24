@@ -587,6 +587,7 @@ function Library:_InitializeCoreUI()
     self:_InitializeEditStyleWindow()
     self:_InitializeColorPickerWindow()
     self:_InitializeConfigsTab()
+    self:_InitializeBurgerMenu() -- << ДОБАВЬТЕ ЭТУ СТРОКУ В САМЫЙ КОНЕЦ
 
     local Players = game:FindService("Players")
     if Players and Players.localPlayer then
@@ -1334,8 +1335,6 @@ function Library:_RenderAboutWindow(mouse_pos)
     about.CreditText.Position = {winX + winW / 2, winY + winH - 25}
 end
 
-
-
 function Library:_RenderSettingsPopup()
     local popup = self.UI.Popups.Settings
     local isVisible = popup.IsOpen and popup.ActiveToggle
@@ -1444,6 +1443,16 @@ function Library:_RenderEditStyleWindow()
     self:_AnimateAndApplyColor(style_window.CancelButton.IconLine2, theme.Colors.TextPrimary)
     self:_AnimateAndApplyColor(style_window.CancelButton.Label, theme.Colors.TextPrimary)
     
+    -- [[ НАЧАЛО ИСПРАВЛЕНИЯ ЦВЕТА КНОПКИ CANCEL ]]
+    local cancelBtnBgColor = theme.Colors.MainBackground
+    local cancelBtnTextColor = self:_GetTextColorForBackground(cancelBtnBgColor)
+    self:_AnimateAndApplyColor(style_window.CancelButton.Background, cancelBtnBgColor)
+    self:_AnimateAndApplyColor(style_window.CancelButton.Border, theme.Colors.Separator)
+    self:_AnimateAndApplyColor(style_window.CancelButton.IconLine1, cancelBtnTextColor)
+    self:_AnimateAndApplyColor(style_window.CancelButton.IconLine2, cancelBtnTextColor)
+    self:_AnimateAndApplyColor(style_window.CancelButton.Label, cancelBtnTextColor)
+    -- [[ КОНЕЦ ИСПРАВЛЕНИЯ ]]
+
     local saveButtonAccentColor = theme.Colors.Accent
     self:_AnimateAndApplyColor(style_window.SaveButton.Background, saveButtonAccentColor)
     local saveButtonTextColor = self:_GetTextColorForBackground(saveButtonAccentColor)
@@ -1786,11 +1795,25 @@ function Library:_RenderLoop()
             self:_SetVisibility(Core.HeaderButtons.CreateNew.Background, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Border, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Label, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Icon, false);
         end
 
+        -- [[ НАЧАЛО ИЗМЕНЕНИЙ: Бургер и сдвиг настроек ]]
         local settingsIcon = Core.HeaderButtons.Settings.Icon
-        local settingsX = rightPanelX + (self.Window.Width - sidebarWidth + self.Window.PanelOverlap) - settingsIcon.Size.x - 20 - 30
+        local settingsX = rightPanelX + (self.Window.Width - sidebarWidth + self.Window.PanelOverlap) - settingsIcon.Size.x - 20
         local settingsY = startY - (settingsIcon.Size.y / 2)
         self:_SetVisibility(settingsIcon, true); settingsIcon.Position = {settingsX, settingsY}; Core.HeaderButtons.Settings.ClickRegion = {x1 = settingsX, y1 = settingsY, x2 = settingsX + settingsIcon.Size.x, y2 = settingsY + settingsIcon.Size.y}
         self:_AnimateAndApplyColor(settingsIcon, theme.Colors.TextSecondary)
+
+        local burger = Core.HeaderButtons.BurgerMenu
+        local burgerX = settingsX - 25
+        local burgerY = startY
+        self:_SetVisibility(burger.Line1, true); self:_SetVisibility(burger.Line2, true); self:_SetVisibility(burger.Line3, true)
+        burger.Line1.From = {burgerX - 8, burgerY - 5}; burger.Line1.To = {burgerX + 8, burgerY - 5}
+        burger.Line2.From = {burgerX - 8, burgerY};     burger.Line2.To = {burgerX + 8, burgerY}
+        burger.Line3.From = {burgerX - 8, burgerY + 5}; burger.Line3.To = {burgerX + 8, burgerY + 5}
+        burger.ClickRegion = {x1 = burgerX - 10, y1 = burgerY - 10, x2 = burgerX + 10, y2 = burgerY + 10}
+        
+        local burgerColor = self.UI.Popups.BurgerMenu.IsOpen and theme.Colors.Accent or theme.Colors.TextSecondary
+        self:_AnimateAndApplyColor(burger.Line1, burgerColor); self:_AnimateAndApplyColor(burger.Line2, burgerColor); self:_AnimateAndApplyColor(burger.Line3, burgerColor)
+        -- [[ КОНЕЦ ИЗМЕНЕНИЙ ]]
     end
 
     self:_SetVisibility(Core.ViewESPPanel, Core.HeaderButtons.ViewESP.IsOpen); self:_SetVisibility(Core.ViewESPPanelBorder, Core.HeaderButtons.ViewESP.IsOpen)
@@ -1838,6 +1861,7 @@ function Library:_RenderLoop()
     self:_RenderAboutWindow(mouse_pos)
     self:_RenderEditStyleWindow()
     self:_RenderColorPickerWindow()
+    self:_RenderBurgerMenuPopup(mouse_pos)
 
     -- Запоминаем текущую вкладку для следующего кадра
     self.Window.LastRenderedTab = self.Window.ActiveTab
@@ -1914,6 +1938,7 @@ end
 
 function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, yOffset, masterOpacity)
     local theme = self.ActiveTheme
+    local isThemeLight = self:_IsThemeLight(theme) -- << Проверка на светлую тему
     local animatedY = sectionY + yOffset
 
     local sDrawing = section.Drawing
@@ -1946,8 +1971,13 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
             local nubY = toggleBackY + el.Size.height / 2
             local targetBackColor, targetNubColor
             if is_on then
-                targetBackColor = self:_DarkenColor(theme.Colors.Accent, 0.3)
-                targetNubColor = theme.Colors.Accent
+                if isThemeLight then
+                    targetBackColor = theme.Colors.Accent
+                    targetNubColor = theme.Colors.SectionBackground
+                else
+                    targetBackColor = self:_DarkenColor(theme.Colors.Accent, 0.3)
+                    targetNubColor = theme.Colors.Accent
+                end
                 el.Nub.Position = {toggleBackX + el.Size.width - el.Size.height / 2, nubY}
             else
                 targetBackColor = theme.Colors.DarkGray
@@ -2331,7 +2361,7 @@ end
 function Library:_InputLoop()
     self:_CheckGlobalBinds()
 
-    if not self.Window.Visible then return end -- << БЛОКИРУЕМ КЛИКИ, ЕСЛИ UI СКРЫТ
+    if not self.Window.Visible then return end
 
     local mouse_pos = getmouseposition()
     if not mouse_pos then return end
@@ -2345,6 +2375,7 @@ function Library:_InputLoop()
     local configsTab = self.UI.Core.ConfigsTab
     local about_window = self.UI.Core.AboutWindow
     local settings_popup = self.UI.Popups.Settings
+    local burgerPopup = self.UI.Popups.BurgerMenu
 
     -- Обработка наведения мыши на опции в открытых Dropdown'ах
     local anyDropdownOpen = false
@@ -2380,7 +2411,7 @@ function Library:_InputLoop()
                 picker.isDraggingOpacity = true
             elseif picker.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, picker.SaturationValueRegion) then
                 picker.isDraggingSaturationValue = true
-            elseif not self.UI.Popups.About.IsOpen and not settings_popup.IsOpen and not self.UI.Popups.EditStyle.IsOpen and not self.UI.Popups.ColorPicker.IsOpen and not configsTab.OptionsPopup.IsOpen and not anyDropdownOpen then
+            elseif not self.UI.Popups.About.IsOpen and not settings_popup.IsOpen and not self.UI.Popups.EditStyle.IsOpen and not self.UI.Popups.ColorPicker.IsOpen and not configsTab.OptionsPopup.IsOpen and not anyDropdownOpen and not burgerPopup.IsOpen then
                  local started_slider_drag = false
                  if self.Window.ActiveTab ~= "Configs" then
                     for _, section in ipairs(self.UI.Sections) do
@@ -2396,7 +2427,7 @@ function Library:_InputLoop()
                  end
                  if not started_slider_drag then
                     local header_drag_region = {x1 = self.Window.X, y1 = self.Window.Y, x2 = self.Window.X + self.Window.Width, y2 = self.Window.Y + self.Window.HeaderHeight}
-                    local on_header_button = self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.Save.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.ViewESP.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.CreateNew.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.Settings.ClickRegion)
+                    local on_header_button = self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.Save.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.ViewESP.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.CreateNew.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.Settings.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.BurgerMenu.ClickRegion)
                     if self:_IsPointInRegion(mouse_x, mouse_y, header_drag_region) and not on_header_button then
                         self.Window.IsDragging = true; drag_offset = {x = mouse_x - self.Window.X, y = mouse_y - self.Window.Y}
                     else
@@ -2484,8 +2515,26 @@ function Library:_InputLoop()
     if is_left_clicked and not is_dragging_something then
         local click_was_handled = false
 
+        -- Приоритетная обработка Бургер-меню
+        if burgerPopup.IsOpen then
+            click_was_handled = true
+            local clickedInside = false
+            if self:_IsPointInRegion(mouse_x, mouse_y, burgerPopup.ClickRegion) then
+                clickedInside = true
+                for _, item in ipairs(burgerPopup.Items) do
+                    if self:_IsPointInRegion(mouse_x, mouse_y, item.ClickRegion) then
+                        self.UI.Values[item.id] = not self.UI.Values[item.id]
+                        break
+                    end
+                end
+            end
+            if not clickedInside then
+                burgerPopup.IsOpen = false
+            end
+        end
+
         -- Приоритетная проверка: клик в открытом dropdown
-        if anyDropdownOpen then
+        if not click_was_handled and anyDropdownOpen then
             local clickedInsideADropdown = false
             for _, section in ipairs(self.UI.Sections) do
                 for _, el in ipairs(section.Elements) do
@@ -2673,13 +2722,17 @@ function Library:_InputLoop()
                     local create_btn_region = self.UI.Core.HeaderButtons.CreateNew.ClickRegion
                     local save_btn_region = self.UI.Core.HeaderButtons.Save.ClickRegion
                     local view_esp_region = self.UI.Core.HeaderButtons.ViewESP.ClickRegion
+                    local burger_btn_region = self.UI.Core.HeaderButtons.BurgerMenu.ClickRegion
                     local settings_region = self.UI.Core.HeaderButtons.Settings.ClickRegion
+
                     if self:_IsPointInRegion(mouse_x, mouse_y, create_btn_region) and self.Window.ActiveTab == "Configs" then
                         click_was_handled = true; self.UI.Core.HeaderButtons.CreateNew.ClickTime = tick(); self:_CreateNewConfig()
                     elseif self:_IsPointInRegion(mouse_x, mouse_y, save_btn_region) then
                         click_was_handled = true; self.UI.Core.HeaderButtons.Save.ClickTime = tick(); if configsTab.LoadedConfigName ~= "" then self:_SaveConfig(configsTab.LoadedConfigName) end
                     elseif self:_IsPointInRegion(mouse_x, mouse_y, view_esp_region) then
                         click_was_handled = true; self.UI.Core.HeaderButtons.ViewESP.IsOpen = not self.UI.Core.HeaderButtons.ViewESP.IsOpen; self.UI.Core.HeaderButtons.ViewESP.ClickTime = tick();
+                    elseif self:_IsPointInRegion(mouse_x, mouse_y, burger_btn_region) then
+                        click_was_handled = true; burgerPopup.IsOpen = not burgerPopup.IsOpen
                     elseif self:_IsPointInRegion(mouse_x, mouse_y, settings_region) then
                         click_was_handled = true; self.UI.Popups.About.IsOpen = not self.UI.Popups.About.IsOpen;
                     else
@@ -2694,13 +2747,11 @@ function Library:_InputLoop()
     do
         local key = getpressedkey()
         if key and key ~= "None" then
-            -- Для бинда в окне "About"
             if about_window.ToggleUIKeybind and about_window.ToggleUIKeybind.IsListening then
                 if self.UI.Values[about_window.ToggleUIKeybind.id] ~= key then
                     self.UI.Values[about_window.ToggleUIKeybind.id] = key
                 end
                 about_window.ToggleUIKeybind.IsListening = false
-            -- Для биндов в настройках Toggle
             elseif settings_popup.IsOpen and settings_popup.ActiveToggle then
                 for _, element in ipairs(settings_popup.ActiveToggle.SettingsElements or {}) do
                     if element.type == "Keybind" and element.IsListening then
@@ -2757,8 +2808,6 @@ function Library:_InputLoop()
     was_left_pressed = is_left_pressed_now
 end
 
-
-
 function Library:_AddPresetsTab()
     local tabGroupName = "PRESETS"
     local tabName = "Configs"
@@ -2796,6 +2845,73 @@ function Library:_AddPresetsTab()
 
     table.insert(group.Tabs, tab)
     table.insert(self.UI.TabGroups, group)
+end
+
+function Library:_RenderBurgerMenuPopup(mouse_pos)
+    local popup = self.UI.Popups.BurgerMenu
+    local isVisible = popup.IsOpen
+    local theme = self.ActiveTheme
+
+    self:_SetDrawingTableVisibility(popup, isVisible)
+    if not isVisible then
+        self:_HideGlowEffect(popup.Glow)
+        return
+    end
+
+    -- Анимация цветов
+    self:_AnimateAndApplyColor(popup.Background, theme.Colors.SectionBackground)
+    self:_AnimateAndApplyColor(popup.Border, theme.Colors.Separator)
+
+    -- Позиционирование
+    local burgerBtn = self.UI.Core.HeaderButtons.BurgerMenu
+    local btnX, btnY = burgerBtn.ClickRegion.x1, burgerBtn.ClickRegion.y1
+    
+    local pW, pH = 180, 30 + (#popup.Items * 30)
+    local pX, pY = btnX - pW + 15, btnY + 30
+    
+    popup.ClickRegion = {x1 = pX, y1 = pY, x2 = pX + pW, y2 = pY + pH}
+    popup.Background.Position = {pX, pY}; popup.Background.Size = {pW, pH}
+    popup.Border.Position = {pX, pY}; popup.Border.Size = {pW, pH}
+    self:_RenderGlowEffect(popup.Glow, pX, pY, pW, pH, popup.Background.Rounding, theme.Colors.GlowColor)
+
+    local currentY = pY + 15
+    for i, item in ipairs(popup.Items) do
+        local itemHeight = 30
+        local isHovered = self:_IsPointInRegion(mouse_pos.x, mouse_pos.y, item.ClickRegion)
+        
+        -- Подсветка при наведении
+        if isHovered then
+            local highlightColor = theme.Colors.Separator
+            self:_AnimateAndApplyColor(item.Highlight, highlightColor, 0.4)
+        else
+            item.Highlight.Opacity = 0
+        end
+
+        -- Галочка
+        local isSelected = self.UI.Values[item.id]
+        self:_SetVisibility(item.CheckmarkLine1, isSelected)
+        self:_SetVisibility(item.CheckmarkLine2, isSelected)
+        if isSelected then
+            self:_AnimateAndApplyColor(item.CheckmarkLine1, theme.Colors.Accent)
+            self:_AnimateAndApplyColor(item.CheckmarkLine2, theme.Colors.Accent)
+            local checkY = currentY + (itemHeight / 2)
+            item.CheckmarkLine1.From = {pX + 10, checkY}; item.CheckmarkLine1.To = {pX + 13, checkY + 3}
+            item.CheckmarkLine2.From = {pX + 13, checkY + 3}; item.CheckmarkLine2.To = {pX + 17, checkY - 4}
+        end
+        
+        -- Иконка и текст
+        self:_AnimateAndApplyColor(item.Icon, theme.Colors.TextSecondary)
+        self:_AnimateAndApplyColor(item.Label, theme.Colors.TextPrimary)
+        
+        local iconX = pX + (isSelected and 30 or 15)
+        item.Icon.Position = {iconX, currentY + (itemHeight / 2) - (item.Icon.Size.y / 2)}
+        item.Label.Position = {iconX + item.Icon.Size.x + 10, currentY + (itemHeight / 2) - (item.Label.Size / 2)}
+        
+        item.ClickRegion = {x1 = pX, y1 = currentY, x2 = pX + pW, y2 = currentY + itemHeight}
+        item.Highlight.Position = {pX + 5, currentY}; item.Highlight.Size = {pW - 10, itemHeight}
+        
+        currentY = currentY + itemHeight
+    end
 end
 
 
