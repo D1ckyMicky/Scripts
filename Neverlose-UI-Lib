@@ -2366,9 +2366,10 @@ function Library:_InputLoop()
     if is_left_pressed_now then
         if not is_dragging_something then
             is_dragging_something = true
-            local anyPopupOpen = about_window.IsOpen or settings_popup.IsOpen or style_window.IsOpen or picker.IsOpen or configsTab.OptionsPopup.IsOpen or burger_button.IsOpen
+            -- ИСПРАВЛЕНИЕ: Используем правильный флаг self.UI.Popups.About.IsOpen
+            local anyPopupOpen = burger_popup.IsOpen or settings_popup.IsOpen or style_window.IsOpen or picker.IsOpen or configsTab.OptionsPopup.IsOpen or self.UI.Popups.About.IsOpen
             
-            if about_window.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, about_window.AnimationSpeedSlider.ClickRegion) then
+            if self.UI.Popups.About.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, about_window.AnimationSpeedSlider.ClickRegion) then
                 about_window.AnimationSpeedSlider.IsDragging = true
             elseif picker.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, picker.HueSliderRegion) then
                 picker.isDraggingHue = true
@@ -2492,7 +2493,7 @@ function Library:_InputLoop()
         update_color_picker()
     end
 
-    if about_window and about_window.IsOpen then
+    if about_window and self.UI.Popups.About.IsOpen then
         local is_hovering_any_circle = false
         for _, circle in ipairs(about_window.StyleCircles) do
             if self:_IsPointInRegion(mouse_x, mouse_y, circle.ClickRegion) then
@@ -2510,11 +2511,12 @@ function Library:_InputLoop()
     -- Обработка кликов
     if is_left_clicked and not is_dragging_something then
         local click_was_handled = false
-        local any_popup_is_open = burger_button.IsOpen or settings_popup.IsOpen or style_window.IsOpen or picker.IsOpen or configsTab.OptionsPopup.IsOpen or about_window.IsOpen
+        -- ИСПРАВЛЕНИЕ: Используем правильный флаг self.UI.Popups.About.IsOpen
+        local any_popup_is_open = burger_popup.IsOpen or settings_popup.IsOpen or style_window.IsOpen or picker.IsOpen or configsTab.OptionsPopup.IsOpen or self.UI.Popups.About.IsOpen
 
         -- Приоритет 1: Обработка кликов внутри открытых попапов
         if not click_was_handled and any_popup_is_open then
-            if burger_button.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, burger_popup.ClickRegion) then
+            if burger_popup.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, burger_popup.ClickRegion) then
                 if burger_popup.HoveredItemIndex > 0 then
                     local item = burger_popup.Items[burger_popup.HoveredItemIndex]
                     self.UI.Values[item.id] = not self.UI.Values[item.id]
@@ -2595,9 +2597,10 @@ function Library:_InputLoop()
                     if not clicked_color then style_window.IsEditingName = false end
                 end
                 click_was_handled = true
-            elseif about_window.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, about_window.ClickRegion) then
+            -- ИСПРАВЛЕНИЕ: Используем правильный флаг self.UI.Popups.About.IsOpen и правильную логику закрытия
+            elseif self.UI.Popups.About.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, about_window.ClickRegion) then
                 if self:_IsPointInRegion(mouse_x, mouse_y, about_window.CloseButton.ClickRegion) then
-                    about_window.IsOpen = false
+                    self.UI.Popups.About.IsOpen = false
                 elseif self:_IsPointInRegion(mouse_x, mouse_y, about_window.AutoSaveToggle.ClickRegion) then
                     self.UI.Values.AboutAutoSave = not self.UI.Values.AboutAutoSave
                 elseif self:_IsPointInRegion(mouse_x, mouse_y, about_window.ToggleUIKeybind.ClickRegion) then
@@ -2621,7 +2624,10 @@ function Library:_InputLoop()
                             break
                         end
                     end
-                    if not circle_clicked then about_window.IsOpen = false end
+                    -- Не закрываем окно при клике на пустое место внутри него
+                    if not circle_clicked then
+                        -- self.UI.Popups.About.IsOpen = false -- Закомментировано, чтобы окно не закрывалось
+                    end
                 end
                 click_was_handled = true
             end
@@ -2659,13 +2665,16 @@ function Library:_InputLoop()
 
         -- Приоритет 3: Закрытие попапов по клику вне
         if not click_was_handled and (any_popup_is_open or anyDropdownOpen) then
-            if burger_button.IsOpen then burger_button.IsOpen = false end
+            if burger_popup.IsOpen then burger_popup.IsOpen = false end
             if settings_popup.IsOpen then 
                 settings_popup.IsOpen = false
                 self:_HideSettingsPopupElements(settings_popup)
             end
             if configsTab.OptionsPopup.IsOpen then configsTab.OptionsPopup.IsOpen = false end
             if picker.IsOpen then picker.IsOpen = false end
+            if self.UI.Popups.About.IsOpen and not self:_IsPointInRegion(mouse_x, mouse_y, about_window.ClickRegion) then
+                self.UI.Popups.About.IsOpen = false
+            end
             for _, section in ipairs(self.UI.Sections) do
                 for _, el in ipairs(section.Elements) do
                     if (el.type == "Dropdown" or el.type == "Multidropdown") and el.IsOpen then
@@ -2681,10 +2690,11 @@ function Library:_InputLoop()
         -- Приоритет 4: Основные элементы UI
         if not click_was_handled then
             if self:_IsPointInRegion(mouse_x, mouse_y, burger_button.ClickRegion) then
-                burger_button.IsOpen = not burger_button.IsOpen
+                burger_popup.IsOpen = not burger_popup.IsOpen
                 click_was_handled = true
+            -- ИСПРАВЛЕНИЕ: Используем правильный флаг self.UI.Popups.About.IsOpen для переключения
             elseif self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.Settings.ClickRegion) then
-                about_window.IsOpen = not about_window.IsOpen
+                self.UI.Popups.About.IsOpen = not self.UI.Popups.About.IsOpen
                 click_was_handled = true
             end
         end
