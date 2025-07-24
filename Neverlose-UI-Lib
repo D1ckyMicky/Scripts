@@ -651,12 +651,12 @@ function Library:_InitializeBurgerMenu()
         
         -- ИСПРАВЛЕНИЕ: Добавляем URL для иконок
         if item.Icon then 
-            item.Icon.Size = {16, 16}; 
+            item.Icon.Size = {17, 17}; 
             item.Icon.zIndex = z + 2;
             if name == "Watermark" then
-                item.Icon.Url = "https://s6.imgcdn.dev/Y4qUJy.png"
+                item.Icon.Url = "https://s6.imgcdn.dev/Y4q1Fi.png"
             elseif name == "Hotkeys" then
-                item.Icon.Url = "https://s6.imgcdn.dev/Y4mquS.png"
+                item.Icon.Url = "https://s6.imgcdn.dev/Y4q74H.png"
             end
         end
         if item.Label then item.Label.Font = self.ActiveTheme.Fonts.Main; item.Label.Size = self.ActiveTheme.Fonts.Size + 1; item.Label.Text = name; item.Label.zIndex = z + 2; end
