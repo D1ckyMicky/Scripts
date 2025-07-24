@@ -3184,10 +3184,13 @@ function Library:_Internal_CreateSlider(options)
         id = options.id, type = "Slider", Name = options.Name, Min = options.Min or 0, Max = options.Max or 100,
         Increment = options.Increment or 1, IsDragging = false, Callback = options.Callback,
         
-        -- ИЗМЕНЕНИЕ: Новые поля для текстового ввода
         IsEditing = false,
         InputText = tostring(math.floor(self.UI.Values[options.id] or options.Min)),
-        AnimatedValue = self.UI.Values[options.id], -- Для плавной анимации
+        AnimatedValue = self.UI.Values[options.id],
+        
+        -- ИЗМЕНЕНИЕ: Добавляем недостающие переменные
+        last_key_press_time = 0,
+        last_key_pressed = "",
         
         Label = self:_CreateDrawingObject("Text"), 
         Back = self:_CreateDrawingObject("Square"),
@@ -3197,7 +3200,6 @@ function Library:_Internal_CreateSlider(options)
         ClickRegion = {}, 
         Glow = self:_Internal_CreateGlowSet(z),
 
-        -- ИЗМЕНЕНИЕ: Новые объекты для поля ввода
         ValueInputBg = self:_CreateDrawingObject("Square"),
         ValueInputBorder = self:_CreateDrawingObject("Square"),
         ValueInputCursor = self:_CreateDrawingObject("Line"),
@@ -3209,7 +3211,6 @@ function Library:_Internal_CreateSlider(options)
     if slider.Nub then slider.Nub.Filled = true; slider.Nub.zIndex = z + 2; slider.Nub.Radius = 8; end
     if slider.ValueText then slider.ValueText.Font = self.ActiveTheme.Fonts.Main; slider.ValueText.Size = self.ActiveTheme.Fonts.Size; slider.ValueText.Center = true; slider.ValueText.Outline = false; slider.ValueText.zIndex = z + 2; end
     
-    -- ИЗМЕНЕНИЕ: Настройка новых объектов
     if slider.ValueInputBg then slider.ValueInputBg.Filled = true; slider.ValueInputBg.zIndex = z; slider.ValueInputBg.Rounding = self.ActiveTheme.Rounding.Element; end
     if slider.ValueInputBorder then slider.ValueInputBorder.Filled = false; slider.ValueInputBorder.Thickness = 1; slider.ValueInputBorder.zIndex = z + 3; slider.ValueInputBorder.Rounding = self.ActiveTheme.Rounding.Element; end
     if slider.ValueInputCursor then slider.ValueInputCursor.Thickness = 1.5; slider.ValueInputCursor.zIndex = z + 3; end
