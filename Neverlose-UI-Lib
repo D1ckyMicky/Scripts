@@ -1662,7 +1662,7 @@ function Library:_RenderEditStyleWindow()
     currentY = currentY + 20
     style_window.Separator3.From = {winX + 10, currentY}; style_window.Separator3.To = {winX + winW - 10, currentY}
 
-    local footerY = winY + winH - 66
+    local footerY = winY + winH - 75
     local saveBtn = style_window.SaveButton; local saveBtnW, saveBtnH = 80, 28
     local saveBtnX, saveBtnY = winX + winW - saveBtnW - 15, footerY
     saveBtn.Background.Position = {saveBtnX, saveBtnY}; saveBtn.Background.Size = {saveBtnW, saveBtnH}
@@ -1683,9 +1683,9 @@ function Library:_RenderEditStyleWindow()
     
     local toggleY = footerY + cancelBtnH + 8
     local toggle = style_window.RealTimeToggle
-    toggle.Label.Position = {winX + 110, toggleY}
+    toggle.Label.Position = {winX + 115, toggleY + 5}
     if toggle.Label.TextBounds then
-      local toggleBackX = winX + 110 + toggle.Label.TextBounds.x + 10
+      local toggleBackX = winX + 115 + toggle.Label.TextBounds.x + 10
       local toggleBackY = toggleY + 2
       toggle.Back.Position = {toggleBackX, toggleBackY}; 
       toggle.Back.Size = {toggle.Size.width, toggle.Size.height}; 
