@@ -2020,7 +2020,10 @@ function Library:_RenderLoop()
 end
 
 function Library:_RenderTabs(x, y, width)
-    local currentY = y + 8 
+    -- Используем переданную ширину и ставим значение по умолчанию на случай ошибки
+    local sidebarWidth = self:_SafeNumber(width, 187) 
+    
+    local currentY = y + 8
     local theme = self.ActiveTheme
     local globalOpacity = self.GlobalAnimation and self.GlobalAnimation.Opacity or 1
 
@@ -2052,13 +2055,13 @@ function Library:_RenderTabs(x, y, width)
                 self:_AnimateAndApplyColor(tab.Text, target_text_color)
             end
 
-            tab.ClickRegion = {x1 = x + 10, y1 = currentY, x2 = x + width - 10, y2 = currentY + tabHeight}
+            tab.ClickRegion = {x1 = x + 10, y1 = currentY, x2 = x + sidebarWidth - 10, y2 = currentY + tabHeight}
 
             if tab.Highlight then
                 tab.Highlight.Position = {x + 10, currentY}
-                tab.Highlight.Size = {self.Window.SidebarWidth - 20, tabHeight}
+                -- ИЗМЕНЕНИЕ: Используем защищённую переменную sidebarWidth вместо self.Window.SidebarWidth
+                tab.Highlight.Size = {sidebarWidth - 20, tabHeight}
                 
-                -- ИЗМЕНЕНИЕ: Используем _AnimateAndApplyColor для подсветки
                 self:_AnimateAndApplyColor(tab.Highlight, theme.Colors.Accent)
 
                 local state = self.AnimationState[tab.Highlight]
