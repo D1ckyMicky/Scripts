@@ -616,7 +616,8 @@ function Library:_InitializeBurgerMenu()
         Line1 = self:_CreateDrawingObject("Line"),
         Line2 = self:_CreateDrawingObject("Line"),
         Line3 = self:_CreateDrawingObject("Line"),
-        ClickRegion = {}
+        ClickRegion = {},
+        Pos = {x = 0, y = 0} -- Добавим поле Pos для будущих нужд
     }
     if headerButtons.BurgerMenu.Line1 then headerButtons.BurgerMenu.Line1.Thickness = 2; headerButtons.BurgerMenu.Line1.zIndex = 5; end
     if headerButtons.BurgerMenu.Line2 then headerButtons.BurgerMenu.Line2.Thickness = 2; headerButtons.BurgerMenu.Line2.zIndex = 5; end
@@ -625,6 +626,7 @@ function Library:_InitializeBurgerMenu()
     -- 2. Создаем всплывающее окно для меню
     local popup = {}; self.UI.Popups.BurgerMenu = popup
     popup.IsOpen = false
+    popup.Pos = {x=0, y=0} -- Инициализируем позицию
     popup.Background = self:_CreateDrawingObject("Square"); if popup.Background then popup.Background.Filled = true; popup.Background.zIndex = z; popup.Background.Rounding = self.ActiveTheme.Rounding.Section; end
     popup.Border = self:_CreateDrawingObject("Square"); if popup.Border then popup.Border.Filled = false; popup.Border.Thickness = 1; popup.Border.zIndex = z + 1; popup.Border.Rounding = self.ActiveTheme.Rounding.Section; end
     popup.Glow = self:_Internal_CreateGlowSet(z - 1)
@@ -639,7 +641,7 @@ function Library:_InitializeBurgerMenu()
         local item = {
             id = id,
             Name = name,
-            Icon = self:_CreateDrawingObject("Image"), -- Пока пустая иконка
+            Icon = self:_CreateDrawingObject("Image"),
             Label = self:_CreateDrawingObject("Text"),
             CheckmarkLine1 = self:_CreateDrawingObject("Line"),
             CheckmarkLine2 = self:_CreateDrawingObject("Line"),
@@ -647,7 +649,16 @@ function Library:_InitializeBurgerMenu()
             ClickRegion = {}
         }
         
-        if item.Icon then item.Icon.Size = {16, 16}; item.Icon.zIndex = z + 2; item.Icon.Url = ""; end -- URL пока пустой
+        -- ИСПРАВЛЕНИЕ: Добавляем URL для иконок
+        if item.Icon then 
+            item.Icon.Size = {16, 16}; 
+            item.Icon.zIndex = z + 2;
+            if name == "Watermark" then
+                item.Icon.Url = "https://s6.imgcdn.dev/Y4qUJy.png"
+            elseif name == "Hotkeys" then
+                item.Icon.Url = "https://s6.imgcdn.dev/Y4mquS.png"
+            end
+        end
         if item.Label then item.Label.Font = self.ActiveTheme.Fonts.Main; item.Label.Size = self.ActiveTheme.Fonts.Size + 1; item.Label.Text = name; item.Label.zIndex = z + 2; end
         if item.CheckmarkLine1 then item.CheckmarkLine1.Thickness = 2; item.CheckmarkLine1.zIndex = z + 3; end
         if item.CheckmarkLine2 then item.CheckmarkLine2.Thickness = 2; item.CheckmarkLine2.zIndex = z + 3; end
@@ -1186,14 +1197,13 @@ function Library:_RenderBurgerMenuPopup(mouse_pos)
     local isVisible = popup.IsOpen
     local theme = self.ActiveTheme
 
-    -- Устанавливаем видимость для основных элементов попапа
     self:_SetVisibility(popup.Background, isVisible)
     self:_SetVisibility(popup.Border, isVisible)
 
     if not isVisible then
         self:_HideGlowEffect(popup.Glow)
-        -- Убеждаемся, что все дочерние элементы скрыты, когда попап закрыт
         for _, item in ipairs(popup.Items) do
+            self:_SetVisibility(item.Icon, false) -- Прячем иконку
             self:_SetVisibility(item.Label, false)
             self:_SetVisibility(item.Highlight, false)
             self:_SetVisibility(item.CheckmarkLine1, false)
@@ -1205,7 +1215,6 @@ function Library:_RenderBurgerMenuPopup(mouse_pos)
     self:_AnimateAndApplyColor(popup.Background, theme.Colors.SectionBackground)
     self:_AnimateAndApplyColor(popup.Border, theme.Colors.Separator)
 
-    -- Используем сохранённые координаты мыши для позиционирования
     local pW, itemHeight, padding = 180, 30, 10
     local pH = (#popup.Items * itemHeight) + (padding * 2)
     local pX = (popup.Pos and popup.Pos.x) or 0
@@ -1221,9 +1230,9 @@ function Library:_RenderBurgerMenuPopup(mouse_pos)
     
     local currentY = pY + padding
     for i, item in ipairs(popup.Items) do
-        -- Устанавливаем видимость для элементов, которые всегда должны быть видны, когда меню открыто
         self:_SetVisibility(item.Label, true)
         self:_SetVisibility(item.Highlight, true)
+        self:_SetVisibility(item.Icon, true) -- Показываем иконку
 
         item.ClickRegion = {x1=pX, y1=currentY, x2=pX+pW, y2=currentY+itemHeight-1}
         local isHovered = (popup.HoveredItemIndex == i)
@@ -1239,10 +1248,13 @@ function Library:_RenderBurgerMenuPopup(mouse_pos)
         local isSelected = self.UI.Values[item.id]
         local targetTextColor = isSelected and theme.Colors.Accent or theme.Colors.TextPrimary
         self:_AnimateAndApplyColor(item.Label, targetTextColor)
+        self:_AnimateAndApplyColor(item.Icon, theme.Colors.TextSecondary) -- Цвет для иконки
         
-        -- Устанавливаем видимость галочек в зависимости от состояния
         self:_SetVisibility(item.CheckmarkLine1, isSelected)
         self:_SetVisibility(item.CheckmarkLine2, isSelected)
+        
+        local startX = pX + (hasSelection and 30 or 15)
+        
         if isSelected then
             local checkCenterY = currentY + (itemHeight / 2)
             item.CheckmarkLine1.From = {pX + 12, checkCenterY}; item.CheckmarkLine1.To = {pX + 15, checkCenterY + 3}
@@ -1251,7 +1263,9 @@ function Library:_RenderBurgerMenuPopup(mouse_pos)
             self:_AnimateAndApplyColor(item.CheckmarkLine2, theme.Colors.Accent)
         end
         
-        local labelX = pX + (hasSelection and 35 or 15)
+        -- Позиционируем иконку и текст
+        item.Icon.Position = {startX, currentY + (itemHeight / 2) - (item.Icon.Size.y / 2)}
+        local labelX = startX + item.Icon.Size.x + 8
         item.Label.Position = {labelX, currentY + (itemHeight / 2) - (item.Label.Size / 2)}
         
         currentY = currentY + itemHeight
@@ -1262,6 +1276,7 @@ function Library:_RenderAboutWindow(mouse_pos)
     local about = self.UI.Core.AboutWindow
     local isVisible = self.UI.Popups.About.IsOpen
     local theme = self.ActiveTheme
+    local isThemeLight = self:_IsThemeLight(theme) -- Добавляем проверку темы
     local globalOpacity = self.GlobalAnimation.Opacity
     
     local function setAboutVisibility(tbl, visible)
@@ -1327,7 +1342,6 @@ function Library:_RenderAboutWindow(mouse_pos)
     self:_AnimateAndApplyColor(about.Tooltip.Background, theme.Colors.MainBackground)
     self:_AnimateAndApplyColor(about.Tooltip.Text, theme.Colors.TextPrimary)
     
-    -- [[ ИСПРАВЛЕНО: Добавлена анимация цвета для обводки кругов и надписи Auto Save ]]
     for _, circle in ipairs(about.StyleCircles) do
         self:_AnimateAndApplyColor(circle.Border, theme.Colors.Accent)
         if circle.PlusLine1 then self:_AnimateAndApplyColor(circle.PlusLine1, theme.Colors.TextSecondary) end
@@ -1373,6 +1387,7 @@ function Library:_RenderAboutWindow(mouse_pos)
     local controlX = winX + 20; local controlW = winW - 40; local controlSpacing = 35
     local rightEdge = winX + winW - 25
     
+    -- ИСПРАВЛЕНИЕ: Обновляем логику рендеринга переключателя
     local toggle = about.AutoSaveToggle
     local toggleY = currentY - 1
     toggle.Label.Position = {controlX, currentY}; 
@@ -1380,17 +1395,22 @@ function Library:_RenderAboutWindow(mouse_pos)
     toggle.Back.Position = {toggleBackX, toggleY}; 
     toggle.Back.Size = {toggle.Size.width, toggle.Size.height}; 
     toggle.ClickRegion = {x1 = toggleBackX, y1 = toggleY, x2 = toggleBackX + toggle.Size.width, y2 = toggleY + toggle.Size.height}; 
-    local targetBackColor, targetNubColor; 
+    local is_on = self.UI.Values[toggle.id]
     local nubY = toggleY + toggle.Size.height / 2
-    if self.UI.Values[toggle.id] then 
-        targetBackColor = self:_DarkenColor(theme.Colors.Accent, 0.3); 
-        targetNubColor = theme.Colors.Accent; 
-        toggle.Nub.Position = {toggleBackX + toggle.Size.width - toggle.Size.height / 2, nubY}
+    local targetBackColor, targetNubColor; 
+    if is_on then
+        if isThemeLight then
+            targetBackColor = theme.Colors.Accent
+            targetNubColor = theme.Colors.SectionBackground
+        else
+            targetBackColor = self:_DarkenColor(theme.Colors.Accent, 0.3)
+            targetNubColor = theme.Colors.Accent
+        end
     else 
-        targetBackColor = theme.Colors.DarkGray; 
-        targetNubColor = theme.Colors.LightGray; 
-        toggle.Nub.Position = {toggleBackX + toggle.Size.height / 2, nubY}
-    end;
+        targetBackColor = theme.Colors.DarkGray
+        targetNubColor = theme.Colors.LightGray
+    end
+    toggle.Nub.Position = is_on and {toggleBackX + toggle.Size.width - toggle.Size.height / 2, nubY} or {toggleBackX + toggle.Size.height / 2, nubY}
     self:_AnimateAndApplyColor(toggle.Back, targetBackColor); 
     self:_AnimateAndApplyColor(toggle.Nub, targetNubColor);
     
@@ -1971,7 +1991,7 @@ function Library:_RenderLoop()
 end
 
 function Library:_RenderTabs(x, y, width)
-    local currentY = y + 25
+    local currentY = y + 8
     local theme = self.ActiveTheme
     -- [[ НОВОЕ: Получаем глобальную прозрачность для применения к подсветке ]]
     local globalOpacity = self.GlobalAnimation and self.GlobalAnimation.Opacity or 1
@@ -2078,8 +2098,17 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
             local sliderBackX = sectionX + 100; local sliderBackWidth = columnWidth - 110 - 50; el.Back.Position = {sliderBackX, currentElementY + 8}; el.Back.Size = {sliderBackWidth, 2}; el.ClickRegion = { x1 = sliderBackX, y1 = currentElementY - 2, x2 = sliderBackX + sliderBackWidth, y2 = currentElementY + 18 };
             local value_percentage = math.clamp(((self.UI.Values[el.id] or el.Min) - el.Min) / (el.Max - el.Min), 0, 1); local nubX = sliderBackX + sliderBackWidth * value_percentage
             el.LeftFill.Position = {sliderBackX, currentElementY + 8}; el.LeftFill.Size = {nubX - sliderBackX, 2}; el.Nub.Position = {nubX, currentElementY + 9}
+            
+            -- ИСПРАВЛЕНИЕ: Передаём masterOpacity в цвет свечения
             local glowWidth = nubX - sliderBackX; local glowHeight = 6
-            if glowWidth > 0 and el.Glow then self:_RenderGlowEffect(el.Glow, sliderBackX, currentElementY + 9 - (glowHeight / 2), glowWidth, glowHeight, el.LeftFill.Rounding, theme.Colors.GlowAccent, {top=true, bottom=true, left=true, right=false}) elseif el.Glow then self:_HideGlowEffect(el.Glow) end
+            if glowWidth > 0 and el.Glow then
+                local glowColor = theme.Colors.GlowAccent
+                local animatedGlowColor = {glowColor[1], glowColor[2], glowColor[3], (glowColor[4] or 255) * masterOpacity}
+                self:_RenderGlowEffect(el.Glow, sliderBackX, currentElementY + 9 - (glowHeight / 2), glowWidth, glowHeight, el.LeftFill.Rounding, animatedGlowColor, {top=true, bottom=true, left=true, right=false})
+            elseif el.Glow then 
+                self:_HideGlowEffect(el.Glow) 
+            end
+
             local valueText = tostring(math.floor(self.UI.Values[el.id] or el.Min)); local valueTextX = sectionX + columnWidth - 40; el.ValueText.Text = valueText; el.ValueText.Position = {valueTextX, currentElementY}
             self:_AnimateAndApplyColor(el.Back, theme.Colors.DarkBlue, masterOpacity); self:_AnimateAndApplyColor(el.LeftFill, theme.Colors.Accent, masterOpacity); self:_AnimateAndApplyColor(el.Nub, theme.Colors.Accent, masterOpacity); self:_AnimateAndApplyColor(el.ValueText, theme.Colors.TextPrimary, masterOpacity)
             elementY_offset = elementY_offset + 35
@@ -2276,6 +2305,7 @@ function Library:_RenderConfigOptionsPopup()
     local popup = configs.OptionsPopup
     local isVisible = popup.IsOpen
     local theme = self.ActiveTheme
+    local isThemeLight = self:_IsThemeLight(theme) -- Добавляем проверку темы
 
     self:_SetVisibility(popup.Background, isVisible)
     self:_SetVisibility(popup.Border, isVisible)
@@ -2299,22 +2329,31 @@ function Library:_RenderConfigOptionsPopup()
     popup.Border.Position = {pX, pY}; popup.Border.Size = {pW, pH}
     if popup.Glow then self:_RenderGlowEffect(popup.Glow, pX, pY, pW, pH, popup.Background.Rounding, theme.Colors.GlowColor) end
 
+    -- ИСПРАВЛЕНИЕ: Обновляем логику рендеринга переключателя
     local toggle = popup.IncludeStyleToggle
-    local toggleY = pY + (pH / 2) - (toggle.Label.Size / 2)
-    toggle.Label.Position = {pX + 10, toggleY}
+    local toggleY = pY + (pH / 2) - (toggle.Size.height / 2)
+    toggle.Label.Position = {pX + 10, toggleY + 3}
     local toggleBackX = pX + pW - toggle.Size.width - 15
-    toggle.Back.Position = {toggleBackX, toggleY + 2}; toggle.Back.Size = {toggle.Size.width, toggle.Size.height}; toggle.ClickRegion = {x1 = toggleBackX, y1 = toggleY, x2 = toggleBackX + toggle.Size.width, y2 = toggleY + toggle.Size.height + 4}
+    toggle.Back.Position = {toggleBackX, toggleY}; 
+    toggle.Back.Size = {toggle.Size.width, toggle.Size.height}; 
+    toggle.ClickRegion = {x1 = toggleBackX, y1 = toggleY, x2 = toggleBackX + toggle.Size.width, y2 = toggleY + toggle.Size.height}
     
+    local is_on = self.UI.Values[toggle.id]
+    local nubY = toggleY + toggle.Size.height / 2
     local targetBackColor, targetNubColor
-    if self.UI.Values[toggle.id] then
-        targetBackColor = theme.Colors.ToggleEnabledBackground or self:_DarkenColor(theme.Colors.Accent, 0.3)
-        targetNubColor = theme.Colors.Accent
-        toggle.Nub.Position = {toggleBackX + toggle.Size.width - 5, toggleY + 2 + toggle.Size.height/2}
+    if is_on then
+        if isThemeLight then
+            targetBackColor = theme.Colors.Accent
+            targetNubColor = theme.Colors.SectionBackground
+        else
+            targetBackColor = self:_DarkenColor(theme.Colors.Accent, 0.3)
+            targetNubColor = theme.Colors.Accent
+        end
     else
         targetBackColor = theme.Colors.DarkGray
         targetNubColor = theme.Colors.LightGray
-        toggle.Nub.Position = {toggleBackX + 5, toggleY + 2 + toggle.Size.height/2}
     end
+    toggle.Nub.Position = is_on and {toggleBackX + toggle.Size.width - toggle.Size.height / 2, nubY} or {toggleBackX + toggle.Size.height / 2, nubY}
     self:_AnimateAndApplyColor(toggle.Back, targetBackColor)
     self:_AnimateAndApplyColor(toggle.Nub, targetNubColor)
 end
