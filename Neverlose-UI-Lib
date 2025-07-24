@@ -1137,15 +1137,18 @@ function Library:_RenderAboutWindow(mouse_pos)
     local isVisible = self.UI.Popups.About.IsOpen
     local theme = self.ActiveTheme
     
+    -- Функция для рекурсивной установки видимости
     local function setAboutVisibility(tbl, visible)
         for key, obj in pairs(tbl) do
             if type(obj) == 'table' then
                 if obj.Visible ~= nil then self:_SetVisibility(obj, visible)
-                elseif obj.Label and (obj.Back or obj.Button or (obj.LeftFill and obj.Nub)) then
+                elseif obj.Label and (obj.Back or obj.Button or (obj.LeftFill and obj.Nub) or obj.Border) then -- Добавлена проверка на Border для Keybind
                     self:_SetVisibility(obj.Label, visible);
                     if obj.Back then self:_SetVisibility(obj.Back, visible); self:_SetVisibility(obj.Nub, visible); end
                     if obj.LeftFill then self:_SetVisibility(obj.LeftFill, visible); self:_SetVisibility(obj.Nub, visible); self:_SetVisibility(obj.ValueText, visible); end
-                    if obj.Button then self:_SetVisibility(obj.Button, visible); self:_SetVisibility(obj.ButtonText, visible); self:_SetVisibility(obj.ArrowLine1, visible); self:_SetVisibility(obj.ArrowLine2, visible); end
+                    if obj.Button then self:_SetVisibility(obj.Button, visible); self:_SetVisibility(obj.ButtonText, visible); end
+                    if obj.ArrowLine1 then self:_SetVisibility(obj.ArrowLine1, visible); self:_SetVisibility(obj.ArrowLine2, visible); end
+                    if obj.Border then self:_SetVisibility(obj.Border, visible) end -- Для Keybind
                 elseif key ~= "ClickRegion" and key ~= "StyleCircles" and key ~= "Glow" and key ~= "Tooltip" and key ~= "HoveredThemeCircle" then
                      setAboutVisibility(obj, visible)
                 end
@@ -1166,13 +1169,11 @@ function Library:_RenderAboutWindow(mouse_pos)
     if not isVisible then
         if about.Glow then self:_HideGlowEffect(about.Glow) end
         if about.AnimationSpeedSlider.Glow then self:_HideGlowEffect(about.AnimationSpeedSlider.Glow) end
-        local dropdown = about.DpiScaleDropdown
-        if dropdown.IsOpen then
-            dropdown.IsOpen = false; dropdown.IsClosing = true
-        end
+        -- [[ УДАЛЕНО: Логика для старого dropdown ]]
         return
     end
 
+    -- Анимация цветов
     self:_AnimateAndApplyColor(about.Background, theme.Colors.SectionBackground)
     self:_AnimateAndApplyColor(about.Border, theme.Colors.Separator)
     self:_AnimateAndApplyColor(about.HeaderIcon, theme.Colors.TextSecondary)
@@ -1207,13 +1208,7 @@ function Library:_RenderAboutWindow(mouse_pos)
     self:_AnimateAndApplyColor(slider.Nub, theme.Colors.Accent); 
     self:_AnimateAndApplyColor(slider.ValueText, theme.Colors.TextPrimary);
     
-    local dd = about.DpiScaleDropdown; 
-    self:_AnimateAndApplyColor(dd.Label, theme.Colors.TextSecondary); 
-    self:_AnimateAndApplyColor(dd.Button, theme.Colors.DarkBlue); 
-    self:_AnimateAndApplyColor(dd.ButtonText, theme.Colors.TextPrimary); 
-    self:_AnimateAndApplyColor(dd.ArrowLine1, theme.Colors.TextPrimary); 
-    self:_AnimateAndApplyColor(dd.ArrowLine2, theme.Colors.TextPrimary); 
-
+    -- Позиционирование
     local winW, winH = 360, 500
     local winX, winY = self.Window.X + (self.Window.Width / 2) - (winW / 2), self.Window.Y + (self.Window.Height / 2) - (winH / 2)
     about.ClickRegion = {x1 = winX, y1 = winY, x2 = winX + winW, y2 = winY + winH}
@@ -1266,32 +1261,8 @@ function Library:_RenderAboutWindow(mouse_pos)
     self:_AnimateAndApplyColor(toggle.Nub, targetNubColor);
     
     currentY = currentY + controlSpacing
-    slider.Label.Position = {controlX, currentY}; 
-    local valueTextWidth = 40; local sliderRightEdge = rightEdge - valueTextWidth; local sliderBackX = controlX + 140; local sliderBackWidth = sliderRightEdge - sliderBackX
-    slider.Back.Position = {sliderBackX, currentY + 8}; 
-    slider.Back.Size = {sliderBackWidth, 2}; 
-    slider.ClickRegion = { x1 = sliderBackX, y1 = currentY - 2, x2 = sliderBackX + sliderBackWidth, y2 = currentY + 18 }; 
-    local value_percentage = math.clamp((self.UI.Values[slider.id] - slider.Min) / (slider.Max - slider.Min), 0, 1); 
-    local nubX = sliderBackX + sliderBackWidth * value_percentage; 
-    slider.LeftFill.Position = {sliderBackX, currentY + 8}; 
-    slider.LeftFill.Size = {nubX - sliderBackX, 2}; 
-    slider.Nub.Position = {nubX, currentY + 9}; 
     
-    -- Обновленная логика Glow для слайдера в "About"
-    local glowWidth = nubX - sliderBackX; 
-    local glowHeight = 6; -- Используем новую уменьшенную высоту
-    if glowWidth > 0 and slider.Glow then 
-        self:_RenderGlowEffect(slider.Glow, sliderBackX, currentY + 9 - (glowHeight / 2), glowWidth, glowHeight, slider.LeftFill.Rounding, theme.Colors.GlowAccent, {top=true, bottom=true, left=true, right=false}) 
-    elseif slider.Glow then 
-        self:_HideGlowEffect(slider.Glow) 
-    end
-
-    local valueText = string.format("%.1f", self.UI.Values[slider.id]); local valueTextX = rightEdge - valueTextWidth + 10; 
-    slider.ValueText.Text = valueText; 
-    slider.ValueText.Position = {valueTextX, currentY};
-    currentY = currentY + controlSpacing
-    
--- << НАЧАЛО: Рендеринг нового Keybind >>
+    -- << НАЧАЛО: Рендеринг нового Keybind >>
     local keybind = about.ToggleUIKeybind
     local keybindY = currentY - 4
     self:_AnimateAndApplyColor(keybind.Label, theme.Colors.TextSecondary)
@@ -1312,8 +1283,36 @@ function Library:_RenderAboutWindow(mouse_pos)
     keybind.ButtonText.Position = { bindButtonX + (keybind.Size.width / 2), keybindY + (keybind.Size.height / 2) - (keybind.ButtonText.Size / 2) }
     keybind.ClickRegion = {x1 = bindButtonX, y1 = keybindY, x2 = bindButtonX + keybind.Size.width, y2 = keybindY + keybind.Size.height}
     -- << КОНЕЦ: Рендеринг нового Keybind >>
+
+    currentY = currentY + controlSpacing
+
+    -- Рендеринг слайдера
+    slider.Label.Position = {controlX, currentY}; 
+    local valueTextWidth = 40; local sliderRightEdge = rightEdge - valueTextWidth; local sliderBackX = controlX + 140; local sliderBackWidth = sliderRightEdge - sliderBackX
+    slider.Back.Position = {sliderBackX, currentY + 8}; 
+    slider.Back.Size = {sliderBackWidth, 2}; 
+    slider.ClickRegion = { x1 = sliderBackX, y1 = currentY - 2, x2 = sliderBackX + sliderBackWidth, y2 = currentY + 18 }; 
+    local value_percentage = math.clamp((self.UI.Values[slider.id] - slider.Min) / (slider.Max - slider.Min), 0, 1); 
+    local nubX = sliderBackX + sliderBackWidth * value_percentage; 
+    slider.LeftFill.Position = {sliderBackX, currentY + 8}; 
+    slider.LeftFill.Size = {nubX - sliderBackX, 2}; 
+    slider.Nub.Position = {nubX, currentY + 9}; 
+    
+    local glowWidth = nubX - sliderBackX; 
+    local glowHeight = 6;
+    if glowWidth > 0 and slider.Glow then 
+        self:_RenderGlowEffect(slider.Glow, sliderBackX, currentY + 9 - (glowHeight / 2), glowWidth, glowHeight, slider.LeftFill.Rounding, theme.Colors.GlowAccent, {top=true, bottom=true, left=true, right=false}) 
+    elseif slider.Glow then 
+        self:_HideGlowEffect(slider.Glow) 
+    end
+
+    local valueText = string.format("%.1f", self.UI.Values[slider.id]); local valueTextX = rightEdge - valueTextWidth + 10; 
+    slider.ValueText.Text = valueText; 
+    slider.ValueText.Position = {valueTextX, currentY}; 
     
     currentY = currentY + controlSpacing
+    
+    -- Рендеринг стилей
     local styleY = currentY + 4
     about.StyleLabel.Position = {controlX, styleY}; 
     local maxPerRow = 8; local circleSpacing = 30; local circleStartX = rightEdge
