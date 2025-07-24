@@ -94,6 +94,8 @@ local SCRIPT_PREFIX = "[NL UI Lib] "
 local lastAutoSaveTime = 0
 local autoSaveInterval = 15 -- Интервал в секундах (можно изменить)
 local lastBindCheckTime = 0 -- Для глобальной проверки биндов 
+local last_slider_key_press_time = 0 
+local slider_key_press_delay = 0.08 -- Можешь изменить это значение (в секундах)
 
 --================================================================
 --[[ PRIVATE: COLOR CONVERSION FUNCTIONS (PLACEHOLDERS) ]]
@@ -339,30 +341,24 @@ function Library:_UpdateAnimationStates()
         local targetOpacity, targetYOffset
         
         if is_on_old_tab then
-            -- Цель для исчезающей секции: полная прозрачность и смещение вниз 
             targetOpacity, targetYOffset = 0, ANIMATION_SLIDE_DISTANCE
             if anim_state.Opacity > 0.01 then still_fading_out = true end
         elseif is_on_active_tab and self.Window.Animation.State ~= "FADING_OUT" then
-            -- Цель для появляющейся секции: полная непрозрачность и нулевое смещение 
             targetOpacity, targetYOffset = 1, 0
             if anim_state.Opacity < 0.99 then still_fading_in = true end
         else
-            -- Секция неактивна, скрываем её 
             targetOpacity, targetYOffset = 0, anim_state.YOffset
         end
         
-        -- Плавно интерполируем текущие значения к целевым 
         anim_state.Opacity = anim_state.Opacity + (targetOpacity - anim_state.Opacity) * animationSpeed
         anim_state.YOffset = anim_state.YOffset + (targetYOffset - anim_state.YOffset) * animationSpeed
         
-        -- Принудительно "прищелкиваем" значения в конце анимации для точности 
         if math.abs(anim_state.Opacity - targetOpacity) < 0.01 then anim_state.Opacity = targetOpacity end
         if math.abs(anim_state.YOffset - targetYOffset) < 0.01 then anim_state.YOffset = targetYOffset end
     end
 
     -- === Смена состояний анимации ===
     if self.Window.Animation.State == "FADING_OUT" and not still_fading_out then
-        -- Исчезновение завершено, начинаем появление 
         self.Window.Animation.State = "FADING_IN"
         self.Window.Animation.OldTab = nil
         
@@ -374,16 +370,17 @@ function Library:_UpdateAnimationStates()
                     anim_state.YOffset = ANIMATION_SLIDE_DISTANCE
                 end
                 
-                -- ИЗМЕНЕНИЕ: Сбрасываем анимацию для всех включенных переключателей на новой вкладке
                 for _, el in ipairs(section.Elements) do
                     if el.type == "Toggle" and self.UI.Values[el.id] then
-                        el.AnimatedNubOffset = el.Size.height / 2 -- Сбрасываем в начальную позицию (выкл)
+                        el.AnimatedNubOffset = el.Size.height / 2
+                    -- ИЗМЕНЕНИЕ: Добавляем сброс анимации для слайдеров
+                    elseif el.type == "Slider" then
+                        el.AnimatedValue = el.Min -- Сбрасываем анимированное значение до минимума
                     end
                 end
             end
         end
     elseif self.Window.Animation.State == "FADING_IN" and not still_fading_in then
-        -- Появление завершено, переходим в режим ожидания 
         self.Window.Animation.State = "IDLE"
     end
 end
@@ -816,7 +813,7 @@ function Library:_InitializeEditStyleWindow()
     style_window.IsOpen = false
     style_window.IsEditingName = false -- For text input
     style_window.last_key_press_time = 0
-    style_window.key_press_delay = 0.04
+    style_window.key_press_delay = 0.01
     style_window.last_key_pressed = ""
     style_window.ColorItems = {}
     style_window.EditingTheme = {}
@@ -2489,13 +2486,11 @@ function Library:_InputLoop()
         if not hoveredFound then burger_popup.HoveredItemIndex = 0 end
     end
 
-    -- ИЗМЕНЕНИЕ: Функция для применения значения из текстового поля слайдера
     local function applySliderInput(slider)
         if not slider.IsEditing then return end
         
         local num = tonumber(slider.InputText)
         if num then
-            -- Валидация
             num = math.clamp(num, slider.Min, slider.Max)
             self.UI.Values[slider.id] = num
             if slider.Callback then slider.Callback(num) end
@@ -2647,7 +2642,6 @@ function Library:_InputLoop()
     end
     
     if is_left_clicked and not is_dragging_something then
-        -- ИЗМЕНЕНИЕ: Логика для деактивации поля ввода слайдера по клику вне
         local clicked_on_editing_slider = false
         for _, section in ipairs(self.UI.Sections) do
             for _, el in ipairs(section.Elements) do
@@ -2868,7 +2862,6 @@ function Library:_InputLoop()
                                 settings_popup.Pos = {x = mouse_x, y = mouse_y}
                                 click_was_handled = true
                                 break
-                            -- ИЗМЕНЕНИЕ: Активация поля ввода слайдера
                             elseif el.type == "Slider" and self:_IsPointInRegion(mouse_x, mouse_y, el.ValueInputClickRegion) then
                                 el.IsEditing = true
                                 el.InputText = tostring(math.floor(self.UI.Values[el.id]))
@@ -2963,9 +2956,8 @@ function Library:_InputLoop()
         was_dragging_picker = false
     end
 
-    -- ИЗМЕНЕНИЕ: Обработка ввода с клавиатуры для слайдера
     local key = getpressedkey()
-    if key and key ~= "None" then
+    if key and key ~= "None" and (tick() - last_slider_key_press_time) > slider_key_press_delay then
         local active_slider = nil
         for _, section in ipairs(self.UI.Sections) do
             for _, el in ipairs(section.Elements) do
@@ -2984,13 +2976,13 @@ function Library:_InputLoop()
                 end
             elseif key == "Enter" then
                 applySliderInput(active_slider)
-            elseif string.match(key, "%d") then -- Разрешаем только цифры
+            elseif string.match(key, "%d") then
                 if #active_slider.InputText < 5 then
                     active_slider.InputText = active_slider.InputText .. key
                 end
             end
+            last_slider_key_press_time = tick()
         else
-            -- Старая логика для биндов (когда не редактируем слайдер)
             if about_window.ToggleUIKeybind and about_window.ToggleUIKeybind.IsListening then
                 if self.UI.Values[about_window.ToggleUIKeybind.id] ~= key then
                     self.UI.Values[about_window.ToggleUIKeybind.id] = key
