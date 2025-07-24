@@ -587,7 +587,7 @@ function Library:_InitializeCoreUI()
     self:_InitializeEditStyleWindow()
     self:_InitializeColorPickerWindow()
     self:_InitializeConfigsTab()
-    self:_InitializeBurgerMenu() -- << ДОБАВЬТЕ ЭТУ СТРОКУ В САМЫЙ КОНЕЦ
+    self:_InitializeBurgerMenu()
 
     local Players = game:FindService("Players")
     if Players and Players.localPlayer then
@@ -605,6 +605,56 @@ function Library:_InitializeCoreUI()
     end
     
     UI.Core.HeaderButtons.Save.CurrentColor = self:_DeepCopy(self.ActiveTheme.Colors.MainBackground)
+end
+
+function Library:_InitializeBurgerMenu()
+    local z = 30 -- z-index для всплывающего окна
+    local headerButtons = self.UI.Core.HeaderButtons
+    
+    -- 1. Создаем саму кнопку-бургер
+    headerButtons.BurgerMenu = {
+        Line1 = self:_CreateDrawingObject("Line"),
+        Line2 = self:_CreateDrawingObject("Line"),
+        Line3 = self:_CreateDrawingObject("Line"),
+        ClickRegion = {}
+    }
+    if headerButtons.BurgerMenu.Line1 then headerButtons.BurgerMenu.Line1.Thickness = 2; headerButtons.BurgerMenu.Line1.zIndex = 5; end
+    if headerButtons.BurgerMenu.Line2 then headerButtons.BurgerMenu.Line2.Thickness = 2; headerButtons.BurgerMenu.Line2.zIndex = 5; end
+    if headerButtons.BurgerMenu.Line3 then headerButtons.BurgerMenu.Line3.Thickness = 2; headerButtons.BurgerMenu.Line3.zIndex = 5; end
+
+    -- 2. Создаем всплывающее окно для меню
+    local popup = {}; self.UI.Popups.BurgerMenu = popup
+    popup.IsOpen = false
+    popup.Background = self:_CreateDrawingObject("Square"); if popup.Background then popup.Background.Filled = true; popup.Background.zIndex = z; popup.Background.Rounding = self.ActiveTheme.Rounding.Section; end
+    popup.Border = self:_CreateDrawingObject("Square"); if popup.Border then popup.Border.Filled = false; popup.Border.Thickness = 1; popup.Border.zIndex = z + 1; popup.Border.Rounding = self.ActiveTheme.Rounding.Section; end
+    popup.Glow = self:_Internal_CreateGlowSet(z - 1)
+    
+    -- 3. Создаем элементы списка (Watermark, Hotkeys)
+    popup.Items = {}
+    local itemNames = {"Watermark", "Hotkeys"}
+    for _, name in ipairs(itemNames) do
+        local id = "Burger" .. name
+        if self.UI.Values[id] == nil then self.UI.Values[id] = false end
+
+        local item = {
+            id = id,
+            Name = name,
+            Icon = self:_CreateDrawingObject("Image"), -- Пока пустая иконка
+            Label = self:_CreateDrawingObject("Text"),
+            CheckmarkLine1 = self:_CreateDrawingObject("Line"),
+            CheckmarkLine2 = self:_CreateDrawingObject("Line"),
+            Highlight = self:_CreateDrawingObject("Square"),
+            ClickRegion = {}
+        }
+        
+        if item.Icon then item.Icon.Size = {16, 16}; item.Icon.zIndex = z + 2; item.Icon.Url = ""; end -- URL пока пустой
+        if item.Label then item.Label.Font = self.ActiveTheme.Fonts.Main; item.Label.Size = self.ActiveTheme.Fonts.Size + 1; item.Label.Text = name; item.Label.zIndex = z + 2; end
+        if item.CheckmarkLine1 then item.CheckmarkLine1.Thickness = 2; item.CheckmarkLine1.zIndex = z + 3; end
+        if item.CheckmarkLine2 then item.CheckmarkLine2.Thickness = 2; item.CheckmarkLine2.zIndex = z + 3; end
+        if item.Highlight then item.Highlight.Filled = true; item.Highlight.zIndex = z + 1; item.Highlight.Rounding = self.ActiveTheme.Rounding.Element; end
+        
+        table.insert(popup.Items, item)
+    end
 end
 
 function Library:_InitializeAboutWindow()
@@ -1131,6 +1181,73 @@ end
 --[[ PRIVATE: RENDERING & INPUT HANDLING ]]
 --================================================================
 
+function Library:_RenderBurgerMenuPopup(mouse_pos)
+    local popup = self.UI.Popups.BurgerMenu
+    local isVisible = popup.IsOpen
+    local theme = self.ActiveTheme
+
+    self:_SetDrawingTableVisibility(popup, isVisible)
+    if not isVisible then
+        self:_HideGlowEffect(popup.Glow)
+        return
+    end
+
+    -- Анимация цветов
+    self:_AnimateAndApplyColor(popup.Background, theme.Colors.SectionBackground)
+    self:_AnimateAndApplyColor(popup.Border, theme.Colors.Separator)
+
+    -- Позиционирование
+    local burgerBtn = self.UI.Core.HeaderButtons.BurgerMenu
+    local btnX, btnY = burgerBtn.ClickRegion.x1, burgerBtn.ClickRegion.y1
+    
+    local pW, pH = 180, 30 + (#popup.Items * 30)
+    local pX, pY = btnX - pW + 15, btnY + 30
+    
+    popup.ClickRegion = {x1 = pX, y1 = pY, x2 = pX + pW, y2 = pY + pH}
+    popup.Background.Position = {pX, pY}; popup.Background.Size = {pW, pH}
+    popup.Border.Position = {pX, pY}; popup.Border.Size = {pW, pH}
+    self:_RenderGlowEffect(popup.Glow, pX, pY, pW, pH, popup.Background.Rounding, theme.Colors.GlowColor)
+
+    local currentY = pY + 15
+    for i, item in ipairs(popup.Items) do
+        local itemHeight = 30
+        local isHovered = self:_IsPointInRegion(mouse_pos.x, mouse_pos.y, item.ClickRegion)
+        
+        -- Подсветка при наведении
+        if isHovered then
+            local highlightColor = theme.Colors.Separator
+            self:_AnimateAndApplyColor(item.Highlight, highlightColor, 0.4)
+        else
+            item.Highlight.Opacity = 0
+        end
+
+        -- Галочка
+        local isSelected = self.UI.Values[item.id]
+        self:_SetVisibility(item.CheckmarkLine1, isSelected)
+        self:_SetVisibility(item.CheckmarkLine2, isSelected)
+        if isSelected then
+            self:_AnimateAndApplyColor(item.CheckmarkLine1, theme.Colors.Accent)
+            self:_AnimateAndApplyColor(item.CheckmarkLine2, theme.Colors.Accent)
+            local checkY = currentY + (itemHeight / 2)
+            item.CheckmarkLine1.From = {pX + 10, checkY}; item.CheckmarkLine1.To = {pX + 13, checkY + 3}
+            item.CheckmarkLine2.From = {pX + 13, checkY + 3}; item.CheckmarkLine2.To = {pX + 17, checkY - 4}
+        end
+        
+        -- Иконка и текст
+        self:_AnimateAndApplyColor(item.Icon, theme.Colors.TextSecondary)
+        self:_AnimateAndApplyColor(item.Label, theme.Colors.TextPrimary)
+        
+        local iconX = pX + (isSelected and 30 or 15)
+        item.Icon.Position = {iconX, currentY + (itemHeight / 2) - (item.Icon.Size.y / 2)}
+        item.Label.Position = {iconX + item.Icon.Size.x + 10, currentY + (itemHeight / 2) - (item.Label.Size / 2)}
+        
+        item.ClickRegion = {x1 = pX, y1 = currentY, x2 = pX + pW, y2 = currentY + itemHeight}
+        item.Highlight.Position = {pX + 5, currentY}; item.Highlight.Size = {pW - 10, itemHeight}
+        
+        currentY = currentY + itemHeight
+    end
+end
+
 function Library:_RenderAboutWindow(mouse_pos)
     local about = self.UI.Core.AboutWindow
     local isVisible = self.UI.Popups.About.IsOpen
@@ -1437,13 +1554,7 @@ function Library:_RenderEditStyleWindow()
     self:_AnimateAndApplyColor(style_window.StyleNameInputCursor, theme.Colors.Accent)
     for _, item in ipairs(style_window.ColorItems) do self:_AnimateAndApplyColor(item.Label, theme.Colors.TextSecondary); self:_AnimateAndApplyColor(item.ColorBorder, theme.Colors.LightGray); end
     self:_AnimateAndApplyColor(style_window.RealTimeToggle.Label, theme.Colors.TextSecondary)
-    self:_AnimateAndApplyColor(style_window.CancelButton.Background, theme.Colors.MainBackground)
-    self:_AnimateAndApplyColor(style_window.CancelButton.Border, theme.Colors.Separator)
-    self:_AnimateAndApplyColor(style_window.CancelButton.IconLine1, theme.Colors.TextPrimary)
-    self:_AnimateAndApplyColor(style_window.CancelButton.IconLine2, theme.Colors.TextPrimary)
-    self:_AnimateAndApplyColor(style_window.CancelButton.Label, theme.Colors.TextPrimary)
     
-    -- [[ НАЧАЛО ИСПРАВЛЕНИЯ ЦВЕТА КНОПКИ CANCEL ]]
     local cancelBtnBgColor = theme.Colors.MainBackground
     local cancelBtnTextColor = self:_GetTextColorForBackground(cancelBtnBgColor)
     self:_AnimateAndApplyColor(style_window.CancelButton.Background, cancelBtnBgColor)
@@ -1451,8 +1562,7 @@ function Library:_RenderEditStyleWindow()
     self:_AnimateAndApplyColor(style_window.CancelButton.IconLine1, cancelBtnTextColor)
     self:_AnimateAndApplyColor(style_window.CancelButton.IconLine2, cancelBtnTextColor)
     self:_AnimateAndApplyColor(style_window.CancelButton.Label, cancelBtnTextColor)
-    -- [[ КОНЕЦ ИСПРАВЛЕНИЯ ]]
-
+    
     local saveButtonAccentColor = theme.Colors.Accent
     self:_AnimateAndApplyColor(style_window.SaveButton.Background, saveButtonAccentColor)
     local saveButtonTextColor = self:_GetTextColorForBackground(saveButtonAccentColor)
@@ -1534,13 +1644,12 @@ function Library:_RenderEditStyleWindow()
     cancelBtn.Label.Position = {cancelIconCenterX + 10, cancelBtnY + (cancelBtnH / 2) - (cancelBtn.Label.Size / 2)}
     cancelBtn.ClickRegion = {x1 = cancelBtnX, y1 = cancelBtnY, x2 = cancelBtnX + cancelBtnW, y2 = cancelBtnY + cancelBtnH}
     
-    -- [[ ИСПРАВЛЕНИЕ ПОЗИЦИИ ПЕРЕКЛЮЧАТЕЛЯ В EDIT STYLE ]]
     local toggleY = footerY + cancelBtnH + 15
     local toggle = style_window.RealTimeToggle
     toggle.Label.Position = {winX + 15, toggleY + 5}
     if toggle.Label.TextBounds then
       local toggleBackX = winX + 15 + toggle.Label.TextBounds.x + 10
-      local toggleBackY = toggleY + 7 - 2 -- Корректировка для выравнивания
+      local toggleBackY = toggleY + 7 - 2
       toggle.Back.Position = {toggleBackX, toggleBackY}; 
       toggle.Back.Size = {toggle.Size.width, toggle.Size.height}; 
       toggle.ClickRegion = {x1 = toggleBackX, y1 = toggleBackY, x2 = toggleBackX + toggle.Size.width, y2 = toggleBackY + toggle.Size.height}
@@ -1658,29 +1767,26 @@ function Library:_RenderColorPickerWindow()
 end
 
 function Library:_RenderLoop()
-    -- << НАЧАЛО: Новая логика глобальной анимации >>
     local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4
-    local animationSpeed = (speed_value > 0) and (speed_value / 10.0) or 1 -- Ускоренная анимация для плавности
+    local animationSpeed = (speed_value > 0) and (speed_value / 10.0) or 1
     
     if self.GlobalAnimation.IsHiding then
         self.GlobalAnimation.Opacity = self.GlobalAnimation.Opacity - animationSpeed
         if self.GlobalAnimation.Opacity <= 0 then
-            self.GlobalAnimation.Opacity = 0 -- Принудительно устанавливаем 0
+            self.GlobalAnimation.Opacity = 0
             self.GlobalAnimation.IsHiding = false
         end
     elseif self.GlobalAnimation.IsShowing then
         self.GlobalAnimation.Opacity = self.GlobalAnimation.Opacity + animationSpeed
         if self.GlobalAnimation.Opacity >= 1 then
-            self.GlobalAnimation.Opacity = 1 -- Принудительно устанавливаем 1
+            self.GlobalAnimation.Opacity = 1
             self.GlobalAnimation.IsShowing = false
         end
     end
-    -- << КОНЕЦ: Новая логика глобальной анимации >>
+    
     if not self.Window.Visible then return end
 
-    -- Проверяем, изменилась ли вкладка с прошлого кадра
     if self.Window.ActiveTab ~= self.Window.LastRenderedTab and self.Window.LastRenderedTab ~= "" then
-        -- Если да, запускаем анимацию "исчезновения" старой вкладки
         self.Window.Animation.State = "FADING_OUT"
         self.Window.Animation.OldTab = self.Window.LastRenderedTab
     end
@@ -1748,15 +1854,11 @@ function Library:_RenderLoop()
         local startX, startY = rightPanelX + 35, windowY + (headerHeight / 2)
         local function renderHeaderButton(button, x, y, width, height, has_icon, is_accent)
              self:_SetVisibility(button.Background, true); self:_SetVisibility(button.Border, true); self:_SetVisibility(button.Label, true); if button.Icon then self:_SetVisibility(button.Icon, button.Icon.Visible) end
-
              button.Background.Position = {x, y}; button.Background.Size = {width, height};
              button.Border.Position = {x, y}; button.Border.Size = {width, height};
-
              local isHovered = self:_IsPointInRegion(mouse_pos.x, mouse_pos.y, button.ClickRegion)
              button.IsHovered = isHovered
-
              local targetBgColor, targetTextColor
-
              if button == Core.HeaderButtons.CreateNew then
                 local baseColor = theme.Colors.Accent
                 local opacity = isHovered and 255 or (255 * 0.6)
@@ -1766,14 +1868,11 @@ function Library:_RenderLoop()
                 targetBgColor = isHovered and self:_DarkenColor(theme.Colors.Accent, 0.5) or (is_accent and theme.Colors.Accent or theme.Colors.MainBackground)
                 targetTextColor = is_accent and self:_GetTextColorForBackground(theme.Colors.Accent) or theme.Colors.TextPrimary
              end
-
              local targetBorderColor = (tick() - (button.ClickTime or 0) < 0.1 or (button.IsOpen)) and theme.Colors.Accent or theme.Colors.Separator
-
              self:_AnimateAndApplyColor(button.Background, targetBgColor)
              self:_AnimateAndApplyColor(button.Border, targetBorderColor)
              self:_AnimateAndApplyColor(button.Label, targetTextColor)
              if button.Icon then self:_AnimateAndApplyColor(button.Icon, targetTextColor) end
-
              if has_icon and button.Icon then local iconX, iconY = x + 12, y + (height / 2) - (button.Icon.Size.y / 2); button.Icon.Position = {iconX, iconY}; local labelX, labelY = iconX + button.Icon.Size.x + 5, y + (height / 2) - (button.Label.Size / 2); button.Label.Position = {labelX, labelY}; button.Label.Center = false else button.Label.Position = {x + width / 2, y + (height / 2) - (button.Label.Size / 2)}; button.Label.Center = true end
              button.ClickRegion = {x1 = x, y1 = y, x2 = x + width, y2 = y + height}
         end
@@ -1782,20 +1881,16 @@ function Library:_RenderLoop()
         local createNewBtnWidth = 120
         local btnY = startY - (btnHeight / 2)
         local currentX = startX
-
         renderHeaderButton(Core.HeaderButtons.Save, currentX, btnY, btnWidth, btnHeight, true, false)
         currentX = currentX + btnWidth + spacing
-
         renderHeaderButton(Core.HeaderButtons.ViewESP, currentX, btnY, btnWidth, btnHeight, false, false)
         currentX = currentX + btnWidth + spacing
-
         if self.Window.ActiveTab == "Configs" then
             renderHeaderButton(Core.HeaderButtons.CreateNew, currentX, btnY, createNewBtnWidth, btnHeight, true, true)
         else
             self:_SetVisibility(Core.HeaderButtons.CreateNew.Background, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Border, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Label, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Icon, false);
         end
 
-        -- [[ НАЧАЛО ИЗМЕНЕНИЙ: Бургер и сдвиг настроек ]]
         local settingsIcon = Core.HeaderButtons.Settings.Icon
         local settingsX = rightPanelX + (self.Window.Width - sidebarWidth + self.Window.PanelOverlap) - settingsIcon.Size.x - 20
         local settingsY = startY - (settingsIcon.Size.y / 2)
@@ -1813,7 +1908,6 @@ function Library:_RenderLoop()
         
         local burgerColor = self.UI.Popups.BurgerMenu.IsOpen and theme.Colors.Accent or theme.Colors.TextSecondary
         self:_AnimateAndApplyColor(burger.Line1, burgerColor); self:_AnimateAndApplyColor(burger.Line2, burgerColor); self:_AnimateAndApplyColor(burger.Line3, burgerColor)
-        -- [[ КОНЕЦ ИЗМЕНЕНИЙ ]]
     end
 
     self:_SetVisibility(Core.ViewESPPanel, Core.HeaderButtons.ViewESP.IsOpen); self:_SetVisibility(Core.ViewESPPanelBorder, Core.HeaderButtons.ViewESP.IsOpen)
@@ -1830,7 +1924,6 @@ function Library:_RenderLoop()
     self:_RenderTabs(windowX, windowY + headerHeight, sidebarWidth)
 
     if self.Window.ActiveTab == "Configs" then
-        -- Скрываем все секции, если активна вкладка конфигов
         for _, section in ipairs(self.UI.Sections) do
             local anim_state = self.AnimationState[section.Drawing.Background]
             if anim_state and anim_state.IsVisible then
@@ -1840,21 +1933,18 @@ function Library:_RenderLoop()
         end
         self:_RenderConfigsTab(rightPanelX, windowY, headerHeight)
     else
-        -- << НАЧАЛО ИСПРАВЛЕНИЯ: СКРЫВАЕМ ЭЛЕМЕНТЫ CONFIGS БЕЗОПАСНО >>
         local configsTab = self.UI.Core.ConfigsTab
         if configsTab.MyItemsLabel.Visible then
             self:_SetVisibility(configsTab.MyItemsLabel, false)
             self:_SetVisibility(configsTab.Scrollbar.Background, false)
             self:_SetVisibility(configsTab.Scrollbar.Nub, false)
             for _, item in ipairs(configsTab.Items) do
-                self:_SetDrawingTableVisibility(item.Drawing, false) -- Используем новую функцию
+                self:_SetDrawingTableVisibility(item.Drawing, false)
             end
         end
-        -- << КОНЕЦ ИСПРАВЛЕНИЯ >>
         self:_RenderSections(rightPanelX, windowY, headerHeight)
     end
 
-    -- Рендерим все pop-up окна поверх
     self:_RenderSaveTooltip()
     self:_RenderConfigOptionsPopup()
     self:_RenderSettingsPopup()
@@ -1863,7 +1953,6 @@ function Library:_RenderLoop()
     self:_RenderColorPickerWindow()
     self:_RenderBurgerMenuPopup(mouse_pos)
 
-    -- Запоминаем текущую вкладку для следующего кадра
     self.Window.LastRenderedTab = self.Window.ActiveTab
 
     if not self.GlobalAnimation.IsHiding and self.GlobalAnimation.Opacity <= 0 then
@@ -1938,7 +2027,7 @@ end
 
 function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, yOffset, masterOpacity)
     local theme = self.ActiveTheme
-    local isThemeLight = self:_IsThemeLight(theme) -- << Проверка на светлую тему
+    local isThemeLight = self:_IsThemeLight(theme)
     local animatedY = sectionY + yOffset
 
     local sDrawing = section.Drawing
@@ -2022,24 +2111,22 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
             el.LeftFill.Position = {sliderBackX, currentElementY + 8}; el.LeftFill.Size = {nubX - sliderBackX, 2}
             el.Nub.Position = {nubX, currentElementY + 9}
             
-            -- [[[ НАЧАЛО: НОВАЯ ЛОГИКА GLOW ДЛЯ ВСЕХ СЛАЙДЕРОВ ]]]
             local glowWidth = nubX - sliderBackX
-            local glowHeight = 6 -- Уменьшенная высота свечения
+            local glowHeight = 6
             if glowWidth > 0 and el.Glow then
                 self:_RenderGlowEffect(
                     el.Glow,
-                    sliderBackX,                                   -- x
-                    currentElementY + 9 - (glowHeight / 2),        -- y (вертикальное центрирование)
-                    glowWidth,                                     -- width
-                    glowHeight,                                    -- height
-                    el.LeftFill.Rounding,                          -- rounding
-                    theme.Colors.GlowAccent,                       -- color
-                    {top=true, bottom=true, left=true, right=false} -- sides
+                    sliderBackX,
+                    currentElementY + 9 - (glowHeight / 2),
+                    glowWidth,
+                    glowHeight,
+                    el.LeftFill.Rounding,
+                    theme.Colors.GlowAccent,
+                    {top=true, bottom=true, left=true, right=false}
                 )
             elseif el.Glow then
                  self:_HideGlowEffect(el.Glow)
             end
-            -- [[[ КОНЕЦ НОВОЙ ЛОГИКИ ]]]
 
             local valueText = tostring(math.floor(self.UI.Values[el.id] or el.Min)); local valueTextX = sectionX + columnWidth - 40
             el.ValueText.Text = valueText; el.ValueText.Position = {valueTextX, currentElementY}
@@ -2078,36 +2165,22 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
                     el.OptionBackground.Position = {popupX, popupY}; el.OptionBackground.Size = {popupWidth, popupHeight}
                     el.Border.Position = {popupX, popupY}; el.Border.Size = {popupWidth, popupHeight}
                     
-                    -- << НАЧАЛО ИСПРАВЛЕНИЯ АНИМАЦИИ GLOW >>
-                    local glowFinalOpacity = 0 -- По умолчанию свечение невидимо
-
+                    local glowFinalOpacity = 0
                     if el.IsOpen and not el.IsClosing then
-                        -- Анимация появления (Fading IN)
-                        local threshold = 0.5 -- Порог в 50% непрозрачности для начала появления свечения
+                        local threshold = 0.25
                         if el.FadeOpacity > threshold then
-                            -- Пересчитываем прогресс анимации свечения в диапазоне от 0 до 1
                             local glowProgress = (el.FadeOpacity - threshold) / (1.0 - threshold)
                             glowFinalOpacity = masterOpacity * glowProgress
                         end
                     elseif el.IsClosing then
-                        -- Анимация исчезновения (Fading OUT): используем квадратичную функцию для ускорения
                         glowFinalOpacity = masterOpacity * (el.FadeOpacity * el.FadeOpacity)
                     end
-
                     local glowColor = self.ActiveTheme.Colors.GlowColor
-                    -- Применяем рассчитанную непрозрачность к цвету свечения
                     local animatedGlowColor = {glowColor[1], glowColor[2], glowColor[3], (glowColor[4] or 255) * glowFinalOpacity}
                     self:_RenderGlowEffect(el.Glow, popupX, popupY, popupWidth, popupHeight, el.OptionBackground.Rounding, animatedGlowColor)
-                    -- << КОНЕЦ ИСПРАВЛЕНИЯ АНИМАЦИИ GLOW >>
 
                     local currentOptionY = popupY + 5
                     local hasSelection = el.type == "Multidropdown" and #self.UI.Values[el.id] > 0
-                    
-                    --[[
-                        ИЗМЕНЕНИЕ ОТСТУПА ТЕКСТА
-                        Чтобы увеличить/уменьшить расстояние от галочки до текста,
-                        измените значение '25' в следующей строке.
-                    ]]
                     local textX = popupX + (hasSelection and 25 or 10)
 
                     for i, option in ipairs(el.OptionList) do
@@ -2118,9 +2191,6 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
 
                         local isSelected = (el.type == "Dropdown" and self.UI.Values[el.id] == el.Options[i]) or (el.type == "Multidropdown" and table.find(self.UI.Values[el.id], el.Options[i]))
                         local isHovered = (el.HoveredOptionIndex == i)
-
-                        -- [[ ИЗМЕНЕНИЕ ЦВЕТА АКТИВНЫХ ЭЛЕМЕНТОВ ]]
-                        -- Теперь и в Multidropdown, и в Dropdown выбранные элементы будут цвета акцента
                         local targetTextColor = isSelected and theme.Colors.Accent or theme.Colors.TextPrimary
                         self:_AnimateAndApplyColor(option.Text, targetTextColor, finalOpacity)
 
@@ -2135,16 +2205,8 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
                             self:_SetVisibility(option.CheckmarkLine1, isSelected); self:_SetVisibility(option.CheckmarkLine2, isSelected)
                             if isSelected then
                                 local checkY = currentOptionY + (optionHeight / 2)
-                                --[[
-                                    ИЗМЕНЕНИЕ ФОРМЫ ГАЛОЧКИ
-                                    Чтобы сделать галочку выше, уменьшите последнее значение Y
-                                    в строке 'option.CheckmarkLine2.To' (например, с -2 на -4).
-                                ]]
                                 option.CheckmarkLine1.From = {popupX + 8, checkY}; option.CheckmarkLine1.To = {popupX + 11, checkY + 3}
                                 option.CheckmarkLine2.From = {popupX + 11, checkY + 3}; option.CheckmarkLine2.To = {popupX + 15, checkY - 4}
-                                
-                                -- [[ ИЗМЕНЕНИЕ ЦВЕТА ГАЛОЧКИ ]]
-                                -- Теперь галочка также будет цвета акцента
                                 self:_AnimateAndApplyColor(option.CheckmarkLine1, theme.Colors.Accent, finalOpacity)
                                 self:_AnimateAndApplyColor(option.CheckmarkLine2, theme.Colors.Accent, finalOpacity)
                             end
@@ -2916,7 +2978,7 @@ end
 
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 35xxx241")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3541")
     local is_first_frame = true
     while true do -- Цикл теперь работает всегда, чтобы ловить бинды
         self:_InputLoop() -- Проверка ввода выполняется всегда
