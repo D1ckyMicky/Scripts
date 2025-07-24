@@ -619,7 +619,7 @@ function Library:_InitializeAboutWindow()
 
     local separatorThickness = 2
     about.Separator1 = self:_CreateDrawingObject("Line"); if about.Separator1 then about.Separator1.Thickness = separatorThickness; about.Separator1.zIndex = 31; end
-    about.MainTitle = self:_CreateDrawingObject("Text"); if about.MainTitle then about.MainTitle.Font = self.ActiveTheme.Fonts.Title; about.MainTitle.Size = 24; about.MainTitle.Text = "NEVERLOSE.CC"; about.MainTitle.Center = true; about.MainTitle.zIndex = about_z; end
+    about.MainTitle = self:_CreateDrawingObject("Text"); if about.MainTitle then about.MainTitle.Font = self.ActiveTheme.Fonts.Title; about.MainTitle.Size = 27; about.MainTitle.Text = "NEVERLOSE.CC"; about.MainTitle.Center = true; about.MainTitle.zIndex = about_z; end
     about.Separator2 = self:_CreateDrawingObject("Line"); if about.Separator2 then about.Separator2.Thickness = separatorThickness; about.Separator2.zIndex = 31; end
 
     local function setupInfoText(label_text, value_text)
