@@ -20,6 +20,8 @@ local Library = {}
 --================================================================
 
 Library.AnimationState = {} -- Хранилище для состояний анимации
+Library.GlobalAnimation = { IsHiding = false, IsShowing = false, Opacity = 1.0 }
+Library.lastUIToggleTime = 0
 
 Library.Window = {
     Visible = true, X = 400, Y = 200, Width = 750, Height = 620,
@@ -296,9 +298,11 @@ function Library:_AnimateAndApplyColor(drawingObject, targetColor, masterOpacity
         drawingObject.Color = {color[1], color[2], color[3]}
         local baseOpacity = (color[4] or 255) / 255
         
-        --[[ НОВОЕ: Умножаем на общую прозрачность ]]
         masterOpacity = (masterOpacity == nil) and 1 or masterOpacity
-        drawingObject.Opacity = baseOpacity * masterOpacity
+        
+        -- [[ НОВОЕ: Глобальная прозрачность для анимации скрытия/показа ]]
+        local globalOpacity = self.GlobalAnimation and self.GlobalAnimation.Opacity or 1
+        drawingObject.Opacity = baseOpacity * masterOpacity * globalOpacity
     end
 end
 
@@ -637,8 +641,9 @@ function Library:_InitializeAboutWindow()
     about.CreditText = self:_CreateDrawingObject("Text"); if about.CreditText then about.CreditText.Font = self.ActiveTheme.Fonts.Main; about.CreditText.Size = self.ActiveTheme.Fonts.Size; about.CreditText.Text = "UI by Dicky_Micky_"; about.CreditText.Center = true; about.CreditText.zIndex = about_z; end
 
     about.AutoSaveToggle = self:_Internal_CreateToggle({ id = "AboutAutoSave", Name = "Auto Save", Default = false, zIndex = about_z });
-    -- << ИЗМЕНЕНО: ИСПОЛЬЗУЕМ НОВЫЙ DROPDOWN >>
-    about.DpiScaleDropdown = self:_Internal_CreateDropdown({ id = "AboutDpiScale", Name = "Dpi Scale", Options = {"100%", "125%", "150%"}, Default = "100%", Size = {width = 100, height = 25}, zIndex = about_z });
+
+    about.ToggleUIKeybind = self:_Internal_CreateKeybind({ id = "ToggleUIBind", Name = "Toggle UI", Default = "insert", zIndex = about_z })
+
     about.AnimationSpeedSlider = self:_Internal_CreateSlider({ id = "AboutAnimationSpeed", Name = "Animation Speed", Min = 0, Max = 5, Default = 1.6, Increment = 0.1, zIndex = about_z });
 
     about.StyleLabel, _ = setupInfoText("Style", "");
@@ -1286,82 +1291,27 @@ function Library:_RenderAboutWindow(mouse_pos)
     slider.ValueText.Position = {valueTextX, currentY};
     currentY = currentY + controlSpacing
     
-    -- << НАЧАЛО НОВОЙ ЛОГИКИ ОТРИСОВКИ DROPDOWN >>
-    local dropdown = about.DpiScaleDropdown
-    local dropdownY = currentY - 4
-    dropdown.Label.Position = {controlX, dropdownY + 5};
-    local dropdownButtonX = rightEdge - dropdown.Size.width;
-    dropdown.Button.Position = {dropdownButtonX, dropdownY}; dropdown.Button.Size = {dropdown.Size.width, dropdown.Size.height};
-    dropdown.ButtonText.Position = {dropdownButtonX + 5, dropdownY + dropdown.Size.height / 2 - dropdown.ButtonText.Size / 2};
-    dropdown.ButtonText.Text = self.UI.Values[dropdown.id];
-    local arrowX, arrowY = dropdownButtonX + dropdown.Size.width - 15, dropdownY + dropdown.Size.height / 2;
-    dropdown.ArrowLine1.From = {arrowX, arrowY - 2}; dropdown.ArrowLine1.To = {arrowX + 5, arrowY + 3};
-    dropdown.ArrowLine2.From = {arrowX + 5, arrowY + 3}; dropdown.ArrowLine2.To = {arrowX + 10, arrowY - 2};
-    dropdown.ClickRegion = { x1 = dropdownButtonX, y1 = dropdownY, x2 = dropdownButtonX + dropdown.Size.width, y2 = dropdownY + dropdown.Size.height }
+-- << НАЧАЛО: Рендеринг нового Keybind >>
+    local keybind = about.ToggleUIKeybind
+    local keybindY = currentY - 4
+    self:_AnimateAndApplyColor(keybind.Label, theme.Colors.TextSecondary)
+    keybind.Label.Position = {controlX, keybindY + 5}
 
-    if dropdown.IsOpen or dropdown.IsClosing then
-        local speed_value = self.UI.Values["AboutAnimationSpeed"] or 1.6
-        local animationSpeed = speed_value / 10.0
-        if dropdown.IsOpen and not dropdown.IsClosing then dropdown.FadeOpacity = math.min(1, dropdown.FadeOpacity + animationSpeed)
-        elseif dropdown.IsClosing then dropdown.FadeOpacity = math.max(0, dropdown.FadeOpacity - animationSpeed); if dropdown.FadeOpacity == 0 then dropdown.IsClosing = false end end
+    local bindButtonX = rightEdge - keybind.Size.width
+    local buttonBackgroundColor = keybind.IsListening and theme.Colors.Accent or theme.Colors.DarkBlue
+    local buttonTextColor = keybind.IsListening and self:_GetTextColorForBackground(buttonBackgroundColor) or theme.Colors.TextPrimary
+    local buttonBorderColor = keybind.IsListening and theme.Colors.Accent or theme.Colors.Separator
+    
+    self:_AnimateAndApplyColor(keybind.Button, buttonBackgroundColor)
+    self:_AnimateAndApplyColor(keybind.Border, buttonBorderColor)
+    self:_AnimateAndApplyColor(keybind.ButtonText, buttonTextColor)
 
-        if dropdown.FadeOpacity > 0 then
-            local finalOpacity = dropdown.FadeOpacity
-            local popupWidth = 150; local optionHeight = 25; local popupHeight = (#dropdown.Options * optionHeight) + 10
-            local popupX = dropdownButtonX + (dropdown.Size.width / 2) - (popupWidth / 2); local popupY = dropdownY - popupHeight - 5 -- Позиция над кнопкой
-
-            self:_SetVisibility(dropdown.OptionBackground, true); self:_SetVisibility(dropdown.Border, true)
-            self:_AnimateAndApplyColor(dropdown.OptionBackground, theme.Colors.SectionBackground, finalOpacity)
-            self:_AnimateAndApplyColor(dropdown.Border, theme.Colors.Separator, finalOpacity)
-            dropdown.OptionBackground.Position = {popupX, popupY}; dropdown.OptionBackground.Size = {popupWidth, popupHeight}
-            dropdown.Border.Position = {popupX, popupY}; dropdown.Border.Size = {popupWidth, popupHeight}
-            
-            -- Адаптированная логика Glow
-            local glowFinalOpacity = 0
-            if dropdown.IsOpen and not dropdown.IsClosing then
-                local threshold = 0.25
-                if dropdown.FadeOpacity > threshold then
-                    local glowProgress = (dropdown.FadeOpacity - threshold) / (1.0 - threshold)
-                    glowFinalOpacity = glowProgress
-                end
-            elseif dropdown.IsClosing then
-                glowFinalOpacity = dropdown.FadeOpacity * dropdown.FadeOpacity
-            end
-            local glowColor = self.ActiveTheme.Colors.GlowColor
-            local animatedGlowColor = {glowColor[1], glowColor[2], glowColor[3], (glowColor[4] or 255) * glowFinalOpacity}
-            self:_RenderGlowEffect(dropdown.Glow, popupX, popupY, popupWidth, popupHeight, dropdown.OptionBackground.Rounding, animatedGlowColor)
-            
-            local currentOptionY_popup = popupY + 5
-            for i, option in ipairs(dropdown.OptionList) do
-                self:_SetVisibility(option.Text, true); self:_SetVisibility(option.Highlight, true)
-                option.ClickRegion = {x1 = popupX, y1 = currentOptionY_popup, x2 = popupX + popupWidth, y2 = currentOptionY_popup + optionHeight}
-                option.Text.Position = {popupX + 10, currentOptionY_popup + (optionHeight / 2) - (option.Text.Size / 2)}
-                option.Highlight.Position = {popupX + 5, currentOptionY_popup}; option.Highlight.Size = {popupWidth - 10, optionHeight}
-                
-                local isSelected = (self.UI.Values[dropdown.id] == dropdown.Options[i])
-                -- Логика для наведения мыши теперь должна быть в _InputLoop, но для консистентности добавим базовый рендер
-                local isHovered = (dropdown.HoveredOptionIndex == i)
-                
-                local targetTextColor = isSelected and theme.Colors.Accent or theme.Colors.TextPrimary
-                self:_AnimateAndApplyColor(option.Text, targetTextColor, finalOpacity)
-                
-                if isHovered then
-                    local highlightColor = theme.Colors.Separator
-                    self:_AnimateAndApplyColor(option.Highlight, highlightColor, finalOpacity * 0.4)
-                else
-                    option.Highlight.Opacity = 0
-                end
-                currentOptionY_popup = currentOptionY_popup + optionHeight
-            end
-        end
-    else
-        self:_HideGlowEffect(dropdown.Glow)
-        self:_SetVisibility(dropdown.OptionBackground, false); self:_SetVisibility(dropdown.Border, false)
-        for _, option in ipairs(dropdown.OptionList) do
-            self:_SetVisibility(option.Text, false); self:_SetVisibility(option.Highlight, false)
-        end
-    end
-    -- << КОНЕЦ НОВОЙ ЛОГИКИ >>
+    keybind.Button.Position = {bindButtonX, keybindY}; keybind.Button.Size = {keybind.Size.width, keybind.Size.height}
+    keybind.Border.Position = {bindButtonX, keybindY}; keybind.Border.Size = {keybind.Size.width, keybind.Size.height}
+    keybind.ButtonText.Text = keybind.IsListening and "..." or string.upper(self.UI.Values[keybind.id] or "none")
+    keybind.ButtonText.Position = { bindButtonX + (keybind.Size.width / 2), keybindY + (keybind.Size.height / 2) - (keybind.ButtonText.Size / 2) }
+    keybind.ClickRegion = {x1 = bindButtonX, y1 = keybindY, x2 = bindButtonX + keybind.Size.width, y2 = keybindY + keybind.Size.height}
+    -- << КОНЕЦ: Рендеринг нового Keybind >>
     
     currentY = currentY + controlSpacing
     local styleY = currentY + 4
@@ -1699,6 +1649,23 @@ function Library:_RenderColorPickerWindow()
 end
 
 function Library:_RenderLoop()
+    -- << НАЧАЛО: Новая логика глобальной анимации >>
+    local speed_value = self.UI.Values["AboutAnimationSpeed"] or 1.6
+    local animationSpeed = (speed_value > 0) and (speed_value / 10.0) or 1 -- Ускоренная анимация для плавности
+    
+    if self.GlobalAnimation.IsHiding then
+        self.GlobalAnimation.Opacity = math.max(0, self.GlobalAnimation.Opacity - animationSpeed)
+        if self.GlobalAnimation.Opacity == 0 then
+            self.GlobalAnimation.IsHiding = false
+            self.Window.Visible = false -- Полностью скрываем окно после затухания
+        end
+    elseif self.GlobalAnimation.IsShowing then
+        self.GlobalAnimation.Opacity = math.min(1, self.GlobalAnimation.Opacity + animationSpeed)
+        if self.GlobalAnimation.Opacity == 1 then
+            self.GlobalAnimation.IsShowing = false
+        end
+    end
+    -- << КОНЕЦ: Новая логика глобальной анимации >>
     if not self.Window.Visible then return end
 
     -- Проверяем, изменилась ли вкладка с прошлого кадра
@@ -2355,6 +2322,9 @@ function Library:_RenderConfigOptionsPopup()
 end
 
 function Library:_InputLoop()
+    -- [[ НОВОЕ: Проверка глобальных биндов (например, на скрытие UI) ]]
+    self:_CheckGlobalBinds()
+
     local mouse_pos = getmouseposition()
     if not mouse_pos then return end
 
@@ -2368,10 +2338,7 @@ function Library:_InputLoop()
     local about_window = self.UI.Core.AboutWindow
     local settings_popup = self.UI.Popups.Settings
 
-    --[[
-        НОВАЯ ЛОГИКА: ОБРАБОТКА НАВЕДЕНИЯ МЫШИ (HOVER)
-        Этот блок выполняется в каждом кадре, чтобы отслеживать, на какую опцию наведен курсор.
-    ]]
+    -- Обработка наведения мыши на опции в открытых Dropdown'ах
     local anyDropdownOpen = false
     for _, section in ipairs(self.UI.Sections) do
         if section.ParentTab == self.Window.ActiveTab then
@@ -2386,9 +2353,7 @@ function Library:_InputLoop()
                             break
                         end
                     end
-                    if not hoveredFound then
-                        el.HoveredOptionIndex = 0
-                    end
+                    if not hoveredFound then el.HoveredOptionIndex = 0 end
                 end
             end
         end
@@ -2511,13 +2476,12 @@ function Library:_InputLoop()
     if is_left_clicked and not is_dragging_something then
         local click_was_handled = false
 
-        -- Приоритетная проверка: если открыт какой-либо dropdown
+        -- Приоритетная проверка: клик в открытом dropdown
         if anyDropdownOpen then
             local clickedInsideADropdown = false
             for _, section in ipairs(self.UI.Sections) do
                 for _, el in ipairs(section.Elements) do
                     if (el.type == "Dropdown" or el.type == "Multidropdown") and el.IsOpen and el.HoveredOptionIndex > 0 then
-                        -- Кликнули на опцию внутри открытого списка
                         clickedInsideADropdown = true
                         click_was_handled = true
                         local i = el.HoveredOptionIndex
@@ -2525,7 +2489,7 @@ function Library:_InputLoop()
                             self.UI.Values[el.id] = el.Options[i]
                             if el.Callback then el.Callback(self.UI.Values[el.id]) end
                             el.IsOpen = false
-                            el.IsClosing = true -- Запускаем анимацию закрытия
+                            el.IsClosing = true
                         else -- Multidropdown
                             local opt = el.Options[i]
                             local found_idx = table.find(self.UI.Values[el.id], opt)
@@ -2540,7 +2504,6 @@ function Library:_InputLoop()
             end
 
             if not clickedInsideADropdown then
-                -- Кликнули вне опций, закрываем все открытые dropdown'ы
                 for _, section in ipairs(self.UI.Sections) do
                     for _, el in ipairs(section.Elements) do
                         if (el.type == "Dropdown" or el.type == "Multidropdown") and el.IsOpen then
@@ -2552,7 +2515,7 @@ function Library:_InputLoop()
             end
         end
 
-        -- Если клик еще не был обработан, проверяем остальные элементы
+        -- Обработка кликов по окнам-попапам
         if not click_was_handled then
             if settings_popup.IsOpen then
                 click_was_handled = true
@@ -2612,7 +2575,7 @@ function Library:_InputLoop()
                         if self:_IsPointInRegion(mouse_x, mouse_y, item.ClickRegion) then
                             picker.IsOpen = true;
                             picker.EditingColorName = item.Name;
-                            picker.EditingValueID = nil; -- Сбрасываем ID значения
+                            picker.EditingValueID = nil;
                             picker.Pos = {x = mouse_x, y = mouse_y}
                             local color_to_edit = style_window.EditingTheme.Colors[item.Name]
                             picker.h, picker.s, picker.v, picker.a = self:_RGBtoHSV(color_to_edit[1], color_to_edit[2], color_to_edit[3], color_to_edit[4])
@@ -2623,21 +2586,14 @@ function Library:_InputLoop()
                 end
             elseif self.UI.Popups.About.IsOpen then
                 click_was_handled = true
-                local about = self.UI.Core.AboutWindow; local about_dropdown = about.DpiScaleDropdown
+                local about = self.UI.Core.AboutWindow
+
                 if self:_IsPointInRegion(mouse_x, mouse_y, about.CloseButton.ClickRegion) then
-                    self.UI.Popups.About.IsOpen = false; if about_dropdown.IsOpen then about_dropdown.IsOpen = false end
+                    self.UI.Popups.About.IsOpen = false
                 elseif self:_IsPointInRegion(mouse_x, mouse_y, about.AutoSaveToggle.ClickRegion) then
                     self.UI.Values.AboutAutoSave = not self.UI.Values.AboutAutoSave
-                elseif self:_IsPointInRegion(mouse_x, mouse_y, about_dropdown.ClickRegion) then
-                    about_dropdown.IsOpen = not about_dropdown.IsOpen
-                elseif about_dropdown.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, {x1 = about_dropdown.Button.Position.x, y1 = about_dropdown.Button.Position.y + about_dropdown.Size.height, x2 = about_dropdown.Button.Position.x + about_dropdown.OptionBackground.Size.x, y2 = about_dropdown.Button.Position.y + about_dropdown.Size.height + about_dropdown.OptionBackground.Size.y}) then
-                    local optionY = about_dropdown.Button.Position.y + about_dropdown.Size.height + 5
-                    for i, option_text in ipairs(about_dropdown.OptionList) do
-                        local optionRegion = {x1 = about_dropdown.Button.Position.x, y1 = optionY, x2 = about_dropdown.Button.Position.x + about_dropdown.Size.width, y2 = optionY + 20}
-                        if self:_IsPointInRegion(mouse_x, mouse_y, optionRegion) then
-                            self.UI.Values[about_dropdown.id] = about_dropdown.Options[i]; about_dropdown.IsOpen = false; break
-                        end; optionY = optionY + 20
-                    end
+                elseif self:_IsPointInRegion(mouse_x, mouse_y, about.ToggleUIKeybind.ClickRegion) then
+                    about.ToggleUIKeybind.IsListening = not about.ToggleUIKeybind.IsListening
                 else
                     local circle_clicked = false
                     for _, circle in ipairs(about.StyleCircles) do
@@ -2652,12 +2608,12 @@ function Library:_InputLoop()
                             end; break
                         end
                     end
-                    if not circle_clicked then
-                        if about_dropdown.IsOpen then about_dropdown.IsOpen = false
-                        elseif not self:_IsPointInRegion(mouse_x, mouse_y, about.ClickRegion) then self.UI.Popups.About.IsOpen = false end
+                    if not circle_clicked and not self:_IsPointInRegion(mouse_x, mouse_y, about.ClickRegion) then
+                        self.UI.Popups.About.IsOpen = false
                     end
                 end
             else
+                -- Обработка кликов по основным элементам UI
                 if not click_was_handled and self.Window.ActiveTab ~= "Configs" then
                     for _, section in ipairs(self.UI.Sections) do
                         if section.ParentTab == self.Window.ActiveTab then
@@ -2726,14 +2682,29 @@ function Library:_InputLoop()
         end
     end
 
-    -- [НАЧАЛО ЛОГИКИ НАЖАТИЯ КЛАВИШ]
-    if settings_popup.IsOpen and settings_popup.ActiveToggle then
-        for _, element in ipairs(settings_popup.ActiveToggle.SettingsElements or {}) do
-            if element.type == "Keybind" and element.IsListening then
-                local key = getpressedkey(); if key and key ~= "None" then if self.UI.Values[element.id] ~= key then self.UI.Values[element.id] = key; end; element.IsListening = false; end; break
+    -- Обработка нажатий клавиш для активных биндов
+    do
+        local key = getpressedkey()
+        if key and key ~= "None" then
+            -- Для бинда в окне "About"
+            if about_window.ToggleUIKeybind and about_window.ToggleUIKeybind.IsListening then
+                if self.UI.Values[about_window.ToggleUIKeybind.id] ~= key then
+                    self.UI.Values[about_window.ToggleUIKeybind.id] = key
+                end
+                about_window.ToggleUIKeybind.IsListening = false
+            -- Для биндов в настройках Toggle
+            elseif settings_popup.IsOpen and settings_popup.ActiveToggle then
+                for _, element in ipairs(settings_popup.ActiveToggle.SettingsElements or {}) do
+                    if element.type == "Keybind" and element.IsListening then
+                        if self.UI.Values[element.id] ~= key then self.UI.Values[element.id] = key; end
+                        element.IsListening = false; break
+                    end
+                end
             end
         end
     end
+
+    -- Для ввода имени стиля
     if style_window.IsEditingName then
         local key = getpressedkey()
         if key and key ~= "None" and key ~= style_window.last_key_pressed and (tick() - style_window.last_key_press_time > style_window.key_press_delay) then
@@ -2746,13 +2717,14 @@ function Library:_InputLoop()
         elseif key == "None" then style_window.last_key_pressed = "None" end
     end
 
+    -- Проверка биндов для функций (например, для Toggle)
     local currentTime = tick()
     if currentTime - (lastBindCheckTime or 0) > 0.1 then
         local pressed_key = getpressedkey()
         if pressed_key and pressed_key ~= "None" then
             local bind_triggered = false
             for id, value in pairs(self.UI.Values) do
-                if type(value) == "string" and string.sub(id, -4) == "Bind" and value == pressed_key then
+                if type(value) == "string" and string.sub(id, -4) == "Bind" and value == pressed_key and id ~= "ToggleUIBind" then
                     for _, s in ipairs(self.UI.Sections) do
                         for _, el in ipairs(s.Elements) do
                             if el.SettingsElements then
@@ -2776,6 +2748,7 @@ function Library:_InputLoop()
     end
     was_left_pressed = is_left_pressed_now
 end
+
 
 
 function Library:_AddPresetsTab()
@@ -3172,6 +3145,45 @@ function Library:Create()
 
     spawn(function() self:_MainLoop() end)
     return self
+end
+
+function Library:ToggleVisibility()
+    -- Не прерываем текущую анимацию
+    if self.GlobalAnimation.IsHiding or self.GlobalAnimation.IsShowing then return end
+
+    if self.GlobalAnimation.Opacity == 1 then
+        self.GlobalAnimation.IsHiding = true
+    else
+        self.GlobalAnimation.Opacity = 0 -- Убеждаемся, что начинаем с нуля
+        self.Window.Visible = true      -- ВАЖНО: запускаем рендер-цикл для анимации появления
+        self.GlobalAnimation.IsShowing = true
+    end
+end
+
+function Library:_CheckGlobalBinds()
+    if self.UI.Popups.ColorPicker.IsOpen or self.UI.Popups.EditStyle.IsOpen then
+        return -- Не обрабатываем глобальные бинды, если открыты окна-попапы
+    end
+    
+    -- Делаем проверку раз в 0.1 секунды для производительности
+    if (tick() - (self.lastBindCheckTime or 0)) < 0.1 then return end
+
+    local pressed_keys = getpressedkeys() -- Получаем все зажатые клавиши
+    if #pressed_keys > 0 then
+        local toggle_key = self.UI.Values["ToggleUIBind"]
+        for _, key in ipairs(pressed_keys) do
+            if key == toggle_key then
+                -- Защита от многократного срабатывания при зажатии
+                if (tick() - self.lastUIToggleTime) > 0.3 then
+                    self:ToggleVisibility()
+                    self.lastUIToggleTime = tick()
+                end
+                break
+            end
+        end
+    end
+
+    self.lastBindCheckTime = tick()
 end
 
 return Library
