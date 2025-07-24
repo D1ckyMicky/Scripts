@@ -1681,11 +1681,11 @@ function Library:_RenderEditStyleWindow()
     cancelBtn.Label.Position = {cancelIconCenterX + 10, cancelBtnY + (cancelBtnH / 2) - (cancelBtn.Label.Size / 2)}
     cancelBtn.ClickRegion = {x1 = cancelBtnX, y1 = cancelBtnY, x2 = cancelBtnX + cancelBtnW, y2 = cancelBtnY + cancelBtnH}
     
-    local toggleY = footerY + cancelBtnH + 13
+    local toggleY = footerY + cancelBtnH + 8
     local toggle = style_window.RealTimeToggle
-    toggle.Label.Position = {winX + 101, toggleY}
+    toggle.Label.Position = {winX + 110, toggleY}
     if toggle.Label.TextBounds then
-      local toggleBackX = winX + 15 + toggle.Label.TextBounds.x + 10
+      local toggleBackX = winX + 110 + toggle.Label.TextBounds.x + 10
       local toggleBackY = toggleY + 2
       toggle.Back.Position = {toggleBackX, toggleBackY}; 
       toggle.Back.Size = {toggle.Size.width, toggle.Size.height}; 
