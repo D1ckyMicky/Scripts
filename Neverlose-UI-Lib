@@ -95,7 +95,7 @@ local lastAutoSaveTime = 0
 local autoSaveInterval = 15 -- Интервал в секундах (можно изменить)
 local lastBindCheckTime = 0 -- Для глобальной проверки биндов 
 local last_slider_key_press_time = 0 
-local slider_key_press_delay = 0.08 -- Можешь изменить это значение (в секундах)
+local slider_key_press_delay = 0.01 -- Можешь изменить это значение (в секундах)
 
 --================================================================
 --[[ PRIVATE: COLOR CONVERSION FUNCTIONS (PLACEHOLDERS) ]]
@@ -813,7 +813,7 @@ function Library:_InitializeEditStyleWindow()
     style_window.IsOpen = false
     style_window.IsEditingName = false -- For text input
     style_window.last_key_press_time = 0
-    style_window.key_press_delay = 0.01
+    style_window.key_press_delay = 0.001
     style_window.last_key_pressed = ""
     style_window.ColorItems = {}
     style_window.EditingTheme = {}
