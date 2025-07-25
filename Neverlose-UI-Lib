@@ -2733,8 +2733,8 @@ function Library:_RenderHotkeys()
         
         -- ИЗМЕНЕНИЕ: Создаем эффект "капсулы"
         local trackHeight = 15 -- Немного выше для лучшего вида
-        local trackWidth = 26
-        d.ToggleTrack.Rounding = (trackHeight / 2) + 4 -- Закругление равно половине высоты для идеальной капсулы
+        local trackWidth = 22
+        d.ToggleTrack.Rounding = (trackHeight / 2) + 5 -- Закругление равно половине высоты для идеальной капсулы
         d.ToggleTrack.Position = {hk.Position.x + (toggleContainerWidth - trackWidth)/2, currentY + (itemHeight - trackHeight)/2}
         d.ToggleTrack.Size = {trackWidth, trackHeight}
         
