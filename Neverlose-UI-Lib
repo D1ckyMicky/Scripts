@@ -997,7 +997,7 @@ function Library:_InitializeWatermark()
 
     local function setupLogoText(textObj, zIndex)
         if textObj then
-            textObj.Font = self.ActiveTheme.Fonts.Title; textObj.Size = self.ActiveTheme.Fonts.Size + 4;
+            textObj.Font = self.ActiveTheme.Fonts.Title; textObj.Size = self.ActiveTheme.Fonts.Size + 8;
             textObj.Text = "NL"; textObj.Center = true; textObj.zIndex = zIndex;
         end
     end
@@ -2538,7 +2538,7 @@ function Library:_RenderWatermark()
     local height = 40
     local logoWidth = 50
     local separatorWidth = 10
-    local horizontalPadding = 15
+    local horizontalPadding = 20
     
     local currentX = wm.Position.x
     
