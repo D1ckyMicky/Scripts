@@ -285,7 +285,7 @@ function Library:_RenderSaveTooltip()
     end
 end
 
-function Library:_AnimateAndApplyColor(drawingObject, targetColor, masterOpacity)
+function Library:_AnimateAndApplyColor(drawingObject, targetColor, masterOpacity, ignoreGlobalOpacity)
     if not drawingObject or type(targetColor) ~= "table" then return end
 
     local state = self.AnimationState[drawingObject]
@@ -306,9 +306,14 @@ function Library:_AnimateAndApplyColor(drawingObject, targetColor, masterOpacity
         
         masterOpacity = (masterOpacity == nil) and 1 or masterOpacity
         
-        -- [[ НОВОЕ: Глобальная прозрачность для анимации скрытия/показа ]]
-        local globalOpacity = self.GlobalAnimation and self.GlobalAnimation.Opacity or 1
-        drawingObject.Opacity = baseOpacity * masterOpacity * globalOpacity
+        -- [[ ИЗМЕНЕНИЕ: Условное применение глобальной прозрачности ]]
+        local finalOpacity = baseOpacity * masterOpacity
+        if not ignoreGlobalOpacity then
+            local globalOpacity = self.GlobalAnimation and self.GlobalAnimation.Opacity or 1
+            finalOpacity = finalOpacity * globalOpacity
+        end
+        
+        drawingObject.Opacity = finalOpacity
     end
 end
 
@@ -2520,7 +2525,6 @@ function Library:_RenderWatermark()
     local wm = self.UI.Watermark
     local isVisible = self.UI.Values["BurgerWatermark"]
 
-    -- Сначала устанавливаем общую видимость
     self:_SetDrawingTableVisibility(wm, isVisible)
 
     if not isVisible then return end
@@ -2531,7 +2535,6 @@ function Library:_RenderWatermark()
     local accentColor = theme.Colors.Accent
     local textColor = theme.Colors.TextPrimary
 
-    -- Скрываем или показываем тени логотипа в зависимости от темы
     self:_SetVisibility(wm.LogoText2, not isThemeLight)
     self:_SetVisibility(wm.LogoText3, not isThemeLight)
 
@@ -2540,16 +2543,17 @@ function Library:_RenderWatermark()
     wm.Items.Ping.Text.Text = string.format("%.2f ms", getping() or 0)
     wm.Items.Fps.Text.Text = tostring(get_overlay_fps() or 0) .. " fps"
 
-    self:_AnimateAndApplyColor(wm.LogoBg, bgColor, 1)
-    self:_AnimateAndApplyColor(wm.InfoBg, bgColor, 1)
+    -- Добавляем 'true' в конце каждого вызова, чтобы игнорировать глобальную прозрачность
+    self:_AnimateAndApplyColor(wm.LogoBg, bgColor, 1, true)
+    self:_AnimateAndApplyColor(wm.InfoBg, bgColor, 1, true)
     
-    self:_AnimateAndApplyColor(wm.LogoText1, textColor, 1)
-    self:_AnimateAndApplyColor(wm.LogoText2, accentColor, 1)
-    self:_AnimateAndApplyColor(wm.LogoText3, self:_DarkenColor(accentColor, 0.3), 1)
+    self:_AnimateAndApplyColor(wm.LogoText1, textColor, 1, true)
+    self:_AnimateAndApplyColor(wm.LogoText2, accentColor, 1, true)
+    self:_AnimateAndApplyColor(wm.LogoText3, self:_DarkenColor(accentColor, 0.3), 1, true)
     
     for _, item in pairs(wm.Items) do
-        self:_AnimateAndApplyColor(item.Icon, accentColor, 1)
-        self:_AnimateAndApplyColor(item.Text, textColor, 1)
+        self:_AnimateAndApplyColor(item.Icon, accentColor, 1, true)
+        self:_AnimateAndApplyColor(item.Text, textColor, 1, true)
     end
 
     local height = 40
