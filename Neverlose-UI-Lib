@@ -1042,9 +1042,9 @@ function Library:_InitializeHotkeys()
     
     if hk.Title.Background then hk.Title.Background.Filled = true; hk.Title.Background.zIndex = z; hk.Title.Background.Rounding = 13; end
     -- Увеличиваем иконку и текст
-    if hk.Title.Icon then hk.Title.Icon.Url = "https://s6.imgcdn.dev/Y4q74H.png"; hk.Title.Icon.Size = {24, 24}; hk.Title.Icon.zIndex = z + 1; end
+    if hk.Title.Icon then hk.Title.Icon.Url = "https://s6.imgcdn.dev/Y4q74H.png"; hk.Title.Icon.Size = {26, 26}; hk.Title.Icon.zIndex = z + 1; end
     if hk.Title.Separator then hk.Title.Separator.Thickness = 2.5; hk.Title.Separator.zIndex = z + 1; end
-    if hk.Title.Text then hk.Title.Text.Font = self.ActiveTheme.Fonts.Main; hk.Title.Text.Size = self.ActiveTheme.Fonts.Size + 6; hk.Title.Text.Text = " Hotkeys"; hk.Title.Text.zIndex = z + 1; end
+    if hk.Title.Text then hk.Title.Text.Font = self.ActiveTheme.Fonts.Main; hk.Title.Text.Size = self.ActiveTheme.Fonts.Size + 9; hk.Title.Text.Text = " Hotkeys"; hk.Title.Text.zIndex = z + 1; end
 end
 
 
@@ -2625,6 +2625,27 @@ function Library:_RenderWatermark()
 end
 
 function Library:_RenderHotkeys()
+    --[[
+        ================================================================
+        ЗДЕСЬ НАХОДЯТСЯ ВСЕ НАСТРОЙКИ ВНЕШНЕГО ВИДА HOTKEYS
+        ================================================================
+
+        -- ОБЩЕЕ ПОЛОЖЕНИЕ --
+        -- Начальная позиция всего блока Hotkeys задается в функции `_InitializeHotkeys`:
+        -- hk.Position = {x = 20, y = 80}
+
+        -- ЗАГОЛОВОК "Hotkeys" --
+        -- Размеры: titleHeight, titleWidth
+        -- Цвета: theme.Colors.SectionBackground (фон), theme.Colors.TextSecondary (иконка), 
+        --        theme.Colors.Separator (разделитель), theme.Colors.TextPrimary (текст)
+
+        -- АКТИВНЫЕ БИНДЫ --
+        -- Высота: itemHeight
+        -- Ширина иконки-переключателя: toggleContainerWidth
+        -- Цвета: semiTransparentBg (фон), toggleIndicatorColor (элементы переключателя),
+        --        theme.Colors.TextPrimary (текст бинда)
+    ]]
+
     local hk = self.UI.Hotkeys
     local isVisible = self.UI.Values["BurgerHotkeys"]
 
@@ -2642,14 +2663,14 @@ function Library:_RenderHotkeys()
     local z = 110
 
     -- === Отрисовка заголовка ===
-    local titleHeight = 36 -- Увеличиваем высоту заголовка
-    local titleWidth = 160 -- и ширину
+    local titleHeight = 36 -- Высота заголовка
+    local titleWidth = 160 -- Ширина заголовка
     hk.Title.Background.Position = hk.Position
     hk.Title.Background.Size = {titleWidth, titleHeight}
-    self:_AnimateAndApplyColor(hk.Title.Background, theme.Colors.WatermarkBackground, 1, true)
+    self:_AnimateAndApplyColor(hk.Title.Background, theme.Colors.SectionBackground, 1, true)
 
     hk.Title.Icon.Position = {hk.Position.x + 10, hk.Position.y + titleHeight/2 - hk.Title.Icon.Size.y/2}
-    self:_AnimateAndApplyColor(hk.Title.Icon, theme.Colors.TextSecondary, 1, true)
+    self:_AnimateAndApplyColor(hk.Title.Icon, theme.Colors.TextPrimary, 1, true)
 
     local sepX = hk.Position.x + 42
     hk.Title.Separator.From = {sepX, hk.Position.y + 8}
@@ -2666,7 +2687,6 @@ function Library:_RenderHotkeys()
     for i, bind in ipairs(hk.ActiveBinds) do
         if not bind.Drawing then
             bind.Drawing = {
-                -- Новый набор элементов для переключателя
                 ToggleContainerBg = self:_CreateDrawingObject("Square"),
                 ToggleTrack = self:_CreateDrawingObject("Square"),
                 ToggleNub = self:_CreateDrawingObject("Circle"),
@@ -2674,10 +2694,10 @@ function Library:_RenderHotkeys()
                 NameText = self:_CreateDrawingObject("Text")
             }
             local d = bind.Drawing
-            if d.ToggleContainerBg then d.ToggleContainerBg.Filled = true; d.ToggleContainerBg.zIndex = z; d.ToggleContainerBg.Rounding = 10; end
-            if d.ToggleTrack then d.ToggleTrack.Filled = false; d.ToggleTrack.Thickness = 2; d.ToggleTrack.zIndex = z + 1; d.ToggleTrack.Rounding = 50; end
-            if d.ToggleNub then d.ToggleNub.Filled = true; d.ToggleNub.zIndex = z + 2; d.ToggleNub.Radius = 5; end
-            if d.NameBg then d.NameBg.Filled = true; d.NameBg.zIndex = z; d.NameBg.Rounding = 10; end -- radius u backgr 
+            if d.ToggleContainerBg then d.ToggleContainerBg.Filled = true; d.ToggleContainerBg.zIndex = z; d.ToggleContainerBg.Rounding = 6; end
+            if d.ToggleTrack then d.ToggleTrack.Filled = false; d.ToggleTrack.Thickness = 2; d.ToggleTrack.zIndex = z + 1; end
+            if d.ToggleNub then d.ToggleNub.Filled = true; d.ToggleNub.zIndex = z + 2; end
+            if d.NameBg then d.NameBg.Filled = true; d.NameBg.zIndex = z; d.NameBg.Rounding = 6; end
             if d.NameText then d.NameText.Font = self.ActiveTheme.Fonts.Main; d.NameText.Size = self.ActiveTheme.Fonts.Size; d.NameText.Text = bind.Name; d.NameText.zIndex = z + 1; end
         end
         
@@ -2694,6 +2714,7 @@ function Library:_RenderHotkeys()
         
         -- Цвета
         local toggleIndicatorColor = isThemeLight and theme.Colors.TextDark or theme.Colors.TextLight
+        -- Фон с прозрачностью 20%
         local semiTransparentBg = {theme.Colors.SectionBackground[1], theme.Colors.SectionBackground[2], theme.Colors.SectionBackground[3], 255 * 0.2}
 
         self:_AnimateAndApplyColor(bind.Drawing.ToggleContainerBg, semiTransparentBg, bind.FadeOpacity, true)
@@ -2710,11 +2731,15 @@ function Library:_RenderHotkeys()
         local d = bind.Drawing
         d.ToggleContainerBg.Position = {hk.Position.x, currentY}; d.ToggleContainerBg.Size = {toggleContainerWidth, itemHeight}
         
-        local trackWidth, trackHeight = 28, 16
+        -- ИЗМЕНЕНИЕ: Создаем эффект "капсулы"
+        local trackHeight = 18 -- Немного выше для лучшего вида
+        local trackWidth = 30
+        d.ToggleTrack.Rounding = trackHeight / 2 -- Закругление равно половине высоты для идеальной капсулы
         d.ToggleTrack.Position = {hk.Position.x + (toggleContainerWidth - trackWidth)/2, currentY + (itemHeight - trackHeight)/2}
         d.ToggleTrack.Size = {trackWidth, trackHeight}
         
-        d.ToggleNub.Position = {d.ToggleTrack.Position.x + trackWidth - d.ToggleNub.Radius - 2, d.ToggleTrack.Position.y + trackHeight/2}
+        d.ToggleNub.Radius = 5 -- Радиус кружка
+        d.ToggleNub.Position = {d.ToggleTrack.Position.x + trackWidth - d.ToggleNub.Radius - 3, d.ToggleTrack.Position.y + trackHeight/2}
         
         d.NameBg.Position = {hk.Position.x + toggleContainerWidth + 5, currentY}; d.NameBg.Size = {nameWidth, itemHeight}
         d.NameText.Position = {hk.Position.x + toggleContainerWidth + 5 + 10, currentY + itemHeight/2 - d.NameText.Size/2}
@@ -2730,6 +2755,7 @@ function Library:_RenderHotkeys()
         table.remove(hk.ActiveBinds, index)
     end
 end
+
 
 function Library:_InputLoop()
     self:_CheckGlobalBinds()
