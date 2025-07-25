@@ -3232,13 +3232,13 @@ function Library:_RenderWatermark()
     local ping = watermark.PingValue
     ping.Font = theme.Fonts.Main; ping.Size = theme.Fonts.Size + 2
     -- ИЗМЕНЕНИЕ: Форматирование пинга до 2 знаков после точки
-    [cite_start]ping.Text = (getping and string.format("%.2f", getping()) or "0.00") .. " ms" [cite: 26]
+    ping.Text = (getping and string.format("%.2f", getping()) or "0.00") .. " ms" 
     local pingWidth = iconSize + iconPadding + (ping.TextBounds and ping.TextBounds.x or 50)
     
     -- FPS
     local fps = watermark.FpsValue
     fps.Font = theme.Fonts.Main; fps.Size = theme.Fonts.Size + 2
-    [cite_start]fps.Text = (get_overlay_fps and tostring(get_overlay_fps()) or "0") .. " fps" [cite: 24]
+    fps.Text = (get_overlay_fps and tostring(get_overlay_fps()) or "0") .. " fps" 
     local fpsWidth = iconSize + iconPadding + (fps.TextBounds and fps.TextBounds.x or 60)
     
     -- Total Width Calculation
