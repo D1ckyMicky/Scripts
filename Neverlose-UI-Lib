@@ -1041,10 +1041,12 @@ function Library:_InitializeHotkeys()
     }
     
     if hk.Title.Background then hk.Title.Background.Filled = true; hk.Title.Background.zIndex = z; hk.Title.Background.Rounding = 6; end
-    if hk.Title.Icon then hk.Title.Icon.Url = "https://s6.imgcdn.dev/Y4q74H.png"; hk.Title.Icon.Size = {18, 18}; hk.Title.Icon.zIndex = z + 1; end
-    if hk.Title.Separator then hk.Title.Separator.Thickness = 2; hk.Title.Separator.zIndex = z + 1; end
-    if hk.Title.Text then hk.Title.Text.Font = self.ActiveTheme.Fonts.Main; hk.Title.Text.Size = self.ActiveTheme.Fonts.Size + 1; hk.Title.Text.Text = "Hotkeys"; hk.Title.Text.zIndex = z + 1; end
+    -- Увеличиваем иконку и текст
+    if hk.Title.Icon then hk.Title.Icon.Url = "https://s6.imgcdn.dev/Y4q74H.png"; hk.Title.Icon.Size = {22, 22}; hk.Title.Icon.zIndex = z + 1; end
+    if hk.Title.Separator then hk.Title.Separator.Thickness = 1.5; hk.Title.Separator.zIndex = z + 1; end
+    if hk.Title.Text then hk.Title.Text.Font = self.ActiveTheme.Fonts.Main; hk.Title.Text.Size = self.ActiveTheme.Fonts.Size + 3; hk.Title.Text.Text = "Hotkeys"; hk.Title.Text.zIndex = z + 1; end
 end
+
 
 
 --================================================================
@@ -2626,11 +2628,9 @@ function Library:_RenderHotkeys()
     local hk = self.UI.Hotkeys
     local isVisible = self.UI.Values["BurgerHotkeys"]
 
-    -- Управляем видимостью заголовка
     self:_SetDrawingTableVisibility(hk.Title, isVisible)
 
     if not isVisible then
-        -- Если хоткеи выключены, скрываем все активные бинды
         for _, bind in ipairs(hk.ActiveBinds) do
             if bind.Drawing then self:_SetDrawingTableVisibility(bind.Drawing, false) end
         end
@@ -2642,45 +2642,47 @@ function Library:_RenderHotkeys()
     local z = 110
 
     -- === Отрисовка заголовка ===
-    local titleHeight = 30
-    local titleWidth = 140
+    local titleHeight = 36 -- Увеличиваем высоту заголовка
+    local titleWidth = 160 -- и ширину
     hk.Title.Background.Position = hk.Position
     hk.Title.Background.Size = {titleWidth, titleHeight}
     self:_AnimateAndApplyColor(hk.Title.Background, theme.Colors.SectionBackground, 1, true)
 
-    hk.Title.Icon.Position = {hk.Position.x + 8, hk.Position.y + titleHeight/2 - hk.Title.Icon.Size.y/2}
+    hk.Title.Icon.Position = {hk.Position.x + 10, hk.Position.y + titleHeight/2 - hk.Title.Icon.Size.y/2}
     self:_AnimateAndApplyColor(hk.Title.Icon, theme.Colors.TextSecondary, 1, true)
 
-    local sepX = hk.Position.x + 35
-    hk.Title.Separator.From = {sepX, hk.Position.y + 6}
-    hk.Title.Separator.To = {sepX, hk.Position.y + titleHeight - 6}
+    local sepX = hk.Position.x + 42
+    hk.Title.Separator.From = {sepX, hk.Position.y + 8}
+    hk.Title.Separator.To = {sepX, hk.Position.y + titleHeight - 8}
     self:_AnimateAndApplyColor(hk.Title.Separator, theme.Colors.Separator, 1, true)
 
-    hk.Title.Text.Position = {sepX + 10, hk.Position.y + titleHeight/2 - hk.Title.Text.Size/2}
+    hk.Title.Text.Position = {sepX + 12, hk.Position.y + titleHeight/2 - hk.Title.Text.Size/2}
     self:_AnimateAndApplyColor(hk.Title.Text, theme.Colors.TextPrimary, 1, true)
 
     -- === Отрисовка активных биндов ===
-    local currentY = hk.Position.y + titleHeight + 10
+    local currentY = hk.Position.y + titleHeight + 8
     local bindsToRemove = {}
 
     for i, bind in ipairs(hk.ActiveBinds) do
-        -- Создаем объекты отрисовки, если их нет
         if not bind.Drawing then
             bind.Drawing = {
-                ToggleBg = self:_CreateDrawingObject("Square"),
+                -- Новый набор элементов для переключателя
+                ToggleContainerBg = self:_CreateDrawingObject("Square"),
+                ToggleTrack = self:_CreateDrawingObject("Square"),
                 ToggleNub = self:_CreateDrawingObject("Circle"),
                 NameBg = self:_CreateDrawingObject("Square"),
                 NameText = self:_CreateDrawingObject("Text")
             }
-            if bind.Drawing.ToggleBg then bind.Drawing.ToggleBg.Filled = true; bind.Drawing.ToggleBg.zIndex = z; bind.Drawing.ToggleBg.Rounding = 6; end
-            if bind.Drawing.ToggleNub then bind.Drawing.ToggleNub.Filled = true; bind.Drawing.ToggleNub.zIndex = z + 1; bind.Drawing.ToggleNub.Radius = 6; end
-            if bind.Drawing.NameBg then bind.Drawing.NameBg.Filled = true; bind.Drawing.NameBg.zIndex = z; bind.Drawing.NameBg.Rounding = 6; end
-            if bind.Drawing.NameText then bind.Drawing.NameText.Font = self.ActiveTheme.Fonts.Main; bind.Drawing.NameText.Size = self.ActiveTheme.Fonts.Size; bind.Drawing.NameText.Text = bind.Name; bind.Drawing.NameText.zIndex = z + 1; end
+            local d = bind.Drawing
+            if d.ToggleContainerBg then d.ToggleContainerBg.Filled = true; d.ToggleContainerBg.zIndex = z; d.ToggleContainerBg.Rounding = 6; end
+            if d.ToggleTrack then d.ToggleTrack.Filled = false; d.ToggleTrack.Thickness = 2; d.ToggleTrack.zIndex = z + 1; d.ToggleTrack.Rounding = 8; end
+            if d.ToggleNub then d.ToggleNub.Filled = true; d.ToggleNub.zIndex = z + 2; d.ToggleNub.Radius = 5; end
+            if d.NameBg then d.NameBg.Filled = true; d.NameBg.zIndex = z; d.NameBg.Rounding = 6; end
+            if d.NameText then d.NameText.Font = self.ActiveTheme.Fonts.Main; d.NameText.Size = self.ActiveTheme.Fonts.Size; d.NameText.Text = bind.Name; d.NameText.zIndex = z + 1; end
         end
         
         self:_SetDrawingTableVisibility(bind.Drawing, true)
 
-        -- Анимация появления/исчезновения
         local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4
         local animationSpeed = (speed_value / 1.5) / 10.0
         if bind.IsClosing then
@@ -2691,29 +2693,35 @@ function Library:_RenderHotkeys()
         end
         
         -- Цвета
-        local toggleBgColor = isThemeLight and theme.Colors.Accent or self:_DarkenColor(theme.Colors.Accent, 0.3)
-        local nubColor = isThemeLight and theme.Colors.SectionBackground or theme.Colors.Accent
-        
-        self:_AnimateAndApplyColor(bind.Drawing.ToggleBg, toggleBgColor, bind.FadeOpacity, true)
-        self:_AnimateAndApplyColor(bind.Drawing.ToggleNub, nubColor, bind.FadeOpacity, true)
-        self:_AnimateAndApplyColor(bind.Drawing.NameBg, theme.Colors.SectionBackground, bind.FadeOpacity, true)
+        local toggleIndicatorColor = isThemeLight and theme.Colors.TextDark or theme.Colors.TextLight
+        local semiTransparentBg = {theme.Colors.SectionBackground[1], theme.Colors.SectionBackground[2], theme.Colors.SectionBackground[3], 255 * 0.2}
+
+        self:_AnimateAndApplyColor(bind.Drawing.ToggleContainerBg, semiTransparentBg, bind.FadeOpacity, true)
+        self:_AnimateAndApplyColor(bind.Drawing.ToggleTrack, toggleIndicatorColor, bind.FadeOpacity, true)
+        self:_AnimateAndApplyColor(bind.Drawing.ToggleNub, toggleIndicatorColor, bind.FadeOpacity, true)
+        self:_AnimateAndApplyColor(bind.Drawing.NameBg, semiTransparentBg, bind.FadeOpacity, true)
         self:_AnimateAndApplyColor(bind.Drawing.NameText, theme.Colors.TextPrimary, bind.FadeOpacity, true)
 
         -- Позиции и размеры
         local itemHeight = 30
-        local toggleWidth = 40
+        local toggleContainerWidth = 45
         local nameWidth = (bind.Drawing.NameText.TextBounds and bind.Drawing.NameText.TextBounds.x or 80) + 20
 
-        bind.Drawing.ToggleBg.Position = {hk.Position.x, currentY}; bind.Drawing.ToggleBg.Size = {toggleWidth, itemHeight}
-        bind.Drawing.ToggleNub.Position = {hk.Position.x + toggleWidth - 14, currentY + itemHeight/2}
+        local d = bind.Drawing
+        d.ToggleContainerBg.Position = {hk.Position.x, currentY}; d.ToggleContainerBg.Size = {toggleContainerWidth, itemHeight}
         
-        bind.Drawing.NameBg.Position = {hk.Position.x + toggleWidth + 5, currentY}; bind.Drawing.NameBg.Size = {nameWidth, itemHeight}
-        bind.Drawing.NameText.Position = {hk.Position.x + toggleWidth + 5 + 10, currentY + itemHeight/2 - bind.Drawing.NameText.Size/2}
+        local trackWidth, trackHeight = 28, 16
+        d.ToggleTrack.Position = {hk.Position.x + (toggleContainerWidth - trackWidth)/2, currentY + (itemHeight - trackHeight)/2}
+        d.ToggleTrack.Size = {trackWidth, trackHeight}
+        
+        d.ToggleNub.Position = {d.ToggleTrack.Position.x + trackWidth - d.ToggleNub.Radius - 2, d.ToggleTrack.Position.y + trackHeight/2}
+        
+        d.NameBg.Position = {hk.Position.x + toggleContainerWidth + 5, currentY}; d.NameBg.Size = {nameWidth, itemHeight}
+        d.NameText.Position = {hk.Position.x + toggleContainerWidth + 5 + 10, currentY + itemHeight/2 - d.NameText.Size/2}
         
         currentY = currentY + itemHeight + 5
     end
 
-    -- Удаляем бинды, которые закончили анимацию исчезновения
     for i = #bindsToRemove, 1, -1 do
         local index = bindsToRemove[i]
         if hk.ActiveBinds[index] and hk.ActiveBinds[index].Drawing then
