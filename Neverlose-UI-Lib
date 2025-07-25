@@ -906,7 +906,7 @@ function Library:_InitializeColorPickerWindow()
     local picker = {}; self.UI.Popups.ColorPicker = picker; local z = 50
     picker.IsOpen = false
     picker.EditingColorName = nil
-    picker.EditingValueID = nil -- << ДОБАВЛЕНО: ID для значения цвета (например, ESP)
+    picker.EditingValueID = nil
     picker.Pos = {x=0, y=0}
 
     -- State
@@ -924,19 +924,22 @@ function Library:_InitializeColorPickerWindow()
     picker.SaturationValueNub = self:_CreateDrawingObject("Circle"); if picker.SaturationValueNub then picker.SaturationValueNub.Filled = false; picker.SaturationValueNub.Thickness = 2; picker.SaturationValueNub.Radius = 5; picker.SaturationValueNub.zIndex = z + 3; end
 
     picker.HueSlider = self:_CreateDrawingObject("Image"); if picker.HueSlider then picker.HueSlider.Url = "https://s6.imgcdn.dev/Y40GWM.jpg"; picker.HueSlider.zIndex = z + 1; picker.HueSlider.Rounding = 4; end
-    picker.HueNub = self:_CreateDrawingObject("Circle"); if picker.HueNub then picker.HueNub.Filled = true; picker.HueNub.Radius = 7; picker.HueNub.zIndex = z + 3; end
-    picker.HueNubBorder = self:_CreateDrawingObject("Circle"); if picker.HueNubBorder then picker.HueNubBorder.Filled = false; picker.HueNubBorder.Thickness = 2; picker.HueNubBorder.Radius = 7; picker.HueNubBorder.zIndex = z + 2; end
+    -- [[ ИЗМЕНЕНИЕ: Уменьшаем радиус бегунков ]]
+    picker.HueNub = self:_CreateDrawingObject("Circle"); if picker.HueNub then picker.HueNub.Filled = true; picker.HueNub.Radius = 4; picker.HueNub.zIndex = z + 3; end
+    picker.HueNubBorder = self:_CreateDrawingObject("Circle"); if picker.HueNubBorder then picker.HueNubBorder.Filled = false; picker.HueNubBorder.Thickness = 2; picker.HueNubBorder.Radius = 4; picker.HueNubBorder.zIndex = z + 2; end
 
     picker.OpacitySliderBackground = self:_CreateDrawingObject("Square"); if picker.OpacitySliderBackground then picker.OpacitySliderBackground.Filled = true; picker.OpacitySliderBackground.zIndex = z + 1; picker.OpacitySliderBackground.Rounding = 4; end
     picker.OpacitySliderGradient = self:_CreateDrawingObject("Image"); if picker.OpacitySliderGradient then picker.OpacitySliderGradient.Url = "https://pixeldrain.com/api/filesystem/2py1vehq"; picker.OpacitySliderGradient.zIndex = z + 2; picker.OpacitySliderGradient.Rounding = 4; end
-    picker.OpacityNub = self:_CreateDrawingObject("Circle"); if picker.OpacityNub then picker.OpacityNub.Filled = true; picker.OpacityNub.Radius = 7; picker.OpacityNub.zIndex = z + 3; end
-    picker.OpacityNubBorder = self:_CreateDrawingObject("Circle"); if picker.OpacityNubBorder then picker.OpacityNubBorder.Filled = false; picker.OpacityNubBorder.Thickness = 2; picker.OpacityNubBorder.Radius = 7; picker.OpacityNubBorder.zIndex = z + 2; end
+    -- [[ ИЗМЕНЕНИЕ: Уменьшаем радиус бегунков ]]
+    picker.OpacityNub = self:_CreateDrawingObject("Circle"); if picker.OpacityNub then picker.OpacityNub.Filled = true; picker.OpacityNub.Radius = 4; picker.OpacityNub.zIndex = z + 3; end
+    picker.OpacityNubBorder = self:_CreateDrawingObject("Circle"); if picker.OpacityNubBorder then picker.OpacityNubBorder.Filled = false; picker.OpacityNubBorder.Thickness = 2; picker.OpacityNubBorder.Radius = 4; picker.OpacityNubBorder.zIndex = z + 2; end
 
     -- Click Regions
     picker.SaturationValueRegion = {}
     picker.HueSliderRegion = {}
     picker.OpacitySliderRegion = {}
 end
+
 
 function Library:_InitializeConfigsTab()
     local configs = {}; self.UI.Core.ConfigsTab = configs; local z = 4
@@ -1860,8 +1863,9 @@ function Library:_RenderColorPickerWindow()
     if isVisible then
         local padding = 10
         local squareSize = 160
-        local sliderHeight = 8
-        local sliderSpacing = 12
+        -- [[ ИЗМЕНЕНИЕ: Уменьшаем высоту и отступы слайдеров ]]
+        local sliderHeight = 4
+        local sliderSpacing = 10
 
         local pickerW = squareSize + (padding * 2)
         local pickerH = squareSize + (padding * 2) + (sliderHeight * 2) + (sliderSpacing * 2)
@@ -1935,6 +1939,7 @@ function Library:_RenderColorPickerWindow()
         self:_HideGlowEffect(picker.Glow)
     end
 end
+
 
 function Library:_RenderLoop()
     local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4
