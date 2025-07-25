@@ -965,7 +965,7 @@ function Library:_InitializeWatermark()
     wm.Items = {}
     local itemData = {
         Player = { Icon = "https://s6.imgcdn.dev/Y4qqxB.png", Text = "" },
-        Config = { Icon = "https://s6.imgcdn.dev/Y4SCjT.png", Text = "" },
+        Config = { Icon = "https://s6.imgcdn.dev/Y4Skk8.png", Text = "" },
         Ping = { Icon = "https://s6.imgcdn.dev/Y4qFHu.png", Text = "0 ms" },
         Fps = { Icon = "https://s6.imgcdn.dev/Y4qmnq.png", Text = "0 fps" }
     }
