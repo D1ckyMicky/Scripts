@@ -1637,12 +1637,12 @@ function Library:_RenderSettingsPopup()
     for _, element in ipairs(popup.ActiveToggle.SettingsElements or {}) do
         if element.type == "Keybind" then
             local keybind = element
-            self:_SetVisibility(keybind.Label, true)
+            self:_SetVisibility(keybind.Label, true) -- << ДОБАВЛЕНО
             self:_SetVisibility(keybind.Button, true)
             self:_SetVisibility(keybind.Border, true)
             self:_SetVisibility(keybind.ButtonText, true)
 
-            keybind.Label.zIndex = z + 2
+            keybind.Label.zIndex = z + 2 -- << ДОБАВЛЕНО
             keybind.Button.zIndex = z + 2
             keybind.Border.zIndex = z + 3
             keybind.ButtonText.zIndex = z + 3
@@ -1651,12 +1651,12 @@ function Library:_RenderSettingsPopup()
             local buttonTextColor = keybind.IsListening and self:_GetTextColorForBackground(buttonBackgroundColor) or theme.Colors.TextPrimary
             local buttonBorderColor = keybind.IsListening and theme.Colors.Accent or theme.Colors.Separator
 
-            self:_AnimateAndApplyColor(keybind.Label, theme.Colors.TextSecondary)
+            self:_AnimateAndApplyColor(keybind.Label, theme.Colors.TextSecondary) -- << ДОБАВЛЕНО
             self:_AnimateAndApplyColor(keybind.Button, buttonBackgroundColor)
             self:_AnimateAndApplyColor(keybind.Border, buttonBorderColor)
             self:_AnimateAndApplyColor(keybind.ButtonText, buttonTextColor)
 
-            keybind.Label.Position = { pX + 15, currentY }
+            keybind.Label.Position = { pX + 15, currentY } -- << ДОБАВЛЕНО
             local bindButtonX = pX + pW - keybind.Size.width - 15
             keybind.Button.Position = {bindButtonX, currentY - 5}; keybind.Button.Size = {keybind.Size.width, keybind.Size.height};
             keybind.Border.Position = {bindButtonX, currentY - 5}; keybind.Border.Size = {keybind.Size.width, keybind.Size.height};
@@ -1673,7 +1673,6 @@ function Library:_RenderSettingsPopup()
     if popup.Border then popup.Border.Position = {pX, pY}; popup.Border.Size = {pW, totalHeight}; end
     if popup.Glow then self:_RenderGlowEffect(popup.Glow, pX, pY, pW, totalHeight, popup.Background.Rounding, theme.Colors.GlowColor) end
 end
-
 
 function Library:_RenderEditStyleWindow()
     local style_window = self.UI.Popups.EditStyle
@@ -1723,7 +1722,8 @@ function Library:_RenderEditStyleWindow()
     self:_AnimateAndApplyColor(style_window.SaveButton.Label, saveButtonTextColor)
     self:_AnimateAndApplyColor(style_window.SaveButton.Icon, saveButtonTextColor)
 
-    local winW, winH = 300, 540
+    -- [[ ИЗМЕНЕНИЕ: Увеличиваем высоту окна ]]
+    local winW, winH = 300, 570
     local winX, winY = self.Window.X + self.Window.Width + 15, self.Window.Y
     
     style_window.ClickRegion = {x1 = winX, y1 = winY, x2 = winX + winW, y2 = winY + winH}
@@ -1778,13 +1778,9 @@ function Library:_RenderEditStyleWindow()
         currentY = currentY + 25
     end
     
-    -- [[ ИЗМЕНЕНИЕ ЛОГИКИ РАСПОЛОЖЕНИЯ ]]
-    
-    -- 1. Сначала рисуем разделитель сразу после списка цветов
-    currentY = currentY + 5 -- Небольшой отступ
+    currentY = currentY + 5
     style_window.Separator3.From = {winX + 10, currentY}; style_window.Separator3.To = {winX + winW - 10, currentY}
 
-    -- 2. Затем рисуем кнопки под разделителем
     currentY = currentY + 15
     local saveBtn = style_window.SaveButton; local saveBtnW, saveBtnH = 80, 28
     local saveBtnX, saveBtnY = winX + winW - saveBtnW - 15, currentY
@@ -1804,8 +1800,9 @@ function Library:_RenderEditStyleWindow()
     cancelBtn.Label.Position = {cancelIconCenterX + 10, cancelBtnY + (cancelBtnH / 2) - (cancelBtn.Label.Size / 2)}
     cancelBtn.ClickRegion = {x1 = cancelBtnX, y1 = cancelBtnY, x2 = cancelBtnX + cancelBtnW, y2 = cancelBtnY + cancelBtnH}
     
-    -- 3. И в самом конце, внизу окна, рисуем переключатель
-    local toggleY = winY + winH - 40
+    -- [[ ИЗМЕНЕНИЕ: Размещаем переключатель относительно кнопок, а не низа окна ]]
+    currentY = currentY + saveBtnH + 15 -- Отступ после кнопок
+    local toggleY = currentY
     local toggle = style_window.RealTimeToggle
     toggle.Label.Position = {winX + 15, toggleY + 5}
     if toggle.Label.TextBounds then
@@ -1841,6 +1838,7 @@ function Library:_RenderEditStyleWindow()
       self:_AnimateAndApplyColor(toggle.Nub, targetNubColor)
     end
 end
+
 
 function Library:_RenderColorPickerWindow()
     local picker = self.UI.Popups.ColorPicker
