@@ -596,7 +596,7 @@ function Library:_InitializeCoreUI()
     self:_InitializeColorPickerWindow()
     self:_InitializeConfigsTab()
     self:_InitializeBurgerMenu()
-    self:_InitializeWatermark() -- << ДОБАВЬ ЭТУ СТРОЧКУ В КОНЕЦ
+    self:_InitializeWatermark() -- << ДОБАВЬТЕ ЭТУ СТРОКУ
 
     local Players = game:FindService("Players")
     if Players and Players.localPlayer then
@@ -944,156 +944,58 @@ function Library:_InitializeConfigsTab()
 end
 
 function Library:_InitializeWatermark()
-    local UI = self.UI
-    -- Создаём пустую таблицу для вотермарки, если её нет
-    if not UI.Core.Watermark then UI.Core.Watermark = {} end
-    local watermark = UI.Core.Watermark
-    local z = 100 -- Базовый z-index, чтобы быть поверх всего
+    local wm = {}; self.UI.Watermark = wm; local z = 100
 
-    -- Базовые свойства
-    watermark.X = (getscreendimensions() and getscreendimensions().x or 1920) - 450
-    watermark.Y = 20
-    watermark.Width = 0
-    watermark.Height = 42
-    watermark.IsDragging = false
+    -- Состояние
+    wm.Position = {x = 20, y = 20}
+    wm.IsDragging = false
+    wm.DragOffset = {x = 0, y = 0}
 
-    -- Создание всех объектов отрисовки
-    watermark.NL_Bg = self:_CreateDrawingObject("Square")
-    watermark.Info_Bg = self:_CreateDrawingObject("Square")
+    -- Объекты отрисовки
+    wm.DragArea = self:_CreateDrawingObject("Square") -- Невидимая область для перетаскивания
+    wm.LogoBg = self:_CreateDrawingObject("Square")
+    wm.InfoBg = self:_CreateDrawingObject("Square")
     
-    -- Объекты для 3D текста "NL"
-    watermark.NL_Text1 = self:_CreateDrawingObject("Text") -- Основной слой
-    watermark.NL_Text2 = self:_CreateDrawingObject("Text") -- Слой подсветки
-    watermark.NL_Text3 = self:_CreateDrawingObject("Text") -- Слой тени
+    wm.LogoText1 = self:_CreateDrawingObject("Text")
+    wm.LogoText2 = self:_CreateDrawingObject("Text")
+    wm.LogoText3 = self:_CreateDrawingObject("Text")
 
-    -- Объекты для инфо-панели
-    watermark.Player_Icon = self:_CreateDrawingObject("Image")
-    watermark.Player_Text = self:_CreateDrawingObject("Text")
-    watermark.Config_Icon = self:_CreateDrawingObject("Image")
-    watermark.Config_Text = self:_CreateDrawingObject("Text")
-    watermark.Ping_Icon = self:_CreateDrawingObject("Image")
-    watermark.Ping_Text = self:_CreateDrawingObject("Text")
-    watermark.FPS_Icon = self:_CreateDrawingObject("Image")
-    watermark.FPS_Text = self:_CreateDrawingObject("Text")
-
-    -- Безопасная установка zIndex для правильного наслоения
-    local function setZ(obj, index)
-        if obj then obj.zIndex = index end
-    end
-
-    setZ(watermark.NL_Bg, z)
-    setZ(watermark.Info_Bg, z)
-    
-    local contentZ = z + 1
-    setZ(watermark.NL_Text3, contentZ)
-    setZ(watermark.NL_Text2, contentZ + 1)
-    setZ(watermark.NL_Text1, contentZ + 2)
-    setZ(watermark.Player_Icon, contentZ)
-    setZ(watermark.Player_Text, contentZ)
-    setZ(watermark.Config_Icon, contentZ)
-    setZ(watermark.Config_Text, contentZ)
-    setZ(watermark.Ping_Icon, contentZ)
-    setZ(watermark.Ping_Text, contentZ)
-    setZ(watermark.FPS_Icon, contentZ)
-    setZ(watermark.FPS_Text, contentZ)
-end
-
-
-function Library:_RenderWatermark()
-    local watermark = self.UI.Core.Watermark
-    local theme = self.ActiveTheme
-    local UI = self.UI
-
-    -- 1. Проверка на включение и существование основных объектов
-    if not UI.Values["BurgerWatermark"] or not (watermark and watermark.NL_Bg and watermark.Info_Bg and watermark.NL_Text1) then
-        if watermark then self:_SetDrawingTableVisibility(watermark, false) end
-        return
-    end
-
-    self:_SetDrawingTableVisibility(watermark, true)
-    self:_SetVisibility(watermark.NL_Text2, not self:_IsThemeLight(theme))
-    self:_SetVisibility(watermark.NL_Text3, not self:_IsThemeLight(theme))
-
-    -- 2. Логика перетаскивания
-    do
-        local mouse_pos = getmouseposition()
-        local is_left_pressed = isleftpressed()
-        
-        if is_left_pressed and not is_dragging_something then
-            local wm_region = {x1 = watermark.X, y1 = watermark.Y, x2 = watermark.X + watermark.Width, y2 = watermark.Y + watermark.Height}
-            if self:_IsPointInRegion(mouse_pos.x, mouse_pos.y, wm_region) then
-                watermark.IsDragging = true
-                drag_offset = {x = mouse_pos.x - watermark.X, y = mouse_pos.y - watermark.Y}
-                is_dragging_something = true -- Глобальный флаг, чтобы не двигать окно и вотермарку одновременно
-            end
-        elseif not is_left_pressed and watermark.IsDragging then
-            watermark.IsDragging = false
-            is_dragging_something = false
-        end
-
-        if watermark.IsDragging then
-            watermark.X = mouse_pos.x - drag_offset.x
-            watermark.Y = mouse_pos.y - drag_offset.y
-        end
-    end
-
-    -- 3. Расчёты размеров и текста
-    local padding, iconSize, iconPadding, sectionSpacing = 14, 20, 10, 18
-    
-    local nl_text = watermark.NL_Text1
-    nl_text.Font, nl_text.Size, nl_text.Text = theme.Fonts.Title, 22, "NL"
-    local nl_width = (nl_text.TextBounds and nl_text.TextBounds.x or 35) + (padding * 2)
-    
-    local elements = {
-        { icon = watermark.Player_Icon, text = watermark.Player_Text, value = self.UI.Core.PlayerDisplayName.Text or "Player", url = "https://s6.imgcdn.dev/Y4qqxB.png" },
-        { icon = watermark.Config_Icon, text = watermark.Config_Text, value = (UI.Core.ConfigsTab.LoadedConfigName or "default"):upper(), url = "https://s6.imgcdn.dev/Y4Skk8.png" },
-        { icon = watermark.Ping_Icon, text = watermark.Ping_Text, value = (getping and string.format("%d", getping()) or "0") .. " ms", url = "https://s6.imgcdn.dev/Y4qFHu.png" },
-        { icon = watermark.FPS_Icon, text = watermark.FPS_Text, value = (get_overlay_fps and tostring(get_overlay_fps()) or "0") .. " fps", url = "https://s6.imgcdn.dev/Y4qmnq.png" }
+    -- Иконки и текст для информации
+    wm.Items = {}
+    local itemData = {
+        Player = { Icon = "https://s6.imgcdn.dev/Y4qqxB.png", Text = "" },
+        Config = { Icon = "https://s6.imgcdn.dev/Y4SCjT.png", Text = "" },
+        Ping = { Icon = "https://s6.imgcdn.dev/Y4qFHu.png", Text = "0 ms" },
+        Fps = { Icon = "https://s6.imgcdn.dev/Y4qmnq.png", Text = "0" }
     }
-    
-    local info_bar_width = padding
-    for i, el in ipairs(elements) do
-        el.text.Font, el.text.Size, el.text.Text = theme.Fonts.Main, theme.Fonts.Size + 3, el.value
-        el.width = iconSize + iconPadding + (el.text.TextBounds and el.text.TextBounds.x or 60)
-        info_bar_width = info_bar_width + el.width + (i < #elements and sectionSpacing or padding)
+
+    for name, data in pairs(itemData) do
+        local item = {
+            Icon = self:_CreateDrawingObject("Image"),
+            Text = self:_CreateDrawingObject("Text")
+        }
+        if item.Icon then 
+            item.Icon.Url = data.Icon; item.Icon.Size = {15, 15}; item.Icon.zIndex = z + 2; 
+        end
+        if item.Text then 
+            item.Text.Font = self.ActiveTheme.Fonts.Main; item.Text.Size = self.ActiveTheme.Fonts.Size; 
+            item.Text.Text = data.Text; item.Text.zIndex = z + 2;
+        end
+        wm.Items[name] = item
     end
-    
-    watermark.Width = nl_width + 4 + info_bar_width
 
-    -- 4. Отрисовка
-    local x, y = watermark.X, watermark.Y
-    local currentX = x
+    -- Настройка основных элементов
+    if wm.DragArea then wm.DragArea.Filled = true; wm.DragArea.Opacity = 0; wm.DragArea.zIndex = z + 5; end
+    if wm.LogoBg then wm.LogoBg.Filled = true; wm.LogoBg.zIndex = z; end
+    if wm.InfoBg then wm.InfoBg.Filled = true; wm.InfoBg.zIndex = z; end
 
-    -- Отрисовка блока "NL"
-    self:_AnimateAndApplyColor(watermark.NL_Bg, theme.Colors.SectionBackground, 1, true)
-    watermark.NL_Bg.Position, watermark.NL_Bg.Size, watermark.NL_Bg.Rounding = {currentX, y}, {nl_width, watermark.Height}, 8
-    
-    local t1, t2, t3 = watermark.NL_Text1, watermark.NL_Text2, watermark.NL_Text3
-    t1.Text, t2.Text, t3.Text, t1.Font, t2.Font, t3.Font, t1.Size, t2.Size, t3.Size = "NL","NL","NL", nl_text.Font,nl_text.Font,nl_text.Font, nl_text.Size,nl_text.Size,nl_text.Size
-    local titleY = y + (watermark.Height / 2) - (t1.Size / 2)
-    local nlTextX = currentX + padding
-    t3.Position, t2.Position, t1.Position = {nlTextX + 2, titleY + 2}, {nlTextX + 1, titleY + 1}, {nlTextX, titleY}
-    self:_AnimateAndApplyColor(t1, theme.Colors.TextPrimary, 1, true)
-    self:_AnimateAndApplyColor(t2, theme.Colors.Accent, 1, true)
-    self:_AnimateAndApplyColor(t3, self:_DarkenColor(theme.Colors.Accent, 0.2), 1, true)
-    
-    currentX = currentX + nl_width + 4
-    
-    -- Отрисовка инфо-панели
-    self:_AnimateAndApplyColor(watermark.Info_Bg, {20, 20, 25, 230}, 1, true)
-    watermark.Info_Bg.Position, watermark.Info_Bg.Size, watermark.Info_Bg.Rounding = {currentX, y}, {info_bar_width, watermark.Height}, 8
-
-    local contentX = currentX + padding
-    for _, el in ipairs(elements) do
-        if el.icon and el.text then
-            local iconY, textY = y + (watermark.Height / 2) - (iconSize / 2), y + (watermark.Height / 2) - (el.text.Size / 2)
-            el.icon.Url, el.icon.Size, el.icon.Position = el.url, {iconSize, iconSize}, {contentX, iconY}
-            el.text.Position = {contentX + iconSize + iconPadding, textY}
-            self:_AnimateAndApplyColor(el.icon, theme.Colors.TextSecondary, 1, true)
-            self:_AnimateAndApplyColor(el.text, theme.Colors.TextSecondary, 1, true)
-            contentX = contentX + el.width + sectionSpacing
+    local function setupLogoText(textObj)
+        if textObj then
+            textObj.Font = self.ActiveTheme.Fonts.Title; textObj.Size = self.ActiveTheme.Fonts.Size + 2;
+            textObj.Text = "NL"; textObj.Center = true; textObj.zIndex = z + 1;
         end
     end
+    setupLogoText(wm.LogoText1); setupLogoText(wm.LogoText2); setupLogoText(wm.LogoText3)
 end
 
 --================================================================
@@ -2158,6 +2060,7 @@ function Library:_RenderLoop()
         self:_RenderSections(rightPanelX, windowY, headerHeight)
     end
 
+    self:_RenderWatermark() -- << ДОБАВЬТЕ ЭТУ СТРОКУ
     self:_RenderSaveTooltip()
     self:_RenderConfigOptionsPopup()
     self:_RenderSettingsPopup()
@@ -2592,10 +2495,85 @@ function Library:_RenderConfigOptionsPopup()
     self:_AnimateAndApplyColor(toggle.Nub, targetNubColor)
 end
 
+function Library:_RenderWatermark()
+    local wm = self.UI.Watermark
+    local isVisible = self.UI.Values["BurgerWatermark"]
+
+    -- Устанавливаем видимость для всех элементов
+    self:_SetDrawingTableVisibility(wm, isVisible)
+
+    if not isVisible then return end
+
+    local theme = self.ActiveTheme
+    local accentColor = theme.Colors.Accent
+    local textColor = self:_GetTextColorForBackground(accentColor)
+    local globalOpacity = self.GlobalAnimation.Opacity
+
+    -- Обновляем динамические данные
+    wm.Items.Player.Text.Text = self.UI.Core.PlayerDisplayName.Text or "player"
+    wm.Items.Config.Text.Text = self.UI.Core.ConfigsTab.LoadedConfigName or "default"
+    wm.Items.Ping.Text.Text = tostring(getping() or 0) .. " ms" -- [cite: 26]
+    wm.Items.Fps.Text.Text = tostring(get_overlay_fps() or 0) -- [cite: 24]
+
+    -- Применяем цвета
+    self:_AnimateAndApplyColor(wm.LogoBg, accentColor, globalOpacity)
+    self:_AnimateAndApplyColor(wm.InfoBg, accentColor, globalOpacity)
+    
+    self:_AnimateAndApplyColor(wm.LogoText1, textColor, globalOpacity)
+    self:_AnimateAndApplyColor(wm.LogoText2, accentColor, globalOpacity)
+    self:_AnimateAndApplyColor(wm.LogoText3, {0,0,0,100}, globalOpacity)
+    
+    for _, item in pairs(wm.Items) do
+        self:_AnimateAndApplyColor(item.Icon, textColor, globalOpacity)
+        self:_AnimateAndApplyColor(item.Text, textColor, globalOpacity)
+    end
+
+    -- Рассчитываем размеры и позиции
+    local height = 32
+    local logoWidth = 40
+    local separatorWidth = 8
+    local padding = 10
+    
+    local currentX = wm.Position.x
+    
+    -- Лого
+    wm.LogoBg.Position = {currentX, wm.Position.y}; wm.LogoBg.Size = {logoWidth, height}
+    wm.LogoText1.Position = {currentX + logoWidth/2, wm.Position.y + height/2 - wm.LogoText1.Size/2}
+    wm.LogoText2.Position = {currentX + logoWidth/2 - 1, wm.Position.y + height/2 - wm.LogoText2.Size/2 + 1}
+    wm.LogoText3.Position = {currentX + logoWidth/2 - 2, wm.Position.y + height/2 - wm.LogoText3.Size/2 + 1}
+    
+    currentX = currentX + logoWidth + separatorWidth
+    
+    -- Инфо-блок
+    local infoStartX = currentX
+    local totalInfoWidth = 0
+    
+    local order = {"Player", "Config", "Ping", "Fps"} -- Порядок отображения
+    for _, name in ipairs(order) do
+        local item = wm.Items[name]
+        if item.Icon.Visible then
+            item.Icon.Position = {currentX, wm.Position.y + height/2 - item.Icon.Size.y/2}
+            currentX = currentX + item.Icon.Size.x + 5
+        end
+        if item.Text.Visible and item.Text.TextBounds then
+            item.Text.Position = {currentX, wm.Position.y + height/2 - item.Text.Size/2}
+            currentX = currentX + item.Text.TextBounds.x + padding
+        end
+    end
+    
+    totalInfoWidth = (currentX - infoStartX)
+    wm.InfoBg.Position = {infoStartX, wm.Position.y}; wm.InfoBg.Size = {totalInfoWidth, height}
+
+    -- Область для перетаскивания
+    local totalWidth = logoWidth + separatorWidth + totalInfoWidth
+    wm.DragArea.Position = wm.Position; wm.DragArea.Size = {totalWidth, height}
+end
+
 function Library:_InputLoop()
     self:_CheckGlobalBinds()
 
     if not self.Window.Visible then return end
+    if not self.Window.Visible and not self.UI.Values["BurgerWatermark"] then return end
 
     local mouse_pos = getmouseposition()
     if not mouse_pos then return end
@@ -2611,6 +2589,7 @@ function Library:_InputLoop()
     local settings_popup = self.UI.Popups.Settings
     local burger_popup = self.UI.Popups.BurgerMenu
     local burger_button = self.UI.Core.HeaderButtons.BurgerMenu
+    local wm = self.UI.Watermark
 
     local anyDropdownOpen = false
     for _, section in ipairs(self.UI.Sections) do
@@ -2657,7 +2636,13 @@ function Library:_InputLoop()
     end
 
     if is_left_pressed_now then
-        if not is_dragging_something then
+        -- << НАЧАЛО НОВОГО БЛОКА >>
+        if self.UI.Values["BurgerWatermark"] and not is_dragging_something and self:_IsPointInRegion(mouse_x, mouse_y, {x1=wm.DragArea.Position.x, y1=wm.DragArea.Position.y, x2=wm.DragArea.Position.x + wm.DragArea.Size.x, y2=wm.DragArea.Position.y + wm.DragArea.Size.y}) then
+            wm.IsDragging = true
+            is_dragging_something = true
+            wm.DragOffset = {x = mouse_x - wm.Position.x, y = mouse_y - wm.Position.y}
+        -- << КОНЕЦ НОВОГО БЛОКА >>
+        elseif not is_dragging_something then -- << ИЗМЕНИТЕ `if` на `elseif`
             is_dragging_something = true
             local anyPopupOpen = burger_popup.IsOpen or settings_popup.IsOpen or style_window.IsOpen or picker.IsOpen or configsTab.OptionsPopup.IsOpen or self.UI.Popups.About.IsOpen
             
@@ -2704,6 +2689,12 @@ function Library:_InputLoop()
             end
         end
     else
+
+        if wm.IsDragging then
+        wm.Position.x = mouse_x - wm.DragOffset.x
+        wm.Position.y = mouse_y - wm.DragOffset.y
+        end
+
         if self.Window.IsDragging then self.Window.IsDragging = false end
         for _, section in ipairs(self.UI.Sections) do 
             for _, el in ipairs(section.Elements) do 
@@ -3230,6 +3221,10 @@ function Library:_InputLoop()
         end
     end
 
+    if not is_left_pressed_now then
+        if wm.IsDragging then wm.IsDragging = false end
+    end
+    
     was_left_pressed = is_left_pressed_now
 end
 
