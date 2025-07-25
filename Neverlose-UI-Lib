@@ -950,33 +950,20 @@ function Library:_InitializeWatermark()
     local UI = self.UI
     local watermark = {}
     UI.Core.Watermark = watermark
-    local z = 100 
+    local z = 100
 
     watermark.X = getscreendimensions().x - 450
     watermark.Y = 20
     watermark.Width = 0
-    watermark.Height = 42 -- ИЗМЕНЕНИЕ: Увеличена высота
+    watermark.Height = 42
     watermark.IsDragging = false
 
-    -- Объекты для блока "NL" (с внутренней рамкой)
-    watermark.TitleBorder = self:_CreateDrawingObject("Square")
+    -- Упрощенная структура: только фон и текст/иконки
     watermark.TitleBg = self:_CreateDrawingObject("Square")
-    watermark.Title1 = self:_CreateDrawingObject("Text")
-    watermark.Title2 = self:_CreateDrawingObject("Text")
-    watermark.Title3 = self:_CreateDrawingObject("Text")
-
-    -- ИЗМЕНЕНИЕ: Только один объект для фона инфо-панели (без рамки)
     watermark.InfoBar = self:_CreateDrawingObject("Square")
+    
+    watermark.TitleText = self:_CreateDrawingObject("Text")
 
-    -- Настройка zIndex
-    if watermark.TitleBorder then watermark.TitleBorder.zIndex = z end
-    if watermark.TitleBg then watermark.TitleBg.zIndex = z + 1 end
-    if watermark.InfoBar then watermark.InfoBar.zIndex = z end -- Инфо-бар на том же уровне, что и рамка NL
-    if watermark.Title3 then watermark.Title3.zIndex = z + 2 end
-    if watermark.Title2 then watermark.Title2.zIndex = z + 3 end
-    if watermark.Title1 then watermark.Title1.zIndex = z + 4 end
-
-    -- Элементы
     watermark.PlayerIcon = self:_CreateDrawingObject("Image")
     watermark.PlayerName = self:_CreateDrawingObject("Text")
     watermark.ConfigIcon = self:_CreateDrawingObject("Image")
@@ -985,40 +972,50 @@ function Library:_InitializeWatermark()
     watermark.PingValue = self:_CreateDrawingObject("Text")
     watermark.FpsIcon = self:_CreateDrawingObject("Image")
     watermark.FpsValue = self:_CreateDrawingObject("Text")
+
+    -- Устанавливаем zIndex: фон ниже, контент выше
+    if watermark.TitleBg then watermark.TitleBg.zIndex = z end
+    if watermark.InfoBar then watermark.InfoBar.zIndex = z end
+    
+    local contentZ = z + 1
+    if watermark.TitleText then watermark.TitleText.zIndex = contentZ end
+    if watermark.PlayerIcon then watermark.PlayerIcon.zIndex = contentZ end
+    if watermark.PlayerName then watermark.PlayerName.zIndex = contentZ end
+    if watermark.ConfigIcon then watermark.ConfigIcon.zIndex = contentZ end
+    if watermark.ConfigName then watermark.ConfigName.zIndex = contentZ end
+    if watermark.PingIcon then watermark.PingIcon.zIndex = contentZ end
+    if watermark.PingValue then watermark.PingValue.zIndex = contentZ end
+    if watermark.FpsIcon then watermark.FpsIcon.zIndex = contentZ end
+    if watermark.FpsValue then watermark.FpsValue.zIndex = contentZ end
 end
 
 
 function Library:_RenderWatermark()
     local watermark = self.UI.Core.Watermark
     local theme = self.ActiveTheme
-    local isThemeLight = self:_IsThemeLight(theme)
     local UI = self.UI
 
-    if not UI.Values["BurgerWatermark"] then
+    if not UI.Values["BurgerWatermark"] or not watermark.TitleBg then
         self:_SetDrawingTableVisibility(watermark, false)
         return
     end
 
     self:_SetDrawingTableVisibility(watermark, true)
-    self:_SetVisibility(watermark.Title2, not isThemeLight)
-    self:_SetVisibility(watermark.Title3, not isThemeLight)
-    self:_SetVisibility(watermark.InfoBorder, false) -- Убедимся, что старый объект рамки скрыт, если он остался
 
     -- ### CALCULATIONS ###
     local padding = 14
-    local iconSize = 20 -- ИЗМЕНЕНИЕ: Увеличен размер иконок
+    local iconSize = 20
     local iconPadding = 10
     local sectionSpacing = 18
-    local borderThickness = 1
     
     -- "NL" Title Block
-    local nl = watermark.Title1
-    nl.Font = theme.Fonts.Title; nl.Size = 22; nl.Text = "NL" -- ИЗМЕНЕНИЕ: Увеличен текст NL
+    local nl = watermark.TitleText
+    nl.Font = theme.Fonts.Title; nl.Size = 22; nl.Text = "NL"
     local nlWidth = (nl.TextBounds and nl.TextBounds.x or 35) + (padding * 2)
 
     local function setup_text(textObj)
         textObj.Font = theme.Fonts.Main
-        textObj.Size = theme.Fonts.Size + 3 -- ИЗМЕНЕНИЕ: Увеличен основной текст
+        textObj.Size = theme.Fonts.Size + 3
     end
 
     -- Player Name
@@ -1029,13 +1026,11 @@ function Library:_RenderWatermark()
     -- Config Name
     setup_text(watermark.ConfigName)
     local configText = UI.Core.ConfigsTab.LoadedConfigName or "default"
-    if #configText > 15 then configText = string.sub(configText, 1, 14) .. "..." end
     watermark.ConfigName.Text = configText:upper()
     local configWidth = iconSize + iconPadding + (watermark.ConfigName.TextBounds and watermark.ConfigName.TextBounds.x or 60)
 
     -- Ping
     setup_text(watermark.PingValue)
-    -- ИЗМЕНЕНИЕ: Пинг теперь целое число
     watermark.PingValue.Text = (getping and string.format("%d", getping()) or "0") .. " ms"
     local pingWidth = iconSize + iconPadding + (watermark.PingValue.TextBounds and watermark.PingValue.TextBounds.x or 55)
     
@@ -1052,63 +1047,54 @@ function Library:_RenderWatermark()
     local x, y = watermark.X, watermark.Y
     local currentX = x
 
-    -- Draw "NL" Block (с внутренней рамкой)
-    do
-        self:_AnimateAndApplyColor(watermark.TitleBorder, theme.Colors.Accent, 1, true)
-        watermark.TitleBorder.Position = {currentX, y}
-        watermark.TitleBorder.Size = {nlWidth, watermark.Height}
-        watermark.TitleBorder.Rounding = 8
+    -- Draw "NL" Block
+    self:_AnimateAndApplyColor(watermark.TitleBg, theme.Colors.SectionBackground, 1, true)
+    watermark.TitleBg.Position = {currentX, y}
+    watermark.TitleBg.Size = {nlWidth, watermark.Height}
+    watermark.TitleBg.Rounding = 8
+    watermark.TitleBg.Filled = true
 
-        self:_AnimateAndApplyColor(watermark.TitleBg, theme.Colors.SectionBackground, 1, true)
-        watermark.TitleBg.Position = {currentX + borderThickness, y + borderThickness}
-        watermark.TitleBg.Size = {nlWidth - (borderThickness * 2), watermark.Height - (borderThickness * 2)}
-        watermark.TitleBg.Rounding = 7
-
-        local titleY = y + (watermark.Height / 2) - (nl.Size / 2)
-        local nlTextX = currentX + padding
-        watermark.Title3.Position = {nlTextX + 2, titleY + 2};
-        watermark.Title2.Position = {nlTextX + 1, titleY + 1};
-        watermark.Title1.Position = {nlTextX, titleY};
-        self:_AnimateAndApplyColor(watermark.Title1, theme.Colors.TextPrimary, 1, true)
-        self:_AnimateAndApplyColor(watermark.Title2, theme.Colors.Accent, 1, true)
-        self:_AnimateAndApplyColor(watermark.Title3, self:_DarkenColor(theme.Colors.Accent, 0.2), 1, true)
-    end
+    local nlTextY = y + (watermark.Height / 2) - (nl.Size / 2)
+    local nlTextX = currentX + padding
+    watermark.TitleText.Position = {nlTextX, nlTextY}
+    self:_AnimateAndApplyColor(watermark.TitleText, theme.Colors.TextPrimary, 1, true)
+    
     currentX = currentX + nlWidth + 4
     
-    -- Draw Info Bar (простой фон, без рамки)
-    do
-        self:_AnimateAndApplyColor(watermark.InfoBar, {20, 20, 25, 230}, 1, true)
-        watermark.InfoBar.Position = {currentX, y}; 
-        watermark.InfoBar.Size = {infoBarWidth, watermark.Height}
-        watermark.InfoBar.Rounding = 8
-
-        local contentX = currentX + padding
-        local function drawInfoElement(iconObj, textObj, width)
-            local iconY = y + (watermark.Height / 2) - (iconSize / 2)
-            local textY = y + (watermark.Height / 2) - (textObj.Size / 2)
-            
-            iconObj.Size = {iconSize, iconSize}
-            iconObj.Position = {contentX, iconY}
-            textObj.Position = {contentX + iconSize + iconPadding, textY}
-            
-            self:_AnimateAndApplyColor(iconObj, theme.Colors.TextSecondary, 1, true)
-            self:_AnimateAndApplyColor(textObj, theme.Colors.TextSecondary, 1, true)
-            
-            contentX = contentX + width + sectionSpacing
-        end
-
-        watermark.PlayerIcon.Url = "https://s6.imgcdn.dev/Y4qqxB.png"
-        drawInfoElement(watermark.PlayerIcon, watermark.PlayerName, playerWidth)
-
-        watermark.ConfigIcon.Url = "https://s6.imgcdn.dev/Y4Skk8.png"
-        drawInfoElement(watermark.ConfigIcon, watermark.ConfigName, configWidth)
-
-        watermark.PingIcon.Url = "https://s6.imgcdn.dev/Y4qFHu.png"
-        drawInfoElement(watermark.PingIcon, watermark.PingValue, pingWidth)
+    -- Draw Info Bar
+    self:_AnimateAndApplyColor(watermark.InfoBar, {20, 20, 25, 230}, 1, true)
+    watermark.InfoBar.Position = {currentX, y}
+    watermark.InfoBar.Size = {infoBarWidth, watermark.Height}
+    watermark.InfoBar.Rounding = 8
+    watermark.InfoBar.Filled = true
+    
+    -- Draw content inside Info Bar
+    local contentX = currentX + padding
+    local function drawInfoElement(iconObj, textObj, width)
+        local iconY = y + (watermark.Height / 2) - (iconSize / 2)
+        local textY = y + (watermark.Height / 2) - (textObj.Size / 2)
         
-        watermark.FpsIcon.Url = "https://s6.imgcdn.dev/Y4qmnq.png"
-        drawInfoElement(watermark.FpsIcon, watermark.FpsValue, fpsWidth)
+        iconObj.Size = {iconSize, iconSize}
+        iconObj.Position = {contentX, iconY}
+        textObj.Position = {contentX + iconSize + iconPadding, textY}
+        
+        self:_AnimateAndApplyColor(iconObj, theme.Colors.TextSecondary, 1, true)
+        self:_AnimateAndApplyColor(textObj, theme.Colors.TextSecondary, 1, true)
+        
+        contentX = contentX + width + sectionSpacing
     end
+
+    watermark.PlayerIcon.Url = "https://s6.imgcdn.dev/Y4qqxB.png"
+    drawInfoElement(watermark.PlayerIcon, watermark.PlayerName, playerWidth)
+
+    watermark.ConfigIcon.Url = "https://s6.imgcdn.dev/Y4Skk8.png"
+    drawInfoElement(watermark.ConfigIcon, watermark.ConfigName, configWidth)
+
+    watermark.PingIcon.Url = "https://s6.imgcdn.dev/Y4qFHu.png"
+    drawInfoElement(watermark.PingIcon, watermark.PingValue, pingWidth)
+    
+    watermark.FpsIcon.Url = "https://s6.imgcdn.dev/Y4qmnq.png"
+    drawInfoElement(watermark.FpsIcon, watermark.FpsValue, fpsWidth)
 end
 
 --================================================================
