@@ -596,6 +596,7 @@ function Library:_InitializeCoreUI()
     self:_InitializeColorPickerWindow()
     self:_InitializeConfigsTab()
     self:_InitializeBurgerMenu()
+    self:_InitializeWatermark() -- << ДОБАВЬ ЭТУ СТРОЧКУ В КОНЕЦ
 
     local Players = game:FindService("Players")
     if Players and Players.localPlayer then
@@ -940,6 +941,159 @@ function Library:_InitializeConfigsTab()
     }
     if configs.OptionsPopup.Background then configs.OptionsPopup.Background.Filled = true; configs.OptionsPopup.Background.zIndex = z + 11; configs.OptionsPopup.Background.Rounding = self.ActiveTheme.Rounding.Section; end
     if configs.OptionsPopup.Border then configs.OptionsPopup.Border.Filled = false; configs.OptionsPopup.Border.Thickness = 1; configs.OptionsPopup.Border.zIndex = z + 12; configs.OptionsPopup.Border.Rounding = self.ActiveTheme.Rounding.Section; end
+end
+
+function Library:_InitializeWatermark()
+    local UI = self.UI
+    -- Создаём пустую таблицу для вотермарки, если её нет
+    if not UI.Core.Watermark then UI.Core.Watermark = {} end
+    local watermark = UI.Core.Watermark
+    local z = 100 -- Базовый z-index, чтобы быть поверх всего
+
+    -- Базовые свойства
+    watermark.X = (getscreendimensions() and getscreendimensions().x or 1920) - 450
+    watermark.Y = 20
+    watermark.Width = 0
+    watermark.Height = 42
+    watermark.IsDragging = false
+
+    -- Создание всех объектов отрисовки
+    watermark.NL_Bg = self:_CreateDrawingObject("Square")
+    watermark.Info_Bg = self:_CreateDrawingObject("Square")
+    
+    -- Объекты для 3D текста "NL"
+    watermark.NL_Text1 = self:_CreateDrawingObject("Text") -- Основной слой
+    watermark.NL_Text2 = self:_CreateDrawingObject("Text") -- Слой подсветки
+    watermark.NL_Text3 = self:_CreateDrawingObject("Text") -- Слой тени
+
+    -- Объекты для инфо-панели
+    watermark.Player_Icon = self:_CreateDrawingObject("Image")
+    watermark.Player_Text = self:_CreateDrawingObject("Text")
+    watermark.Config_Icon = self:_CreateDrawingObject("Image")
+    watermark.Config_Text = self:_CreateDrawingObject("Text")
+    watermark.Ping_Icon = self:_CreateDrawingObject("Image")
+    watermark.Ping_Text = self:_CreateDrawingObject("Text")
+    watermark.FPS_Icon = self:_CreateDrawingObject("Image")
+    watermark.FPS_Text = self:_CreateDrawingObject("Text")
+
+    -- Безопасная установка zIndex для правильного наслоения
+    local function setZ(obj, index)
+        if obj then obj.zIndex = index end
+    end
+
+    setZ(watermark.NL_Bg, z)
+    setZ(watermark.Info_Bg, z)
+    
+    local contentZ = z + 1
+    setZ(watermark.NL_Text3, contentZ)
+    setZ(watermark.NL_Text2, contentZ + 1)
+    setZ(watermark.NL_Text1, contentZ + 2)
+    setZ(watermark.Player_Icon, contentZ)
+    setZ(watermark.Player_Text, contentZ)
+    setZ(watermark.Config_Icon, contentZ)
+    setZ(watermark.Config_Text, contentZ)
+    setZ(watermark.Ping_Icon, contentZ)
+    setZ(watermark.Ping_Text, contentZ)
+    setZ(watermark.FPS_Icon, contentZ)
+    setZ(watermark.FPS_Text, contentZ)
+end
+
+
+function Library:_RenderWatermark()
+    local watermark = self.UI.Core.Watermark
+    local theme = self.ActiveTheme
+    local UI = self.UI
+
+    -- 1. Проверка на включение и существование основных объектов
+    if not UI.Values["BurgerWatermark"] or not (watermark and watermark.NL_Bg and watermark.Info_Bg and watermark.NL_Text1) then
+        if watermark then self:_SetDrawingTableVisibility(watermark, false) end
+        return
+    end
+
+    self:_SetDrawingTableVisibility(watermark, true)
+    self:_SetVisibility(watermark.NL_Text2, not self:_IsThemeLight(theme))
+    self:_SetVisibility(watermark.NL_Text3, not self:_IsThemeLight(theme))
+
+    -- 2. Логика перетаскивания
+    do
+        local mouse_pos = getmouseposition()
+        local is_left_pressed = isleftpressed()
+        
+        if is_left_pressed and not is_dragging_something then
+            local wm_region = {x1 = watermark.X, y1 = watermark.Y, x2 = watermark.X + watermark.Width, y2 = watermark.Y + watermark.Height}
+            if self:_IsPointInRegion(mouse_pos.x, mouse_pos.y, wm_region) then
+                watermark.IsDragging = true
+                drag_offset = {x = mouse_pos.x - watermark.X, y = mouse_pos.y - watermark.Y}
+                is_dragging_something = true -- Глобальный флаг, чтобы не двигать окно и вотермарку одновременно
+            end
+        elseif not is_left_pressed and watermark.IsDragging then
+            watermark.IsDragging = false
+            is_dragging_something = false
+        end
+
+        if watermark.IsDragging then
+            watermark.X = mouse_pos.x - drag_offset.x
+            watermark.Y = mouse_pos.y - drag_offset.y
+        end
+    end
+
+    -- 3. Расчёты размеров и текста
+    local padding, iconSize, iconPadding, sectionSpacing = 14, 20, 10, 18
+    
+    local nl_text = watermark.NL_Text1
+    nl_text.Font, nl_text.Size, nl_text.Text = theme.Fonts.Title, 22, "NL"
+    local nl_width = (nl_text.TextBounds and nl_text.TextBounds.x or 35) + (padding * 2)
+    
+    local elements = {
+        { icon = watermark.Player_Icon, text = watermark.Player_Text, value = self.UI.Core.PlayerDisplayName.Text or "Player", url = "https://s6.imgcdn.dev/Y4qqxB.png" },
+        { icon = watermark.Config_Icon, text = watermark.Config_Text, value = (UI.Core.ConfigsTab.LoadedConfigName or "default"):upper(), url = "https://s6.imgcdn.dev/Y4Skk8.png" },
+        { icon = watermark.Ping_Icon, text = watermark.Ping_Text, value = (getping and string.format("%d", getping()) or "0") .. " ms", url = "https://s6.imgcdn.dev/Y4qFHu.png" },
+        { icon = watermark.FPS_Icon, text = watermark.FPS_Text, value = (get_overlay_fps and tostring(get_overlay_fps()) or "0") .. " fps", url = "https://s6.imgcdn.dev/Y4qmnq.png" }
+    }
+    
+    local info_bar_width = padding
+    for i, el in ipairs(elements) do
+        el.text.Font, el.text.Size, el.text.Text = theme.Fonts.Main, theme.Fonts.Size + 3, el.value
+        el.width = iconSize + iconPadding + (el.text.TextBounds and el.text.TextBounds.x or 60)
+        info_bar_width = info_bar_width + el.width + (i < #elements and sectionSpacing or padding)
+    end
+    
+    watermark.Width = nl_width + 4 + info_bar_width
+
+    -- 4. Отрисовка
+    local x, y = watermark.X, watermark.Y
+    local currentX = x
+
+    -- Отрисовка блока "NL"
+    self:_AnimateAndApplyColor(watermark.NL_Bg, theme.Colors.SectionBackground, 1, true)
+    watermark.NL_Bg.Position, watermark.NL_Bg.Size, watermark.NL_Bg.Rounding = {currentX, y}, {nl_width, watermark.Height}, 8
+    
+    local t1, t2, t3 = watermark.NL_Text1, watermark.NL_Text2, watermark.NL_Text3
+    t1.Text, t2.Text, t3.Text, t1.Font, t2.Font, t3.Font, t1.Size, t2.Size, t3.Size = "NL","NL","NL", nl_text.Font,nl_text.Font,nl_text.Font, nl_text.Size,nl_text.Size,nl_text.Size
+    local titleY = y + (watermark.Height / 2) - (t1.Size / 2)
+    local nlTextX = currentX + padding
+    t3.Position, t2.Position, t1.Position = {nlTextX + 2, titleY + 2}, {nlTextX + 1, titleY + 1}, {nlTextX, titleY}
+    self:_AnimateAndApplyColor(t1, theme.Colors.TextPrimary, 1, true)
+    self:_AnimateAndApplyColor(t2, theme.Colors.Accent, 1, true)
+    self:_AnimateAndApplyColor(t3, self:_DarkenColor(theme.Colors.Accent, 0.2), 1, true)
+    
+    currentX = currentX + nl_width + 4
+    
+    -- Отрисовка инфо-панели
+    self:_AnimateAndApplyColor(watermark.Info_Bg, {20, 20, 25, 230}, 1, true)
+    watermark.Info_Bg.Position, watermark.Info_Bg.Size, watermark.Info_Bg.Rounding = {currentX, y}, {info_bar_width, watermark.Height}, 8
+
+    local contentX = currentX + padding
+    for _, el in ipairs(elements) do
+        if el.icon and el.text then
+            local iconY, textY = y + (watermark.Height / 2) - (iconSize / 2), y + (watermark.Height / 2) - (el.text.Size / 2)
+            el.icon.Url, el.icon.Size, el.icon.Position = el.url, {iconSize, iconSize}, {contentX, iconY}
+            el.text.Position = {contentX + iconSize + iconPadding, textY}
+            self:_AnimateAndApplyColor(el.icon, theme.Colors.TextSecondary, 1, true)
+            self:_AnimateAndApplyColor(el.text, theme.Colors.TextSecondary, 1, true)
+            contentX = contentX + el.width + sectionSpacing
+        end
+    end
 end
 
 --================================================================
