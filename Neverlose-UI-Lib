@@ -3443,7 +3443,7 @@ function Library:_RenderWatermark()
 end
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 322541")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 322xxx541")
     local is_first_frame = true
     while true do -- Цикл теперь работает всегда, чтобы ловить бинды
         self:_InputLoop() -- Проверка ввода выполняется всегда
