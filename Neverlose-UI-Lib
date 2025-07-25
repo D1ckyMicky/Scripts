@@ -596,6 +596,7 @@ function Library:_InitializeCoreUI()
     self:_InitializeColorPickerWindow()
     self:_InitializeConfigsTab()
     self:_InitializeBurgerMenu()
+    self:_InitializeWatermark()
 
     local Players = game:FindService("Players")
     if Players and Players.localPlayer then
@@ -940,6 +941,41 @@ function Library:_InitializeConfigsTab()
     }
     if configs.OptionsPopup.Background then configs.OptionsPopup.Background.Filled = true; configs.OptionsPopup.Background.zIndex = z + 11; configs.OptionsPopup.Background.Rounding = self.ActiveTheme.Rounding.Section; end
     if configs.OptionsPopup.Border then configs.OptionsPopup.Border.Filled = false; configs.OptionsPopup.Border.Thickness = 1; configs.OptionsPopup.Border.zIndex = z + 12; configs.OptionsPopup.Border.Rounding = self.ActiveTheme.Rounding.Section; end
+end
+
+function Library:_InitializeWatermark()
+    local UI = self.UI
+    local watermark = {}
+    UI.Core.Watermark = watermark
+    local z = 100 -- High z-index to be on top of everything
+
+    -- Main draggable bar (mostly transparent)
+    watermark.X = getscreendimensions().x - 400 -- Initial position: top right
+    watermark.Y = 20
+    watermark.Width = 0 -- Will be calculated dynamically
+    watermark.Height = 40
+    watermark.IsDragging = false
+
+    -- "NL" Title effect (3 layers)
+    watermark.Title1 = self:_CreateDrawingObject("Text")
+    watermark.Title2 = self:_CreateDrawingObject("Text")
+    watermark.Title3 = self:_CreateDrawingObject("Text")
+
+    -- Info Bar Background
+    watermark.InfoBar = self:_CreateDrawingObject("Square")
+
+    -- Info elements (Icon + Text)
+    watermark.PlayerIcon = self:_CreateDrawingObject("Image")
+    watermark.PlayerName = self:_CreateDrawingObject("Text")
+    
+    watermark.ConfigIcon = self:_CreateDrawingObject("Image")
+    watermark.ConfigName = self:_CreateDrawingObject("Text")
+
+    watermark.PingIcon = self:_CreateDrawingObject("Image")
+    watermark.PingValue = self:_CreateDrawingObject("Text")
+
+    watermark.FpsIcon = self:_CreateDrawingObject("Image")
+    watermark.FpsValue = self:_CreateDrawingObject("Text")
 end
 
 --================================================================
@@ -2011,6 +2047,7 @@ function Library:_RenderLoop()
     self:_RenderEditStyleWindow()
     self:_RenderColorPickerWindow()
     self:_RenderBurgerMenuPopup(mouse_pos)
+    self:_RenderWatermark()
 
     self.Window.LastRenderedTab = self.Window.ActiveTab
 
@@ -2441,6 +2478,16 @@ end
 function Library:_InputLoop()
     self:_CheckGlobalBinds()
 
+    -- Watermark is independent of the main window's visibility
+    if self.UI.Values["BurgerWatermark"] then
+        local watermark = self.UI.Core.Watermark
+        if watermark.IsDragging then
+            local mouse_pos = getmouseposition()
+            watermark.X = mouse_pos.x - drag_offset.x
+            watermark.Y = mouse_pos.y - drag_offset.y
+        end
+    end
+
     if not self.Window.Visible then return end
 
     local mouse_pos = getmouseposition()
@@ -2457,6 +2504,7 @@ function Library:_InputLoop()
     local settings_popup = self.UI.Popups.Settings
     local burger_popup = self.UI.Popups.BurgerMenu
     local burger_button = self.UI.Core.HeaderButtons.BurgerMenu
+    local watermark = self.UI.Core.Watermark
 
     local anyDropdownOpen = false
     for _, section in ipairs(self.UI.Sections) do
@@ -2503,6 +2551,12 @@ function Library:_InputLoop()
     end
 
     if is_left_pressed_now then
+        if self.Window.Visible and not is_dragging_something and self.UI.Values["BurgerWatermark"] and self:_IsPointInRegion(mouse_x, mouse_y, {x1=watermark.X, y1=watermark.Y, x2=watermark.X+watermark.Width, y2=watermark.Y+watermark.Height}) then
+            watermark.IsDragging = true
+            drag_offset = {x = mouse_x - watermark.X, y = mouse_y - watermark.Y}
+            is_dragging_something = true
+        end
+
         if not is_dragging_something then
             is_dragging_something = true
             local anyPopupOpen = burger_popup.IsOpen or settings_popup.IsOpen or style_window.IsOpen or picker.IsOpen or configsTab.OptionsPopup.IsOpen or self.UI.Popups.About.IsOpen
@@ -2550,6 +2604,7 @@ function Library:_InputLoop()
             end
         end
     else
+        if watermark.IsDragging then watermark.IsDragging = false end
         if self.Window.IsDragging then self.Window.IsDragging = false end
         for _, section in ipairs(self.UI.Sections) do 
             for _, el in ipairs(section.Elements) do 
@@ -3116,6 +3171,123 @@ function Library:_AddPresetsTab()
 
     table.insert(group.Tabs, tab)
     table.insert(self.UI.TabGroups, group)
+end
+
+function Library:_RenderWatermark()
+    local watermark = self.UI.Core.Watermark
+    local theme = self.ActiveTheme
+    local isThemeLight = self:_IsThemeLight(theme)
+    local UI = self.UI
+
+    -- Only render if the watermark toggle is enabled in the burger menu
+    if not UI.Values["BurgerWatermark"] then
+        self:_SetDrawingTableVisibility(watermark, false)
+        return
+    end
+
+    self:_SetDrawingTableVisibility(watermark, true)
+
+    -- ### CALCULATIONS ###
+    local padding = 10
+    local iconSize = 24
+    local iconPadding = 8
+    local sectionSpacing = 15
+    
+    -- "NL" Title
+    local nl = watermark.Title1
+    nl.Font = theme.Fonts.Title; nl.Size = 22; nl.Text = "NL"
+    local nlWidth = nl.TextBounds and nl.TextBounds.x or 30
+
+    -- Player Name
+    local player = watermark.PlayerName
+    player.Font = theme.Fonts.Main; player.Size = theme.Fonts.Size + 1
+    player.Text = self.UI.Core.PlayerDisplayName.Text or "Player"
+    local playerWidth = iconSize + iconPadding + (player.TextBounds and player.TextBounds.x or 60)
+
+    -- Config Name
+    local config = watermark.ConfigName
+    config.Font = theme.Fonts.Main; config.Size = theme.Fonts.Size + 1
+    local configText = UI.Core.ConfigsTab.LoadedConfigName or "default"
+    if #configText > 15 then configText = string.sub(configText, 1, 14) .. "..." end
+    config.Text = string.upper(configText)
+    local configWidth = iconSize + iconPadding + (config.TextBounds and config.TextBounds.x or 60)
+
+    -- Ping
+    local ping = watermark.PingValue
+    ping.Font = theme.Fonts.Main; ping.Size = theme.Fonts.Size + 1
+    ping.Text = (getping and tostring(getping()) or "0") .. "ms"
+    local pingWidth = iconSize + iconPadding + (ping.TextBounds and ping.TextBounds.x or 40)
+    
+    -- FPS
+    local fps = watermark.FpsValue
+    fps.Font = theme.Fonts.Main; fps.Size = theme.Fonts.Size + 1
+    fps.Text = (get_overlay_fps and tostring(get_overlay_fps()) or "0") .. "fps"
+    local fpsWidth = iconSize + iconPadding + (fps.TextBounds and fps.TextBounds.x or 50)
+    
+    -- Total Width Calculation
+    local infoBarWidth = padding + playerWidth + sectionSpacing + configWidth + sectionSpacing + pingWidth + sectionSpacing + fpsWidth + padding
+    watermark.Width = nlWidth + padding + infoBarWidth
+    
+    -- ### DRAWING & POSITIONING ###
+    local x, y = watermark.X, watermark.Y
+    local currentX = x
+
+    -- Draw "NL" Title
+    do
+        local titleY = y + (watermark.Height / 2) - (nl.Size / 2)
+        local t1, t2, t3 = watermark.Title1, watermark.Title2, watermark.Title3
+        
+        t1.Font = nl.Font; t2.Font = nl.Font; t3.Font = nl.Font
+        t1.Size = nl.Size; t2.Size = nl.Size; t3.Size = nl.Size
+        t1.Text = "NL"; t2.Text = "NL"; t3.Text = "NL"
+        
+        self:_AnimateAndApplyColor(t1, theme.Colors.TextPrimary)
+        self:_AnimateAndApplyColor(t2, theme.Colors.Accent)
+        self:_AnimateAndApplyColor(t3, theme.Colors.SectionBackground)
+        
+        if not isThemeLight then
+            t3.Position = {currentX - 2, titleY - 2}; t2.Position = {currentX - 1, titleY + 1}; t1.Position = {currentX, titleY}
+            self:_SetVisibility(t2, true); self:_SetVisibility(t3, true)
+        else
+            t1.Position = {currentX, titleY}
+            self:_SetVisibility(t2, false); self:_SetVisibility(t3, false)
+        end
+        currentX = currentX + nlWidth + padding
+    end
+    
+    -- Draw Info Bar
+    local infoBar = watermark.InfoBar
+    self:_AnimateAndApplyColor(infoBar, isThemeLight and {247, 247, 247, 230} or {0, 0, 0, 150})
+    infoBar.Position = {currentX, y}; infoBar.Size = {infoBarWidth, watermark.Height}
+    infoBar.Rounding = 8
+    
+    currentX = currentX + padding
+    
+    -- Helper to draw an info element
+    local function drawInfoElement(icon, text, textWidth)
+        local iconY = y + (watermark.Height / 2) - (iconSize / 2)
+        local textY = y + (watermark.Height / 2) - (text.Size / 2)
+        
+        icon.Position = {currentX, iconY}
+        text.Position = {currentX + iconSize + iconPadding, textY}
+        
+        self:_AnimateAndApplyColor(icon, theme.Colors.Accent)
+        self:_AnimateAndApplyColor(text, theme.Colors.TextSecondary)
+        
+        currentX = currentX + textWidth + sectionSpacing
+    end
+
+    watermark.PlayerIcon.Url = "https://s6.imgcdn.dev/Y4qqxB.png"; watermark.PlayerIcon.Size = {iconSize, iconSize}
+    drawInfoElement(watermark.PlayerIcon, watermark.PlayerName, playerWidth)
+
+    watermark.ConfigIcon.Url = self.UI.Core.HeaderButtons.Settings.Icon.Url; watermark.ConfigIcon.Size = {iconSize, iconSize}
+    drawInfoElement(watermark.ConfigIcon, watermark.ConfigName, configWidth)
+
+    watermark.PingIcon.Url = "https://s6.imgcdn.dev/Y4qFHu.png"; watermark.PingIcon.Size = {iconSize, iconSize}
+    drawInfoElement(watermark.PingIcon, watermark.PingValue, pingWidth)
+    
+    watermark.FpsIcon.Url = "https://s6.imgcdn.dev/Y4qmnq.png"; watermark.FpsIcon.Size = {iconSize, iconSize}
+    drawInfoElement(watermark.FpsIcon, watermark.FpsValue, fpsWidth)
 end
 
 function Library:_MainLoop()
