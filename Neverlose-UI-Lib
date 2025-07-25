@@ -1777,12 +1777,16 @@ function Library:_RenderEditStyleWindow()
         currentY = currentY + 25
     end
     
-    currentY = currentY + 20
+    -- [[ ИЗМЕНЕНИЕ ЛОГИКИ РАСПОЛОЖЕНИЯ ]]
+    
+    -- 1. Сначала рисуем разделитель сразу после списка цветов
+    currentY = currentY + 5 -- Небольшой отступ
     style_window.Separator3.From = {winX + 10, currentY}; style_window.Separator3.To = {winX + winW - 10, currentY}
 
-    local footerY = winY + winH - 70
+    -- 2. Затем рисуем кнопки под разделителем
+    currentY = currentY + 15
     local saveBtn = style_window.SaveButton; local saveBtnW, saveBtnH = 80, 28
-    local saveBtnX, saveBtnY = winX + winW - saveBtnW - 15, footerY
+    local saveBtnX, saveBtnY = winX + winW - saveBtnW - 15, currentY
     saveBtn.Background.Position = {saveBtnX, saveBtnY}; saveBtn.Background.Size = {saveBtnW, saveBtnH}
     local saveIconX = saveBtnX + 12; local saveIconY = saveBtnY + (saveBtnH / 2) - (saveBtn.Icon.Size.y / 2)
     saveBtn.Icon.Position = {saveIconX, saveIconY}
@@ -1790,7 +1794,7 @@ function Library:_RenderEditStyleWindow()
     saveBtn.ClickRegion = {x1 = saveBtnX, y1 = saveBtnY, x2 = saveBtnX + saveBtnW, y2 = saveBtnY + saveBtnH}
 
     local cancelBtn = style_window.CancelButton; local cancelBtnW, cancelBtnH = 90, 28
-    local cancelBtnX = saveBtnX - cancelBtnW - 10; local cancelBtnY = footerY
+    local cancelBtnX = saveBtnX - cancelBtnW - 10; local cancelBtnY = currentY
     cancelBtn.Background.Position = {cancelBtnX, cancelBtnY}; cancelBtn.Background.Size = {cancelBtnW, cancelBtnH}
     cancelBtn.Border.Position = {cancelBtnX, cancelBtnY}; cancelBtn.Border.Size = {cancelBtnW, cancelBtnH}
     local cancelIconCenterX, cancelIconCenterY = cancelBtnX + 15, cancelBtnY + cancelBtnH / 2
@@ -1799,7 +1803,8 @@ function Library:_RenderEditStyleWindow()
     cancelBtn.Label.Position = {cancelIconCenterX + 10, cancelBtnY + (cancelBtnH / 2) - (cancelBtn.Label.Size / 2)}
     cancelBtn.ClickRegion = {x1 = cancelBtnX, y1 = cancelBtnY, x2 = cancelBtnX + cancelBtnW, y2 = cancelBtnY + cancelBtnH}
     
-    local toggleY = footerY + cancelBtnH + 15
+    -- 3. И в самом конце, внизу окна, рисуем переключатель
+    local toggleY = winY + winH - 40
     local toggle = style_window.RealTimeToggle
     toggle.Label.Position = {winX + 15, toggleY + 5}
     if toggle.Label.TextBounds then
@@ -1825,7 +1830,6 @@ function Library:_RenderEditStyleWindow()
           targetNubColor = theme.Colors.LightGray
       end
       
-      -- ИЗМЕНЕНИЕ: Анимация кружка
       local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.5
       local animationSpeed = speed_value / 10.0
       local targetOffset = is_on and (toggle.Size.width - toggle.Size.height / 2) or (toggle.Size.height / 2)
@@ -3441,7 +3445,7 @@ function Library:_AddPresetsTab()
 end
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3225x41")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 322541")
     local is_first_frame = true
     while true do
         self:_InputLoop()
