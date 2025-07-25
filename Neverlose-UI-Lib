@@ -2694,10 +2694,10 @@ function Library:_RenderHotkeys()
                 NameText = self:_CreateDrawingObject("Text")
             }
             local d = bind.Drawing
-            if d.ToggleContainerBg then d.ToggleContainerBg.Filled = true; d.ToggleContainerBg.zIndex = z; d.ToggleContainerBg.Rounding = 6; end
+            if d.ToggleContainerBg then d.ToggleContainerBg.Filled = true; d.ToggleContainerBg.zIndex = z; d.ToggleContainerBg.Rounding = 13; end
             if d.ToggleTrack then d.ToggleTrack.Filled = false; d.ToggleTrack.Thickness = 2; d.ToggleTrack.zIndex = z + 1; end
             if d.ToggleNub then d.ToggleNub.Filled = true; d.ToggleNub.zIndex = z + 2; end
-            if d.NameBg then d.NameBg.Filled = true; d.NameBg.zIndex = z; d.NameBg.Rounding = 6; end
+            if d.NameBg then d.NameBg.Filled = true; d.NameBg.zIndex = z; d.NameBg.Rounding = 13; end
             if d.NameText then d.NameText.Font = self.ActiveTheme.Fonts.Main; d.NameText.Size = self.ActiveTheme.Fonts.Size; d.NameText.Text = bind.Name; d.NameText.zIndex = z + 1; end
         end
         
@@ -2738,7 +2738,7 @@ function Library:_RenderHotkeys()
         d.ToggleTrack.Position = {hk.Position.x + (toggleContainerWidth - trackWidth)/2, currentY + (itemHeight - trackHeight)/2}
         d.ToggleTrack.Size = {trackWidth, trackHeight}
         
-        d.ToggleNub.Radius = 5 -- Радиус кружка
+        d.ToggleNub.Radius = 4 -- Радиус кружка
         d.ToggleNub.Position = {d.ToggleTrack.Position.x + trackWidth - d.ToggleNub.Radius - 3, d.ToggleTrack.Position.y + trackHeight/2}
         
         d.NameBg.Position = {hk.Position.x + toggleContainerWidth + 5, currentY}; d.NameBg.Size = {nameWidth, itemHeight}
