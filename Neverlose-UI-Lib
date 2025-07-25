@@ -39,6 +39,7 @@ Library.Themes = {
         Fonts = { Title = 2, Main = 1, Size = 14, TitleSize = 27, TabSize = 18, TabHeaderSize = 12 },
         Colors = { 
             MainBackground = {6, 9, 17, 245}, SectionBackground = {3, 11, 23, 255}, SidebarBackground = {11, 20, 33, 204}, 
+            WatermarkBackground = {6, 9, 17, 245}, -- << НОВЫЙ ЦВЕТ
             Separator = {0, 18, 32, 255}, Accent = {24, 165, 232, 255}, DarkBlue = {3, 23, 51, 255}, 
             DarkGray = {24, 24, 24, 255}, LightGray = {77, 77, 76, 255}, 
             TextPrimary = {234, 239, 245, 255}, TextSecondary = {160, 181, 197, 255}, 
@@ -53,6 +54,7 @@ Library.Themes = {
         Fonts = { Title = 2, Main = 1, Size = 14, TitleSize = 27, TabSize = 18, TabHeaderSize = 12 },
         Colors = { 
             MainBackground = {6, 6, 9, 247}, SectionBackground = {0, 3, 5, 255}, SidebarBackground = {14, 16, 19, 230}, 
+            WatermarkBackground = {6, 6, 9, 247}, -- << НОВЫЙ ЦВЕТ
             Separator = {11, 11, 11, 255}, Accent = {72, 130, 255, 255}, DarkBlue = {10, 11, 19, 255}, 
             DarkGray = {24, 24, 24, 255}, LightGray = {77, 77, 76, 255}, 
             TextPrimary = {234, 239, 245, 255}, TextSecondary = {181, 181, 194, 255}, 
@@ -67,6 +69,7 @@ Library.Themes = {
         Fonts = { Title = 2, Main = 1, Size = 14, TitleSize = 27, TabSize = 18, TabHeaderSize = 12 },
         Colors = { 
             MainBackground = {250, 250, 255, 247}, SectionBackground = {244, 244, 244, 255}, SidebarBackground = {240, 240, 240, 230}, 
+            WatermarkBackground = {250, 250, 255, 247}, -- << НОВЫЙ ЦВЕТ
             Separator = {200, 200, 200, 255}, Accent = {24, 165, 232, 255}, DarkBlue = {220, 220, 220, 255}, 
             DarkGray = {165, 165, 165, 255}, LightGray = {120, 120, 120, 255}, 
             TextPrimary = {10, 10, 10, 255}, TextSecondary = {60, 60, 60, 255}, 
@@ -816,14 +819,14 @@ end
 function Library:_InitializeEditStyleWindow()
     local style_window = {}; self.UI.Popups.EditStyle = style_window; local z = 40
     style_window.IsOpen = false
-    style_window.IsEditingName = false -- For text input
+    style_window.IsEditingName = false
     style_window.last_key_press_time = 0
     style_window.key_press_delay = 0.05
-    style_window.is_in_repeat = false -- << ДОБАВЬ ЭТУ СТРОКУ
+    style_window.is_in_repeat = false
     style_window.last_key_pressed = ""
     style_window.ColorItems = {}
     style_window.EditingTheme = {}
-    style_window.EditingThemeName = "" -- Original name of the theme being edited
+    style_window.EditingThemeName = ""
 
     style_window.Background = self:_CreateDrawingObject("Square"); if style_window.Background then style_window.Background.Filled = true; style_window.Background.zIndex = z; style_window.Background.Rounding = self.ActiveTheme.Rounding.Section; end
     style_window.Border = self:_CreateDrawingObject("Square"); if style_window.Border then style_window.Border.Filled = false; style_window.Border.Thickness = 1; style_window.Border.zIndex = z + 1; style_window.Border.Rounding = self.ActiveTheme.Rounding.Section; end
@@ -843,9 +846,11 @@ function Library:_InitializeEditStyleWindow()
     
     style_window.Separator2 = self:_CreateDrawingObject("Line"); if style_window.Separator2 then style_window.Separator2.Thickness = 2; style_window.Separator2.zIndex = z + 1; end
     
+    -- Добавляем WatermarkBackground в список
     local color_order = {
-        "Accent", "GlowColor", "GlowAccent", "DarkBlue", "DarkGray", "LightGray", "MainBackground", "SectionBackground",
-        "Separator", "SidebarBackground", "TabHeader", "TextDark", "TextLight"
+        "Accent", "GlowColor", "GlowAccent", "MainBackground", "SectionBackground",
+        "SidebarBackground", "WatermarkBackground", "DarkBlue", "DarkGray", "LightGray",
+        "Separator", "TabHeader", "TextDark", "TextLight"
     }
     for _, colorName in ipairs(color_order) do
         local item = {
@@ -965,7 +970,7 @@ function Library:_InitializeWatermark()
     wm.Items = {}
     local itemData = {
         Player = { Icon = "https://s6.imgcdn.dev/Y4qqxB.png", Text = "" },
-        Config = { Icon = "https://s6.imgcdn.dev/Y4SCjT.png", Text = "" },
+        Config = { Icon = "https://s6.imgcdn.dev/Y4Skk8.png", Text = "" },
         Ping = { Icon = "https://s6.imgcdn.dev/Y4qFHu.png", Text = "0 ms" },
         Fps = { Icon = "https://s6.imgcdn.dev/Y4qmnq.png", Text = "0 fps" }
     }
@@ -976,10 +981,10 @@ function Library:_InitializeWatermark()
             Text = self:_CreateDrawingObject("Text")
         }
         if item.Icon then 
-            item.Icon.Url = data.Icon; item.Icon.Size = {24, 24}; item.Icon.zIndex = z + 4;
+            item.Icon.Url = data.Icon; item.Icon.Size = {22, 22}; item.Icon.zIndex = z + 4;
         end
         if item.Text then 
-            item.Text.Font = self.ActiveTheme.Fonts.Main; item.Text.Size = self.ActiveTheme.Fonts.Size; 
+            item.Text.Font = self.ActiveTheme.Fonts.Main; item.Text.Size = self.ActiveTheme.Fonts.Size + 5; 
             item.Text.Text = data.Text; item.Text.zIndex = z + 4;
         end
         wm.Items[name] = item
@@ -2508,7 +2513,8 @@ function Library:_RenderWatermark()
     if not isVisible then return end
 
     local theme = self.ActiveTheme
-    local bgColor = theme.Colors.MainBackground
+    -- Используем новый цвет WatermarkBackground, с фоллбэком на MainBackground
+    local bgColor = theme.Colors.WatermarkBackground or theme.Colors.MainBackground
     local accentColor = theme.Colors.Accent
     local textColor = theme.Colors.TextPrimary
 
@@ -2522,7 +2528,7 @@ function Library:_RenderWatermark()
     
     self:_AnimateAndApplyColor(wm.LogoText1, textColor, 1)
     self:_AnimateAndApplyColor(wm.LogoText2, accentColor, 1)
-    self:_AnimateAndApplyColor(wm.LogoText3, self:_DarkenColor(accentColor, 0.3), 1) -- Делаем тень темнее акцента
+    self:_AnimateAndApplyColor(wm.LogoText3, self:_DarkenColor(accentColor, 0.3), 1)
     
     for _, item in pairs(wm.Items) do
         self:_AnimateAndApplyColor(item.Icon, accentColor, 1)
@@ -2532,29 +2538,28 @@ function Library:_RenderWatermark()
     local height = 40
     local logoWidth = 50
     local separatorWidth = 10
-    local horizontalPadding = 12 -- Отступ слева и справа
+    local horizontalPadding = 15
     
     local currentX = wm.Position.x
     
     -- Лого
     wm.LogoBg.Position = {currentX, wm.Position.y}; wm.LogoBg.Size = {logoWidth, height}
-    -- Рассчитываем базовую позицию для текста и применяем смещения
     local logoBaseX = currentX + logoWidth/2
     local logoBaseY = wm.Position.y + height/2 - wm.LogoText1.Size/2
     
     wm.LogoText1.Position = {logoBaseX, logoBaseY}
-    wm.LogoText2.Position = {logoBaseX - 2, logoBaseY + 1} -- Акцент: левее и ниже
-    wm.LogoText3.Position = {logoBaseX - 3, logoBaseY - 1} -- Тень: еще левее и выше
+    wm.LogoText2.Position = {logoBaseX - 2, logoBaseY + 1}
+    wm.LogoText3.Position = {logoBaseX - 3, logoBaseY - 1}
     
     currentX = currentX + logoWidth + separatorWidth
     
     -- Инфо-блок
     local infoBgX = currentX
-    local contentStartX = infoBgX + horizontalPadding -- Начинаем рисовать контент с отступом
+    local contentStartX = infoBgX + horizontalPadding
     currentX = contentStartX
     
     local order = {"Player", "Config", "Ping", "Fps"}
-    for _, name in ipairs(order) do
+    for i, name in ipairs(order) do
         local item = wm.Items[name]
         if item.Icon.Visible then
             item.Icon.Position = {currentX, wm.Position.y + height/2 - item.Icon.Size.y/2}
@@ -2562,13 +2567,14 @@ function Library:_RenderWatermark()
         end
         if item.Text.Visible and item.Text.TextBounds then
             item.Text.Position = {currentX, wm.Position.y + height/2 - item.Text.Size/2}
-            -- Добавляем отступ только если это не последний элемент
-            local isLast = (name == order[#order])
-            currentX = currentX + item.Text.TextBounds.x + (isLast and 0 or horizontalPadding)
+            currentX = currentX + item.Text.TextBounds.x + horizontalPadding
         end
     end
     
-    local totalInfoWidth = (currentX - contentStartX) + horizontalPadding -- Ширина контента + отступ справа
+    -- Исправляем расчет ширины, чтобы учесть отступы с обеих сторон
+    local contentWidth = currentX - contentStartX - horizontalPadding -- Ширина контента без последнего отступа
+    local totalInfoWidth = contentWidth + (2 * horizontalPadding) -- Общая ширина фона
+    
     wm.InfoBg.Position = {infoBgX, wm.Position.y}; wm.InfoBg.Size = {totalInfoWidth, height}
 
     -- Область для перетаскивания
