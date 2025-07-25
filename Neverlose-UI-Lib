@@ -3697,7 +3697,6 @@ function Library:Section(options)
         Title = options.Name, ParentTab = options.ParentTab, Side = options.Side or "Left", Elements = {},
         Drawing = { Background = self:_CreateDrawingObject("Square"), Border = self:_CreateDrawingObject("Square"), Title = self:_CreateDrawingObject("Text"), Separator = self:_CreateDrawingObject("Line") }
     }
-    -- Настройка объектов отрисовки для секции [cite: 46, 47, 125]
     if section.Drawing.Background then section.Drawing.Background.Filled = true; section.Drawing.Background.zIndex = 2; section.Drawing.Background.Rounding = self.ActiveTheme.Rounding.Section; end
     if section.Drawing.Border then section.Drawing.Border.Filled = false; section.Drawing.Border.Thickness = 1; section.Drawing.Border.zIndex = 3; section.Drawing.Border.Rounding = self.ActiveTheme.Rounding.Section; end
     if section.Drawing.Title then section.Drawing.Title.Font = self.ActiveTheme.Fonts.Main; section.Drawing.Title.Size = self.ActiveTheme.Fonts.Size + 10; section.Drawing.Title.Text = section.Title; section.Drawing.Title.Center = false; section.Drawing.Title.Outline = false; section.Drawing.Title.zIndex = 4; end
@@ -3707,54 +3706,56 @@ function Library:Section(options)
 
     local self_lib = self
     local SectionObject = {}
-    local last_element = nil -- Ссылка на последний добавленный элемент для цепочки 
+    local last_element = nil -- Ссылка на последний добавленный элемент для цепочки
 
-    -- Создаем объект для цепочки вызовов после Toggle 
-    local function CreateToggleChain(toggle_element)
-        local chain = {}
-        function chain:Keybind(keybindOptions)
+    -- Определяем все методы для SectionObject, чтобы их можно было вызывать в цепочке.
+
+    function SectionObject:Toggle(toggleOptions)
+        last_element = self_lib:_Internal_CreateToggle(toggleOptions)
+        table.insert(section.Elements, last_element)
+        return SectionObject -- Всегда возвращаем SectionObject для продолжения цепочки
+    end
+
+    function SectionObject:Slider(sliderOptions) 
+        last_element = self_lib:_Internal_CreateSlider(sliderOptions)
+        table.insert(section.Elements, last_element)
+        return SectionObject 
+    end
+    
+    function SectionObject:Dropdown(dropdownOptions) 
+        last_element = self_lib:_Internal_CreateDropdown(dropdownOptions)
+        table.insert(section.Elements, last_element)
+        return SectionObject 
+    end
+    
+    function SectionObject:Multidropdown(multidropdownOptions) 
+        last_element = self_lib:_Internal_CreateMultidropdown(multidropdownOptions)
+        table.insert(section.Elements, last_element)
+        return SectionObject 
+    end
+
+    -- Метод Keybind теперь является частью SectionObject.
+    -- Он будет работать корректно, только если вызван сразу после Toggle.
+    function SectionObject:Keybind(keybindOptions)
+        if last_element and last_element.type == "Toggle" then
+            -- Привязываем информацию о родительском Toggle к самому кейбинду
+            keybindOptions.ParentToggleID = last_element.id
+            keybindOptions.ParentToggleName = last_element.Name
+            
             local keybind_element = self_lib:_Internal_CreateKeybind(keybindOptions)
-            -- Привязываем keybind к toggle
-            if not toggle_element.SettingsElements then toggle_element.SettingsElements = {} end
-            table.insert(toggle_element.SettingsElements, keybind_element)
-
-            -- Логика обработки нажатия на бинд
-            local original_keybind_callback = keybindOptions.Callback
-            keybind_element.Callback = function()
-                if original_keybind_callback then
-                    -- Если у бинда есть своя функция, вызываем её
-                    original_keybind_callback()
-                else
-                    -- Иначе, переключаем родительский Toggle
-                    self_lib.UI.Values[toggle_element.id] = not self_lib.UI.Values[toggle_element.id]
-                    if toggle_element.Callback then
-                        toggle_element.Callback(self_lib.UI.Values[toggle_element.id])
-                    end
-                end
-            end
-
-            return SectionObject -- Возвращаем объект секции для продолжения цепочки
+            
+            -- Добавляем кейбинд в список настроек родительского Toggle
+            if not last_element.SettingsElements then last_element.SettingsElements = {} end
+            table.insert(last_element.SettingsElements, keybind_element)
+        else
+            warn(SCRIPT_PREFIX .. "Keybind() can only be chained after a Toggle() element.")
         end
-        return chain
+        return SectionObject -- Всегда возвращаем SectionObject для продолжения цепочки
     end
 
-function SectionObject:Keybind(keybindOptions)
-    if last_element and last_element.type == "Toggle" then
-        -- Привязываем информацию о родительском Toggle к самому кейбинду
-        keybindOptions.ParentToggleID = last_element.id
-        keybindOptions.ParentToggleName = last_element.Name
-        return CreateToggleChain(last_element):Keybind(keybindOptions)
-    end
     return SectionObject
 end
 
-
-    function SectionObject:Slider(sliderOptions) table.insert(section.Elements, self_lib:_Internal_CreateSlider(sliderOptions)); return SectionObject end
-    function SectionObject:Dropdown(dropdownOptions) table.insert(section.Elements, self_lib:_Internal_CreateDropdown(dropdownOptions)); return SectionObject end
-    function SectionObject:Multidropdown(multidropdownOptions) table.insert(section.Elements, self_lib:_Internal_CreateMultidropdown(multidropdownOptions)); return SectionObject end
-
-    return SectionObject
-end
 
 function Library:Unload()
     self.Window.Visible = false
