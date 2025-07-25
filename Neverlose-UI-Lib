@@ -39,7 +39,7 @@ Library.Themes = {
         Fonts = { Title = 2, Main = 1, Size = 14, TitleSize = 27, TabSize = 18, TabHeaderSize = 12 },
         Colors = { 
             MainBackground = {6, 9, 17, 245}, SectionBackground = {3, 11, 23, 255}, SidebarBackground = {11, 20, 33, 204}, 
-            WatermarkBackground = {6, 9, 17, 155}, -- << НОВЫЙ ЦВЕТ
+            WatermarkBackground = {6, 9, 17, 245}, HotkeysBackground = {3, 11, 23, 215}, -- << НОВЫЙ ЦВЕТ
             Separator = {0, 18, 32, 255}, Accent = {24, 165, 232, 255}, DarkBlue = {3, 23, 51, 255}, 
             DarkGray = {24, 24, 24, 255}, LightGray = {77, 77, 76, 255}, 
             TextPrimary = {234, 239, 245, 255}, TextSecondary = {160, 181, 197, 255}, 
@@ -54,7 +54,7 @@ Library.Themes = {
         Fonts = { Title = 2, Main = 1, Size = 14, TitleSize = 27, TabSize = 18, TabHeaderSize = 12 },
         Colors = { 
             MainBackground = {6, 6, 9, 247}, SectionBackground = {0, 3, 5, 255}, SidebarBackground = {14, 16, 19, 230}, 
-            WatermarkBackground = {6, 6, 9, 155}, -- << НОВЫЙ ЦВЕТ
+            WatermarkBackground = {6, 6, 9, 247}, HotkeysBackground = {0, 3, 5, 215}, -- << НОВЫЙ ЦВЕТ
             Separator = {11, 11, 11, 255}, Accent = {72, 130, 255, 255}, DarkBlue = {10, 11, 19, 255}, 
             DarkGray = {24, 24, 24, 255}, LightGray = {77, 77, 76, 255}, 
             TextPrimary = {234, 239, 245, 255}, TextSecondary = {181, 181, 194, 255}, 
@@ -69,7 +69,7 @@ Library.Themes = {
         Fonts = { Title = 2, Main = 1, Size = 14, TitleSize = 27, TabSize = 18, TabHeaderSize = 12 },
         Colors = { 
             MainBackground = {250, 250, 255, 247}, SectionBackground = {244, 244, 244, 255}, SidebarBackground = {240, 240, 240, 230}, 
-            WatermarkBackground = {250, 250, 255, 155}, -- << НОВЫЙ ЦВЕТ
+            WatermarkBackground = {250, 250, 255, 247}, HotkeysBackground = {244, 244, 244, 215}, -- << НОВЫЙ ЦВЕТ
             Separator = {200, 200, 200, 255}, Accent = {24, 165, 232, 255}, DarkBlue = {220, 220, 220, 255}, 
             DarkGray = {165, 165, 165, 255}, LightGray = {120, 120, 120, 255}, 
             TextPrimary = {10, 10, 10, 255}, TextSecondary = {60, 60, 60, 255}, 
@@ -80,6 +80,7 @@ Library.Themes = {
         Rounding = { Window = 8, Section = 6, Element = 4, Button = 5 }, IconSize = 16
     }
 }
+
 Library.ActiveTheme = Library.Themes.Blue
 Library.CustomThemeCounter = 0
 Library.TempTheme = nil
@@ -864,10 +865,10 @@ function Library:_InitializeEditStyleWindow()
     
     style_window.Separator2 = self:_CreateDrawingObject("Line"); if style_window.Separator2 then style_window.Separator2.Thickness = 2; style_window.Separator2.zIndex = z + 1; end
     
-    -- Добавляем WatermarkBackground в список
+    -- Добавляем HotkeysBackground в список
     local color_order = {
         "Accent", "GlowColor", "GlowAccent", "MainBackground", "SectionBackground",
-        "SidebarBackground", "WatermarkBackground", "DarkBlue", "DarkGray", "LightGray",
+        "SidebarBackground", "WatermarkBackground", "HotkeysBackground", "DarkBlue", "DarkGray", "LightGray",
         "Separator", "TabHeader", "TextDark", "TextLight"
     }
     for _, colorName in ipairs(color_order) do
@@ -2667,7 +2668,7 @@ function Library:_RenderHotkeys()
     local titleWidth = 160 -- Ширина заголовка
     hk.Title.Background.Position = hk.Position
     hk.Title.Background.Size = {titleWidth, titleHeight}
-    self:_AnimateAndApplyColor(hk.Title.Background, theme.Colors.SectionBackground, 1, true)
+    self:_AnimateAndApplyColor(hk.Title.Background, theme.Colors.HotkeysBackground, 1, true)
 
     hk.Title.Icon.Position = {hk.Position.x + 10, hk.Position.y + titleHeight/2 - hk.Title.Icon.Size.y/2}
     self:_AnimateAndApplyColor(hk.Title.Icon, theme.Colors.TextPrimary, 1, true)
@@ -3440,7 +3441,7 @@ function Library:_AddPresetsTab()
 end
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 322541")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3225x41")
     local is_first_frame = true
     while true do
         self:_InputLoop()
