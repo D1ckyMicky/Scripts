@@ -282,7 +282,7 @@ function Library:_RenderSaveTooltip()
     end
 end
 
-function Library:_AnimateAndApplyColor(drawingObject, targetColor, masterOpacity)
+function Library:_AnimateAndApplyColor(drawingObject, targetColor, masterOpacity, ignoreGlobalOpacity)
     if not drawingObject or type(targetColor) ~= "table" then return end
 
     local state = self.AnimationState[drawingObject]
@@ -303,9 +303,12 @@ function Library:_AnimateAndApplyColor(drawingObject, targetColor, masterOpacity
         
         masterOpacity = (masterOpacity == nil) and 1 or masterOpacity
         
-        -- [[ НОВОЕ: Глобальная прозрачность для анимации скрытия/показа ]]
-        local globalOpacity = self.GlobalAnimation and self.GlobalAnimation.Opacity or 1
-        drawingObject.Opacity = baseOpacity * masterOpacity * globalOpacity
+        local finalOpacity = baseOpacity * masterOpacity
+        if not ignoreGlobalOpacity then
+            local globalOpacity = self.GlobalAnimation and self.GlobalAnimation.Opacity or 1
+            finalOpacity = finalOpacity * globalOpacity
+        end
+        drawingObject.Opacity = finalOpacity
     end
 end
 
@@ -949,17 +952,23 @@ function Library:_InitializeWatermark()
     UI.Core.Watermark = watermark
     local z = 100 -- High z-index to be on top of everything
 
-    -- Main draggable bar (mostly transparent)
-    watermark.X = getscreendimensions().x - 400 -- Initial position: top right
+    watermark.X = getscreendimensions().x - 450
     watermark.Y = 20
-    watermark.Width = 0 -- Will be calculated dynamically
+    watermark.Width = 0
     watermark.Height = 40
     watermark.IsDragging = false
 
     -- "NL" Title effect (3 layers)
-    watermark.Title1 = self:_CreateDrawingObject("Text")
-    watermark.Title2 = self:_CreateDrawingObject("Text")
-    watermark.Title3 = self:_CreateDrawingObject("Text")
+    watermark.TitleBg = self:_CreateDrawingObject("Square") -- Background for NL
+    watermark.Title1 = self:_CreateDrawingObject("Text")   -- Top layer (White)
+    watermark.Title2 = self:_CreateDrawingObject("Text")   -- Middle layer (Accent)
+    watermark.Title3 = self:_CreateDrawingObject("Text")   -- Bottom layer (Shadow)
+    
+    -- Set zIndex for correct layering
+    if watermark.TitleBg then watermark.TitleBg.zIndex = z end
+    if watermark.Title3 then watermark.Title3.zIndex = z + 1 end
+    if watermark.Title2 then watermark.Title2.zIndex = z + 2 end
+    if watermark.Title1 then watermark.Title1.zIndex = z + 3 end
 
     -- Info Bar Background
     watermark.InfoBar = self:_CreateDrawingObject("Square")
@@ -3179,7 +3188,6 @@ function Library:_RenderWatermark()
     local isThemeLight = self:_IsThemeLight(theme)
     local UI = self.UI
 
-    -- Only render if the watermark toggle is enabled in the burger menu
     if not UI.Values["BurgerWatermark"] then
         self:_SetDrawingTableVisibility(watermark, false)
         return
@@ -3188,25 +3196,25 @@ function Library:_RenderWatermark()
     self:_SetDrawingTableVisibility(watermark, true)
 
     -- ### CALCULATIONS ###
-    local padding = 10
-    local iconSize = 24
+    local padding = 12
+    local iconSize = 24 -- New icon size
     local iconPadding = 8
-    local sectionSpacing = 15
+    local sectionSpacing = 18
     
-    -- "NL" Title
+    -- "NL" Title Block
     local nl = watermark.Title1
-    nl.Font = theme.Fonts.Title; nl.Size = 22; nl.Text = "NL"
-    local nlWidth = nl.TextBounds and nl.TextBounds.x or 30
+    nl.Font = theme.Fonts.Title; nl.Size = 24; nl.Text = "NL"
+    local nlWidth = (nl.TextBounds and nl.TextBounds.x or 35) + (padding * 2)
 
     -- Player Name
     local player = watermark.PlayerName
-    player.Font = theme.Fonts.Main; player.Size = theme.Fonts.Size + 1
+    player.Font = theme.Fonts.Main; player.Size = theme.Fonts.Size + 2 -- Larger text
     player.Text = self.UI.Core.PlayerDisplayName.Text or "Player"
     local playerWidth = iconSize + iconPadding + (player.TextBounds and player.TextBounds.x or 60)
 
     -- Config Name
     local config = watermark.ConfigName
-    config.Font = theme.Fonts.Main; config.Size = theme.Fonts.Size + 1
+    config.Font = theme.Fonts.Main; config.Size = theme.Fonts.Size + 2 -- Larger text
     local configText = UI.Core.ConfigsTab.LoadedConfigName or "default"
     if #configText > 15 then configText = string.sub(configText, 1, 14) .. "..." end
     config.Text = string.upper(configText)
@@ -3214,50 +3222,58 @@ function Library:_RenderWatermark()
 
     -- Ping
     local ping = watermark.PingValue
-    ping.Font = theme.Fonts.Main; ping.Size = theme.Fonts.Size + 1
-    ping.Text = (getping and tostring(getping()) or "0") .. "ms"
-    local pingWidth = iconSize + iconPadding + (ping.TextBounds and ping.TextBounds.x or 40)
+    ping.Font = theme.Fonts.Main; ping.Size = theme.Fonts.Size + 2 -- Larger text
+    ping.Text = (getping and tostring(getping()) or "0") .. " ms"
+    local pingWidth = iconSize + iconPadding + (ping.TextBounds and ping.TextBounds.x or 50)
     
     -- FPS
     local fps = watermark.FpsValue
-    fps.Font = theme.Fonts.Main; fps.Size = theme.Fonts.Size + 1
-    fps.Text = (get_overlay_fps and tostring(get_overlay_fps()) or "0") .. "fps"
-    local fpsWidth = iconSize + iconPadding + (fps.TextBounds and fps.TextBounds.x or 50)
+    fps.Font = theme.Fonts.Main; fps.Size = theme.Fonts.Size + 2 -- Larger text
+    fps.Text = (get_overlay_fps and tostring(get_overlay_fps()) or "0") .. " fps"
+    local fpsWidth = iconSize + iconPadding + (fps.TextBounds and fps.TextBounds.x or 60)
     
     -- Total Width Calculation
     local infoBarWidth = padding + playerWidth + sectionSpacing + configWidth + sectionSpacing + pingWidth + sectionSpacing + fpsWidth + padding
-    watermark.Width = nlWidth + padding + infoBarWidth
+    watermark.Width = nlWidth + 4 + infoBarWidth
     
     -- ### DRAWING & POSITIONING ###
     local x, y = watermark.X, watermark.Y
     local currentX = x
 
-    -- Draw "NL" Title
+    -- Draw "NL" Block
     do
         local titleY = y + (watermark.Height / 2) - (nl.Size / 2)
         local t1, t2, t3 = watermark.Title1, watermark.Title2, watermark.Title3
         
-        t1.Font = nl.Font; t2.Font = nl.Font; t3.Font = nl.Font
-        t1.Size = nl.Size; t2.Size = nl.Size; t3.Size = nl.Size
-        t1.Text = "NL"; t2.Text = "NL"; t3.Text = "NL"
+        t1.Font, t2.Font, t3.Font = nl.Font, nl.Font, nl.Font
+        t1.Size, t2.Size, t3.Size = nl.Size, nl.Size, nl.Size
+        t1.Text, t2.Text, t3.Text = "NL", "NL", "NL"
         
-        self:_AnimateAndApplyColor(t1, theme.Colors.TextPrimary)
-        self:_AnimateAndApplyColor(t2, theme.Colors.Accent)
-        self:_AnimateAndApplyColor(t3, theme.Colors.SectionBackground)
+        -- The zIndex handles layering, now we set colors and position
+        self:_AnimateAndApplyColor(watermark.TitleBg, theme.Colors.SectionBackground, 1, true)
+        self:_AnimateAndApplyColor(t1, theme.Colors.TextPrimary, 1, true)
+        self:_AnimateAndApplyColor(t2, theme.Colors.Accent, 1, true)
+        self:_AnimateAndApplyColor(t3, self:_DarkenColor(theme.Colors.Accent, 0.2), 1, true)
         
+        watermark.TitleBg.Position = {currentX, y}
+        watermark.TitleBg.Size = {nlWidth, watermark.Height}
+        watermark.TitleBg.Rounding = 8
+
+        local nlTextX = currentX + padding
         if not isThemeLight then
-            t3.Position = {currentX - 2, titleY - 2}; t2.Position = {currentX - 1, titleY + 1}; t1.Position = {currentX, titleY}
-            self:_SetVisibility(t2, true); self:_SetVisibility(t3, true)
+            t3.Position = {nlTextX + 2, titleY + 2}; self:_SetVisibility(t3, true)
+            t2.Position = {nlTextX + 1, titleY + 1}; self:_SetVisibility(t2, true)
+            t1.Position = {nlTextX, titleY}
         else
-            t1.Position = {currentX, titleY}
+            t1.Position = {nlTextX, titleY}
             self:_SetVisibility(t2, false); self:_SetVisibility(t3, false)
         end
-        currentX = currentX + nlWidth + padding
+        currentX = currentX + nlWidth + 4
     end
     
     -- Draw Info Bar
     local infoBar = watermark.InfoBar
-    self:_AnimateAndApplyColor(infoBar, isThemeLight and {247, 247, 247, 230} or {0, 0, 0, 150})
+    self:_AnimateAndApplyColor(infoBar, {20, 20, 25, 200}, 1, true) -- Semi-transparent dark background
     infoBar.Position = {currentX, y}; infoBar.Size = {infoBarWidth, watermark.Height}
     infoBar.Rounding = 8
     
@@ -3271,8 +3287,8 @@ function Library:_RenderWatermark()
         icon.Position = {currentX, iconY}
         text.Position = {currentX + iconSize + iconPadding, textY}
         
-        self:_AnimateAndApplyColor(icon, theme.Colors.Accent)
-        self:_AnimateAndApplyColor(text, theme.Colors.TextSecondary)
+        self:_AnimateAndApplyColor(icon, theme.Colors.Accent, 1, true)
+        self:_AnimateAndApplyColor(text, theme.Colors.TextSecondary, 1, true)
         
         currentX = currentX + textWidth + sectionSpacing
     end
@@ -3280,7 +3296,7 @@ function Library:_RenderWatermark()
     watermark.PlayerIcon.Url = "https://s6.imgcdn.dev/Y4qqxB.png"; watermark.PlayerIcon.Size = {iconSize, iconSize}
     drawInfoElement(watermark.PlayerIcon, watermark.PlayerName, playerWidth)
 
-    watermark.ConfigIcon.Url = self.UI.Core.HeaderButtons.Settings.Icon.Url; watermark.ConfigIcon.Size = {iconSize, iconSize}
+    watermark.ConfigIcon.Url = "https://s6.imgcdn.dev/Y4Skk8.png"; watermark.ConfigIcon.Size = {iconSize, iconSize}
     drawInfoElement(watermark.ConfigIcon, watermark.ConfigName, configWidth)
 
     watermark.PingIcon.Url = "https://s6.imgcdn.dev/Y4qFHu.png"; watermark.PingIcon.Size = {iconSize, iconSize}
