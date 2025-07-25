@@ -2675,7 +2675,7 @@ function Library:_RenderHotkeys()
             }
             local d = bind.Drawing
             if d.ToggleContainerBg then d.ToggleContainerBg.Filled = true; d.ToggleContainerBg.zIndex = z; d.ToggleContainerBg.Rounding = 10; end
-            if d.ToggleTrack then d.ToggleTrack.Filled = false; d.ToggleTrack.Thickness = 2; d.ToggleTrack.zIndex = z + 1; d.ToggleTrack.Rounding = 25; end
+            if d.ToggleTrack then d.ToggleTrack.Filled = false; d.ToggleTrack.Thickness = 2; d.ToggleTrack.zIndex = z + 1; d.ToggleTrack.Rounding = 50; end
             if d.ToggleNub then d.ToggleNub.Filled = true; d.ToggleNub.zIndex = z + 2; d.ToggleNub.Radius = 5; end
             if d.NameBg then d.NameBg.Filled = true; d.NameBg.zIndex = z; d.NameBg.Rounding = 10; end -- radius u backgr 
             if d.NameText then d.NameText.Font = self.ActiveTheme.Fonts.Main; d.NameText.Size = self.ActiveTheme.Fonts.Size; d.NameText.Text = bind.Name; d.NameText.zIndex = z + 1; end
