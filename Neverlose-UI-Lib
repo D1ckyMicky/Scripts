@@ -952,167 +952,141 @@ function Library:_InitializeWatermark()
     UI.Core.Watermark = watermark
     local z = 100
 
+    -- Базовые свойства
     watermark.X = getscreendimensions().x - 450
     watermark.Y = 20
     watermark.Width = 0
     watermark.Height = 42
     watermark.IsDragging = false
 
-    -- ИЗМЕНЕНИЕ: Возвращена трёхслойная структура текста для "NL"
-    watermark.TitleBg = self:_CreateDrawingObject("Square")
-    watermark.InfoBar = self:_CreateDrawingObject("Square")
+    -- Создание объектов (простая структура)
+    watermark.NL_Bg = self:_CreateDrawingObject("Square")
+    watermark.Info_Bg = self:_CreateDrawingObject("Square")
     
-    watermark.Title1 = self:_CreateDrawingObject("Text") -- Основной текст
-    watermark.Title2 = self:_CreateDrawingObject("Text") -- Слой акцентного цвета
-    watermark.Title3 = self:_CreateDrawingObject("Text") -- Слой тени
+    watermark.NL_Text = self:_CreateDrawingObject("Text")
 
-    watermark.PlayerIcon = self:_CreateDrawingObject("Image")
-    watermark.PlayerName = self:_CreateDrawingObject("Text")
-    watermark.ConfigIcon = self:_CreateDrawingObject("Image")
-    watermark.ConfigName = self:_CreateDrawingObject("Text")
-    watermark.PingIcon = self:_CreateDrawingObject("Image")
-    watermark.PingValue = self:_CreateDrawingObject("Text")
-    watermark.FpsIcon = self:_CreateDrawingObject("Image")
-    watermark.FpsValue = self:_CreateDrawingObject("Text")
+    watermark.Player_Icon = self:_CreateDrawingObject("Image")
+    watermark.Player_Text = self:_CreateDrawingObject("Text")
+    watermark.Config_Icon = self:_CreateDrawingObject("Image")
+    watermark.Config_Text = self:_CreateDrawingObject("Text")
+    watermark.Ping_Icon = self:_CreateDrawingObject("Image")
+    watermark.Ping_Text = self:_CreateDrawingObject("Text")
+    watermark.FPS_Icon = self:_CreateDrawingObject("Image")
+    watermark.FPS_Text = self:_CreateDrawingObject("Text")
 
-    -- Настройка zIndex
-    if watermark.TitleBg then watermark.TitleBg.zIndex = z end
-    if watermark.InfoBar then watermark.InfoBar.zIndex = z end
+    -- Безопасная установка zIndex
+    local function setZ(obj, index)
+        if obj then obj.zIndex = index end
+    end
+
+    setZ(watermark.NL_Bg, z)
+    setZ(watermark.Info_Bg, z)
     
     local contentZ = z + 1
-    if watermark.Title3 then watermark.Title3.zIndex = contentZ end
-    if watermark.Title2 then watermark.Title2.zIndex = contentZ + 1 end
-    if watermark.Title1 then watermark.Title1.zIndex = contentZ + 2 end
-
-    local iconZ = z + 1
-    if watermark.PlayerIcon then watermark.PlayerIcon.zIndex = iconZ end
-    if watermark.PlayerName then watermark.PlayerName.zIndex = iconZ end
-    if watermark.ConfigIcon then watermark.ConfigIcon.zIndex = iconZ end
-    if watermark.ConfigName then watermark.ConfigName.zIndex = iconZ end
-    if watermark.PingIcon then watermark.PingIcon.zIndex = iconZ end
-    if watermark.PingValue then watermark.PingValue.zIndex = iconZ end
-    if watermark.FpsIcon then watermark.FpsIcon.zIndex = iconZ end
-    if watermark.FpsValue then watermark.FpsValue.zIndex = iconZ end
+    setZ(watermark.NL_Text, contentZ)
+    setZ(watermark.Player_Icon, contentZ)
+    setZ(watermark.Player_Text, contentZ)
+    setZ(watermark.Config_Icon, contentZ)
+    setZ(watermark.Config_Text, contentZ)
+    setZ(watermark.Ping_Icon, contentZ)
+    setZ(watermark.Ping_Text, contentZ)
+    setZ(watermark.FPS_Icon, contentZ)
+    setZ(watermark.FPS_Text, contentZ)
 end
 
 
 function Library:_RenderWatermark()
     local watermark = self.UI.Core.Watermark
     local theme = self.ActiveTheme
-    local isThemeLight = self:_IsThemeLight(theme)
     local UI = self.UI
 
-    -- ИЗМЕНЕНИЕ: Добавлена проверка на создание всех основных объектов
-    if not UI.Values["BurgerWatermark"] or not watermark.TitleBg or not watermark.Title1 or not watermark.InfoBar then
+    if not UI.Values["BurgerWatermark"] then
         self:_SetDrawingTableVisibility(watermark, false)
         return
     end
 
+    -- Проверяем, что все объекты существуют, чтобы избежать ошибок
+    if not (watermark and watermark.NL_Bg and watermark.Info_Bg and watermark.NL_Text and watermark.Player_Text and watermark.Config_Text and watermark.Ping_Text and watermark.FPS_Text) then
+        return
+    end
+
     self:_SetDrawingTableVisibility(watermark, true)
-	self:_SetVisibility(watermark.Title2, not isThemeLight)
-    self:_SetVisibility(watermark.Title3, not isThemeLight)
 
-    -- ### CALCULATIONS ###
-    local padding = 14
-    local iconSize = 20
-    local iconPadding = 10
-    local sectionSpacing = 18
+    -- ### Расчёты ###
+    local padding, iconSize, iconPadding, sectionSpacing = 14, 20, 10, 18
     
-    -- "NL" Title Block
-    local nl = watermark.Title1 -- Используем Title1 как основной для расчётов
-    nl.Font = theme.Fonts.Title; nl.Size = 22; nl.Text = "NL"
-    local nlWidth = (nl.TextBounds and nl.TextBounds.x or 35) + (padding * 2)
+    -- Блок "NL"
+    local nl_text = watermark.NL_Text
+    nl_text.Font = theme.Fonts.Title
+    nl_text.Size = 22
+    nl_text.Text = "NL"
+    local nl_width = (nl_text.TextBounds and nl_text.TextBounds.x or 35) + (padding * 2)
 
-    local function setup_text(textObj)
+    -- Общая функция для настройки текста в инфо-панели
+    local function setup_info_text(textObj)
         textObj.Font = theme.Fonts.Main
         textObj.Size = theme.Fonts.Size + 3
     end
 
-    -- Player Name, Config, Ping, FPS
-    setup_text(watermark.PlayerName)
-    watermark.PlayerName.Text = self.UI.Core.PlayerDisplayName.Text or "Player"
-    local playerWidth = iconSize + iconPadding + (watermark.PlayerName.TextBounds and watermark.PlayerName.TextBounds.x or 60)
+    -- Элементы инфо-панели
+    local elements = {
+        { icon = watermark.Player_Icon, text = watermark.Player_Text, value = self.UI.Core.PlayerDisplayName.Text or "Player", url = "https://s6.imgcdn.dev/Y4qqxB.png" },
+        { icon = watermark.Config_Icon, text = watermark.Config_Text, value = (UI.Core.ConfigsTab.LoadedConfigName or "default"):upper(), url = "https://s6.imgcdn.dev/Y4Skk8.png" },
+        { icon = watermark.Ping_Icon, text = watermark.Ping_Text, value = (getping and string.format("%d", getping()) or "0") .. " ms", url = "https://s6.imgcdn.dev/Y4qFHu.png" },
+        { icon = watermark.FPS_Icon, text = watermark.FPS_Text, value = (get_overlay_fps and tostring(get_overlay_fps()) or "0") .. " fps", url = "https://s6.imgcdn.dev/Y4qmnq.png" }
+    }
 
-    setup_text(watermark.ConfigName)
-    local configText = UI.Core.ConfigsTab.LoadedConfigName or "default"
-    watermark.ConfigName.Text = configText:upper()
-    local configWidth = iconSize + iconPadding + (watermark.ConfigName.TextBounds and watermark.ConfigName.TextBounds.x or 60)
-
-    setup_text(watermark.PingValue)
-    watermark.PingValue.Text = (getping and string.format("%d", getping()) or "0") .. " ms"
-    local pingWidth = iconSize + iconPadding + (watermark.PingValue.TextBounds and watermark.PingValue.TextBounds.x or 55)
+    local info_bar_width = padding
+    for i, el in ipairs(elements) do
+        setup_info_text(el.text)
+        el.text.Text = el.value
+        el.width = iconSize + iconPadding + (el.text.TextBounds and el.text.TextBounds.x or 60)
+        info_bar_width = info_bar_width + el.width + (i < #elements and sectionSpacing or padding)
+    end
     
-    setup_text(watermark.FpsValue)
-    watermark.FpsValue.Text = (get_overlay_fps and tostring(get_overlay_fps()) or "0") .. " fps"
-    local fpsWidth = iconSize + iconPadding + (watermark.FpsValue.TextBounds and watermark.FpsValue.TextBounds.x or 65)
+    watermark.Width = nl_width + 4 + info_bar_width
     
-    -- Total Width Calculation
-    local infoBarWidth = padding + playerWidth + sectionSpacing + configWidth + sectionSpacing + pingWidth + sectionSpacing + fpsWidth + padding
-    watermark.Width = nlWidth + 4 + infoBarWidth
-    
-    -- ### DRAWING & POSITIONING ###
+    -- ### Отрисовка ###
     local x, y = watermark.X, watermark.Y
     local currentX = x
 
-    -- Draw "NL" Block
-    self:_AnimateAndApplyColor(watermark.TitleBg, theme.Colors.SectionBackground, 1, true)
-    watermark.TitleBg.Position = {currentX, y}
-    watermark.TitleBg.Size = {nlWidth, watermark.Height}
-    watermark.TitleBg.Rounding = 8
-    watermark.TitleBg.Filled = true
-
-	-- ИЗМЕНЕНИЕ: Возвращён код для отрисовки трёхслойного текста
-	local t1, t2, t3 = watermark.Title1, watermark.Title2, watermark.Title3
-    t1.Text, t2.Text, t3.Text = "NL", "NL", "NL"
-    t1.Font, t2.Font, t3.Font = nl.Font, nl.Font, nl.Font
-    t1.Size, t2.Size, t3.Size = nl.Size, nl.Size, nl.Size
-	
-    local titleY = y + (watermark.Height / 2) - (t1.Size / 2)
-    local nlTextX = currentX + padding
-	
-    t3.Position = {nlTextX + 2, titleY + 2};
-    t2.Position = {nlTextX + 1, titleY + 1};
-    t1.Position = {nlTextX, titleY};
-	
-    self:_AnimateAndApplyColor(t1, theme.Colors.TextPrimary, 1, true)
-    self:_AnimateAndApplyColor(t2, theme.Colors.Accent, 1, true)
-    self:_AnimateAndApplyColor(t3, self:_DarkenColor(theme.Colors.Accent, 0.2), 1, true)
+    -- Отрисовка блока "NL"
+    self:_AnimateAndApplyColor(watermark.NL_Bg, theme.Colors.SectionBackground, 1, true)
+    watermark.NL_Bg.Position = {currentX, y}
+    watermark.NL_Bg.Size = {nl_width, watermark.Height}
+    watermark.NL_Bg.Rounding = 8
     
-    currentX = currentX + nlWidth + 4
+    local nl_text_y = y + (watermark.Height / 2) - (nl_text.Size / 2)
+    local nl_text_x = currentX + padding
+    watermark.NL_Text.Position = {nl_text_x, nl_text_y}
+    self:_AnimateAndApplyColor(watermark.NL_Text, theme.Colors.TextPrimary, 1, true)
     
-    -- Draw Info Bar
-    self:_AnimateAndApplyColor(watermark.InfoBar, {20, 20, 25, 230}, 1, true)
-    watermark.InfoBar.Position = {currentX, y}
-    watermark.InfoBar.Size = {infoBarWidth, watermark.Height}
-    watermark.InfoBar.Rounding = 8
-    watermark.InfoBar.Filled = true
+    currentX = currentX + nl_width + 4
     
+    -- Отрисовка инфо-панели
+    self:_AnimateAndApplyColor(watermark.Info_Bg, {20, 20, 25, 230}, 1, true)
+    watermark.Info_Bg.Position = {currentX, y}
+    watermark.Info_Bg.Size = {info_bar_width, watermark.Height}
+    watermark.Info_Bg.Rounding = 8
+    
+    -- Отрисовка контента внутри инфо-панели
     local contentX = currentX + padding
-    local function drawInfoElement(iconObj, textObj, width)
-        local iconY = y + (watermark.Height / 2) - (iconSize / 2)
-        local textY = y + (watermark.Height / 2) - (textObj.Size / 2)
-        
-        iconObj.Size = {iconSize, iconSize}
-        iconObj.Position = {contentX, iconY}
-        textObj.Position = {contentX + iconSize + iconPadding, textY}
-        
-        self:_AnimateAndApplyColor(iconObj, theme.Colors.TextSecondary, 1, true)
-        self:_AnimateAndApplyColor(textObj, theme.Colors.TextSecondary, 1, true)
-        
-        contentX = contentX + width + sectionSpacing
+    for _, el in ipairs(elements) do
+        if el.icon and el.text then
+            local iconY = y + (watermark.Height / 2) - (iconSize / 2)
+            local textY = y + (watermark.Height / 2) - (el.text.Size / 2)
+            
+            el.icon.Url = el.url
+            el.icon.Size = {iconSize, iconSize}
+            el.icon.Position = {contentX, iconY}
+            el.text.Position = {contentX + iconSize + iconPadding, textY}
+            
+            self:_AnimateAndApplyColor(el.icon, theme.Colors.TextSecondary, 1, true)
+            self:_AnimateAndApplyColor(el.text, theme.Colors.TextSecondary, 1, true)
+            
+            contentX = contentX + el.width + sectionSpacing
+        end
     end
-
-    watermark.PlayerIcon.Url = "https://s6.imgcdn.dev/Y4qqxB.png"
-    drawInfoElement(watermark.PlayerIcon, watermark.PlayerName, playerWidth)
-
-    watermark.ConfigIcon.Url = "https://s6.imgcdn.dev/Y4Skk8.png"
-    drawInfoElement(watermark.ConfigIcon, watermark.ConfigName, configWidth)
-
-    watermark.PingIcon.Url = "https://s6.imgcdn.dev/Y4qFHu.png"
-    drawInfoElement(watermark.PingIcon, watermark.PingValue, pingWidth)
-    
-    watermark.FpsIcon.Url = "https://s6.imgcdn.dev/Y4qmnq.png"
-    drawInfoElement(watermark.FpsIcon, watermark.FpsValue, fpsWidth)
 end
 
 --================================================================
@@ -3443,7 +3417,7 @@ function Library:_RenderWatermark()
 end
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 322xxx541")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 322541")
     local is_first_frame = true
     while true do -- Цикл теперь работает всегда, чтобы ловить бинды
         self:_InputLoop() -- Проверка ввода выполняется всегда
