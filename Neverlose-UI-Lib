@@ -467,6 +467,31 @@ function Library:_SetDrawingTableVisibility(tbl, visible)
     end
 end
 
+function Library:_RGBtoHEX(r, g, b, a)
+    r, g, b = math.floor(r or 0), math.floor(g or 0), math.floor(b or 0)
+    local hex = string.format("#%02X%02X%02X", r, g, b)
+    if a and a < 255 then
+        hex = hex .. string.format("%02X", math.floor(a))
+    end
+    return hex
+end
+
+function Library:_HEXtoRGB(hex)
+    hex = hex:gsub("#", "")
+    local r, g, b, a
+    if #hex == 6 or #hex == 8 then
+        r = tonumber("0x" .. hex:sub(1, 2))
+        g = tonumber("0x" .. hex:sub(3, 4))
+        b = tonumber("0x" .. hex:sub(5, 6))
+        a = (#hex == 8) and tonumber("0x" .. hex:sub(7, 8)) or 255
+        if r and g and b then
+            return {r, g, b, a}
+        end
+    end
+    return nil -- Возвращаем nil, если HEX некорректный
+end
+
+
 --================================================================
 --[[ PRIVATE: GLOW EFFECT HELPERS ]]
 --================================================================
@@ -906,7 +931,7 @@ function Library:_InitializeColorPickerWindow()
     local picker = {}; self.UI.Popups.ColorPicker = picker; local z = 50
     picker.IsOpen = false
     picker.EditingColorName = nil
-    picker.EditingValueID = nil -- << ДОБАВЛЕНО: ID для значения цвета (например, ESP)
+    picker.EditingValueID = nil
     picker.Pos = {x=0, y=0}
 
     -- State
@@ -914,6 +939,17 @@ function Library:_InitializeColorPickerWindow()
     picker.isDraggingHue = false
     picker.isDraggingOpacity = false
     picker.isDraggingSaturationValue = false
+    picker.pressStartedInside = false
+
+    -- [[ НОВЫЕ СВОЙСТВА ДЛЯ ДРОПДАУНА И ВВОДА ]]
+    picker.Mode = "HEX" -- "HEX" или "RGBA"
+    picker.InputText = ""
+    picker.IsEditing = false
+    picker.DropdownIsOpen = false
+    picker.last_key_press_time = 0
+    picker.key_press_delay = 0.05
+    picker.is_in_repeat = false
+    picker.last_key_pressed = ""
 
     -- Drawing Objects
     picker.Background = self:_CreateDrawingObject("Square"); if picker.Background then picker.Background.Filled = true; picker.Background.zIndex = z; picker.Background.Rounding = self.ActiveTheme.Rounding.Window; end
@@ -924,19 +960,54 @@ function Library:_InitializeColorPickerWindow()
     picker.SaturationValueNub = self:_CreateDrawingObject("Circle"); if picker.SaturationValueNub then picker.SaturationValueNub.Filled = false; picker.SaturationValueNub.Thickness = 2; picker.SaturationValueNub.Radius = 5; picker.SaturationValueNub.zIndex = z + 3; end
 
     picker.HueSlider = self:_CreateDrawingObject("Image"); if picker.HueSlider then picker.HueSlider.Url = "https://s6.imgcdn.dev/Y40GWM.jpg"; picker.HueSlider.zIndex = z + 1; picker.HueSlider.Rounding = 4; end
-    picker.HueNub = self:_CreateDrawingObject("Circle"); if picker.HueNub then picker.HueNub.Filled = true; picker.HueNub.Radius = 7; picker.HueNub.zIndex = z + 3; end
-    picker.HueNubBorder = self:_CreateDrawingObject("Circle"); if picker.HueNubBorder then picker.HueNubBorder.Filled = false; picker.HueNubBorder.Thickness = 2; picker.HueNubBorder.Radius = 7; picker.HueNubBorder.zIndex = z + 2; end
+    picker.HueNub = self:_CreateDrawingObject("Circle"); if picker.HueNub then picker.HueNub.Filled = true; picker.HueNub.Radius = 4; picker.HueNub.zIndex = z + 3; end
+    picker.HueNubBorder = self:_CreateDrawingObject("Circle"); if picker.HueNubBorder then picker.HueNubBorder.Filled = false; picker.HueNubBorder.Thickness = 2; picker.HueNubBorder.Radius = 4; picker.HueNubBorder.zIndex = z + 2; end
 
     picker.OpacitySliderBackground = self:_CreateDrawingObject("Square"); if picker.OpacitySliderBackground then picker.OpacitySliderBackground.Filled = true; picker.OpacitySliderBackground.zIndex = z + 1; picker.OpacitySliderBackground.Rounding = 4; end
     picker.OpacitySliderGradient = self:_CreateDrawingObject("Image"); if picker.OpacitySliderGradient then picker.OpacitySliderGradient.Url = "https://pixeldrain.com/api/filesystem/2py1vehq"; picker.OpacitySliderGradient.zIndex = z + 2; picker.OpacitySliderGradient.Rounding = 4; end
-    picker.OpacityNub = self:_CreateDrawingObject("Circle"); if picker.OpacityNub then picker.OpacityNub.Filled = true; picker.OpacityNub.Radius = 7; picker.OpacityNub.zIndex = z + 3; end
-    picker.OpacityNubBorder = self:_CreateDrawingObject("Circle"); if picker.OpacityNubBorder then picker.OpacityNubBorder.Filled = false; picker.OpacityNubBorder.Thickness = 2; picker.OpacityNubBorder.Radius = 7; picker.OpacityNubBorder.zIndex = z + 2; end
+    picker.OpacityNub = self:_CreateDrawingObject("Circle"); if picker.OpacityNub then picker.OpacityNub.Filled = true; picker.OpacityNub.Radius = 4; picker.OpacityNub.zIndex = z + 3; end
+    picker.OpacityNubBorder = self:_CreateDrawingObject("Circle"); if picker.OpacityNubBorder then picker.OpacityNubBorder.Filled = false; picker.OpacityNubBorder.Thickness = 2; picker.OpacityNubBorder.Radius = 4; picker.OpacityNubBorder.zIndex = z + 2; end
+
+    -- [[ НОВЫЕ ОБЪЕКТЫ ]]
+    local inputZ = z + 10
+    -- Дропдаун
+    picker.Dropdown = {
+        Button = self:_CreateDrawingObject("Square"),
+        ButtonText = self:_CreateDrawingObject("Text"),
+        ArrowLine1 = self:_CreateDrawingObject("Line"),
+        ArrowLine2 = self:_CreateDrawingObject("Line"),
+        PopupBg = self:_CreateDrawingObject("Square"),
+        Options = {},
+        ClickRegion = {}
+    }
+    if picker.Dropdown.Button then picker.Dropdown.Button.Filled = true; picker.Dropdown.Button.zIndex = inputZ; picker.Dropdown.Button.Rounding = 4; end
+    if picker.Dropdown.ButtonText then picker.Dropdown.ButtonText.Font = self.ActiveTheme.Fonts.Main; picker.Dropdown.ButtonText.Size = self.ActiveTheme.Fonts.Size; picker.Dropdown.ButtonText.zIndex = inputZ + 1; end
+    if picker.Dropdown.ArrowLine1 then picker.Dropdown.ArrowLine1.Thickness = 1.5; picker.Dropdown.ArrowLine1.zIndex = inputZ + 1; end
+    if picker.Dropdown.ArrowLine2 then picker.Dropdown.ArrowLine2.Thickness = 1.5; picker.Dropdown.ArrowLine2.zIndex = inputZ + 1; end
+    if picker.Dropdown.PopupBg then picker.Dropdown.PopupBg.Filled = true; picker.Dropdown.PopupBg.zIndex = inputZ + 5; picker.Dropdown.PopupBg.Rounding = 4; end
+    for _, mode in ipairs({"HEX", "RGBA"}) do
+        local option = { Text = self:_CreateDrawingObject("Text"), ClickRegion = {} }
+        if option.Text then option.Text.Font = self.ActiveTheme.Fonts.Main; option.Text.Size = self.ActiveTheme.Fonts.Size; option.Text.Text = mode; option.Text.zIndex = inputZ + 6; end
+        table.insert(picker.Dropdown.Options, option)
+    end
+
+    -- Поле ввода
+    picker.Input = {
+        Background = self:_CreateDrawingObject("Square"),
+        Text = self:_CreateDrawingObject("Text"),
+        Cursor = self:_CreateDrawingObject("Line"),
+        ClickRegion = {}
+    }
+    if picker.Input.Background then picker.Input.Background.Filled = true; picker.Input.Background.zIndex = inputZ; picker.Input.Background.Rounding = 4; end
+    if picker.Input.Text then picker.Input.Text.Font = self.ActiveTheme.Fonts.Main; picker.Input.Text.Size = self.ActiveTheme.Fonts.Size; picker.Input.Text.zIndex = inputZ + 1; end
+    if picker.Input.Cursor then picker.Input.Cursor.Thickness = 1.5; picker.Input.Cursor.zIndex = inputZ + 2; end
 
     -- Click Regions
     picker.SaturationValueRegion = {}
     picker.HueSliderRegion = {}
     picker.OpacitySliderRegion = {}
 end
+
 
 function Library:_InitializeConfigsTab()
     local configs = {}; self.UI.Core.ConfigsTab = configs; local z = 4
@@ -1844,97 +1915,117 @@ function Library:_RenderColorPickerWindow()
     local picker = self.UI.Popups.ColorPicker
     local isVisible = picker.IsOpen
 
-    self:_SetVisibility(picker.Background, isVisible)
-    self:_SetVisibility(picker.Border, isVisible)
-    self:_SetVisibility(picker.ColorSquare, isVisible)
-    self:_SetVisibility(picker.GradientOverlay, isVisible)
-    self:_SetVisibility(picker.SaturationValueNub, isVisible)
-    self:_SetVisibility(picker.HueSlider, isVisible)
-    self:_SetVisibility(picker.HueNub, isVisible)
-    self:_SetVisibility(picker.HueNubBorder, isVisible)
-    self:_SetVisibility(picker.OpacitySliderBackground, isVisible)
-    self:_SetVisibility(picker.OpacitySliderGradient, isVisible)
-    self:_SetVisibility(picker.OpacityNub, isVisible)
-    self:_SetVisibility(picker.OpacityNubBorder, isVisible)
-    
-    if isVisible then
-        local padding = 10
-        local squareSize = 160
-        local sliderHeight = 8
-        local sliderSpacing = 12
+    -- Управляем видимостью всех основных элементов
+    self:_SetVisibility(picker.Background, isVisible); self:_SetVisibility(picker.Border, isVisible); self:_SetVisibility(picker.ColorSquare, isVisible); self:_SetVisibility(picker.GradientOverlay, isVisible); self:_SetVisibility(picker.SaturationValueNub, isVisible); self:_SetVisibility(picker.HueSlider, isVisible); self:_SetVisibility(picker.HueNub, isVisible); self:_SetVisibility(picker.HueNubBorder, isVisible); self:_SetVisibility(picker.OpacitySliderBackground, isVisible); self:_SetVisibility(picker.OpacitySliderGradient, isVisible); self:_SetVisibility(picker.OpacityNub, isVisible); self:_SetVisibility(picker.OpacityNubBorder, isVisible);
+    -- Управляем видимостью новых элементов
+    self:_SetVisibility(picker.Dropdown.Button, isVisible); self:_SetVisibility(picker.Dropdown.ButtonText, isVisible); self:_SetVisibility(picker.Dropdown.ArrowLine1, isVisible); self:_SetVisibility(picker.Dropdown.ArrowLine2, isVisible); self:_SetVisibility(picker.Input.Background, isVisible); self:_SetVisibility(picker.Input.Text, isVisible);
+    self:_SetVisibility(picker.Input.Cursor, isVisible and picker.IsEditing and math.sin(tick() * 5) > 0)
+    self:_SetVisibility(picker.Dropdown.PopupBg, isVisible and picker.DropdownIsOpen)
+    for _, opt in ipairs(picker.Dropdown.Options) do self:_SetVisibility(opt.Text, isVisible and picker.DropdownIsOpen) end
 
-        local pickerW = squareSize + (padding * 2)
-        local pickerH = squareSize + (padding * 2) + (sliderHeight * 2) + (sliderSpacing * 2)
-        local pickerX, pickerY = picker.Pos.x, picker.Pos.y
-        
-        picker.Background.Position = {pickerX, pickerY}
-        picker.Background.Size = {pickerW, pickerH}
-        local bgColor = self.ActiveTheme.Colors.SectionBackground
-        picker.Background.Color = {bgColor[1], bgColor[2], bgColor[3]}
-        picker.Background.Opacity = (bgColor[4] or 255) / 255
-
-        picker.Border.Position = {pickerX, pickerY}
-        picker.Border.Size = {pickerW, pickerH}
-        local borderColor = self.ActiveTheme.Colors.Separator
-        picker.Border.Color = {borderColor[1], borderColor[2], borderColor[3]}
-        picker.Border.Opacity = (borderColor[4] or 255) / 255
-
-        self:_RenderGlowEffect(picker.Glow, pickerX, pickerY, pickerW, pickerH, picker.Background.Rounding, self.ActiveTheme.Colors.GlowColor)
-
-        local squareX = pickerX + padding
-        local squareY = pickerY + padding
-        
-        -- Main saturation/value square
-        picker.ColorSquare.Position = {squareX, squareY}
-        picker.ColorSquare.Size = {squareSize, squareSize}
-        local pureHue = self:_HSVtoRGB(picker.h, 1, 1)
-        picker.ColorSquare.Color = {pureHue[1], pureHue[2], pureHue[3]}
-
-        picker.GradientOverlay.Position = {squareX, squareY}
-        picker.GradientOverlay.Size = {squareSize, squareSize}
-
-        local svNubX = squareX + (picker.s * squareSize)
-        local svNubY = squareY + ((1 - picker.v) * squareSize)
-        picker.SaturationValueNub.Position = {svNubX, svNubY}
-        picker.SaturationValueNub.Color = picker.v > 0.5 and {0,0,0} or {255,255,255}
-        picker.SaturationValueRegion = {x1 = squareX, y1 = squareY, x2 = squareX + squareSize, y2 = squareY + squareSize}
-
-        local currentY = squareY + squareSize + sliderSpacing
-
-        -- Hue Slider
-        picker.HueSlider.Position = {squareX, currentY}
-        picker.HueSlider.Size = {squareSize, sliderHeight}
-        local hueNubX = squareX + (picker.h * squareSize)
-        local hueNubY = currentY + sliderHeight / 2
-        picker.HueNub.Position = {hueNubX, hueNubY}
-        picker.HueNubBorder.Position = {hueNubX, hueNubY}
-        local hueNubColor = self:_HSVtoRGB(picker.h, 1, 1) -- Dynamic color
-        picker.HueNub.Color = {hueNubColor[1], hueNubColor[2], hueNubColor[3]}
-        picker.HueNubBorder.Color = {0, 0, 0}
-        picker.HueSliderRegion = {x1 = squareX, y1 = currentY, x2 = squareX + squareSize, y2 = currentY + sliderHeight}
-
-        currentY = currentY + sliderHeight + sliderSpacing
-
-        -- Opacity Slider
-        picker.OpacitySliderBackground.Position = {squareX, currentY}
-        picker.OpacitySliderBackground.Size = {squareSize, sliderHeight}
-        local opacityBgColor = self:_HSVtoRGB(picker.h, picker.s, picker.v)
-        picker.OpacitySliderBackground.Color = {opacityBgColor[1], opacityBgColor[2], opacityBgColor[3]}
-        
-        picker.OpacitySliderGradient.Position = {squareX, currentY}
-        picker.OpacitySliderGradient.Size = {squareSize, sliderHeight}
-
-        local opacityNubX = squareX + (picker.a * squareSize)
-        local opacityNubY = currentY + sliderHeight / 2
-        picker.OpacityNub.Position = {opacityNubX, opacityNubY}
-        picker.OpacityNubBorder.Position = {opacityNubX, opacityNubY}
-        picker.OpacityNub.Color = {255, 255, 255}
-        picker.OpacityNubBorder.Color = {0, 0, 0}
-        picker.OpacitySliderRegion = {x1 = squareX, y1 = currentY, x2 = squareX + squareSize, y2 = currentY + sliderHeight}
-    else
+    if not isVisible then
         self:_HideGlowEffect(picker.Glow)
+        return
+    end
+
+    local theme = self.ActiveTheme
+    local padding = 10
+    local squareSize = 160
+    local sliderHeight = 4
+    local sliderSpacing = 10
+    local inputRowHeight = 25
+
+    -- [[ ИЗМЕНЕНИЕ: Увеличиваем высоту палитры ]]
+    local pickerW = squareSize + (padding * 2)
+    local pickerH = squareSize + (padding * 3) + (sliderHeight * 2) + (sliderSpacing * 2) + inputRowHeight
+    local pickerX, pickerY = picker.Pos.x, picker.Pos.y
+    
+    -- Основные элементы палитры (без изменений)
+    picker.Background.Position = {pickerX, pickerY}; picker.Background.Size = {pickerW, pickerH}
+    self:_AnimateAndApplyColor(picker.Background, theme.Colors.SectionBackground)
+    picker.Border.Position = {pickerX, pickerY}; picker.Border.Size = {pickerW, pickerH}
+    self:_AnimateAndApplyColor(picker.Border, theme.Colors.Separator)
+    self:_RenderGlowEffect(picker.Glow, pickerX, pickerY, pickerW, pickerH, picker.Background.Rounding, theme.Colors.GlowColor)
+    local squareX = pickerX + padding; local squareY = pickerY + padding
+    picker.ColorSquare.Position = {squareX, squareY}; picker.ColorSquare.Size = {squareSize, squareSize}
+    local pureHue = self:_HSVtoRGB(picker.h, 1, 1); picker.ColorSquare.Color = {pureHue[1], pureHue[2], pureHue[3]}
+    picker.GradientOverlay.Position = {squareX, squareY}; picker.GradientOverlay.Size = {squareSize, squareSize}
+    local svNubX = squareX + (picker.s * squareSize); local svNubY = squareY + ((1 - picker.v) * squareSize)
+    picker.SaturationValueNub.Position = {svNubX, svNubY}; picker.SaturationValueNub.Color = picker.v > 0.5 and {0,0,0} or {255,255,255}
+    picker.SaturationValueRegion = {x1 = squareX, y1 = squareY, x2 = squareX + squareSize, y2 = squareY + squareSize}
+    local currentY = squareY + squareSize + sliderSpacing
+    picker.HueSlider.Position = {squareX, currentY}; picker.HueSlider.Size = {squareSize, sliderHeight}
+    local hueNubX = squareX + (picker.h * squareSize); local hueNubY = currentY + sliderHeight / 2
+    picker.HueNub.Position = {hueNubX, hueNubY}; picker.HueNubBorder.Position = {hueNubX, hueNubY}
+    local hueNubColor = self:_HSVtoRGB(picker.h, 1, 1); picker.HueNub.Color = {hueNubColor[1], hueNubColor[2], hueNubColor[3]}; picker.HueNubBorder.Color = {0, 0, 0}
+    picker.HueSliderRegion = {x1 = squareX, y1 = currentY, x2 = squareX + squareSize, y2 = currentY + sliderHeight}
+    currentY = currentY + sliderHeight + sliderSpacing
+    picker.OpacitySliderBackground.Position = {squareX, currentY}; picker.OpacitySliderBackground.Size = {squareSize, sliderHeight}
+    local opacityBgColor = self:_HSVtoRGB(picker.h, picker.s, picker.v); picker.OpacitySliderBackground.Color = {opacityBgColor[1], opacityBgColor[2], opacityBgColor[3]}
+    picker.OpacitySliderGradient.Position = {squareX, currentY}; picker.OpacitySliderGradient.Size = {squareSize, sliderHeight}
+    local opacityNubX = squareX + (picker.a * squareSize); local opacityNubY = currentY + sliderHeight / 2
+    picker.OpacityNub.Position = {opacityNubX, opacityNubY}; picker.OpacityNubBorder.Position = {opacityNubX, opacityNubY}; picker.OpacityNub.Color = {255, 255, 255}; picker.OpacityNubBorder.Color = {0, 0, 0}
+    picker.OpacitySliderRegion = {x1 = squareX, y1 = currentY, x2 = squareX + squareSize, y2 = currentY + sliderHeight}
+
+    -- [[ НОВАЯ ЛОГИКА ОТРИСОВКИ ДРОПДАУНА И ВВОДА ]]
+    currentY = currentY + sliderHeight + sliderSpacing
+    local dropdownWidth = 80
+    local inputWidth = squareSize - dropdownWidth - 5
+    
+    -- Дропдаун
+    local dd = picker.Dropdown
+    dd.ClickRegion = {x1 = squareX, y1 = currentY, x2 = squareX + dropdownWidth, y2 = currentY + inputRowHeight}
+    dd.Button.Position = {squareX, currentY}; dd.Button.Size = {dropdownWidth, inputRowHeight}
+    self:_AnimateAndApplyColor(dd.Button, theme.Colors.DarkBlue)
+    dd.ButtonText.Text = picker.Mode
+    dd.ButtonText.Position = {squareX + 8, currentY + inputRowHeight/2 - dd.ButtonText.Size/2}
+    self:_AnimateAndApplyColor(dd.ButtonText, theme.Colors.TextPrimary)
+    local arrowX, arrowY = squareX + dropdownWidth - 15, currentY + inputRowHeight/2
+    dd.ArrowLine1.From = {arrowX, arrowY - 2}; dd.ArrowLine1.To = {arrowX + 3, arrowY + 1};
+    dd.ArrowLine2.From = {arrowX + 3, arrowY + 1}; dd.ArrowLine2.To = {arrowX + 6, arrowY - 2};
+    self:_AnimateAndApplyColor(dd.ArrowLine1, theme.Colors.TextSecondary); self:_AnimateAndApplyColor(dd.ArrowLine2, theme.Colors.TextSecondary)
+    
+    -- Поле ввода
+    local input = picker.Input
+    local inputX = squareX + dropdownWidth + 5
+    input.ClickRegion = {x1 = inputX, y1 = currentY, x2 = inputX + inputWidth, y2 = currentY + inputRowHeight}
+    input.Background.Position = {inputX, currentY}; input.Background.Size = {inputWidth, inputRowHeight}
+    self:_AnimateAndApplyColor(input.Background, theme.Colors.DarkBlue)
+    
+    if picker.IsEditing then
+        input.Text.Text = picker.InputText
+    else
+        local rgb = self:_HSVtoRGB(picker.h, picker.s, picker.v)
+        if picker.Mode == "HEX" then
+            input.Text.Text = self:_RGBtoHEX(rgb[1], rgb[2], rgb[3], picker.a * 255)
+        else -- RGBA
+            input.Text.Text = string.format("%d, %d, %d, %d", math.floor(rgb[1]), math.floor(rgb[2]), math.floor(rgb[3]), math.floor(picker.a * 255))
+        end
+    end
+    input.Text.Position = {inputX + 8, currentY + inputRowHeight/2 - input.Text.Size/2}
+    self:_AnimateAndApplyColor(input.Text, theme.Colors.TextPrimary)
+    
+    if input.Text.TextBounds then
+        local cursorX = input.Text.Position.x + input.Text.TextBounds.x + 2
+        input.Cursor.From = {cursorX, currentY + 4}
+        input.Cursor.To = {cursorX, currentY + inputRowHeight - 4}
+        self:_AnimateAndApplyColor(input.Cursor, theme.Colors.Accent)
+    end
+
+    -- Всплывающее окно дропдауна
+    if picker.DropdownIsOpen then
+        local popupY = dd.ClickRegion.y1 - (2 * inputRowHeight) - 5
+        dd.PopupBg.Position = {dd.ClickRegion.x1, popupY}; dd.PopupBg.Size = {dropdownWidth, inputRowHeight * 2}
+        self:_AnimateAndApplyColor(dd.PopupBg, theme.Colors.SectionBackground)
+        
+        for i, option in ipairs(dd.Options) do
+            option.ClickRegion = {x1 = dd.ClickRegion.x1, y1 = popupY + (i-1)*inputRowHeight, x2 = dd.ClickRegion.x1 + dropdownWidth, y2 = popupY + i*inputRowHeight}
+            option.Text.Position = {dd.ClickRegion.x1 + 8, popupY + (i-1)*inputRowHeight + inputRowHeight/2 - option.Text.Size/2}
+            self:_AnimateAndApplyColor(option.Text, theme.Colors.TextPrimary)
+        end
     end
 end
+
 
 function Library:_RenderLoop()
     local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4
