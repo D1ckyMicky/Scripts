@@ -1042,7 +1042,7 @@ function Library:_InitializeHotkeys()
     
     if hk.Title.Background then hk.Title.Background.Filled = true; hk.Title.Background.zIndex = z; hk.Title.Background.Rounding = 13; end
     -- Увеличиваем иконку и текст
-    if hk.Title.Icon then hk.Title.Icon.Url = "https://s6.imgcdn.dev/Y4q74H.png"; hk.Title.Icon.Size = {26, 26}; hk.Title.Icon.zIndex = z + 1; end
+    if hk.Title.Icon then hk.Title.Icon.Url = "https://s6.imgcdn.dev/Y4q74H.png"; hk.Title.Icon.Size = {26, 24}; hk.Title.Icon.zIndex = z + 1; end
     if hk.Title.Separator then hk.Title.Separator.Thickness = 2.5; hk.Title.Separator.zIndex = z + 1; end
     if hk.Title.Text then hk.Title.Text.Font = self.ActiveTheme.Fonts.Main; hk.Title.Text.Size = self.ActiveTheme.Fonts.Size + 9; hk.Title.Text.Text = " Hotkeys"; hk.Title.Text.zIndex = z + 1; end
 end
@@ -2694,10 +2694,10 @@ function Library:_RenderHotkeys()
                 NameText = self:_CreateDrawingObject("Text")
             }
             local d = bind.Drawing
-            if d.ToggleContainerBg then d.ToggleContainerBg.Filled = true; d.ToggleContainerBg.zIndex = z; d.ToggleContainerBg.Rounding = 13; end
+            if d.ToggleContainerBg then d.ToggleContainerBg.Filled = true; d.ToggleContainerBg.zIndex = z; d.ToggleContainerBg.Rounding = 10; end
             if d.ToggleTrack then d.ToggleTrack.Filled = false; d.ToggleTrack.Thickness = 2; d.ToggleTrack.zIndex = z + 1; end
             if d.ToggleNub then d.ToggleNub.Filled = true; d.ToggleNub.zIndex = z + 2; end
-            if d.NameBg then d.NameBg.Filled = true; d.NameBg.zIndex = z; d.NameBg.Rounding = 13; end
+            if d.NameBg then d.NameBg.Filled = true; d.NameBg.zIndex = z; d.NameBg.Rounding = 10; end
             if d.NameText then d.NameText.Font = self.ActiveTheme.Fonts.Main; d.NameText.Size = self.ActiveTheme.Fonts.Size; d.NameText.Text = bind.Name; d.NameText.zIndex = z + 1; end
         end
         
@@ -2732,9 +2732,9 @@ function Library:_RenderHotkeys()
         d.ToggleContainerBg.Position = {hk.Position.x, currentY}; d.ToggleContainerBg.Size = {toggleContainerWidth, itemHeight}
         
         -- ИЗМЕНЕНИЕ: Создаем эффект "капсулы"
-        local trackHeight = 15 -- Немного выше для лучшего вида
-        local trackWidth = 22
-        d.ToggleTrack.Rounding = (trackHeight / 2) + 5 -- Закругление равно половине высоты для идеальной капсулы
+        local trackHeight = 14 -- Немного выше для лучшего вида
+        local trackWidth = 24
+        d.ToggleTrack.Rounding = (trackHeight / 2) + 9 -- Закругление равно половине высоты для идеальной капсулы
         d.ToggleTrack.Position = {hk.Position.x + (toggleContainerWidth - trackWidth)/2, currentY + (itemHeight - trackHeight)/2}
         d.ToggleTrack.Size = {trackWidth, trackHeight}
         
