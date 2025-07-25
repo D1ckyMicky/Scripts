@@ -950,7 +950,7 @@ function Library:_InitializeWatermark()
     wm.Position = {x = 20, y = 20}
     wm.IsDragging = false
     wm.DragOffset = {x = 0, y = 0}
-    wm.Rounding = 6 -- Добавляем скругление
+    wm.Rounding = 6
 
     -- Объекты отрисовки
     wm.DragArea = self:_CreateDrawingObject("Square")
@@ -965,7 +965,7 @@ function Library:_InitializeWatermark()
     wm.Items = {}
     local itemData = {
         Player = { Icon = "https://s6.imgcdn.dev/Y4qqxB.png", Text = "" },
-        Config = { Icon = "https://s6.imgcdn.dev/Y4Skk8.png", Text = "" },
+        Config = { Icon = "https://s6.imgcdn.dev/Y4SCjT.png", Text = "" },
         Ping = { Icon = "https://s6.imgcdn.dev/Y4qFHu.png", Text = "0 ms" },
         Fps = { Icon = "https://s6.imgcdn.dev/Y4qmnq.png", Text = "0 fps" }
     }
@@ -976,27 +976,30 @@ function Library:_InitializeWatermark()
             Text = self:_CreateDrawingObject("Text")
         }
         if item.Icon then 
-            item.Icon.Url = data.Icon; item.Icon.Size = {21, 21}; item.Icon.zIndex = z + 2; -- Увеличен размер иконок
+            item.Icon.Url = data.Icon; item.Icon.Size = {24, 24}; item.Icon.zIndex = z + 4;
         end
         if item.Text then 
             item.Text.Font = self.ActiveTheme.Fonts.Main; item.Text.Size = self.ActiveTheme.Fonts.Size; 
-            item.Text.Text = data.Text; item.Text.zIndex = z + 2;
+            item.Text.Text = data.Text; item.Text.zIndex = z + 4;
         end
         wm.Items[name] = item
     end
 
     -- Настройка основных элементов
     if wm.DragArea then wm.DragArea.Filled = true; wm.DragArea.Opacity = 0; wm.DragArea.zIndex = z + 5; end
-    if wm.LogoBg then wm.LogoBg.Filled = true; wm.LogoBg.zIndex = z; wm.LogoBg.Rounding = wm.Rounding; end -- Добавлено скругление
-    if wm.InfoBg then wm.InfoBg.Filled = true; wm.InfoBg.zIndex = z; wm.InfoBg.Rounding = wm.Rounding; end -- Добавлено скругление
+    if wm.LogoBg then wm.LogoBg.Filled = true; wm.LogoBg.zIndex = z; wm.LogoBg.Rounding = wm.Rounding; end
+    if wm.InfoBg then wm.InfoBg.Filled = true; wm.InfoBg.zIndex = z; wm.InfoBg.Rounding = wm.Rounding; end
 
-    local function setupLogoText(textObj)
+    local function setupLogoText(textObj, zIndex)
         if textObj then
-            textObj.Font = self.ActiveTheme.Fonts.Title; textObj.Size = self.ActiveTheme.Fonts.Size + 6; -- Увеличен шрифт лого
-            textObj.Text = "NL"; textObj.Center = true; textObj.zIndex = z + 1;
+            textObj.Font = self.ActiveTheme.Fonts.Title; textObj.Size = self.ActiveTheme.Fonts.Size + 4;
+            textObj.Text = "NL"; textObj.Center = true; textObj.zIndex = zIndex;
         end
     end
-    setupLogoText(wm.LogoText1); setupLogoText(wm.LogoText2); setupLogoText(wm.LogoText3)
+    -- Устанавливаем правильный порядок слоев
+    setupLogoText(wm.LogoText3, z + 1) -- Тень (самый нижний)
+    setupLogoText(wm.LogoText2, z + 2) -- Акцент (средний)
+    setupLogoText(wm.LogoText1, z + 3) -- Основной (самый верхний)
 end
 
 --================================================================
@@ -2500,71 +2503,73 @@ function Library:_RenderWatermark()
     local wm = self.UI.Watermark
     local isVisible = self.UI.Values["BurgerWatermark"]
 
-    -- Устанавливаем видимость для всех элементов
     self:_SetDrawingTableVisibility(wm, isVisible)
 
     if not isVisible then return end
 
     local theme = self.ActiveTheme
-    -- Меняем цвета согласно требованиям
     local bgColor = theme.Colors.MainBackground
     local accentColor = theme.Colors.Accent
     local textColor = theme.Colors.TextPrimary
 
-    -- Обновляем динамические данные с новым форматом
     wm.Items.Player.Text.Text = self.UI.Core.PlayerDisplayName.Text or "player"
     wm.Items.Config.Text.Text = self.UI.Core.ConfigsTab.LoadedConfigName or "default"
-    wm.Items.Ping.Text.Text = string.format("%.2f ms", getping() or 0) -- Форматируем пинг
-    wm.Items.Fps.Text.Text = tostring(get_overlay_fps() or 0) .. " fps" -- Добавляем "fps"
+    wm.Items.Ping.Text.Text = string.format("%.2f ms", getping() or 0)
+    wm.Items.Fps.Text.Text = tostring(get_overlay_fps() or 0) .. " fps"
 
-    -- Применяем цвета и игнорируем глобальную прозрачность (передаем 1)
     self:_AnimateAndApplyColor(wm.LogoBg, bgColor, 1)
     self:_AnimateAndApplyColor(wm.InfoBg, bgColor, 1)
     
     self:_AnimateAndApplyColor(wm.LogoText1, textColor, 1)
     self:_AnimateAndApplyColor(wm.LogoText2, accentColor, 1)
-    self:_AnimateAndApplyColor(wm.LogoText3, {0,0,0,100}, 1)
+    self:_AnimateAndApplyColor(wm.LogoText3, self:_DarkenColor(accentColor, 0.3), 1) -- Делаем тень темнее акцента
     
     for _, item in pairs(wm.Items) do
-        self:_AnimateAndApplyColor(item.Icon, accentColor, 1) -- Иконки теперь акцентного цвета
+        self:_AnimateAndApplyColor(item.Icon, accentColor, 1)
         self:_AnimateAndApplyColor(item.Text, textColor, 1)
     end
 
-    -- Рассчитываем размеры и позиции с учетом новых размеров
-    local height = 40 -- Увеличиваем высоту
-    local logoWidth = 50 -- Увеличиваем ширину лого
+    local height = 40
+    local logoWidth = 50
     local separatorWidth = 10
-    local padding = 14
+    local horizontalPadding = 12 -- Отступ слева и справа
     
     local currentX = wm.Position.x
     
     -- Лого
     wm.LogoBg.Position = {currentX, wm.Position.y}; wm.LogoBg.Size = {logoWidth, height}
-    wm.LogoText1.Position = {currentX + logoWidth/2, wm.Position.y + height/2 - wm.LogoText1.Size/2}
-    wm.LogoText2.Position = {currentX + logoWidth/2 - 1, wm.Position.y + height/2 - wm.LogoText2.Size/2 + 1}
-    wm.LogoText3.Position = {currentX + logoWidth/2 - 2, wm.Position.y + height/2 - wm.LogoText3.Size/2 + 1}
+    -- Рассчитываем базовую позицию для текста и применяем смещения
+    local logoBaseX = currentX + logoWidth/2
+    local logoBaseY = wm.Position.y + height/2 - wm.LogoText1.Size/2
+    
+    wm.LogoText1.Position = {logoBaseX, logoBaseY}
+    wm.LogoText2.Position = {logoBaseX - 2, logoBaseY + 1} -- Акцент: левее и ниже
+    wm.LogoText3.Position = {logoBaseX - 3, logoBaseY - 1} -- Тень: еще левее и выше
     
     currentX = currentX + logoWidth + separatorWidth
     
     -- Инфо-блок
-    local infoStartX = currentX
-    local totalInfoWidth = 0
+    local infoBgX = currentX
+    local contentStartX = infoBgX + horizontalPadding -- Начинаем рисовать контент с отступом
+    currentX = contentStartX
     
     local order = {"Player", "Config", "Ping", "Fps"}
     for _, name in ipairs(order) do
         local item = wm.Items[name]
         if item.Icon.Visible then
             item.Icon.Position = {currentX, wm.Position.y + height/2 - item.Icon.Size.y/2}
-            currentX = currentX + item.Icon.Size.x + 8 -- Немного увеличиваем отступ от иконки
+            currentX = currentX + item.Icon.Size.x + 8
         end
         if item.Text.Visible and item.Text.TextBounds then
             item.Text.Position = {currentX, wm.Position.y + height/2 - item.Text.Size/2}
-            currentX = currentX + item.Text.TextBounds.x + padding
+            -- Добавляем отступ только если это не последний элемент
+            local isLast = (name == order[#order])
+            currentX = currentX + item.Text.TextBounds.x + (isLast and 0 or horizontalPadding)
         end
     end
     
-    totalInfoWidth = (currentX - infoStartX)
-    wm.InfoBg.Position = {infoStartX, wm.Position.y}; wm.InfoBg.Size = {totalInfoWidth, height}
+    local totalInfoWidth = (currentX - contentStartX) + horizontalPadding -- Ширина контента + отступ справа
+    wm.InfoBg.Position = {infoBgX, wm.Position.y}; wm.InfoBg.Size = {totalInfoWidth, height}
 
     -- Область для перетаскивания
     local totalWidth = logoWidth + separatorWidth + totalInfoWidth
