@@ -1043,7 +1043,7 @@ function Library:_InitializeHotkeys()
     if hk.Title.Background then hk.Title.Background.Filled = true; hk.Title.Background.zIndex = z; hk.Title.Background.Rounding = 6; end
     -- Увеличиваем иконку и текст
     if hk.Title.Icon then hk.Title.Icon.Url = "https://s6.imgcdn.dev/Y4q74H.png"; hk.Title.Icon.Size = {22, 22}; hk.Title.Icon.zIndex = z + 1; end
-    if hk.Title.Separator then hk.Title.Separator.Thickness = 1.5; hk.Title.Separator.zIndex = z + 1; end
+    if hk.Title.Separator then hk.Title.Separator.Thickness = 2.5; hk.Title.Separator.zIndex = z + 1; end
     if hk.Title.Text then hk.Title.Text.Font = self.ActiveTheme.Fonts.Main; hk.Title.Text.Size = self.ActiveTheme.Fonts.Size + 3; hk.Title.Text.Text = "Hotkeys"; hk.Title.Text.zIndex = z + 1; end
 end
 
@@ -2646,7 +2646,7 @@ function Library:_RenderHotkeys()
     local titleWidth = 160 -- и ширину
     hk.Title.Background.Position = hk.Position
     hk.Title.Background.Size = {titleWidth, titleHeight}
-    self:_AnimateAndApplyColor(hk.Title.Background, theme.Colors.SectionBackground, 1, true)
+    self:_AnimateAndApplyColor(hk.Title.Background, theme.Colors.WatermarkBackground, 1, true)
 
     hk.Title.Icon.Position = {hk.Position.x + 10, hk.Position.y + titleHeight/2 - hk.Title.Icon.Size.y/2}
     self:_AnimateAndApplyColor(hk.Title.Icon, theme.Colors.TextSecondary, 1, true)
@@ -2675,9 +2675,9 @@ function Library:_RenderHotkeys()
             }
             local d = bind.Drawing
             if d.ToggleContainerBg then d.ToggleContainerBg.Filled = true; d.ToggleContainerBg.zIndex = z; d.ToggleContainerBg.Rounding = 6; end
-            if d.ToggleTrack then d.ToggleTrack.Filled = false; d.ToggleTrack.Thickness = 2; d.ToggleTrack.zIndex = z + 1; d.ToggleTrack.Rounding = 8; end
+            if d.ToggleTrack then d.ToggleTrack.Filled = false; d.ToggleTrack.Thickness = 2; d.ToggleTrack.zIndex = z + 1; d.ToggleTrack.Rounding = 13; end
             if d.ToggleNub then d.ToggleNub.Filled = true; d.ToggleNub.zIndex = z + 2; d.ToggleNub.Radius = 5; end
-            if d.NameBg then d.NameBg.Filled = true; d.NameBg.zIndex = z; d.NameBg.Rounding = 6; end
+            if d.NameBg then d.NameBg.Filled = true; d.NameBg.zIndex = z; d.NameBg.Rounding = 13; end -- radius u backgr 
             if d.NameText then d.NameText.Font = self.ActiveTheme.Fonts.Main; d.NameText.Size = self.ActiveTheme.Fonts.Size; d.NameText.Text = bind.Name; d.NameText.zIndex = z + 1; end
         end
         
