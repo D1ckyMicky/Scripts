@@ -617,6 +617,7 @@ function Library:_InitializeCoreUI()
     self:_InitializeConfigsTab()
     self:_InitializeBurgerMenu()
     self:_InitializeWatermark() -- << ДОБАВЬТЕ ЭТУ СТРОКУ
+    self:_InitializeHotkeys() -- << ДОБАВЬТЕ ЭТУ СТРОКУ
 
     local Players = game:FindService("Players")
     if Players and Players.localPlayer then
@@ -1023,6 +1024,28 @@ function Library:_InitializeWatermark()
     setupLogoText(wm.LogoText2, z + 2) -- Акцент (средний)
     setupLogoText(wm.LogoText1, z + 3) -- Основной (самый верхний)
 end
+
+function Library:_InitializeHotkeys()
+    local hk = {}; self.UI.Hotkeys = hk; local z = 110 -- z-index выше чем у ватермарки
+
+    -- Состояние и позиция
+    hk.Position = {x = 20, y = 80} -- Позиция под ватермаркой
+    hk.ActiveBinds = {} -- Таблица для хранения активных биндов
+
+    -- Главный заголовок "Hotkeys"
+    hk.Title = {
+        Background = self:_CreateDrawingObject("Square"),
+        Icon = self:_CreateDrawingObject("Image"),
+        Separator = self:_CreateDrawingObject("Line"),
+        Text = self:_CreateDrawingObject("Text")
+    }
+    
+    if hk.Title.Background then hk.Title.Background.Filled = true; hk.Title.Background.zIndex = z; hk.Title.Background.Rounding = 6; end
+    if hk.Title.Icon then hk.Title.Icon.Url = "https://s6.imgcdn.dev/Y4q74H.png"; hk.Title.Icon.Size = {18, 18}; hk.Title.Icon.zIndex = z + 1; end
+    if hk.Title.Separator then hk.Title.Separator.Thickness = 2; hk.Title.Separator.zIndex = z + 1; end
+    if hk.Title.Text then hk.Title.Text.Font = self.ActiveTheme.Fonts.Main; hk.Title.Text.Size = self.ActiveTheme.Fonts.Size + 1; hk.Title.Text.Text = "Hotkeys"; hk.Title.Text.zIndex = z + 1; end
+end
+
 
 --================================================================
 --[[ PRIVATE: CONFIG SYSTEM ]]
@@ -2599,6 +2622,107 @@ function Library:_RenderWatermark()
     wm.DragArea.Position = wm.Position; wm.DragArea.Size = {totalWidth, height}
 end
 
+function Library:_RenderHotkeys()
+    local hk = self.UI.Hotkeys
+    local isVisible = self.UI.Values["BurgerHotkeys"]
+
+    -- Управляем видимостью заголовка
+    self:_SetDrawingTableVisibility(hk.Title, isVisible)
+
+    if not isVisible then
+        -- Если хоткеи выключены, скрываем все активные бинды
+        for _, bind in ipairs(hk.ActiveBinds) do
+            if bind.Drawing then self:_SetDrawingTableVisibility(bind.Drawing, false) end
+        end
+        return
+    end
+
+    local theme = self.ActiveTheme
+    local isThemeLight = self:_IsThemeLight(theme)
+    local z = 110
+
+    -- === Отрисовка заголовка ===
+    local titleHeight = 30
+    local titleWidth = 140
+    hk.Title.Background.Position = hk.Position
+    hk.Title.Background.Size = {titleWidth, titleHeight}
+    self:_AnimateAndApplyColor(hk.Title.Background, theme.Colors.SectionBackground, 1, true)
+
+    hk.Title.Icon.Position = {hk.Position.x + 8, hk.Position.y + titleHeight/2 - hk.Title.Icon.Size.y/2}
+    self:_AnimateAndApplyColor(hk.Title.Icon, theme.Colors.TextSecondary, 1, true)
+
+    local sepX = hk.Position.x + 35
+    hk.Title.Separator.From = {sepX, hk.Position.y + 6}
+    hk.Title.Separator.To = {sepX, hk.Position.y + titleHeight - 6}
+    self:_AnimateAndApplyColor(hk.Title.Separator, theme.Colors.Separator, 1, true)
+
+    hk.Title.Text.Position = {sepX + 10, hk.Position.y + titleHeight/2 - hk.Title.Text.Size/2}
+    self:_AnimateAndApplyColor(hk.Title.Text, theme.Colors.TextPrimary, 1, true)
+
+    -- === Отрисовка активных биндов ===
+    local currentY = hk.Position.y + titleHeight + 10
+    local bindsToRemove = {}
+
+    for i, bind in ipairs(hk.ActiveBinds) do
+        -- Создаем объекты отрисовки, если их нет
+        if not bind.Drawing then
+            bind.Drawing = {
+                ToggleBg = self:_CreateDrawingObject("Square"),
+                ToggleNub = self:_CreateDrawingObject("Circle"),
+                NameBg = self:_CreateDrawingObject("Square"),
+                NameText = self:_CreateDrawingObject("Text")
+            }
+            if bind.Drawing.ToggleBg then bind.Drawing.ToggleBg.Filled = true; bind.Drawing.ToggleBg.zIndex = z; bind.Drawing.ToggleBg.Rounding = 6; end
+            if bind.Drawing.ToggleNub then bind.Drawing.ToggleNub.Filled = true; bind.Drawing.ToggleNub.zIndex = z + 1; bind.Drawing.ToggleNub.Radius = 6; end
+            if bind.Drawing.NameBg then bind.Drawing.NameBg.Filled = true; bind.Drawing.NameBg.zIndex = z; bind.Drawing.NameBg.Rounding = 6; end
+            if bind.Drawing.NameText then bind.Drawing.NameText.Font = self.ActiveTheme.Fonts.Main; bind.Drawing.NameText.Size = self.ActiveTheme.Fonts.Size; bind.Drawing.NameText.Text = bind.Name; bind.Drawing.NameText.zIndex = z + 1; end
+        end
+        
+        self:_SetDrawingTableVisibility(bind.Drawing, true)
+
+        -- Анимация появления/исчезновения
+        local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4
+        local animationSpeed = (speed_value / 1.5) / 10.0
+        if bind.IsClosing then
+            bind.FadeOpacity = bind.FadeOpacity - animationSpeed
+            if bind.FadeOpacity <= 0 then table.insert(bindsToRemove, i) end
+        else
+            bind.FadeOpacity = math.min(1, bind.FadeOpacity + animationSpeed)
+        end
+        
+        -- Цвета
+        local toggleBgColor = isThemeLight and theme.Colors.Accent or self:_DarkenColor(theme.Colors.Accent, 0.3)
+        local nubColor = isThemeLight and theme.Colors.SectionBackground or theme.Colors.Accent
+        
+        self:_AnimateAndApplyColor(bind.Drawing.ToggleBg, toggleBgColor, bind.FadeOpacity, true)
+        self:_AnimateAndApplyColor(bind.Drawing.ToggleNub, nubColor, bind.FadeOpacity, true)
+        self:_AnimateAndApplyColor(bind.Drawing.NameBg, theme.Colors.SectionBackground, bind.FadeOpacity, true)
+        self:_AnimateAndApplyColor(bind.Drawing.NameText, theme.Colors.TextPrimary, bind.FadeOpacity, true)
+
+        -- Позиции и размеры
+        local itemHeight = 30
+        local toggleWidth = 40
+        local nameWidth = (bind.Drawing.NameText.TextBounds and bind.Drawing.NameText.TextBounds.x or 80) + 20
+
+        bind.Drawing.ToggleBg.Position = {hk.Position.x, currentY}; bind.Drawing.ToggleBg.Size = {toggleWidth, itemHeight}
+        bind.Drawing.ToggleNub.Position = {hk.Position.x + toggleWidth - 14, currentY + itemHeight/2}
+        
+        bind.Drawing.NameBg.Position = {hk.Position.x + toggleWidth + 5, currentY}; bind.Drawing.NameBg.Size = {nameWidth, itemHeight}
+        bind.Drawing.NameText.Position = {hk.Position.x + toggleWidth + 5 + 10, currentY + itemHeight/2 - bind.Drawing.NameText.Size/2}
+        
+        currentY = currentY + itemHeight + 5
+    end
+
+    -- Удаляем бинды, которые закончили анимацию исчезновения
+    for i = #bindsToRemove, 1, -1 do
+        local index = bindsToRemove[i]
+        if hk.ActiveBinds[index] and hk.ActiveBinds[index].Drawing then
+            self:_CleanupDrawingObjects(hk.ActiveBinds[index].Drawing)
+        end
+        table.remove(hk.ActiveBinds, index)
+    end
+end
+
 function Library:_InputLoop()
     self:_CheckGlobalBinds()
 
@@ -3282,12 +3406,12 @@ function Library:_AddPresetsTab()
 end
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3xx41")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 322541")
     local is_first_frame = true
     while true do
-        self:_InputLoop() -- Ввод обрабатывается всегда
+        self:_InputLoop()
 
-        if self.Window.Visible then -- Отрисовка основного UI
+        if self.Window.Visible then
             if is_first_frame then
                 self:_AddPresetsTab()
                 is_first_frame = false
@@ -3295,12 +3419,13 @@ function Library:_MainLoop()
             self:_RenderLoop()
         end
 
-        -- Ватермарка отрисовывается здесь, независимо от self.Window.Visible
         self:_RenderWatermark()
+        self:_RenderHotkeys() -- << ДОБАВЬТЕ ЭТУ СТРОКУ
 
         wait(0.01)
     end
 end
+
 
 --================================================================
 --[[ PRIVATE: INTERNAL ELEMENT CREATORS ]]
@@ -3499,7 +3624,9 @@ function Library:_Internal_CreateKeybind(options)
         id = options.id,
         type = "Keybind",
         Name = options.Name,
-        Label = self:_CreateDrawingObject("Text"), -- << ДОБАВЛЕНО
+        ParentToggleID = options.ParentToggleID, -- << ДОБАВЛЕНО
+        ParentToggleName = options.ParentToggleName, -- << ДОБАВЛЕНО
+        Label = self:_CreateDrawingObject("Text"),
         Size = {width = 100, height = 25},
         Callback = options.Callback,
         Button = self:_CreateDrawingObject("Square"),
@@ -3611,22 +3738,16 @@ function Library:Section(options)
         return chain
     end
 
-    function SectionObject:Toggle(toggleOptions)
-        last_element = self_lib:_Internal_CreateToggle(toggleOptions)
-        table.insert(section.Elements, last_element)
-        -- ИСПРАВЛЕНИЕ: Вместо того чтобы возвращать ТОЛЬКО цепочку для Keybind,
-        -- мы возвращаем саму секцию, чтобы можно было вызывать другие методы.
-        -- А метод Keybind добавляем прямо в объект секции, но он будет работать
-        -- только с последним созданным Toggle.
-        function SectionObject:Keybind(keybindOptions)
-            if last_element and last_element.type == "Toggle" then
-                return CreateToggleChain(last_element):Keybind(keybindOptions)
-            end
-            -- Если последний элемент не Toggle, просто продолжаем цепочку
-            return SectionObject
-        end
-        return SectionObject
+function SectionObject:Keybind(keybindOptions)
+    if last_element and last_element.type == "Toggle" then
+        -- Привязываем информацию о родительском Toggle к самому кейбинду
+        keybindOptions.ParentToggleID = last_element.id
+        keybindOptions.ParentToggleName = last_element.Name
+        return CreateToggleChain(last_element):Keybind(keybindOptions)
     end
+    return SectionObject
+end
+
 
     function SectionObject:Slider(sliderOptions) table.insert(section.Elements, self_lib:_Internal_CreateSlider(sliderOptions)); return SectionObject end
     function SectionObject:Dropdown(dropdownOptions) table.insert(section.Elements, self_lib:_Internal_CreateDropdown(dropdownOptions)); return SectionObject end
@@ -3681,15 +3802,65 @@ end
 
 function Library:_CheckGlobalBinds()
     if self.UI.Popups.ColorPicker.IsOpen or self.UI.Popups.EditStyle.IsOpen then
-        return -- Не обрабатываем глобальные бинды, если открыты окна-попапы
+        return
     end
     
     local key = getpressedkey()
-    if key and key ~= "None" and key == self.UI.Values["ToggleUIBind"] then
-        -- Защита от многократного срабатывания при зажатии
-        if (tick() - self.lastUIToggleTime) > 0.3 then
-            self:ToggleVisibility()
-            self.lastUIToggleTime = tick()
+    if key and key ~= "None" then
+        if key == self.UI.Values["ToggleUIBind"] then
+            if (tick() - self.lastUIToggleTime) > 0.3 then
+                self:ToggleVisibility()
+                self.lastUIToggleTime = tick()
+            end
+            return -- Выходим, чтобы не обрабатывать другие бинды одновременно
+        end
+        
+        -- Защита от многократного срабатывания
+        if (tick() - (lastBindCheckTime or 0)) < 0.2 then return end
+
+        -- Ищем совпадение с биндами элементов
+        for _, section in ipairs(self.UI.Sections) do
+            for _, el in ipairs(section.Elements) do
+                if el.SettingsElements then
+                    for _, setting_el in ipairs(el.SettingsElements) do
+                        if setting_el.type == "Keybind" and self.UI.Values[setting_el.id] == key then
+                            lastBindCheckTime = tick()
+
+                            -- Переключаем значение родительского Toggle
+                            local toggle_id = setting_el.ParentToggleID
+                            local new_state = not self.UI.Values[toggle_id]
+                            self.UI.Values[toggle_id] = new_state
+
+                            -- Обновляем список активных хоткеев
+                            local hk = self.UI.Hotkeys
+                            local existingBindIndex = nil
+                            for i, bind in ipairs(hk.ActiveBinds) do
+                                if bind.id == toggle_id then
+                                    existingBindIndex = i
+                                    break
+                                end
+                            end
+
+                            if new_state and not existingBindIndex then
+                                -- Добавляем новый активный бинд
+                                table.insert(hk.ActiveBinds, {
+                                    id = toggle_id,
+                                    Name = setting_el.ParentToggleName,
+                                    FadeOpacity = 0.0,
+                                    IsClosing = false
+                                })
+                            elseif not new_state and existingBindIndex then
+                                -- Помечаем существующий бинд на удаление (для анимации)
+                                hk.ActiveBinds[existingBindIndex].IsClosing = true
+                            end
+                            
+                            -- Вызываем оригинальный Callback, если он есть
+                            if el.Callback then pcall(el.Callback, new_state) end
+                            return -- Выходим после обработки первого найденного бинда
+                        end
+                    end
+                end
+            end
         end
     end
 end
