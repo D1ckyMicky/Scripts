@@ -976,7 +976,7 @@ function Library:_InitializeWatermark()
             Text = self:_CreateDrawingObject("Text")
         }
         if item.Icon then 
-            item.Icon.Url = data.Icon; item.Icon.Size = {24, 24}; item.Icon.zIndex = z + 2; -- Увеличен размер иконок
+            item.Icon.Url = data.Icon; item.Icon.Size = {21, 21}; item.Icon.zIndex = z + 2; -- Увеличен размер иконок
         end
         if item.Text then 
             item.Text.Font = self.ActiveTheme.Fonts.Main; item.Text.Size = self.ActiveTheme.Fonts.Size; 
@@ -992,7 +992,7 @@ function Library:_InitializeWatermark()
 
     local function setupLogoText(textObj)
         if textObj then
-            textObj.Font = self.ActiveTheme.Fonts.Title; textObj.Size = self.ActiveTheme.Fonts.Size + 4; -- Увеличен шрифт лого
+            textObj.Font = self.ActiveTheme.Fonts.Title; textObj.Size = self.ActiveTheme.Fonts.Size + 6; -- Увеличен шрифт лого
             textObj.Text = "NL"; textObj.Center = true; textObj.zIndex = z + 1;
         end
     end
@@ -2534,7 +2534,7 @@ function Library:_RenderWatermark()
     local height = 40 -- Увеличиваем высоту
     local logoWidth = 50 -- Увеличиваем ширину лого
     local separatorWidth = 10
-    local padding = 12
+    local padding = 14
     
     local currentX = wm.Position.x
     
