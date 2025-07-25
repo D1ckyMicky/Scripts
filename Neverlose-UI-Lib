@@ -482,17 +482,18 @@ end
 function Library:_RenderGlowEffect(glowSet, x, y, width, height, rounding, targetColor, sides)
     if not glowSet or #glowSet == 0 or not targetColor then return end
     
+    -- Используем globalOpacity только для скрытия/показа всего UI, если это необходимо
     local globalOpacity = self.GlobalAnimation and self.GlobalAnimation.Opacity or 1
     
     sides = sides or {top=true, bottom=true, left=true, right=true}
     
-    local glowOpacity = ((targetColor[4] or 255) / 255) * globalOpacity
+    -- Базовая прозрачность самого цвета свечения (из RGBA)
+    local glowBaseOpacity = (targetColor[4] or 255) / 255
 
-    -- Цвет, к которому будет стремиться анимация
+    -- Цвет для анимации, без альфа-канала, чтобы не вызывать конфликтов
     local targetGlowRGB = {targetColor[1], targetColor[2], targetColor[3]}
 
     for i, glowSquare in ipairs(glowSet) do
-        local alpha_factor = 0.24 * math.exp(-0.24 * i)
         local spread = i * 0.6
         local glowX, glowY, glowW, glowH = x, y, width, height
 
@@ -505,11 +506,22 @@ function Library:_RenderGlowEffect(glowSet, x, y, width, height, rounding, targe
         glowSquare.Size = {glowW, glowH}
         glowSquare.Rounding = rounding + spread
         
-        -- ИСПОЛЬЗУЕМ _AnimateAndApplyColor ДЛЯ ПЛАВНОГО ПЕРЕХОДА ЦВЕТА
-        self:_AnimateAndApplyColor(glowSquare, targetGlowRGB)
+        -- Анимируем ТОЛЬКО цвет, без изменения прозрачности
+        local state = self.AnimationState[glowSquare]
+        if not state then
+            state = { CurrentColor = self:_DeepCopy(targetGlowRGB) }
+            self.AnimationState[glowSquare] = state
+        end
+        local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.5 
+        local animationSpeed = speed_value / 16.0
+        state.CurrentColor = self:_LerpColor(state.CurrentColor, targetGlowRGB, animationSpeed)
+        glowSquare.Color = {state.CurrentColor[1], state.CurrentColor[2], state.CurrentColor[3]}
+
+        -- Вручную рассчитываем и устанавливаем итоговую прозрачность здесь.
+        -- Это единственный источник значения Opacity для свечения, что решает проблему мерцания.
+        local alpha_factor = 0.24 * math.exp(-0.24 * i)
+        glowSquare.Opacity = glowBaseOpacity * globalOpacity * alpha_factor
         
-        -- Устанавливаем рассчитанную прозрачность вручную, так как у свечения она особая
-        glowSquare.Opacity = glowOpacity * alpha_factor
         self:_SetVisibility(glowSquare, true)
     end
 end
@@ -2069,7 +2081,7 @@ function Library:_RenderLoop()
         self:_RenderSections(rightPanelX, windowY, headerHeight)
     end
 
-    self:_RenderWatermark() -- << ДОБАВЬТЕ ЭТУ СТРОКУ
+    -- self:_RenderWatermark() -- << ДОБАВЬТЕ ЭТУ СТРОКУ
     self:_RenderSaveTooltip()
     self:_RenderConfigOptionsPopup()
     self:_RenderSettingsPopup()
@@ -2508,15 +2520,20 @@ function Library:_RenderWatermark()
     local wm = self.UI.Watermark
     local isVisible = self.UI.Values["BurgerWatermark"]
 
+    -- Сначала устанавливаем общую видимость
     self:_SetDrawingTableVisibility(wm, isVisible)
 
     if not isVisible then return end
 
     local theme = self.ActiveTheme
-    -- Используем новый цвет WatermarkBackground, с фоллбэком на MainBackground
+    local isThemeLight = self:_IsThemeLight(theme)
     local bgColor = theme.Colors.WatermarkBackground or theme.Colors.MainBackground
     local accentColor = theme.Colors.Accent
     local textColor = theme.Colors.TextPrimary
+
+    -- Скрываем или показываем тени логотипа в зависимости от темы
+    self:_SetVisibility(wm.LogoText2, not isThemeLight)
+    self:_SetVisibility(wm.LogoText3, not isThemeLight)
 
     wm.Items.Player.Text.Text = self.UI.Core.PlayerDisplayName.Text or "player"
     wm.Items.Config.Text.Text = self.UI.Core.ConfigsTab.LoadedConfigName or "default"
@@ -2542,7 +2559,6 @@ function Library:_RenderWatermark()
     
     local currentX = wm.Position.x
     
-    -- Лого
     wm.LogoBg.Position = {currentX, wm.Position.y}; wm.LogoBg.Size = {logoWidth, height}
     local logoBaseX = currentX + logoWidth/2
     local logoBaseY = wm.Position.y + height/2 - wm.LogoText1.Size/2
@@ -2553,7 +2569,6 @@ function Library:_RenderWatermark()
     
     currentX = currentX + logoWidth + separatorWidth
     
-    -- Инфо-блок
     local infoBgX = currentX
     local contentStartX = infoBgX + horizontalPadding
     currentX = contentStartX
@@ -2571,13 +2586,11 @@ function Library:_RenderWatermark()
         end
     end
     
-    -- Исправляем расчет ширины, чтобы учесть отступы с обеих сторон
-    local contentWidth = currentX - contentStartX - horizontalPadding -- Ширина контента без последнего отступа
-    local totalInfoWidth = contentWidth + (2 * horizontalPadding) -- Общая ширина фона
+    local contentWidth = currentX - contentStartX - horizontalPadding
+    local totalInfoWidth = contentWidth + (2 * horizontalPadding)
     
     wm.InfoBg.Position = {infoBgX, wm.Position.y}; wm.InfoBg.Size = {totalInfoWidth, height}
 
-    -- Область для перетаскивания
     local totalWidth = logoWidth + separatorWidth + totalInfoWidth
     wm.DragArea.Position = wm.Position; wm.DragArea.Size = {totalWidth, height}
 end
@@ -3281,18 +3294,22 @@ function Library:_AddPresetsTab()
 end
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 322541")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3xx41")
     local is_first_frame = true
-    while true do -- Цикл теперь работает всегда, чтобы ловить бинды
-        self:_InputLoop() -- Проверка ввода выполняется всегда
+    while true do
+        self:_InputLoop() -- Ввод обрабатывается всегда
 
-        if self.Window.Visible then -- А отрисовка - только когда окно видимо
+        if self.Window.Visible then -- Отрисовка основного UI
             if is_first_frame then
                 self:_AddPresetsTab()
                 is_first_frame = false
             end
             self:_RenderLoop()
         end
+
+        -- Ватермарка отрисовывается здесь, независимо от self.Window.Visible
+        self:_RenderWatermark()
+
         wait(0.01)
     end
 end
