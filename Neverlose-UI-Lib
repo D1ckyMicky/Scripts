@@ -950,9 +950,10 @@ function Library:_InitializeWatermark()
     wm.Position = {x = 20, y = 20}
     wm.IsDragging = false
     wm.DragOffset = {x = 0, y = 0}
+    wm.Rounding = 6 -- Добавляем скругление
 
     -- Объекты отрисовки
-    wm.DragArea = self:_CreateDrawingObject("Square") -- Невидимая область для перетаскивания
+    wm.DragArea = self:_CreateDrawingObject("Square")
     wm.LogoBg = self:_CreateDrawingObject("Square")
     wm.InfoBg = self:_CreateDrawingObject("Square")
     
@@ -966,7 +967,7 @@ function Library:_InitializeWatermark()
         Player = { Icon = "https://s6.imgcdn.dev/Y4qqxB.png", Text = "" },
         Config = { Icon = "https://s6.imgcdn.dev/Y4SCjT.png", Text = "" },
         Ping = { Icon = "https://s6.imgcdn.dev/Y4qFHu.png", Text = "0 ms" },
-        Fps = { Icon = "https://s6.imgcdn.dev/Y4qmnq.png", Text = "0" }
+        Fps = { Icon = "https://s6.imgcdn.dev/Y4qmnq.png", Text = "0 fps" }
     }
 
     for name, data in pairs(itemData) do
@@ -975,7 +976,7 @@ function Library:_InitializeWatermark()
             Text = self:_CreateDrawingObject("Text")
         }
         if item.Icon then 
-            item.Icon.Url = data.Icon; item.Icon.Size = {15, 15}; item.Icon.zIndex = z + 2; 
+            item.Icon.Url = data.Icon; item.Icon.Size = {24, 24}; item.Icon.zIndex = z + 2; -- Увеличен размер иконок
         end
         if item.Text then 
             item.Text.Font = self.ActiveTheme.Fonts.Main; item.Text.Size = self.ActiveTheme.Fonts.Size; 
@@ -986,12 +987,12 @@ function Library:_InitializeWatermark()
 
     -- Настройка основных элементов
     if wm.DragArea then wm.DragArea.Filled = true; wm.DragArea.Opacity = 0; wm.DragArea.zIndex = z + 5; end
-    if wm.LogoBg then wm.LogoBg.Filled = true; wm.LogoBg.zIndex = z; end
-    if wm.InfoBg then wm.InfoBg.Filled = true; wm.InfoBg.zIndex = z; end
+    if wm.LogoBg then wm.LogoBg.Filled = true; wm.LogoBg.zIndex = z; wm.LogoBg.Rounding = wm.Rounding; end -- Добавлено скругление
+    if wm.InfoBg then wm.InfoBg.Filled = true; wm.InfoBg.zIndex = z; wm.InfoBg.Rounding = wm.Rounding; end -- Добавлено скругление
 
     local function setupLogoText(textObj)
         if textObj then
-            textObj.Font = self.ActiveTheme.Fonts.Title; textObj.Size = self.ActiveTheme.Fonts.Size + 2;
+            textObj.Font = self.ActiveTheme.Fonts.Title; textObj.Size = self.ActiveTheme.Fonts.Size + 4; -- Увеличен шрифт лого
             textObj.Text = "NL"; textObj.Center = true; textObj.zIndex = z + 1;
         end
     end
@@ -2505,34 +2506,35 @@ function Library:_RenderWatermark()
     if not isVisible then return end
 
     local theme = self.ActiveTheme
+    -- Меняем цвета согласно требованиям
+    local bgColor = theme.Colors.MainBackground
     local accentColor = theme.Colors.Accent
-    local textColor = self:_GetTextColorForBackground(accentColor)
-    local globalOpacity = self.GlobalAnimation.Opacity
+    local textColor = theme.Colors.TextPrimary
 
-    -- Обновляем динамические данные
+    -- Обновляем динамические данные с новым форматом
     wm.Items.Player.Text.Text = self.UI.Core.PlayerDisplayName.Text or "player"
     wm.Items.Config.Text.Text = self.UI.Core.ConfigsTab.LoadedConfigName or "default"
-    wm.Items.Ping.Text.Text = tostring(getping() or 0) .. " ms" -- [cite: 26]
-    wm.Items.Fps.Text.Text = tostring(get_overlay_fps() or 0) -- [cite: 24]
+    wm.Items.Ping.Text.Text = string.format("%.2f ms", getping() or 0) -- Форматируем пинг
+    wm.Items.Fps.Text.Text = tostring(get_overlay_fps() or 0) .. " fps" -- Добавляем "fps"
 
-    -- Применяем цвета
-    self:_AnimateAndApplyColor(wm.LogoBg, accentColor, globalOpacity)
-    self:_AnimateAndApplyColor(wm.InfoBg, accentColor, globalOpacity)
+    -- Применяем цвета и игнорируем глобальную прозрачность (передаем 1)
+    self:_AnimateAndApplyColor(wm.LogoBg, bgColor, 1)
+    self:_AnimateAndApplyColor(wm.InfoBg, bgColor, 1)
     
-    self:_AnimateAndApplyColor(wm.LogoText1, textColor, globalOpacity)
-    self:_AnimateAndApplyColor(wm.LogoText2, accentColor, globalOpacity)
-    self:_AnimateAndApplyColor(wm.LogoText3, {0,0,0,100}, globalOpacity)
+    self:_AnimateAndApplyColor(wm.LogoText1, textColor, 1)
+    self:_AnimateAndApplyColor(wm.LogoText2, accentColor, 1)
+    self:_AnimateAndApplyColor(wm.LogoText3, {0,0,0,100}, 1)
     
     for _, item in pairs(wm.Items) do
-        self:_AnimateAndApplyColor(item.Icon, textColor, globalOpacity)
-        self:_AnimateAndApplyColor(item.Text, textColor, globalOpacity)
+        self:_AnimateAndApplyColor(item.Icon, accentColor, 1) -- Иконки теперь акцентного цвета
+        self:_AnimateAndApplyColor(item.Text, textColor, 1)
     end
 
-    -- Рассчитываем размеры и позиции
-    local height = 32
-    local logoWidth = 40
-    local separatorWidth = 8
-    local padding = 10
+    -- Рассчитываем размеры и позиции с учетом новых размеров
+    local height = 40 -- Увеличиваем высоту
+    local logoWidth = 50 -- Увеличиваем ширину лого
+    local separatorWidth = 10
+    local padding = 12
     
     local currentX = wm.Position.x
     
@@ -2548,12 +2550,12 @@ function Library:_RenderWatermark()
     local infoStartX = currentX
     local totalInfoWidth = 0
     
-    local order = {"Player", "Config", "Ping", "Fps"} -- Порядок отображения
+    local order = {"Player", "Config", "Ping", "Fps"}
     for _, name in ipairs(order) do
         local item = wm.Items[name]
         if item.Icon.Visible then
             item.Icon.Position = {currentX, wm.Position.y + height/2 - item.Icon.Size.y/2}
-            currentX = currentX + item.Icon.Size.x + 5
+            currentX = currentX + item.Icon.Size.x + 8 -- Немного увеличиваем отступ от иконки
         end
         if item.Text.Visible and item.Text.TextBounds then
             item.Text.Position = {currentX, wm.Position.y + height/2 - item.Text.Size/2}
