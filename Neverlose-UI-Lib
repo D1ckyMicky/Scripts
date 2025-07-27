@@ -2874,7 +2874,6 @@ function Library:_InputLoop()
     local burger_button = self.UI.Core.HeaderButtons.BurgerMenu
     local wm = self.UI.Watermark
 
-    -- [[ НОВОЕ: Перемещаем функцию сюда, чтобы она была доступна везде внутри _InputLoop ]]
     local function applySliderInput(slider)
         if not slider.IsEditing then return end
         local num = tonumber(slider.InputText)
@@ -2885,6 +2884,9 @@ function Library:_InputLoop()
         end
         slider.IsEditing = false
     end
+
+    -- [[ ИЗМЕНЕНИЕ: Определяем, открыто ли какое-либо всплывающее окно, в самом начале ]]
+    local any_popup_is_open = burger_popup.IsOpen or settings_popup.IsOpen or style_window.IsOpen or picker.IsOpen or configsTab.OptionsPopup.IsOpen or self.UI.Popups.About.IsOpen
 
     -- Обновляем состояние ховеров для выпадающих списков
     local anyDropdownOpen = false
@@ -2930,7 +2932,7 @@ function Library:_InputLoop()
 
     -- 1. ЛОГИКА НАЧАЛА НАЖАТИЯ (is_press_started)
     if is_press_started then
-        is_dragging_something = false -- Сбрасываем перед новой проверкой
+        is_dragging_something = false 
         
         local picker_region = picker.IsOpen and {x1=picker.Background.Position.x, y1=picker.Background.Position.y, x2=picker.Background.Position.x+picker.Background.Size.x, y2=picker.Background.Position.y+picker.Background.Size.y} or nil
         if picker.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, picker_region) then
@@ -2962,7 +2964,9 @@ function Library:_InputLoop()
             if not started_slider_drag then
                 local header_drag_region = {x1 = self.Window.X, y1 = self.Window.Y, x2 = self.Window.X + self.Window.Width, y2 = self.Window.Y + self.Window.HeaderHeight}
                 local on_header_button = self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.Save.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.ViewESP.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.CreateNew.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.Settings.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, burger_button.ClickRegion)
-                if self:_IsPointInRegion(mouse_x, mouse_y, header_drag_region) and not on_header_button then
+                
+                -- [[ ИЗМЕНЕНИЕ: Добавляем проверку 'and not any_popup_is_open' ]]
+                if self:_IsPointInRegion(mouse_x, mouse_y, header_drag_region) and not on_header_button and not any_popup_is_open then
                     self.Window.IsDragging = true; is_dragging_something = true; drag_offset = {x = mouse_x - self.Window.X, y = mouse_y - self.Window.Y};
                 end
             end
@@ -3022,16 +3026,12 @@ function Library:_InputLoop()
             end
 
             if not click_was_handled then
-                -- [[ ИСПРАВЛЕНИЕ: Удаляем локальное определение applySliderInput отсюда ]]
-
                 local active_slider_editing = nil
                 for _, section in ipairs(self.UI.Sections) do for _, el in ipairs(section.Elements) do if el.type == "Slider" and el.IsEditing then active_slider_editing = el; break; end end if active_slider_editing then break end end
 
                 if active_slider_editing and not self:_IsPointInRegion(mouse_x, mouse_y, active_slider_editing.ValueInputClickRegion) then
                     applySliderInput(active_slider_editing)
                 elseif not active_slider_editing then
-                    local any_popup_is_open = burger_popup.IsOpen or settings_popup.IsOpen or style_window.IsOpen or picker.IsOpen or configsTab.OptionsPopup.IsOpen or self.UI.Popups.About.IsOpen
-
                     if not click_was_handled and any_popup_is_open then
                         if burger_popup.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, burger_popup.ClickRegion) then
                             if burger_popup.HoveredItemIndex > 0 then local item = burger_popup.Items[burger_popup.HoveredItemIndex]; self.UI.Values[item.id] = not self.UI.Values[item.id]; end; click_was_handled = true;
@@ -3159,7 +3159,7 @@ function Library:_InputLoop()
         is_dragging_something = false
     end
 
-    -- 4. ЛОГИКА КЛАВИАТУРЫ (без изменений)
+    -- 4. ЛОГИКА КЛАВИАТУРЫ
     do
         local KEY_INITIAL_DELAY = 0.4 
         local KEY_REPEAT_DELAY = 0.05
