@@ -2874,6 +2874,18 @@ function Library:_InputLoop()
     local burger_button = self.UI.Core.HeaderButtons.BurgerMenu
     local wm = self.UI.Watermark
 
+    -- [[ НОВОЕ: Перемещаем функцию сюда, чтобы она была доступна везде внутри _InputLoop ]]
+    local function applySliderInput(slider)
+        if not slider.IsEditing then return end
+        local num = tonumber(slider.InputText)
+        if num then
+            num = math.clamp(num, slider.Min, slider.Max)
+            self.UI.Values[slider.id] = num
+            if slider.Callback then slider.Callback(num) end
+        end
+        slider.IsEditing = false
+    end
+
     -- Обновляем состояние ховеров для выпадающих списков
     local anyDropdownOpen = false
     for _, section in ipairs(self.UI.Sections) do
@@ -3010,17 +3022,7 @@ function Library:_InputLoop()
             end
 
             if not click_was_handled then
-                -- [[ НАЧАЛО ВСТАВЛЕННОГО БЛОКА ]]
-                local function applySliderInput(slider)
-                    if not slider.IsEditing then return end
-                    local num = tonumber(slider.InputText)
-                    if num then
-                        num = math.clamp(num, slider.Min, slider.Max)
-                        self.UI.Values[slider.id] = num
-                        if slider.Callback then slider.Callback(num) end
-                    end
-                    slider.IsEditing = false
-                end
+                -- [[ ИСПРАВЛЕНИЕ: Удаляем локальное определение applySliderInput отсюда ]]
 
                 local active_slider_editing = nil
                 for _, section in ipairs(self.UI.Sections) do for _, el in ipairs(section.Elements) do if el.type == "Slider" and el.IsEditing then active_slider_editing = el; break; end end if active_slider_editing then break end end
@@ -3148,7 +3150,6 @@ function Library:_InputLoop()
                         end
                     end
                 end
-                -- [[ КОНЕЦ ВСТАВЛЕННОГО БЛОКА ]]
             end
         end
 
