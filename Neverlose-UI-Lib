@@ -626,8 +626,7 @@ function Library:_InitializeCoreUI()
         Author = self:_CreateDrawingObject("Text")
     }
     
-    -- [[ ИЗМЕНЕНИЕ: Добавляем Animation table ]]
-    self.UI.Popups.About = { IsOpen = false, Animation = { IsOpening = false, IsClosing = false, CurrentOpacity = 0 } }
+    --[[ ИЗМЕНЕНИЕ: Убираем self.UI.Popups.About отсюда, так как состояние будет храниться в self.UI.Core.AboutWindow ]]
 
     local function setupHeaderButton(button, text, has_icon)
         if button.Background then button.Background.Filled = true; button.Background.zIndex = 2; button.Background.Rounding = self.ActiveTheme.Rounding.Button; end
@@ -740,7 +739,14 @@ function Library:_InitializeBurgerMenu()
 end
 
 function Library:_InitializeAboutWindow()
-    local about = {}; self.UI.Core.AboutWindow = about; local about_z = 32
+    local about = {}; 
+    self.UI.Core.AboutWindow = about; 
+    local about_z = 32
+
+    -- [[ ИЗМЕНЕНИЕ: Добавляем состояние и анимацию сюда ]]
+    about.IsOpen = false
+    about.Animation = { IsOpening = false, IsClosing = false, CurrentOpacity = 0 }
+    
     about.StyleCircles = {}
     about.HoveredThemeCircle = { Name = nil, HoverStartTime = 0 }
     about.Background = self:_CreateDrawingObject("Square"); if about.Background then about.Background.Filled = true; about.Background.zIndex = 30; about.Background.Rounding = self.ActiveTheme.Rounding.Section; end
@@ -1473,8 +1479,7 @@ end
 
 function Library:_RenderAboutWindow(mouse_pos)
     local about = self.UI.Core.AboutWindow
-
-    -- [[ ИСПРАВЛЕНИЕ: Перемещаем определение этой локальной функции в самое начало ]]
+    
     local function setAboutVisibility(tbl, visible)
         for key, obj in pairs(tbl) do
             if type(obj) == 'table' then
@@ -1493,14 +1498,15 @@ function Library:_RenderAboutWindow(mouse_pos)
         end
     end
 
-    local masterOpacity = self.UI.Popups.About.Animation.CurrentOpacity
+    -- [[ ИЗМЕНЕНИЕ: Берем opacity напрямую из объекта about ]]
+    local masterOpacity = about.Animation.CurrentOpacity
     local theme = self.ActiveTheme
     local isThemeLight = self:_IsThemeLight(theme)
     
     if masterOpacity <= 0 then
         self:_HideGlowEffect(about.Glow)
-        if about.AnimationSpeedSlider.Glow then self:_HideGlowEffect(about.AnimationSpeedSlider.Glow) end
-        setAboutVisibility(about, false) -- Теперь этот вызов корректен
+        if about.AnimationSpeedSlider and about.AnimationSpeedSlider.Glow then self:_HideGlowEffect(about.AnimationSpeedSlider.Glow) end
+        setAboutVisibility(about, false)
         self:_SetVisibility(about.Tooltip.Background, false)
         self:_SetVisibility(about.Tooltip.Text, false)
         for _, circle in ipairs(about.StyleCircles) do
@@ -2888,7 +2894,8 @@ function Library:_InputLoop()
     local picker = self.UI.Popups.ColorPicker
     local style_window = self.UI.Popups.EditStyle
     local configsTab = self.UI.Core.ConfigsTab
-    local about_window = self.UI.Popups.About
+    -- [[ ИЗМЕНЕНИЕ: Указываем правильный путь к объекту About Window ]]
+    local about_window = self.UI.Core.AboutWindow
     local settings_popup = self.UI.Popups.Settings
     local burger_popup = self.UI.Popups.BurgerMenu
     local burger_button = self.UI.Core.HeaderButtons.BurgerMenu
@@ -3047,7 +3054,6 @@ function Library:_InputLoop()
                     applySliderInput(active_slider_editing)
                 elseif not active_slider_editing then
                     if not click_was_handled and any_popup_is_open then
-                        -- [[ ИЗМЕНЕНИЕ: Логика для закрытия/взаимодействия с окнами ]]
                         if burger_popup.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, burger_popup.ClickRegion) then
                             if burger_popup.HoveredItemIndex > 0 then local item = burger_popup.Items[burger_popup.HoveredItemIndex]; self.UI.Values[item.id] = not self.UI.Values[item.id]; end; click_was_handled = true;
                         elseif settings_popup.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, settings_popup.ClickRegion) then
@@ -3055,7 +3061,6 @@ function Library:_InputLoop()
                         elseif configsTab.OptionsPopup.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, configsTab.OptionsPopup.ClickRegion) then
                             if self:_IsPointInRegion(mouse_x, mouse_y, configsTab.OptionsPopup.IncludeStyleToggle.ClickRegion) then self.UI.Values[configsTab.OptionsPopup.IncludeStyleToggle.id] = not self.UI.Values[configsTab.OptionsPopup.IncludeStyleToggle.id]; end; click_was_handled = true;
                         elseif picker.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, picker_region) then
-                            -- [[ ИЗМЕНЕНИЕ: Логика для дропдауна палитры ]]
                             if self:_IsPointInRegion(mouse_x, mouse_y, picker.Dropdown.ClickRegion) then
                                 picker.DropdownIsOpen = not picker.DropdownIsOpen
                             elseif picker.DropdownIsOpen then
@@ -3320,7 +3325,7 @@ function Library:_AddPresetsTab()
 end
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3225x41")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 322541")
     local is_first_frame = true
     while true do
         self:_InputLoop()
