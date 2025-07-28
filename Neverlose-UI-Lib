@@ -2071,8 +2071,9 @@ function Library:_RenderLoop()
         end
     end
 
-    -- [[ ИЗМЕНЕНИЕ: Добавляем блок обновления анимаций ]]
-    self:_UpdatePopupAnimation(self.UI.Popups.About)
+    -- [[ Блок обновления анимаций ]]
+    -- [[ ИСПРАВЛЕНИЕ: Указываем правильный путь к объекту About Window ]]
+    self:_UpdatePopupAnimation(self.UI.Core.AboutWindow)
     self:_UpdatePopupAnimation(self.UI.Popups.EditStyle)
     self:_UpdatePopupAnimation(self.UI.Popups.ColorPicker)
     self:_UpdatePopupAnimation(self.UI.Popups.BurgerMenu)
