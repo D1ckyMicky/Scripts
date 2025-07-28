@@ -639,7 +639,7 @@ function Library:_InitializeCoreUI()
     setupHeaderButton(UI.Core.HeaderButtons.ViewESP, "View ESP", false)
     setupHeaderButton(UI.Core.HeaderButtons.CreateNew, " Create new", true)
     
-    if UI.Core.HeaderButtons.Save.Icon then UI.Core.HeaderButtons.Save.Icon.Url = "https://web.archive.org/web/20250728145854/https://s6.imgcdn.dev/Y4Sudt.png"; end
+    if UI.Core.HeaderButtons.Save.Icon then UI.Core.HeaderButtons.Save.Icon.Url = "https://bashify.io/img/79d3d3547ca9cf8a0446210488e8e7d9"; end
     if UI.Core.HeaderButtons.CreateNew.Icon then UI.Core.HeaderButtons.CreateNew.Icon.Url = "https://i.imgur.com/plus-sign-icon.png"; end
     if UI.Core.HeaderButtons.Settings.Icon then UI.Core.HeaderButtons.Settings.Icon.Url = "https://s6.imgcdn.dev/Y4SCjT.png"; UI.Core.HeaderButtons.Settings.Icon.Size = {20, 20}; UI.Core.HeaderButtons.Settings.Icon.zIndex = 5; end
 
