@@ -3030,7 +3030,6 @@ function Library:_InputLoop()
     if is_press_started then
         is_dragging_something = false 
         
-        -- [[ ИСПРАВЛЕНИЕ: Блокируем начало перетаскивания, если открыт ЛЮБОЙ дропдаун ]]
         if anyDropdownOpen or (picker.IsOpen and picker.DropdownIsOpen) then
              -- A dropdown is open, do not start any dragging operations.
         else
@@ -3126,7 +3125,6 @@ function Library:_InputLoop()
                 applyColorInput(picker); click_was_handled = true
             end
 
-            -- [[ ИСПРАВЛЕНИЕ: Новая иерархия обработки кликов ]]
             if not click_was_handled then
                 if picker.IsOpen and picker.DropdownIsOpen then
                     if picker.HoveredDropdownIndex > 0 then
@@ -3140,19 +3138,35 @@ function Library:_InputLoop()
                             if el.PopupClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, el.PopupClickRegion) then
                                 if el.HoveredOptionIndex > 0 then
                                     local i = el.HoveredOptionIndex
-                                    if el.type == "Dropdown" then self.UI.Values[el.id] = el.Options[i]; if el.Callback then el.Callback(self.UI.Values[el.id]) end;
-                                    else local opt = el.Options[i]; local found_idx = table.find(self.UI.Values[el.id], opt); if found_idx then table.remove(self.UI.Values[el.id], found_idx) else table.insert(self.UI.Values[el.id], opt) end; if el.Callback then el.Callback(self.UI.Values[el.id]) end;
+                                    -- [[ ИСПРАВЛЕНИЕ: Закрываем только обычный Dropdown, а Multidropdown оставляем открытым ]]
+                                    if el.type == "Dropdown" then
+                                        self.UI.Values[el.id] = el.Options[i]
+                                        if el.Callback then el.Callback(self.UI.Values[el.id]) end
+                                        el.IsOpen, el.IsClosing = false, true
+                                    else
+                                        local opt = el.Options[i]
+                                        local found_idx = table.find(self.UI.Values[el.id], opt)
+                                        if found_idx then table.remove(self.UI.Values[el.id], found_idx) else table.insert(self.UI.Values[el.id], opt) end
+                                        if el.Callback then el.Callback(self.UI.Values[el.id]) end
                                     end
                                 end
-                                el.IsOpen, el.IsClosing = false, true
-                                click_was_handled = true; break
-                            elseif self:_IsPointInRegion(mouse_x, mouse_y, el.ClickRegion) then
-                                el.IsOpen, el.IsClosing = false, true
                                 click_was_handled = true; break
                             end
                         end
                     end if click_was_handled then break end end
                 end
+            end
+
+            -- [[ ИСПРАВЛЕНИЕ: Добавляем блок для закрытия дропдаунов по клику снаружи ]]
+            if not click_was_handled and anyDropdownOpen then
+                for _, section in ipairs(self.UI.Sections) do for _, el in ipairs(section.Elements) do
+                    if (el.type == "Dropdown" or el.type == "Multidropdown") and el.IsOpen then
+                        if not self:_IsPointInRegion(mouse_x, mouse_y, el.ClickRegion) and not (el.PopupClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, el.PopupClickRegion)) then
+                           el.IsOpen, el.IsClosing = false, true
+                        end
+                    end
+                end end
+                click_was_handled = true 
             end
             
             if not click_was_handled then
@@ -3210,7 +3224,7 @@ function Library:_InputLoop()
                         for _, element in ipairs(settings_popup.ActiveToggle.SettingsElements or {}) do if element.type == "Keybind" and self:_IsPointInRegion(mouse_x, mouse_y, element.ClickRegion) then element.IsListening = not element.IsListening; break; end end;
                     elseif configsTab.OptionsPopup.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, configsTab.OptionsPopup.ClickRegion) then
                         if self:_IsPointInRegion(mouse_x, mouse_y, configsTab.OptionsPopup.IncludeStyleToggle.ClickRegion) then self.UI.Values[configsTab.OptionsPopup.IncludeStyleToggle.id] = not self.UI.Values[configsTab.OptionsPopup.IncludeStyleToggle.id]; end;
-                    else -- Click outside a non-modal popup, so close it
+                    else 
                         if burger_popup.IsOpen then burger_popup.Animation.IsClosing = true; burger_popup.Animation.IsOpening = false end
                         if settings_popup.IsOpen then settings_popup.IsOpen = false; self:_HideSettingsPopupElements(settings_popup); end
                         if configsTab.OptionsPopup.IsOpen then configsTab.OptionsPopup.IsOpen = false end
@@ -3412,7 +3426,7 @@ function Library:_AddPresetsTab()
 end
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 31")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3xxxxx1")
     local is_first_frame = true
     while true do
         self:_InputLoop()
