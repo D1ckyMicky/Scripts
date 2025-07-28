@@ -951,7 +951,6 @@ function Library:_InitializeEditStyleWindow()
 end
 
 function Library:_InitializeColorPickerWindow()
-    -- [[ ИЗМЕНЕНИЕ: Добавляем Animation table ]]
     local picker = { IsOpen = false, Animation = { IsOpening = false, IsClosing = false, CurrentOpacity = 0 } }; 
     self.UI.Popups.ColorPicker = picker; 
     local z = 50
@@ -997,17 +996,25 @@ function Library:_InitializeColorPickerWindow()
         ArrowLine1 = self:_CreateDrawingObject("Line"),
         ArrowLine2 = self:_CreateDrawingObject("Line"),
         PopupBg = self:_CreateDrawingObject("Square"),
+        Border = self:_CreateDrawingObject("Square"),
         Options = {},
         ClickRegion = {}
     }
-    if picker.Dropdown.Button then picker.Dropdown.Button.Filled = true; picker.Dropdown.Button.zIndex = inputZ; picker.Dropdown.Button.Rounding = 4; end
-    if picker.Dropdown.ButtonText then picker.Dropdown.ButtonText.Font = self.ActiveTheme.Fonts.Main; picker.Dropdown.ButtonText.Size = self.ActiveTheme.Fonts.Size; picker.Dropdown.ButtonText.zIndex = inputZ + 1; end
-    if picker.Dropdown.ArrowLine1 then picker.Dropdown.ArrowLine1.Thickness = 1.5; picker.Dropdown.ArrowLine1.zIndex = inputZ + 1; end
-    if picker.Dropdown.ArrowLine2 then picker.Dropdown.ArrowLine2.Thickness = 1.5; picker.Dropdown.ArrowLine2.zIndex = inputZ + 1; end
-    if picker.Dropdown.PopupBg then picker.Dropdown.PopupBg.Filled = true; picker.Dropdown.PopupBg.zIndex = inputZ + 5; picker.Dropdown.PopupBg.Rounding = 4; end
+    if picker.Dropdown.Button then picker.Dropdown.Button.Filled = true; picker.Dropdown.Button.zIndex = inputZ; picker.Dropdown.Button.Rounding = self.ActiveTheme.Rounding.Element; end
+    if picker.Dropdown.ButtonText then picker.Dropdown.ButtonText.Font = self.ActiveTheme.Fonts.Main; picker.Dropdown.ButtonText.Size = self.ActiveTheme.Fonts.Size + 3; picker.Dropdown.ButtonText.zIndex = inputZ + 1; end
+    if picker.Dropdown.ArrowLine1 then picker.Dropdown.ArrowLine1.Thickness = 2; picker.Dropdown.ArrowLine1.zIndex = inputZ + 2; end
+    if picker.Dropdown.ArrowLine2 then picker.Dropdown.ArrowLine2.Thickness = 2; picker.Dropdown.ArrowLine2.zIndex = inputZ + 2; end
+    if picker.Dropdown.PopupBg then picker.Dropdown.PopupBg.Filled = true; picker.Dropdown.PopupBg.zIndex = inputZ + 5; picker.Dropdown.PopupBg.Rounding = self.ActiveTheme.Rounding.Section; end
+    if picker.Dropdown.Border then picker.Dropdown.Border.Filled = false; picker.Dropdown.Border.Thickness = 1; picker.Dropdown.Border.zIndex = inputZ + 6; picker.Dropdown.Border.Rounding = self.ActiveTheme.Rounding.Section; end
+
     for _, mode in ipairs({"HEX", "RGBA"}) do
-        local option = { Text = self:_CreateDrawingObject("Text"), ClickRegion = {} }
-        if option.Text then option.Text.Font = self.ActiveTheme.Fonts.Main; option.Text.Size = self.ActiveTheme.Fonts.Size; option.Text.Text = mode; option.Text.zIndex = inputZ + 6; end
+        local option = { 
+            Text = self:_CreateDrawingObject("Text"), 
+            Highlight = self:_CreateDrawingObject("Square"),
+            ClickRegion = {} 
+        }
+        if option.Text then option.Text.Font = self.ActiveTheme.Fonts.Main; option.Text.Size = self.ActiveTheme.Fonts.Size; option.Text.Text = mode; option.Text.zIndex = inputZ + 7; end
+        if option.Highlight then option.Highlight.Filled = true; option.Highlight.zIndex = inputZ + 6; option.Highlight.Rounding = self.ActiveTheme.Rounding.Element; end
         table.insert(picker.Dropdown.Options, option)
     end
 
@@ -1017,8 +1024,8 @@ function Library:_InitializeColorPickerWindow()
         Cursor = self:_CreateDrawingObject("Line"),
         ClickRegion = {}
     }
-    if picker.Input.Background then picker.Input.Background.Filled = true; picker.Input.Background.zIndex = inputZ; picker.Input.Background.Rounding = 4; end
-    if picker.Input.Text then picker.Input.Text.Font = self.ActiveTheme.Fonts.Main; picker.Input.Text.Size = self.ActiveTheme.Fonts.Size; picker.Input.Text.zIndex = inputZ + 1; end
+    if picker.Input.Background then picker.Input.Background.Filled = true; picker.Input.Background.zIndex = inputZ; picker.Input.Background.Rounding = self.ActiveTheme.Rounding.Element; end
+    if picker.Input.Text then picker.Input.Text.Font = self.ActiveTheme.Fonts.Main; picker.Input.Text.Size = self.ActiveTheme.Fonts.Size + 3; picker.Input.Text.zIndex = inputZ + 1; end
     if picker.Input.Cursor then picker.Input.Cursor.Thickness = 1.5; picker.Input.Cursor.zIndex = inputZ + 2; end
 
     picker.SaturationValueRegion = {}
@@ -1938,7 +1945,11 @@ function Library:_RenderColorPickerWindow()
     self:_SetDrawingTableVisibility(picker, allVisible)
     self:_SetVisibility(picker.Input.Cursor, allVisible and picker.IsEditing and math.sin(tick() * 5) > 0)
     self:_SetVisibility(picker.Dropdown.PopupBg, allVisible and picker.DropdownIsOpen)
-    for _, opt in ipairs(picker.Dropdown.Options) do self:_SetVisibility(opt.Text, allVisible and picker.DropdownIsOpen) end
+    self:_SetVisibility(picker.Dropdown.Border, allVisible and picker.DropdownIsOpen)
+    for _, opt in ipairs(picker.Dropdown.Options) do 
+        self:_SetVisibility(opt.Text, allVisible and picker.DropdownIsOpen) 
+        self:_SetVisibility(opt.Highlight, allVisible and picker.DropdownIsOpen)
+    end
 
     local theme = self.ActiveTheme
     local padding = 10
@@ -2032,7 +2043,7 @@ function Library:_RenderColorPickerWindow()
     input.Text.Position = {inputX + 8, currentY + inputRowHeight/2 - input.Text.Size/2}
     self:_AnimateAndApplyColor(input.Text, theme.Colors.TextPrimary, masterOpacity)
     
-    if input.Text.TextBounds then
+    if input.Text.TextBounds and picker.IsEditing then
         local cursorX = input.Text.Position.x + input.Text.TextBounds.x + 2
         input.Cursor.From = {cursorX, currentY + 4}
         input.Cursor.To = {cursorX, currentY + inputRowHeight - 4}
@@ -2040,14 +2051,28 @@ function Library:_RenderColorPickerWindow()
     end
 
     if picker.DropdownIsOpen then
-        local popupY = dd.ClickRegion.y1 - (2 * inputRowHeight) - 5
-        dd.PopupBg.Position = {dd.ClickRegion.x1, popupY}; dd.PopupBg.Size = {dropdownWidth, inputRowHeight * 2}
+        local optionHeight = 25
+        local popupHeight = (#dd.Options * optionHeight) + 10
+        local popupY = dd.ClickRegion.y1 - popupHeight
+        dd.PopupBg.Position = {dd.ClickRegion.x1, popupY}; dd.PopupBg.Size = {dropdownWidth, popupHeight}
         self:_AnimateAndApplyColor(dd.PopupBg, theme.Colors.SectionBackground, masterOpacity)
-        
+        dd.Border.Position = {dd.ClickRegion.x1, popupY}; dd.Border.Size = {dropdownWidth, popupHeight}
+        self:_AnimateAndApplyColor(dd.Border, theme.Colors.Separator, masterOpacity)
+
+        local currentOptionY = popupY + 5
         for i, option in ipairs(dd.Options) do
-            option.ClickRegion = {x1 = dd.ClickRegion.x1, y1 = popupY + (i-1)*inputRowHeight, x2 = dd.ClickRegion.x1 + dropdownWidth, y2 = popupY + i*inputRowHeight}
-            option.Text.Position = {dd.ClickRegion.x1 + 8, popupY + (i-1)*inputRowHeight + inputRowHeight/2 - option.Text.Size/2}
+            option.ClickRegion = {x1 = dd.ClickRegion.x1, y1 = currentOptionY, x2 = dd.ClickRegion.x1 + dropdownWidth, y2 = currentOptionY + optionHeight}
+            option.Text.Position = {dd.ClickRegion.x1 + 10, currentOptionY + optionHeight/2 - option.Text.Size/2}
             self:_AnimateAndApplyColor(option.Text, theme.Colors.TextPrimary, masterOpacity)
+            
+            option.Highlight.Position = {dd.ClickRegion.x1 + 5, currentOptionY}; option.Highlight.Size = {dropdownWidth - 10, optionHeight}
+            local isHovered = (picker.HoveredDropdownIndex == i)
+            if isHovered then
+                self:_AnimateAndApplyColor(option.Highlight, theme.Colors.Separator, masterOpacity * 0.4)
+            else
+                option.Highlight.Opacity = 0
+            end
+            currentOptionY = currentOptionY + optionHeight
         end
     end
 end
@@ -2895,7 +2920,6 @@ function Library:_InputLoop()
     local picker = self.UI.Popups.ColorPicker
     local style_window = self.UI.Popups.EditStyle
     local configsTab = self.UI.Core.ConfigsTab
-    -- [[ ИЗМЕНЕНИЕ: Указываем правильный путь к объекту About Window ]]
     local about_window = self.UI.Core.AboutWindow
     local settings_popup = self.UI.Popups.Settings
     local burger_popup = self.UI.Popups.BurgerMenu
@@ -2913,9 +2937,37 @@ function Library:_InputLoop()
         slider.IsEditing = false
     end
 
-    local any_popup_is_open = burger_popup.IsOpen or settings_popup.IsOpen or style_window.IsOpen or picker.IsOpen or configsTab.OptionsPopup.IsOpen or about_window.IsOpen
+    -- [[ ИЗМЕНЕНИЕ: Новая функция для применения цвета из поля ввода ]]
+    local function applyColorInput(picker)
+        if not picker.IsEditing then return end
+        picker.IsEditing = false
+        local success, newColor
+        if picker.Mode == "HEX" then
+            newColor = self:_HEXtoRGB(picker.InputText)
+        else -- RGBA
+            local nums = {}
+            for n in string.gmatch(picker.InputText, "%d+") do table.insert(nums, tonumber(n)) end
+            if #nums >= 3 then
+                newColor = { nums[1], nums[2], nums[3], nums[4] or 255 }
+            end
+        end
+        if newColor then
+            picker.h, picker.s, picker.v, picker.a = self:_RGBtoHSV(newColor[1], newColor[2], newColor[3], newColor[4])
+        end
+    end
 
+    local any_popup_is_open = burger_popup.IsOpen or settings_popup.IsOpen or style_window.IsOpen or picker.IsOpen or configsTab.OptionsPopup.IsOpen or about_window.IsOpen
     local anyDropdownOpen = false
+    picker.HoveredDropdownIndex = 0
+
+    if picker.IsOpen and picker.DropdownIsOpen then
+        for i, option in ipairs(picker.Dropdown.Options) do
+            if self:_IsPointInRegion(mouse_x, mouse_y, option.ClickRegion) then
+                picker.HoveredDropdownIndex = i; break;
+            end
+        end
+    end
+
     for _, section in ipairs(self.UI.Sections) do
         if section.ParentTab == self.Window.ActiveTab then
             for _, el in ipairs(section.Elements) do
@@ -2959,39 +3011,44 @@ function Library:_InputLoop()
     if is_press_started then
         is_dragging_something = false 
         
-        local picker_region = picker.IsOpen and {x1=picker.Background.Position.x, y1=picker.Background.Position.y, x2=picker.Background.Position.x+picker.Background.Size.x, y2=picker.Background.Position.y+picker.Background.Size.y} or nil
-        if picker.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, picker_region) then
-            picker.pressStartedInside = true
+        -- [[ ИЗМЕНЕНИЕ: Приоритет для дропдауна палитры ]]
+        if picker.IsOpen and picker.DropdownIsOpen then
+            -- Не начинаем перетаскивание, если открыт дропдаун палитры
         else
-            picker.pressStartedInside = false
-        end
-
-        if self.UI.Values["BurgerWatermark"] and self:_IsPointInRegion(mouse_x, mouse_y, {x1=wm.DragArea.Position.x, y1=wm.DragArea.Position.y, x2=wm.DragArea.Position.x + wm.DragArea.Size.x, y2=wm.DragArea.Position.y + wm.DragArea.Size.y}) then
-            wm.IsDragging = true; is_dragging_something = true; wm.DragOffset = {x = mouse_x - wm.Position.x, y = mouse_y - wm.Position.y};
-        elseif about_window.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, about_window.AnimationSpeedSlider.ClickRegion) then
-            about_window.AnimationSpeedSlider.IsDragging = true; is_dragging_something = true;
-        elseif picker.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, picker.HueSliderRegion) then
-            picker.isDraggingHue = true; is_dragging_something = true;
-        elseif picker.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, picker.OpacitySliderRegion) then
-            picker.isDraggingOpacity = true; is_dragging_something = true;
-        elseif picker.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, picker.SaturationValueRegion) then
-            picker.isDraggingSaturationValue = true; is_dragging_something = true;
-        elseif not anyDropdownOpen and not picker.pressStartedInside then
-            local started_slider_drag = false
-            for _, section in ipairs(self.UI.Sections) do
-                for _, el in ipairs(section.Elements) do
-                    if el.type == "Slider" and self:_IsPointInRegion(mouse_x, mouse_y, el.ClickRegion) then
-                        el.IsDragging = true; started_slider_drag = true; is_dragging_something = true; break;
-                    end
-                end
-                if started_slider_drag then break end
+            local picker_region = picker.IsOpen and {x1=picker.Background.Position.x, y1=picker.Background.Position.y, x2=picker.Background.Position.x+picker.Background.Size.x, y2=picker.Background.Position.y+picker.Background.Size.y} or nil
+            if picker.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, picker_region) then
+                picker.pressStartedInside = true
+            else
+                picker.pressStartedInside = false
             end
-            if not started_slider_drag then
-                local header_drag_region = {x1 = self.Window.X, y1 = self.Window.Y, x2 = self.Window.X + self.Window.Width, y2 = self.Window.Y + self.Window.HeaderHeight}
-                local on_header_button = self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.Save.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.ViewESP.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.CreateNew.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.Settings.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, burger_button.ClickRegion)
-                
-                if self:_IsPointInRegion(mouse_x, mouse_y, header_drag_region) and not on_header_button and not any_popup_is_open then
-                    self.Window.IsDragging = true; is_dragging_something = true; drag_offset = {x = mouse_x - self.Window.X, y = mouse_y - self.Window.Y};
+    
+            if self.UI.Values["BurgerWatermark"] and self:_IsPointInRegion(mouse_x, mouse_y, {x1=wm.DragArea.Position.x, y1=wm.DragArea.Position.y, x2=wm.DragArea.Position.x + wm.DragArea.Size.x, y2=wm.DragArea.Position.y + wm.DragArea.Size.y}) then
+                wm.IsDragging = true; is_dragging_something = true; wm.DragOffset = {x = mouse_x - wm.Position.x, y = mouse_y - wm.Position.y};
+            elseif about_window.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, about_window.AnimationSpeedSlider.ClickRegion) then
+                about_window.AnimationSpeedSlider.IsDragging = true; is_dragging_something = true;
+            elseif picker.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, picker.HueSliderRegion) then
+                picker.isDraggingHue = true; is_dragging_something = true;
+            elseif picker.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, picker.OpacitySliderRegion) then
+                picker.isDraggingOpacity = true; is_dragging_something = true;
+            elseif picker.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, picker.SaturationValueRegion) then
+                picker.isDraggingSaturationValue = true; is_dragging_something = true;
+            elseif not anyDropdownOpen and not picker.pressStartedInside then
+                local started_slider_drag = false
+                for _, section in ipairs(self.UI.Sections) do
+                    for _, el in ipairs(section.Elements) do
+                        if el.type == "Slider" and self:_IsPointInRegion(mouse_x, mouse_y, el.ClickRegion) then
+                            el.IsDragging = true; started_slider_drag = true; is_dragging_something = true; break;
+                        end
+                    end
+                    if started_slider_drag then break end
+                end
+                if not started_slider_drag then
+                    local header_drag_region = {x1 = self.Window.X, y1 = self.Window.Y, x2 = self.Window.X + self.Window.Width, y2 = self.Window.Y + self.Window.HeaderHeight}
+                    local on_header_button = self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.Save.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.ViewESP.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.CreateNew.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.Settings.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, burger_button.ClickRegion)
+                    
+                    if self:_IsPointInRegion(mouse_x, mouse_y, header_drag_region) and not on_header_button and not any_popup_is_open then
+                        self.Window.IsDragging = true; is_dragging_something = true; drag_offset = {x = mouse_x - self.Window.X, y = mouse_y - self.Window.Y};
+                    end
                 end
             end
         end
@@ -3042,7 +3099,7 @@ function Library:_InputLoop()
             local click_was_handled = false
             local picker_region = picker.IsOpen and {x1=picker.Background.Position.x, y1=picker.Background.Position.y, x2=picker.Background.Position.x+picker.Background.Size.x, y2=picker.Background.Position.y+picker.Background.Size.y} or nil
             
-            if picker.IsOpen and not picker.pressStartedInside and not self:_IsPointInRegion(mouse_x, mouse_y, picker_region) then
+            if picker.IsOpen and not picker.DropdownIsOpen and not picker.pressStartedInside and not self:_IsPointInRegion(mouse_x, mouse_y, picker_region) then
                 picker.Animation.IsClosing = true; picker.Animation.IsOpening = false
                 click_was_handled = true
             end
@@ -3053,8 +3110,10 @@ function Library:_InputLoop()
 
                 if active_slider_editing and not self:_IsPointInRegion(mouse_x, mouse_y, active_slider_editing.ValueInputClickRegion) then
                     applySliderInput(active_slider_editing)
-                elseif not active_slider_editing then
-                    if not click_was_handled and any_popup_is_open then
+                elseif picker.IsEditing and not self:_IsPointInRegion(mouse_x, mouse_y, picker.Input.ClickRegion) then
+                    applyColorInput(picker)
+                elseif not active_slider_editing and not picker.IsEditing then
+                    if not click_was_handled and (any_popup_is_open or anyDropdownOpen) then
                         if burger_popup.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, burger_popup.ClickRegion) then
                             if burger_popup.HoveredItemIndex > 0 then local item = burger_popup.Items[burger_popup.HoveredItemIndex]; self.UI.Values[item.id] = not self.UI.Values[item.id]; end; click_was_handled = true;
                         elseif settings_popup.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, settings_popup.ClickRegion) then
@@ -3062,16 +3121,15 @@ function Library:_InputLoop()
                         elseif configsTab.OptionsPopup.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, configsTab.OptionsPopup.ClickRegion) then
                             if self:_IsPointInRegion(mouse_x, mouse_y, configsTab.OptionsPopup.IncludeStyleToggle.ClickRegion) then self.UI.Values[configsTab.OptionsPopup.IncludeStyleToggle.id] = not self.UI.Values[configsTab.OptionsPopup.IncludeStyleToggle.id]; end; click_was_handled = true;
                         elseif picker.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, picker_region) then
-                            if self:_IsPointInRegion(mouse_x, mouse_y, picker.Dropdown.ClickRegion) then
+                            if self:_IsPointInRegion(mouse_x, mouse_y, picker.Input.ClickRegion) then
+                                picker.IsEditing = true; picker.InputText = picker.Input.Text.Text
+                            elseif self:_IsPointInRegion(mouse_x, mouse_y, picker.Dropdown.ClickRegion) then
                                 picker.DropdownIsOpen = not picker.DropdownIsOpen
                             elseif picker.DropdownIsOpen then
-                                local clicked_option = false
-                                for i, option in ipairs(picker.Dropdown.Options) do
-                                    if self:_IsPointInRegion(mouse_x, mouse_y, option.ClickRegion) then
-                                        picker.Mode = option.Text.Text; picker.DropdownIsOpen = false; clicked_option = true; break
-                                    end
+                                if picker.HoveredDropdownIndex > 0 then
+                                    picker.Mode = picker.Dropdown.Options[picker.HoveredDropdownIndex].Text.Text
                                 end
-                                if not clicked_option and not self:_IsPointInRegion(mouse_x, mouse_y, picker.Dropdown.Button.ClickRegion) then picker.DropdownIsOpen = false end
+                                picker.DropdownIsOpen = false
                             end
                             click_was_handled = true
                         elseif style_window.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, style_window.ClickRegion) then
@@ -3134,8 +3192,11 @@ function Library:_InputLoop()
                         if burger_popup.IsOpen then burger_popup.Animation.IsClosing = true; burger_popup.Animation.IsOpening = false end
                         if settings_popup.IsOpen then settings_popup.IsOpen = false; self:_HideSettingsPopupElements(settings_popup); end
                         if configsTab.OptionsPopup.IsOpen then configsTab.OptionsPopup.IsOpen = false end
-                        if about_window.IsOpen and not self:_IsPointInRegion(mouse_x, mouse_y, about_window.ClickRegion) then about_window.Animation.IsClosing = true; about_window.Animation.IsOpening = false; end
-                        if style_window.IsOpen and not self:_IsPointInRegion(mouse_x, mouse_y, style_window.ClickRegion) then style_window.Animation.IsClosing = true; style_window.Animation.IsOpening = false; end
+                        
+                        -- [[ ИЗМЕНЕНИЕ: Убираем закрытие по клику снаружи ]]
+                        -- if about_window.IsOpen and not self:_IsPointInRegion(mouse_x, mouse_y, about_window.ClickRegion) then about_window.Animation.IsClosing = true; about_window.Animation.IsOpening = false; end
+                        -- if style_window.IsOpen and not self:_IsPointInRegion(mouse_x, mouse_y, style_window.ClickRegion) then style_window.Animation.IsClosing = true; style_window.Animation.IsOpening = false; end
+                        
                         if picker.IsOpen and not self:_IsPointInRegion(mouse_x, mouse_y, picker_region) then picker.Animation.IsClosing = true; picker.Animation.IsOpening = false; end
 
                         for _, section in ipairs(self.UI.Sections) do for _, el in ipairs(section.Elements) do if (el.type == "Dropdown" or el.type == "Multidropdown") and el.IsOpen then if not self:_IsPointInRegion(mouse_x, mouse_y, el.ClickRegion) then el.IsOpen, el.IsClosing = false, true; end end end end
@@ -3227,12 +3288,26 @@ function Library:_InputLoop()
                 elseif string.len(input_key) == 1 and string.match(input_key, "%w") then
                     if #current_text < 20 then target.StyleNameInputText.Text = current_text .. input_key end
                 end
+            -- [[ ИЗМЕНЕНИЕ: Добавляем обработку ввода для палитры ]]
+            elseif target == picker then
+                if input_key == "Backspace" then
+                    if #picker.InputText > 0 then picker.InputText = string.sub(picker.InputText, 1, -2) end
+                elseif input_key == "Enter" then
+                    applyColorInput(picker)
+                else
+                    local valid_char = (picker.Mode == "HEX" and string.match(input_key, "[%w#]")) or (picker.Mode == "RGBA" and string.match(input_key, "[%d ,]"))
+                    if valid_char and #picker.InputText < 20 then
+                        picker.InputText = picker.InputText .. input_key
+                    end
+                end
             end
         end
 
         local active_target
         if style_window.IsOpen and style_window.IsEditingName then
             active_target = style_window
+        elseif picker.IsOpen and picker.IsEditing then
+            active_target = picker
         else
             for _, section in ipairs(self.UI.Sections) do
                 for _, el in ipairs(section.Elements) do
@@ -3274,6 +3349,7 @@ function Library:_InputLoop()
             end
         else
             if style_window.last_key_pressed ~= "None" then style_window.last_key_pressed = "None"; style_window.is_in_repeat = false end
+            if picker.last_key_pressed ~= "None" then picker.last_key_pressed = "None"; picker.is_in_repeat = false end
             for _, section in ipairs(self.UI.Sections) do
                 for _, el in ipairs(section.Elements) do
                     if el.type == "Slider" and el.last_key_pressed ~= "None" then el.last_key_pressed = "None"; el.is_in_repeat = false; break end
@@ -3326,7 +3402,7 @@ function Library:_AddPresetsTab()
 end
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3225xx41")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 322xxxx541")
     local is_first_frame = true
     while true do
         self:_InputLoop()
