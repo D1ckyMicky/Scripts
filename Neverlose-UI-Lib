@@ -1958,8 +1958,9 @@ function Library:_RenderColorPickerWindow()
     local sliderSpacing = 10
     local inputRowHeight = 25
 
+    -- [[ ИЗМЕНЕНИЕ: Увеличиваем высоту окна под новое поле ввода ]]
     local pickerW = squareSize + (padding * 2)
-    local pickerH = squareSize + (padding * 3) + (sliderHeight * 2) + (sliderSpacing * 2) + inputRowHeight
+    local pickerH = squareSize + (padding * 4) + (sliderHeight * 2) + (sliderSpacing * 2) + (inputRowHeight * 2)
     local pickerX, pickerY = picker.Pos.x, picker.Pos.y
     
     picker.Background.Position = {pickerX, pickerY}; picker.Background.Size = {pickerW, pickerH}
@@ -2007,40 +2008,49 @@ function Library:_RenderColorPickerWindow()
     picker.OpacityNubBorder.Opacity = masterOpacity
     picker.OpacitySliderRegion = {x1 = squareX, y1 = currentY, x2 = squareX + squareSize, y2 = currentY + sliderHeight}
 
+    -- [[ ИЗМЕНЕНИЕ: Новый layout для дропдауна и поля ввода ]]
     currentY = currentY + sliderHeight + sliderSpacing
-    local dropdownWidth = 80
-    local inputWidth = squareSize - dropdownWidth - 5
-    
     local dd = picker.Dropdown
-    dd.ClickRegion = {x1 = squareX, y1 = currentY, x2 = squareX + dropdownWidth, y2 = currentY + inputRowHeight}
-    dd.Button.Position = {squareX, currentY}; dd.Button.Size = {dropdownWidth, inputRowHeight}
+    dd.ClickRegion = {x1 = squareX, y1 = currentY, x2 = squareX + squareSize, y2 = currentY + inputRowHeight}
+    dd.Button.Position = {squareX, currentY}; dd.Button.Size = {squareSize, inputRowHeight}
     self:_AnimateAndApplyColor(dd.Button, theme.Colors.DarkBlue, masterOpacity)
     dd.ButtonText.Text = picker.Mode
     dd.ButtonText.Position = {squareX + 8, currentY + inputRowHeight/2 - dd.ButtonText.Size/2}
     self:_AnimateAndApplyColor(dd.ButtonText, theme.Colors.TextPrimary, masterOpacity)
-    local arrowX, arrowY = squareX + dropdownWidth - 15, currentY + inputRowHeight/2
-    dd.ArrowLine1.From = {arrowX, arrowY - 2}; dd.ArrowLine1.To = {arrowX + 3, arrowY + 1};
-    dd.ArrowLine2.From = {arrowX + 3, arrowY + 1}; dd.ArrowLine2.To = {arrowX + 6, arrowY - 2};
+    local arrowX, arrowY = squareX + squareSize - 15, currentY + inputRowHeight/2
+    dd.ArrowLine1.From = {arrowX - 3, arrowY - 1}; dd.ArrowLine1.To = {arrowX, arrowY + 2};
+    dd.ArrowLine2.From = {arrowX, arrowY + 2}; dd.ArrowLine2.To = {arrowX + 3, arrowY - 1};
     self:_AnimateAndApplyColor(dd.ArrowLine1, theme.Colors.TextSecondary, masterOpacity); 
     self:_AnimateAndApplyColor(dd.ArrowLine2, theme.Colors.TextSecondary, masterOpacity)
     
+    currentY = currentY + inputRowHeight + 5
     local input = picker.Input
-    local inputX = squareX + dropdownWidth + 5
-    input.ClickRegion = {x1 = inputX, y1 = currentY, x2 = inputX + inputWidth, y2 = currentY + inputRowHeight}
-    input.Background.Position = {inputX, currentY}; input.Background.Size = {inputWidth, inputRowHeight}
+    input.ClickRegion = {x1 = squareX, y1 = currentY, x2 = squareX + squareSize, y2 = currentY + inputRowHeight}
+    input.Background.Position = {squareX, currentY}; input.Background.Size = {squareSize, inputRowHeight}
     self:_AnimateAndApplyColor(input.Background, theme.Colors.DarkBlue, masterOpacity)
     
+    local text_to_show
     if picker.IsEditing then
-        input.Text.Text = picker.InputText
+        text_to_show = picker.InputText
     else
         local rgb = self:_HSVtoRGB(picker.h, picker.s, picker.v)
         if picker.Mode == "HEX" then
-            input.Text.Text = self:_RGBtoHEX(rgb[1], rgb[2], rgb[3], picker.a * 255)
+            text_to_show = self:_RGBtoHEX(rgb[1], rgb[2], rgb[3], picker.a * 255)
         else 
-            input.Text.Text = string.format("%d, %d, %d, %d", math.floor(rgb[1]), math.floor(rgb[2]), math.floor(rgb[3]), math.floor(picker.a * 255))
+            text_to_show = string.format("%d, %d, %d, %d", math.floor(rgb[1]), math.floor(rgb[2]), math.floor(rgb[3]), math.floor(picker.a * 255))
         end
     end
-    input.Text.Position = {inputX + 8, currentY + inputRowHeight/2 - input.Text.Size/2}
+
+    input.Text.Text = text_to_show
+    local max_text_width = squareSize - 16
+    if input.Text.TextBounds and input.Text.TextBounds.x > max_text_width then
+        while input.Text.TextBounds.x > max_text_width and #input.Text.Text > 0 do
+            input.Text.Text = string.sub(input.Text.Text, 1, -2)
+            input.Text.Text = input.Text.Text .. "..."
+        end
+    end
+    
+    input.Text.Position = {squareX + 8, currentY + inputRowHeight/2 - input.Text.Size/2}
     self:_AnimateAndApplyColor(input.Text, theme.Colors.TextPrimary, masterOpacity)
     
     if input.Text.TextBounds and picker.IsEditing then
@@ -2053,19 +2063,19 @@ function Library:_RenderColorPickerWindow()
     if picker.DropdownIsOpen then
         local optionHeight = 25
         local popupHeight = (#dd.Options * optionHeight) + 10
-        local popupY = dd.ClickRegion.y1 - popupHeight
-        dd.PopupBg.Position = {dd.ClickRegion.x1, popupY}; dd.PopupBg.Size = {dropdownWidth, popupHeight}
+        local popupY = dd.ClickRegion.y2 + 5
+        dd.PopupBg.Position = {dd.ClickRegion.x1, popupY}; dd.PopupBg.Size = {squareSize, popupHeight}
         self:_AnimateAndApplyColor(dd.PopupBg, theme.Colors.SectionBackground, masterOpacity)
-        dd.Border.Position = {dd.ClickRegion.x1, popupY}; dd.Border.Size = {dropdownWidth, popupHeight}
+        dd.Border.Position = {dd.ClickRegion.x1, popupY}; dd.Border.Size = {squareSize, popupHeight}
         self:_AnimateAndApplyColor(dd.Border, theme.Colors.Separator, masterOpacity)
 
         local currentOptionY = popupY + 5
         for i, option in ipairs(dd.Options) do
-            option.ClickRegion = {x1 = dd.ClickRegion.x1, y1 = currentOptionY, x2 = dd.ClickRegion.x1 + dropdownWidth, y2 = currentOptionY + optionHeight}
+            option.ClickRegion = {x1 = dd.ClickRegion.x1, y1 = currentOptionY, x2 = dd.ClickRegion.x1 + squareSize, y2 = currentOptionY + optionHeight}
             option.Text.Position = {dd.ClickRegion.x1 + 10, currentOptionY + optionHeight/2 - option.Text.Size/2}
             self:_AnimateAndApplyColor(option.Text, theme.Colors.TextPrimary, masterOpacity)
             
-            option.Highlight.Position = {dd.ClickRegion.x1 + 5, currentOptionY}; option.Highlight.Size = {dropdownWidth - 10, optionHeight}
+            option.Highlight.Position = {dd.ClickRegion.x1 + 5, currentOptionY}; option.Highlight.Size = {squareSize - 10, optionHeight}
             local isHovered = (picker.HoveredDropdownIndex == i)
             if isHovered then
                 self:_AnimateAndApplyColor(option.Highlight, theme.Colors.Separator, masterOpacity * 0.4)
@@ -2937,22 +2947,32 @@ function Library:_InputLoop()
         slider.IsEditing = false
     end
 
-    -- [[ ИЗМЕНЕНИЕ: Новая функция для применения цвета из поля ввода ]]
     local function applyColorInput(picker)
         if not picker.IsEditing then return end
         picker.IsEditing = false
-        local success, newColor
+        local newColor
         if picker.Mode == "HEX" then
             newColor = self:_HEXtoRGB(picker.InputText)
         else -- RGBA
             local nums = {}
             for n in string.gmatch(picker.InputText, "%d+") do table.insert(nums, tonumber(n)) end
             if #nums >= 3 then
-                newColor = { nums[1], nums[2], nums[3], nums[4] or 255 }
+                newColor = { math.clamp(nums[1],0,255), math.clamp(nums[2],0,255), math.clamp(nums[3],0,255), math.clamp(nums[4] or 255,0,255) }
             end
         end
+
         if newColor then
             picker.h, picker.s, picker.v, picker.a = self:_RGBtoHSV(newColor[1], newColor[2], newColor[3], newColor[4])
+            
+            -- [[ ИСПРАВЛЕНИЕ: Применяем цвет обратно в Edit Style меню ]]
+            if picker.EditingValueID then
+                self.UI.Values[picker.EditingValueID] = newColor
+            elseif picker.EditingColorName then
+                style_window.EditingTheme.Colors[picker.EditingColorName] = newColor
+                if self.UI.Values.EditStyleRealTime and self.TempTheme then
+                    self.TempTheme.Colors[picker.EditingColorName] = newColor
+                end
+            end
         end
     end
 
@@ -3011,11 +3031,10 @@ function Library:_InputLoop()
     if is_press_started then
         is_dragging_something = false 
         
-        -- [[ ИЗМЕНЕНИЕ: Приоритет для дропдауна палитры ]]
-        if picker.IsOpen and picker.DropdownIsOpen then
-            -- Не начинаем перетаскивание, если открыт дропдаун палитры
+        local picker_region = picker.IsOpen and {x1=picker.Background.Position.x, y1=picker.Background.Position.y, x2=picker.Background.Position.x+picker.Background.Size.x, y2=picker.Background.Position.y+picker.Background.Size.y} or nil
+        if picker.IsOpen and (picker.DropdownIsOpen or self:_IsPointInRegion(mouse_x, mouse_y, picker.Input.ClickRegion)) then
+             -- Не начинаем перетаскивание, если клик на дропдаун или поле ввода
         else
-            local picker_region = picker.IsOpen and {x1=picker.Background.Position.x, y1=picker.Background.Position.y, x2=picker.Background.Position.x+picker.Background.Size.x, y2=picker.Background.Position.y+picker.Background.Size.y} or nil
             if picker.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, picker_region) then
                 picker.pressStartedInside = true
             else
@@ -3192,11 +3211,8 @@ function Library:_InputLoop()
                         if burger_popup.IsOpen then burger_popup.Animation.IsClosing = true; burger_popup.Animation.IsOpening = false end
                         if settings_popup.IsOpen then settings_popup.IsOpen = false; self:_HideSettingsPopupElements(settings_popup); end
                         if configsTab.OptionsPopup.IsOpen then configsTab.OptionsPopup.IsOpen = false end
-                        
-                        -- [[ ИЗМЕНЕНИЕ: Убираем закрытие по клику снаружи ]]
-                        -- if about_window.IsOpen and not self:_IsPointInRegion(mouse_x, mouse_y, about_window.ClickRegion) then about_window.Animation.IsClosing = true; about_window.Animation.IsOpening = false; end
-                        -- if style_window.IsOpen and not self:_IsPointInRegion(mouse_x, mouse_y, style_window.ClickRegion) then style_window.Animation.IsClosing = true; style_window.Animation.IsOpening = false; end
-                        
+                        if about_window.IsOpen and not self:_IsPointInRegion(mouse_x, mouse_y, about_window.ClickRegion) then about_window.Animation.IsClosing = true; about_window.Animation.IsOpening = false; end
+                        if style_window.IsOpen and not self:_IsPointInRegion(mouse_x, mouse_y, style_window.ClickRegion) then style_window.Animation.IsClosing = true; style_window.Animation.IsOpening = false; end
                         if picker.IsOpen and not self:_IsPointInRegion(mouse_x, mouse_y, picker_region) then picker.Animation.IsClosing = true; picker.Animation.IsOpening = false; end
 
                         for _, section in ipairs(self.UI.Sections) do for _, el in ipairs(section.Elements) do if (el.type == "Dropdown" or el.type == "Multidropdown") and el.IsOpen then if not self:_IsPointInRegion(mouse_x, mouse_y, el.ClickRegion) then el.IsOpen, el.IsClosing = false, true; end end end end
@@ -3288,13 +3304,12 @@ function Library:_InputLoop()
                 elseif string.len(input_key) == 1 and string.match(input_key, "%w") then
                     if #current_text < 20 then target.StyleNameInputText.Text = current_text .. input_key end
                 end
-            -- [[ ИЗМЕНЕНИЕ: Добавляем обработку ввода для палитры ]]
             elseif target == picker then
                 if input_key == "Backspace" then
                     if #picker.InputText > 0 then picker.InputText = string.sub(picker.InputText, 1, -2) end
                 elseif input_key == "Enter" then
                     applyColorInput(picker)
-                else
+                elseif string.len(input_key) == 1 then -- [[ ИЗМЕНЕНИЕ: Проверяем, что это одиночный символ ]]
                     local valid_char = (picker.Mode == "HEX" and string.match(input_key, "[%w#]")) or (picker.Mode == "RGBA" and string.match(input_key, "[%d ,]"))
                     if valid_char and #picker.InputText < 20 then
                         picker.InputText = picker.InputText .. input_key
@@ -3402,7 +3417,7 @@ function Library:_AddPresetsTab()
 end
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 322xxxx541")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 31")
     local is_first_frame = true
     while true do
         self:_InputLoop()
