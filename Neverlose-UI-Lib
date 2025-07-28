@@ -1473,24 +1473,8 @@ end
 
 function Library:_RenderAboutWindow(mouse_pos)
     local about = self.UI.Core.AboutWindow
-    local masterOpacity = self.UI.Popups.About.Animation.CurrentOpacity
-    local theme = self.ActiveTheme
-    local isThemeLight = self:_IsThemeLight(theme)
-    
-    if masterOpacity <= 0 then
-        self:_HideGlowEffect(about.Glow)
-        if about.AnimationSpeedSlider.Glow then self:_HideGlowEffect(about.AnimationSpeedSlider.Glow) end
-        setAboutVisibility(about, false) -- Helper to hide everything
-        self:_SetVisibility(about.Tooltip.Background, false)
-        self:_SetVisibility(about.Tooltip.Text, false)
-        for _, circle in ipairs(about.StyleCircles) do
-            self:_SetVisibility(circle.Circle, false); self:_SetVisibility(circle.Border, false);
-            if circle.Inner then self:_SetVisibility(circle.Inner, false) end
-            if circle.PlusLine1 then self:_SetVisibility(circle.PlusLine1, false); self:_SetVisibility(circle.PlusLine2, false) end
-        end
-        return
-    end
 
+    -- [[ ИСПРАВЛЕНИЕ: Перемещаем определение этой локальной функции в самое начало ]]
     local function setAboutVisibility(tbl, visible)
         for key, obj in pairs(tbl) do
             if type(obj) == 'table' then
@@ -1508,6 +1492,25 @@ function Library:_RenderAboutWindow(mouse_pos)
             end
         end
     end
+
+    local masterOpacity = self.UI.Popups.About.Animation.CurrentOpacity
+    local theme = self.ActiveTheme
+    local isThemeLight = self:_IsThemeLight(theme)
+    
+    if masterOpacity <= 0 then
+        self:_HideGlowEffect(about.Glow)
+        if about.AnimationSpeedSlider.Glow then self:_HideGlowEffect(about.AnimationSpeedSlider.Glow) end
+        setAboutVisibility(about, false) -- Теперь этот вызов корректен
+        self:_SetVisibility(about.Tooltip.Background, false)
+        self:_SetVisibility(about.Tooltip.Text, false)
+        for _, circle in ipairs(about.StyleCircles) do
+            self:_SetVisibility(circle.Circle, false); self:_SetVisibility(circle.Border, false);
+            if circle.Inner then self:_SetVisibility(circle.Inner, false) end
+            if circle.PlusLine1 then self:_SetVisibility(circle.PlusLine1, false); self:_SetVisibility(circle.PlusLine2, false) end
+        end
+        return
+    end
+
     setAboutVisibility(about, true)
     
     self:_AnimateAndApplyColor(about.Background, theme.Colors.SectionBackground, masterOpacity)
