@@ -3216,7 +3216,7 @@ function Library:_InputLoop()
                         if burger_popup.HoveredItemIndex > 0 then local item = burger_popup.Items[burger_popup.HoveredItemIndex]; self.UI.Values[item.id] = not self.UI.Values[item.id]; end;
                     elseif picker.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, picker_region) then
                          if self:_IsPointInRegion(mouse_x, mouse_y, picker.Input.ClickRegion) then
-                            picker.IsEditing = true; picker.InputText = input.Text.Text
+                            picker.IsEditing = true; picker.InputText = picker.Input.Text.Text
                         elseif self:_IsPointInRegion(mouse_x, mouse_y, picker.Dropdown.ClickRegion) then
                             picker.DropdownIsOpen = not picker.DropdownIsOpen
                         end
