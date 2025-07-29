@@ -823,7 +823,6 @@ function Library:_RebuildStyleCircles()
     local about = self.UI.Core.AboutWindow
     local about_z = 32
 
-    -- [[ ИЗМЕНЕНИЕ: Более тщательная очистка ]]
     if about.StyleCircles then
         for _, circle in ipairs(about.StyleCircles) do
             if circle.Circle then pcall(circle.Circle.Remove, circle.Circle) end
@@ -855,8 +854,9 @@ function Library:_RebuildStyleCircles()
         if circleObj.Border then circleObj.Border.Filled = false; circleObj.Border.Thickness = 2; circleObj.Border.zIndex = about_z + 1; circleObj.Border.Radius = 11; circleObj.Border.Visible = false; end
 
         if isAddButton then
-            circleObj.PlusLine1 = self:_CreateDrawingObject("Line"); if circleObj.PlusLine1 then circleObj.PlusLine1.Thickness = 2; circleObj.PlusLine1.zIndex = z + 1; end
-            circleObj.PlusLine2 = self:_CreateDrawingObject("Line"); if circleObj.PlusLine2 then circleObj.PlusLine2.Thickness = 2; circleObj.PlusLine2.zIndex = z + 1; end
+            -- [[ ИСПРАВЛЕНИЕ: z заменено на about_z ]]
+            circleObj.PlusLine1 = self:_CreateDrawingObject("Line"); if circleObj.PlusLine1 then circleObj.PlusLine1.Thickness = 2; circleObj.PlusLine1.zIndex = about_z + 1; end
+            circleObj.PlusLine2 = self:_CreateDrawingObject("Line"); if circleObj.PlusLine2 then circleObj.PlusLine2.Thickness = 2; circleObj.PlusLine2.zIndex = about_z + 1; end
         else
             circleObj.Inner = self:_CreateDrawingObject("Circle"); if circleObj.Inner then 
                 circleObj.Inner.Filled = true; 
