@@ -204,7 +204,9 @@ end
 
 function Library:_SafeNumber(value, default) return type(value) == "number" and value or (default or 0) end
 function Library:_IsPointInRegion(x, y, region)
-    if not region or not region.x1 or not region.x2 or not region.y1 or not region.y2 then return false end
+    if type(region) ~= "table" or not region.x1 or not region.y1 or not region.x2 or not region.y2 then
+        return false
+    end
     return x >= self:_SafeNumber(region.x1, 0) and x <= self:_SafeNumber(region.x2, 0) and y >= self:_SafeNumber(region.y1, 0) and y <= self:_SafeNumber(region.y2, 0)
 end
 function Library:_SetVisibility(object, visible) if object and object.Visible ~= visible then object.Visible = visible end end
@@ -821,12 +823,15 @@ function Library:_RebuildStyleCircles()
     local about = self.UI.Core.AboutWindow
     local about_z = 32
 
-    for _, circle in ipairs(about.StyleCircles) do
-        if circle.Circle then circle.Circle:Remove() end
-        if circle.Border then circle.Border:Remove() end
-        if circle.Inner then circle.Inner:Remove() end
-        if circle.PlusLine1 then circle.PlusLine1:Remove() end
-        if circle.PlusLine2 then circle.PlusLine2:Remove() end
+    -- [[ ИЗМЕНЕНИЕ: Более тщательная очистка ]]
+    if about.StyleCircles then
+        for _, circle in ipairs(about.StyleCircles) do
+            if circle.Circle then pcall(circle.Circle.Remove, circle.Circle) end
+            if circle.Border then pcall(circle.Border.Remove, circle.Border) end
+            if circle.Inner then pcall(circle.Inner.Remove, circle.Inner) end
+            if circle.PlusLine1 then pcall(circle.PlusLine1.Remove, circle.PlusLine1) end
+            if circle.PlusLine2 then pcall(circle.PlusLine2.Remove, circle.PlusLine2) end
+        end
     end
     about.StyleCircles = {}
 
@@ -850,8 +855,8 @@ function Library:_RebuildStyleCircles()
         if circleObj.Border then circleObj.Border.Filled = false; circleObj.Border.Thickness = 2; circleObj.Border.zIndex = about_z + 1; circleObj.Border.Radius = 11; circleObj.Border.Visible = false; end
 
         if isAddButton then
-            circleObj.PlusLine1 = self:_CreateDrawingObject("Line"); if circleObj.PlusLine1 then circleObj.PlusLine1.Thickness = 2; circleObj.PlusLine1.zIndex = about_z + 1; end
-            circleObj.PlusLine2 = self:_CreateDrawingObject("Line"); if circleObj.PlusLine2 then circleObj.PlusLine2.Thickness = 2; circleObj.PlusLine2.zIndex = about_z + 1; end
+            circleObj.PlusLine1 = self:_CreateDrawingObject("Line"); if circleObj.PlusLine1 then circleObj.PlusLine1.Thickness = 2; circleObj.PlusLine1.zIndex = z + 1; end
+            circleObj.PlusLine2 = self:_CreateDrawingObject("Line"); if circleObj.PlusLine2 then circleObj.PlusLine2.Thickness = 2; circleObj.PlusLine2.zIndex = z + 1; end
         else
             circleObj.Inner = self:_CreateDrawingObject("Circle"); if circleObj.Inner then 
                 circleObj.Inner.Filled = true; 
@@ -874,12 +879,11 @@ function Library:_RebuildStyleCircles()
     end
     table.sort(customThemeNames)
 
-    -- Build the final list in display order (which will be rendered right-to-left)
-    table.insert(themeOrder, {Name = "Add"}) -- Slot 1
-    table.insert(themeOrder, self.Themes.Black) -- Slot 2
-    table.insert(themeOrder, self.Themes.White) -- Slot 3
-    table.insert(themeOrder, self.Themes.Blue) -- Slot 4
-    for _, themeName in ipairs(customThemeNames) do -- Slots 5+
+    table.insert(themeOrder, {Name = "Add"})
+    table.insert(themeOrder, self.Themes.Black)
+    table.insert(themeOrder, self.Themes.White)
+    table.insert(themeOrder, self.Themes.Blue) 
+    for _, themeName in ipairs(customThemeNames) do
         table.insert(themeOrder, self.Themes[themeName])
     end
     
@@ -1509,6 +1513,7 @@ end
 
 function Library:_RenderAboutWindow(mouse_pos)
     local about = self.UI.Core.AboutWindow
+    local masterOpacity = about.Animation.CurrentOpacity
     
     local function setAboutVisibility(tbl, visible)
         for key, obj in pairs(tbl) do
@@ -2137,6 +2142,7 @@ function Library:_RenderLoop()
         if self.GlobalAnimation.Opacity <= 0 then
             self.GlobalAnimation.Opacity = 0
             self.GlobalAnimation.IsHiding = false
+            self.Window.Visible = false -- << ИЗМЕНЕНИЕ
         end
     elseif self.GlobalAnimation.IsShowing then
         self.GlobalAnimation.Opacity = self.GlobalAnimation.Opacity + animationSpeed
@@ -2146,14 +2152,12 @@ function Library:_RenderLoop()
         end
     end
 
-    -- [[ Блок обновления анимаций ]]
-    -- [[ ИСПРАВЛЕНИЕ: Указываем правильный путь к объекту About Window ]]
     self:_UpdatePopupAnimation(self.UI.Core.AboutWindow)
     self:_UpdatePopupAnimation(self.UI.Popups.EditStyle)
     self:_UpdatePopupAnimation(self.UI.Popups.ColorPicker)
     self:_UpdatePopupAnimation(self.UI.Popups.BurgerMenu)
     
-    if not self.Window.Visible then return end
+    if self.GlobalAnimation.Opacity <= 0 then return end -- << ИЗМЕНЕНИЕ
 
     if self.Window.ActiveTab ~= self.Window.LastRenderedTab and self.Window.LastRenderedTab ~= "" then
         self.Window.Animation.State = "FADING_OUT"
@@ -2323,10 +2327,6 @@ function Library:_RenderLoop()
     self:_RenderBurgerMenuPopup(mouse_pos)
 
     self.Window.LastRenderedTab = self.Window.ActiveTab
-
-    if not self.GlobalAnimation.IsHiding and self.GlobalAnimation.Opacity <= 0 then
-        self.Window.Visible = false
-    end
 end
 
 function Library:_RenderTabs(x, y, width)
@@ -2334,7 +2334,8 @@ function Library:_RenderTabs(x, y, width)
     
     local currentY = y + 8
     local theme = self.ActiveTheme
-    local globalOpacity = self.GlobalAnimation and self.GlobalAnimation.Opacity or 1
+    local globalOpacity = self.GlobalAnimation.Opacity
+    masterOpacity = masterOpacity * globalOpacity
 
     for _, group in ipairs(self.UI.TabGroups) do
         if group.Header then
@@ -2957,7 +2958,7 @@ end
 function Library:_InputLoop()
     self:_CheckGlobalBinds()
 
-    if not self.Window.Visible and not self.UI.Values["BurgerWatermark"] and not self.UI.Values["BurgerHotkeys"] then return end
+    if self.GlobalAnimation.Opacity <= 0 then return end
 
     local mouse_pos = getmouseposition()
     if not mouse_pos then return end
@@ -2983,10 +2984,9 @@ function Library:_InputLoop()
         if num then
             num = math.clamp(num, slider.Min, slider.Max)
             if slider.id == "AboutAnimationSpeed" then
-                -- Для слайдера в About меню, округляем до 1 знака после запятой
                 num = math.floor(num * 10 + 0.5) / 10
             else
-                num = math.floor(num) -- Для обычных слайдеров оставляем целые числа
+                num = math.floor(num)
             end
             self.UI.Values[slider.id] = num
             if slider.Callback then slider.Callback(num) end
@@ -3076,7 +3076,6 @@ function Library:_InputLoop()
         is_dragging_something = false 
         
         if anyDropdownOpen or (picker.IsOpen and picker.DropdownIsOpen) then
-             -- A dropdown is open, do not start any dragging operations.
         else
             local picker_region = picker.IsOpen and {x1=picker.Background.Position.x, y1=picker.Background.Position.y, x2=picker.Background.Position.x+picker.Background.Size.x, y2=picker.Background.Position.y+picker.Background.Size.y} or nil
             if picker.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, picker_region) then
@@ -3089,7 +3088,7 @@ function Library:_InputLoop()
                 wm.IsDragging = true; is_dragging_something = true; wm.DragOffset = {x = mouse_x - wm.Position.x, y = mouse_y - wm.Position.y};
             elseif self.UI.Values["BurgerHotkeys"] and self:_IsPointInRegion(mouse_x, mouse_y, hk.DragArea) then
                 hk.IsDragging = true; is_dragging_something = true; hk.DragOffset = {x = mouse_x - hk.Position.x, y = mouse_y - hk.Position.y};
-            elseif about_window.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, about_window.AnimationSpeedSlider.ClickRegion) then
+            elseif about_window.IsOpen and about_window.AnimationSpeedSlider and self:_IsPointInRegion(mouse_x, mouse_y, about_window.AnimationSpeedSlider.ClickRegion) then
                 about_window.AnimationSpeedSlider.IsDragging = true; is_dragging_something = true;
             elseif picker.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, picker.HueSliderRegion) then
                 picker.isDraggingHue = true; is_dragging_something = true;
@@ -3125,23 +3124,19 @@ function Library:_InputLoop()
         if self.Window.IsDragging then self.Window.X = mouse_x - drag_offset.x; self.Window.Y = mouse_y - drag_offset.y; end
         
         local function update_slider_value(slider, min, max, increment, id)
+            if not slider or not slider.Back or not slider.Back.Position or not slider.Back.Size then return end
             local sliderBackX, sliderBackWidth = self:_SafeNumber(slider.Back.Position.x, 0), self:_SafeNumber(slider.Back.Size.x, 1)
             local mouse_relative_x = math.clamp(mouse_x - sliderBackX, 0, sliderBackWidth)
             local percentage = sliderBackWidth > 0 and (mouse_relative_x / sliderBackWidth) or 0
             local raw_value = min + (max - min) * percentage
-            local stepped_value
-            if id == "AboutAnimationSpeed" then
-                 stepped_value = math.floor(raw_value / increment + 0.5) * increment
-            else
-                 stepped_value = math.floor(raw_value / increment + 0.5) * increment
-            end
+            local stepped_value = math.floor(raw_value / increment + 0.5) * increment
             local clamped_value = math.clamp(stepped_value, min, max)
             if clamped_value ~= self.UI.Values[id] then 
                 self.UI.Values[id] = clamped_value
                 if slider.Callback then slider.Callback(clamped_value) end 
             end
         end
-        if about_window.IsOpen and about_window.AnimationSpeedSlider.IsDragging then
+        if about_window.IsOpen and about_window.AnimationSpeedSlider and about_window.AnimationSpeedSlider.IsDragging then
             local s = about_window.AnimationSpeedSlider; update_slider_value(s, s.Min, s.Max, s.Increment, s.id);
         end
         for _, section in ipairs(self.UI.Sections) do for _, el in ipairs(section.Elements) do if el.type == "Slider" and el.IsDragging then update_slider_value(el, el.Min, el.Max, el.Increment, el.id); break; end end end
@@ -3187,7 +3182,7 @@ function Library:_InputLoop()
                         picker.Mode = picker.Dropdown.Options[picker.HoveredDropdownIndex].Text.Text
                     end
                     picker.DropdownIsOpen = false
-                    click_was_handled = true -- Клик обработан, закрываем
+                    click_was_handled = true
                 elseif anyDropdownOpen then
                     for _, section in ipairs(self.UI.Sections) do for _, el in ipairs(section.Elements) do
                         if (el.type == "Dropdown" or el.type == "Multidropdown") and el.IsOpen then
@@ -3224,70 +3219,66 @@ function Library:_InputLoop()
             end
             
             if not click_was_handled then
-                local picker_region = picker.IsOpen and {x1=picker.Background.Position.x, y1=picker.Background.Position.y, x2=picker.Background.Position.x+picker.Background.Size.x, y2=picker.Background.Position.y+picker.Background.Size.y} or nil
-                if (about_window.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, about_window.ClickRegion)) or (style_window.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, style_window.ClickRegion)) then
-                    if style_window.IsOpen then
-                        if self:_IsPointInRegion(mouse_x, mouse_y, style_window.CloseButton.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, style_window.CancelButton.ClickRegion) then
-                            self:_revert_realtime_changes(); style_window.Animation.IsClosing = true; style_window.Animation.IsOpening = false; style_window.IsEditingName = false;
-                        elseif self:_IsPointInRegion(mouse_x, mouse_y, style_window.SaveButton.ClickRegion) then
-                            local newTheme = self:_DeepCopy(style_window.EditingTheme); local newName = style_window.StyleNameInputText.Text; local originalName = style_window.EditingThemeName
-                            if newName == "" then newName = "Custom" end
-                            if newName ~= originalName and self.Themes[originalName] and not self.Themes[originalName].IsPreset then self.Themes[originalName] = nil end
-                            if self.Themes[newName] and newName ~= originalName then local i = 1; while self.Themes[newName .. " (" .. i .. ")"] do i = i + 1 end; newName = newName .. " (" .. i .. ")"; end
-                            newTheme.Name = newName; newTheme.IsPreset = false; self.Themes[newName] = newTheme; self:_RebuildStyleCircles(); self.UI.Values.AboutSelectedStyle = newTheme.Name; self.ActiveTheme = newTheme; self.TempTheme = nil; self.PreEditThemeName = nil; self.UI.Values.EditStyleRealTime = false; style_window.Animation.IsClosing = true; style_window.Animation.IsOpening = false; style_window.IsEditingName = false;
-                        elseif self:_IsPointInRegion(mouse_x, mouse_y, style_window.RealTimeToggle.ClickRegion) then
-                            self.UI.Values.EditStyleRealTime = not self.UI.Values.EditStyleRealTime
-                            if self.UI.Values.EditStyleRealTime then self.PreEditThemeName = self.ActiveTheme.Name; self.TempTheme = self:_DeepCopy(style_window.EditingTheme); self.ActiveTheme = self.TempTheme;
-                            else self.ActiveTheme = self.Themes[self.PreEditThemeName] or self.Themes.Blue; self.UI.Values.AboutSelectedStyle = self.ActiveTheme.Name; self.TempTheme = nil; self.PreEditThemeName = nil; end
-                        elseif self:_IsPointInRegion(mouse_x, mouse_y, style_window.StyleNameInputClickRegion) then
-                            style_window.IsEditingName = true
-                        else
-                            local clicked_color = false
-                            for _, item in ipairs(style_window.ColorItems) do
-                                if self:_IsPointInRegion(mouse_x, mouse_y, item.ClickRegion) then
-                                    picker.Animation.IsOpening = true; picker.Animation.IsClosing = false;
-                                    picker.EditingColorName = item.Name; picker.EditingValueID = nil; picker.Pos = {x = mouse_x, y = mouse_y}; local color_to_edit = style_window.EditingTheme.Colors[item.Name]; picker.h, picker.s, picker.v, picker.a = self:_RGBtoHSV(color_to_edit[1], color_to_edit[2], color_to_edit[3], color_to_edit[4]); clicked_color = true; break;
-                                end
+                if style_window.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, style_window.ClickRegion) then
+                    if self:_IsPointInRegion(mouse_x, mouse_y, style_window.CloseButton.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, style_window.CancelButton.ClickRegion) then
+                        self:_revert_realtime_changes(); style_window.Animation.IsClosing = true; style_window.Animation.IsOpening = false; style_window.IsEditingName = false;
+                    elseif self:_IsPointInRegion(mouse_x, mouse_y, style_window.SaveButton.ClickRegion) then
+                        local newTheme = self:_DeepCopy(style_window.EditingTheme); local newName = style_window.StyleNameInputText.Text; local originalName = style_window.EditingThemeName
+                        if newName == "" then newName = "Custom" end
+                        if newName ~= originalName and self.Themes[originalName] and not self.Themes[originalName].IsPreset then self.Themes[originalName] = nil end
+                        if self.Themes[newName] and newName ~= originalName then local i = 1; while self.Themes[newName .. " (" .. i .. ")"] do i = i + 1 end; newName = newName .. " (" .. i .. ")"; end
+                        newTheme.Name = newName; newTheme.IsPreset = false; self.Themes[newName] = newTheme; self:_RebuildStyleCircles(); self.UI.Values.AboutSelectedStyle = newTheme.Name; self.ActiveTheme = newTheme; self.TempTheme = nil; self.PreEditThemeName = nil; self.UI.Values.EditStyleRealTime = false; style_window.Animation.IsClosing = true; style_window.Animation.IsOpening = false; style_window.IsEditingName = false;
+                    elseif self:_IsPointInRegion(mouse_x, mouse_y, style_window.RealTimeToggle.ClickRegion) then
+                        self.UI.Values.EditStyleRealTime = not self.UI.Values.EditStyleRealTime
+                        if self.UI.Values.EditStyleRealTime then self.PreEditThemeName = self.ActiveTheme.Name; self.TempTheme = self:_DeepCopy(style_window.EditingTheme); self.ActiveTheme = self.TempTheme;
+                        else self.ActiveTheme = self.Themes[self.PreEditThemeName] or self.Themes.Blue; self.UI.Values.AboutSelectedStyle = self.ActiveTheme.Name; self.TempTheme = nil; self.PreEditThemeName = nil; end
+                    elseif self:_IsPointInRegion(mouse_x, mouse_y, style_window.StyleNameInputClickRegion) then
+                        style_window.IsEditingName = true
+                    else
+                        local clicked_color = false
+                        for _, item in ipairs(style_window.ColorItems) do
+                            if self:_IsPointInRegion(mouse_x, mouse_y, item.ClickRegion) then
+                                picker.Animation.IsOpening = true; picker.Animation.IsClosing = false;
+                                picker.EditingColorName = item.Name; picker.EditingValueID = nil; picker.Pos = {x = mouse_x, y = mouse_y}; local color_to_edit = style_window.EditingTheme.Colors[item.Name]; picker.h, picker.s, picker.v, picker.a = self:_RGBtoHSV(color_to_edit[1], color_to_edit[2], color_to_edit[3], color_to_edit[4]); clicked_color = true; break;
                             end
-                            if not clicked_color then style_window.IsEditingName = false end
                         end
-                    elseif about_window.IsOpen then
-                        if self:_IsPointInRegion(mouse_x, mouse_y, about_window.CloseButton.ClickRegion) then about_window.Animation.IsClosing = true; about_window.Animation.IsOpening = false;
-                        elseif self:_IsPointInRegion(mouse_x, mouse_y, about_window.AutoSaveToggle.ClickRegion) then self.UI.Values.AboutAutoSave = not self.UI.Values.AboutAutoSave
-                        elseif self:_IsPointInRegion(mouse_x, mouse_y, about_window.ToggleUIKeybind.ClickRegion) then about_window.ToggleUIKeybind.IsListening = not about_window.ToggleUIKeybind.IsListening
-                        elseif self:_IsPointInRegion(mouse_x, mouse_y, about_window.AnimationSpeedSlider.ValueInputClickRegion) then
-                            local slider = about_window.AnimationSpeedSlider
-                            slider.IsEditing = true; slider.InputText = string.format("%.1f", self.UI.Values[slider.id])
-                        else
-                            for _, circle in ipairs(about_window.StyleCircles) do
-                                if self:_IsPointInRegion(mouse_x, mouse_y, circle.ClickRegion) then
-                                    if circle.IsAddButton then self.CustomThemeCounter = self.CustomThemeCounter + 1; local newName = "Custom " .. self.CustomThemeCounter; style_window.EditingTheme = self:_DeepCopy(self.ActiveTheme); style_window.EditingThemeName = newName; style_window.StyleNameInputText.Text = newName; style_window.Animation.IsOpening = true; style_window.Animation.IsClosing = false;
-                                    else self.UI.Values.AboutSelectedStyle = circle.Name; self.ActiveTheme = self.Themes[circle.Name]; end; break;
-                                end
+                        if not clicked_color then style_window.IsEditingName = false end
+                    end
+                    click_was_handled = true
+                elseif about_window.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, about_window.ClickRegion) then
+                    if self:_IsPointInRegion(mouse_x, mouse_y, about_window.CloseButton.ClickRegion) then about_window.Animation.IsClosing = true; about_window.Animation.IsOpening = false;
+                    elseif self:_IsPointInRegion(mouse_x, mouse_y, about_window.AutoSaveToggle.ClickRegion) then self.UI.Values.AboutAutoSave = not self.UI.Values.AboutAutoSave
+                    elseif self:_IsPointInRegion(mouse_x, mouse_y, about_window.ToggleUIKeybind.ClickRegion) then about_window.ToggleUIKeybind.IsListening = not about_window.ToggleUIKeybind.IsListening
+                    elseif about_window.AnimationSpeedSlider and self:_IsPointInRegion(mouse_x, mouse_y, about_window.AnimationSpeedSlider.ValueInputClickRegion) then
+                        local slider = about_window.AnimationSpeedSlider
+                        slider.IsEditing = true; slider.InputText = string.format("%.1f", self.UI.Values[slider.id])
+                    else
+                        for _, circle in ipairs(about_window.StyleCircles) do
+                            if self:_IsPointInRegion(mouse_x, mouse_y, circle.ClickRegion) then
+                                if circle.IsAddButton then self.CustomThemeCounter = self.CustomThemeCounter + 1; local newName = "Custom " .. self.CustomThemeCounter; style_window.EditingTheme = self:_DeepCopy(self.ActiveTheme); style_window.EditingThemeName = newName; style_window.StyleNameInputText.Text = newName; style_window.Animation.IsOpening = true; style_window.Animation.IsClosing = false;
+                                else self.UI.Values.AboutSelectedStyle = circle.Name; self.ActiveTheme = self.Themes[circle.Name]; end; break;
                             end
                         end
                     end
                     click_was_handled = true
-                elseif any_popup_is_open then
-                    if burger_popup.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, burger_popup.ClickRegion) then
-                        if burger_popup.HoveredItemIndex > 0 then local item = burger_popup.Items[burger_popup.HoveredItemIndex]; self.UI.Values[item.id] = not self.UI.Values[item.id]; end;
-                    elseif picker.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, picker_region) then
-                         if self:_IsPointInRegion(mouse_x, mouse_y, picker.Input.ClickRegion) then
-                            picker.IsEditing = true; picker.InputText = picker.Input.Text.Text
-                        elseif self:_IsPointInRegion(mouse_x, mouse_y, picker.Dropdown.ClickRegion) then
-                            picker.DropdownIsOpen = not picker.DropdownIsOpen
-                            click_was_handled = true -- Явное указание, что клик обработан
-                        end
-                    elseif settings_popup.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, settings_popup.ClickRegion) then
-                        for _, element in ipairs(settings_popup.ActiveToggle.SettingsElements or {}) do if element.type == "Keybind" and self:_IsPointInRegion(mouse_x, mouse_y, element.ClickRegion) then element.IsListening = not element.IsListening; break; end end;
-                    elseif configsTab.OptionsPopup.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, configsTab.OptionsPopup.ClickRegion) then
-                        if self:_IsPointInRegion(mouse_x, mouse_y, configsTab.OptionsPopup.IncludeStyleToggle.ClickRegion) then self.UI.Values[configsTab.OptionsPopup.IncludeStyleToggle.id] = not self.UI.Values[configsTab.OptionsPopup.IncludeStyleToggle.id]; end;
-                    else 
-                        if burger_popup.IsOpen then burger_popup.Animation.IsClosing = true; burger_popup.Animation.IsOpening = false end
-                        if settings_popup.IsOpen then settings_popup.IsOpen = false; self:_HideSettingsPopupElements(settings_popup); end
-                        if configsTab.OptionsPopup.IsOpen then configsTab.OptionsPopup.IsOpen = false end
-                        if picker.IsOpen then picker.Animation.IsClosing = true; picker.Animation.IsOpening = false; end
+                elseif burger_popup.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, burger_popup.ClickRegion) then
+                    if burger_popup.HoveredItemIndex > 0 then local item = burger_popup.Items[burger_popup.HoveredItemIndex]; self.UI.Values[item.id] = not self.UI.Values[item.id]; end
+                    click_was_handled = true
+                elseif picker.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, picker.ClickRegion) then
+                    if self:_IsPointInRegion(mouse_x, mouse_y, picker.Input.ClickRegion) then
+                        picker.IsEditing = true; picker.InputText = picker.Input.Text.Text
+                    elseif self:_IsPointInRegion(mouse_x, mouse_y, picker.Dropdown.ClickRegion) then
+                        picker.DropdownIsOpen = not picker.DropdownIsOpen
                     end
+                    click_was_handled = true
+                elseif settings_popup.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, settings_popup.ClickRegion) then
+                    for _, element in ipairs(settings_popup.ActiveToggle.SettingsElements or {}) do if element.type == "Keybind" and self:_IsPointInRegion(mouse_x, mouse_y, element.ClickRegion) then element.IsListening = not element.IsListening; break; end end
+                    click_was_handled = true
+                elseif configsTab.OptionsPopup.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, configsTab.OptionsPopup.ClickRegion) then
+                    if self:_IsPointInRegion(mouse_x, mouse_y, configsTab.OptionsPopup.IncludeStyleToggle.ClickRegion) then self.UI.Values[configsTab.OptionsPopup.IncludeStyleToggle.id] = not self.UI.Values[configsTab.OptionsPopup.IncludeStyleToggle.id]; end
+                    click_was_handled = true
+                elseif any_popup_is_open then
+                    self:_CloseAllPopups()
                     click_was_handled = true
                 end
             end
@@ -3330,7 +3321,7 @@ function Library:_InputLoop()
 
             if not click_was_handled then
                 local h_btns = self.UI.Core.HeaderButtons
-                if self:_IsPointInRegion(mouse_x, mouse_y, h_btns.CreateNew.ClickRegion) and self.Window.ActiveTab == "Configs" then click_was_handled = true; h_btns.CreateNew.ClickTime = tick(); self:_CreateNewConfig();
+                if self.Window.ActiveTab == "Configs" and self:_IsPointInRegion(mouse_x, mouse_y, h_btns.CreateNew.ClickRegion) then click_was_handled = true; h_btns.CreateNew.ClickTime = tick(); self:_CreateNewConfig();
                 elseif self:_IsPointInRegion(mouse_x, mouse_y, h_btns.Save.ClickRegion) then click_was_handled = true; h_btns.Save.ClickTime = tick(); if configsTab.LoadedConfigName ~= "" then self:_SaveConfig(configsTab.LoadedConfigName) end
                 elseif self:_IsPointInRegion(mouse_x, mouse_y, h_btns.ViewESP.ClickRegion) then click_was_handled = true; h_btns.ViewESP.IsOpen = not h_btns.ViewESP.IsOpen; h_btns.ViewESP.ClickTime = tick();
                 else
@@ -3344,7 +3335,7 @@ function Library:_InputLoop()
         end
 
         wm.IsDragging = false; hk.IsDragging = false; self.Window.IsDragging = false; 
-        if about_window.IsOpen then about_window.AnimationSpeedSlider.IsDragging = false end
+        if about_window.IsOpen and about_window.AnimationSpeedSlider then about_window.AnimationSpeedSlider.IsDragging = false end
         picker.isDraggingHue, picker.isDraggingOpacity, picker.isDraggingSaturationValue = false, false, false;
         for _, section in ipairs(self.UI.Sections) do for _, el in ipairs(section.Elements) do if el.IsDragging then el.IsDragging = false end end end
         is_dragging_something = false
@@ -3357,18 +3348,17 @@ function Library:_InputLoop()
 
         local function handle_text_input(target, input_key)
             if target.type == "Slider" then
-                 if input_key == "Backspace" then
+                if input_key == "Backspace" then
                     if #target.InputText > 0 then target.InputText = string.sub(target.InputText, 1, -2) end
                 elseif input_key == "Enter" then
                     applySliderInput(target)
-                -- Для слайдера в About меню разрешаем ввод точки
-                elseif target.id == "AboutAnimationSpeed" and (string.match(input_key, "%d") or input_key == ".") then
-                     if #target.InputText < 5 then
-                        if input_key == "." and string.find(target.InputText, "%.") then return end
-                        target.InputText = target.InputText .. input_key
+                elseif target.id == "AboutAnimationSpeed" then
+                    if string.match(input_key, "%d") then
+                        if #target.InputText < 4 then target.InputText = target.InputText .. input_key end
+                    elseif (input_key == "." or input_key == ",") and not string.find(target.InputText, "%.") then
+                         if #target.InputText < 4 then target.InputText = target.InputText .. "." end
                     end
-                -- Для обычных слайдеров оставляем только цифры
-                elseif target.id ~= "AboutAnimationSpeed" and string.match(input_key, "%d") then
+                elseif string.match(input_key, "%d") then
                     if #target.InputText < 5 then target.InputText = target.InputText .. input_key end
                 end
             elseif target == style_window then
