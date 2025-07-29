@@ -3127,11 +3127,26 @@ function Library:_InputLoop()
 
             if not click_was_handled then
                 if picker.IsOpen and picker.DropdownIsOpen then
-                    if picker.HoveredDropdownIndex > 0 then
-                        picker.Mode = picker.Dropdown.Options[picker.HoveredDropdownIndex].Text.Text
+                    local dd = picker.Dropdown
+                    local optionHeight = 25
+                    local popupHeight = (#dd.Options * optionHeight) + 10
+                    local popupY = dd.ClickRegion.y2 + 5
+                     -- Вычисляем область самого выпадающего списка
+                    local popup_region = {x1 = dd.ClickRegion.x1, y1 = popupY, x2 = dd.ClickRegion.x2, y2 = popupY + popupHeight}
+
+                    if self:_IsPointInRegion(mouse_x, mouse_y, popup_region) then
+                        -- Действие 1: Клик был внутри самого списка опций.
+                        if picker.HoveredDropdownIndex > 0 then
+                            -- Если наведена опция, выбираем её.
+                            picker.Mode = picker.Dropdown.Options[picker.HoveredDropdownIndex].Text.Text
+                        end
+                        picker.DropdownIsOpen = false -- Закрываем список после выбора (или клика по пустому месту в нём).
+                        click_was_handled = true
+                    elseif not self:_IsPointInRegion(mouse_x, mouse_y, dd.ClickRegion) then
+                        -- Действие 2: Клик был за пределами списка и его кнопки.
+                        picker.DropdownIsOpen = false -- Просто закрываем список.
+                        -- click_was_handled здесь не ставится, чтобы клик обработали другие элементы, если нужно.
                     end
-                    picker.DropdownIsOpen = false
-                    click_was_handled = true
                 elseif anyDropdownOpen then
                     for _, section in ipairs(self.UI.Sections) do for _, el in ipairs(section.Elements) do
                         if (el.type == "Dropdown" or el.type == "Multidropdown") and el.IsOpen then
