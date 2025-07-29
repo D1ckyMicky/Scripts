@@ -1679,6 +1679,20 @@ function Library:_RenderAboutWindow(mouse_pos)
         circle.Circle.Position = {circleX, circleY}; circle.Border.Position = {circleX, circleY}
         if circle.Inner then circle.Inner.Position = {circleX, circleY} end
         if circle.PlusLine1 then circle.PlusLine1.From = {circleX - 4, circleY}; circle.PlusLine1.To = {circleX + 4, circleY}; circle.PlusLine2.From = {circleX, circleY - 4}; circle.PlusLine2.To = {circleX, circleY + 4}; end
+        
+        -- [[ НАЧАЛО НОВОГО КОДА ]]
+        if not circle.IsAddButton and self.Themes[circle.Name] then
+            local themeForCircle = self.Themes[circle.Name]
+            self:_AnimateAndApplyColor(circle.Circle, themeForCircle.Colors.MainBackground, masterOpacity)
+            if circle.Inner then
+                self:_AnimateAndApplyColor(circle.Inner, themeForCircle.Colors.Accent, masterOpacity)
+            end
+        else
+            -- Это кнопка "+", для неё тоже нужна анимация прозрачности
+            self:_AnimateAndApplyColor(circle.Circle, {40, 40, 40, 255}, masterOpacity)
+        end
+        -- [[ КОНЕЦ НОВОГО КОДА ]]
+
         circle.ClickRegion = {x1 = circleX - 10, y1 = circleY - 5, x2 = circleX + 10, y2 = circleY + 15}
     end
 
@@ -3131,21 +3145,18 @@ function Library:_InputLoop()
                     local optionHeight = 25
                     local popupHeight = (#dd.Options * optionHeight) + 10
                     local popupY = dd.ClickRegion.y2 + 5
-                     -- Вычисляем область самого выпадающего списка
                     local popup_region = {x1 = dd.ClickRegion.x1, y1 = popupY, x2 = dd.ClickRegion.x2, y2 = popupY + popupHeight}
 
+                    -- Проверяем, был ли клик ВНУТРИ самого списка опций
                     if self:_IsPointInRegion(mouse_x, mouse_y, popup_region) then
-                        -- Действие 1: Клик был внутри самого списка опций.
                         if picker.HoveredDropdownIndex > 0 then
-                            -- Если наведена опция, выбираем её.
                             picker.Mode = picker.Dropdown.Options[picker.HoveredDropdownIndex].Text.Text
                         end
-                        picker.DropdownIsOpen = false -- Закрываем список после выбора (или клика по пустому месту в нём).
+                        picker.DropdownIsOpen = false -- Закрываем после выбора
                         click_was_handled = true
                     elseif not self:_IsPointInRegion(mouse_x, mouse_y, dd.ClickRegion) then
-                        -- Действие 2: Клик был за пределами списка и его кнопки.
-                        picker.DropdownIsOpen = false -- Просто закрываем список.
-                        -- click_was_handled здесь не ставится, чтобы клик обработали другие элементы, если нужно.
+                        -- Если клик был не в списке и не по кнопке, тоже закрываем
+                        picker.DropdownIsOpen = false
                     end
                 elseif anyDropdownOpen then
                     for _, section in ipairs(self.UI.Sections) do for _, el in ipairs(section.Elements) do
@@ -3187,7 +3198,7 @@ function Library:_InputLoop()
             if not click_was_handled then
                 local picker_region = picker.IsOpen and {x1=picker.Background.Position.x, y1=picker.Background.Position.y, x2=picker.Background.Position.x+picker.Background.Size.x, y2=picker.Background.Position.y+picker.Background.Size.y} or nil
                 if (about_window.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, about_window.ClickRegion)) or (style_window.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, style_window.ClickRegion)) then
-                    if style_window.IsOpen then
+                    if style_window.IsOpen and not self.UI.Popups.ColorPicker.IsOpen then
                         if self:_IsPointInRegion(mouse_x, mouse_y, style_window.CloseButton.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, style_window.CancelButton.ClickRegion) then
                             self:_revert_realtime_changes(); style_window.Animation.IsClosing = true; style_window.Animation.IsOpening = false; style_window.IsEditingName = false;
                         elseif self:_IsPointInRegion(mouse_x, mouse_y, style_window.SaveButton.ClickRegion) then
