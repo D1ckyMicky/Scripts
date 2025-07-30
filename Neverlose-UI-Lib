@@ -3171,18 +3171,34 @@ function Library:_InputLoop()
             if not click_was_handled then
                 if picker.IsOpen and picker.Dropdown.IsOpen then
                     local dd = picker.Dropdown
+                    
+                    -- Определяем точную область открытого списка
                     local popup_region = {
-                        x1 = dd.ClickRegion.x1, y1 = dd.ClickRegion.y2 + 5,
-                        x2 = dd.ClickRegion.x2, y2 = dd.ClickRegion.y2 + 5 + (#dd.Options * 25) + 10
+                        x1 = dd.ClickRegion.x1, 
+                        y1 = dd.ClickRegion.y2 + 5,
+                        x2 = dd.ClickRegion.x2, 
+                        y2 = dd.ClickRegion.y2 + 5 + (#dd.Options * 25) + 10
                     }
+
+                    -- 1. Сначала проверяем клик ВНУТРИ списка опций
                     if self:_IsPointInRegion(mouse_x, mouse_y, popup_region) then
                         if picker.HoveredDropdownIndex > 0 then
                             picker.Mode = picker.Dropdown.Options[picker.HoveredDropdownIndex].Text.Text
                         end
+                        -- Закрываем дропдаун, так как выбор сделан
+                        dd.IsOpen, dd.IsClosing = false, true
+                        click_was_handled = true -- Помечаем клик как обработанный
+
+                    -- 2. Если клик был не в списке, проверяем, был ли он на самой кнопке
+                    elseif self:_IsPointInRegion(mouse_x, mouse_y, dd.ClickRegion) then
+                        -- Этот клик уже обработан логикой открытия/закрытия, так что просто помечаем его
+                        click_was_handled = true
+
+                    -- 3. Если клик был и не в списке, и не на кнопке - значит, он был снаружи
+                    else
+                        -- Закрываем дропдаун и помечаем клик как обработанный, чтобы он не "прошел" дальше
                         dd.IsOpen, dd.IsClosing = false, true
                         click_was_handled = true
-                    elseif not self:_IsPointInRegion(mouse_x, mouse_y, dd.ClickRegion) then
-                        dd.IsOpen, dd.IsClosing = false, true
                     end
                 end
 
