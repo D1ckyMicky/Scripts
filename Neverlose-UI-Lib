@@ -971,7 +971,7 @@ function Library:_InitializeColorPickerWindow()
     picker.key_press_delay = 0.05
     picker.is_in_repeat = false
     picker.last_key_pressed = ""
-    picker.HoveredDropdownIndex = 0
+    picker.HoveredDropdownIndex = 0 -- << НОВОЕ: Индекс для отслеживания наведения
 
     picker.Background = self:_CreateDrawingObject("Square"); if picker.Background then picker.Background.Filled = true; picker.Background.zIndex = z; picker.Background.Rounding = self.ActiveTheme.Rounding.Window; end
     picker.Border = self:_CreateDrawingObject("Square"); if picker.Border then picker.Border.Filled = false; picker.Border.Thickness = 1; picker.Border.zIndex = z; picker.Border.Rounding = self.ActiveTheme.Rounding.Window; end
@@ -996,14 +996,15 @@ function Library:_InitializeColorPickerWindow()
         ArrowLine1 = self:_CreateDrawingObject("Line"),
         ArrowLine2 = self:_CreateDrawingObject("Line"),
         PopupBg = self:_CreateDrawingObject("Square"),
-        PopupBorder = self:_CreateDrawingObject("Square"),
+        PopupBorder = self:_CreateDrawingObject("Square"), -- << ИЗМЕНЕНИЕ: Переименовал Border в PopupBorder
+        -- [[ НОВОЕ: Добавляем состояния для анимации и работы ]]
         IsOpen = false,
         IsClosing = false,
         FadeOpacity = 0.0,
         Glow = self:_Internal_CreateGlowSet(inputZ + 4),
         Options = {},
         ClickRegion = {},
-        PopupClickRegion = {}
+        PopupClickRegion = {} -- << НОВОЕ: Область клика для открытого списка
     }
     if picker.Dropdown.Button then picker.Dropdown.Button.Filled = true; picker.Dropdown.Button.zIndex = inputZ; picker.Dropdown.Button.Rounding = self.ActiveTheme.Rounding.Element; end
     if picker.Dropdown.ButtonText then picker.Dropdown.ButtonText.Font = self.ActiveTheme.Fonts.Main; picker.Dropdown.ButtonText.Size = self.ActiveTheme.Fonts.Size + 1; picker.Dropdown.ButtonText.zIndex = inputZ + 1; end
@@ -1014,7 +1015,7 @@ function Library:_InitializeColorPickerWindow()
 
     for _, mode in ipairs({"HEX", "RGBA"}) do
         local option = {
-            Name = mode,
+            Name = mode, -- << НОВОЕ
             Text = self:_CreateDrawingObject("Text"),
             Highlight = self:_CreateDrawingObject("Square"),
             ClickRegion = {}
@@ -1038,7 +1039,6 @@ function Library:_InitializeColorPickerWindow()
     picker.HueSliderRegion = {}
     picker.OpacitySliderRegion = {}
 end
-
 
 function Library:_InitializeConfigsTab()
     local configs = {}; self.UI.Core.ConfigsTab = configs; local z = 4
@@ -1973,14 +1973,10 @@ function Library:_RenderColorPickerWindow()
     local sliderHeight = 6
     local sliderSpacing = 12
     local inputRowHeight = 25
-    local pickerW = squareSize + (padding * 2)
 
+    local pickerW = squareSize + (padding * 2)
+    local pickerH = squareY + squareSize + (padding * 3) + (sliderHeight * 2) + (sliderSpacing * 2) + (inputRowHeight * 2) - pickerY
     local pickerX, pickerY = picker.Pos.x, picker.Pos.y
-    local squareX = pickerX + padding
-    local squareY = pickerY + padding
-    
-    local finalY = squareY + squareSize + sliderSpacing + sliderHeight + sliderSpacing + sliderHeight + sliderSpacing + 5 + inputRowHeight + padding
-    local pickerH = finalY - pickerY
     
     picker.ClickRegion = {x1=pickerX, y1=pickerY, x2=pickerX+pickerW, y2=pickerY+pickerH}
 
@@ -1990,6 +1986,7 @@ function Library:_RenderColorPickerWindow()
     self:_AnimateAndApplyColor(picker.Border, theme.Colors.Separator, masterOpacity)
     self:_RenderGlowEffect(picker.Glow, pickerX, pickerY, pickerW, pickerH, picker.Background.Rounding, theme.Colors.GlowColor, nil, masterOpacity)
 
+    local squareX = pickerX + padding; local squareY = pickerY + padding
     picker.ColorSquare.Position = {squareX, squareY}; picker.ColorSquare.Size = {squareSize, squareSize}
     local pureHue = self:_HSVtoRGB(picker.h, 1, 1);
     picker.ColorSquare.Color = {pureHue[1], pureHue[2], pureHue[3]}
@@ -2106,6 +2103,7 @@ function Library:_RenderColorPickerWindow()
             local popupWidth = 120
             local popupHeight = (#dd.Options * optionHeight) + 10
             
+            -- [[ ИСПРАВЛЕНО: Позиционирование по центру кнопки ]]
             local popupX = dd.ClickRegion.x1 + (dd.ClickRegion.x2 - dd.ClickRegion.x1) / 2 - (popupWidth / 2)
             local popupY = dd.ClickRegion.y2 + 5
             
@@ -2128,6 +2126,7 @@ function Library:_RenderColorPickerWindow()
 
                 option.ClickRegion = {x1 = popupX, y1 = currentOptionY, x2 = popupX + popupWidth, y2 = currentOptionY + optionHeight}
                 
+                -- [[ ИСПРАВЛЕНО: Подсветка текущего режима и наведения ]]
                 local isSelected = (picker.Mode == option.Name)
                 local isHovered = (picker.HoveredDropdownIndex == i)
                 local targetTextColor = isSelected and theme.Colors.Accent or theme.Colors.TextPrimary
@@ -3198,20 +3197,25 @@ function Library:_InputLoop()
                 applyColorInput(picker); click_was_handled = true
             end
             
+            -- [[ НАЧАЛО БЛОКА ИСПРАВЛЕНИЙ: Обработка кликов по открытым спискам ]]
             if not click_was_handled and anyDropdownOpen then
+                -- Сначала проверяем Color Picker Dropdown, так как он "выше" всех
                 if picker.IsOpen and picker.Dropdown.IsOpen then
                     if picker.Dropdown.PopupClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, picker.Dropdown.PopupClickRegion) then
+                        -- Клик внутри открытого списка
                         if picker.HoveredDropdownIndex > 0 then
                             picker.Mode = picker.Dropdown.Options[picker.HoveredDropdownIndex].Name
                         end
                         picker.Dropdown.IsOpen, picker.Dropdown.IsClosing = false, true
                         click_was_handled = true
                     elseif not self:_IsPointInRegion(mouse_x, mouse_y, picker.Dropdown.ClickRegion) then
+                        -- Клик снаружи кнопки и снаружи списка, закрываем
                         picker.Dropdown.IsOpen, picker.Dropdown.IsClosing = false, true
                         click_was_handled = true
                     end
                 end
 
+                -- Если клик не был обработан Color Picker'ом, проверяем остальные
                 if not click_was_handled then
                     for _, section in ipairs(self.UI.Sections) do
                         for _, el in ipairs(section.Elements) do
@@ -3233,7 +3237,7 @@ function Library:_InputLoop()
                                     click_was_handled = true; break
                                 elseif not self:_IsPointInRegion(mouse_x, mouse_y, el.ClickRegion) then
                                     el.IsOpen, el.IsClosing = false, true
-                                    click_was_handled = true;
+                                    click_was_handled = true; -- Этот клик обработан (закрытием), не даем ему пройти дальше
                                 end
                             end
                         end
@@ -3241,6 +3245,7 @@ function Library:_InputLoop()
                     end
                 end
             end
+            -- [[ КОНЕЦ БЛОКА ИСПРАВЛЕНИЙ ]]
 
             if not click_was_handled then
                  if (about_window.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, about_window.ClickRegion)) or (style_window.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, style_window.ClickRegion)) or (picker.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, picker.ClickRegion)) then
@@ -3499,7 +3504,7 @@ function Library:_AddPresetsTab()
 end
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3x1")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3xxxxx1")
     local is_first_frame = true
     while true do
         self:_InputLoop()
