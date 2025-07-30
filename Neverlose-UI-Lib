@@ -967,7 +967,6 @@ function Library:_InitializeColorPickerWindow()
     picker.Mode = "HEX" 
     picker.InputText = ""
     picker.IsEditing = false
-    picker.DropdownIsOpen = false
     picker.last_key_press_time = 0
     picker.key_press_delay = 0.05
     picker.is_in_repeat = false
@@ -997,6 +996,10 @@ function Library:_InitializeColorPickerWindow()
         ArrowLine2 = self:_CreateDrawingObject("Line"),
         PopupBg = self:_CreateDrawingObject("Square"),
         Border = self:_CreateDrawingObject("Square"),
+        IsOpen = false,
+        IsClosing = false,
+        FadeOpacity = 0.0,
+        Glow = self:_Internal_CreateGlowSet(inputZ + 4),
         Options = {},
         ClickRegion = {}
     }
@@ -1960,13 +1963,7 @@ function Library:_RenderColorPickerWindow()
     local allVisible = masterOpacity > 0
     self:_SetDrawingTableVisibility(picker, allVisible)
     self:_SetVisibility(picker.Input.Cursor, allVisible and picker.IsEditing and math.sin(tick() * 5) > 0)
-    self:_SetVisibility(picker.Dropdown.PopupBg, allVisible and picker.DropdownIsOpen)
-    self:_SetVisibility(picker.Dropdown.Border, allVisible and picker.DropdownIsOpen)
-    for _, opt in ipairs(picker.Dropdown.Options) do 
-        self:_SetVisibility(opt.Text, allVisible and picker.DropdownIsOpen) 
-        self:_SetVisibility(opt.Highlight, allVisible and picker.DropdownIsOpen)
-    end
-
+    
     local theme = self.ActiveTheme
     local padding = 10
     local squareSize = 160
@@ -2055,7 +2052,6 @@ function Library:_RenderColorPickerWindow()
         end
     end
 
-    -- [[ ИСПРАВЛЕНИЕ: Безопасная обрезка текста для предотвращения вылета ]]
     input.Text.Text = text_to_show
     local max_text_width = squareSize - 16
     if input.Text.TextBounds and input.Text.TextBounds.x > max_text_width then
@@ -2076,30 +2072,61 @@ function Library:_RenderColorPickerWindow()
         self:_AnimateAndApplyColor(input.Cursor, theme.Colors.Accent, masterOpacity)
     end
 
-    if picker.DropdownIsOpen then
-        local optionHeight = 25
-        local popupHeight = (#dd.Options * optionHeight) + 10
-        local popupY = dd.ClickRegion.y2 + 5
-        dd.PopupBg.Position = {dd.ClickRegion.x1, popupY}; dd.PopupBg.Size = {squareSize, popupHeight}
-        self:_AnimateAndApplyColor(dd.PopupBg, theme.Colors.SectionBackground, masterOpacity)
-        dd.Border.Position = {dd.ClickRegion.x1, popupY}; dd.Border.Size = {squareSize, popupHeight}
-        self:_AnimateAndApplyColor(dd.Border, theme.Colors.Separator, masterOpacity)
-
-        local currentOptionY = popupY + 5
-        for i, option in ipairs(dd.Options) do
-            option.ClickRegion = {x1 = dd.ClickRegion.x1, y1 = currentOptionY, x2 = dd.ClickRegion.x1 + squareSize, y2 = currentOptionY + optionHeight}
-            option.Text.Position = {dd.ClickRegion.x1 + 10, currentOptionY + optionHeight/2 - option.Text.Size/2}
-            self:_AnimateAndApplyColor(option.Text, theme.Colors.TextPrimary, masterOpacity)
-            
-            option.Highlight.Position = {dd.ClickRegion.x1 + 5, currentOptionY}; option.Highlight.Size = {squareSize - 10, optionHeight}
-            local isHovered = (picker.HoveredDropdownIndex == i)
-            if isHovered then
-                self:_AnimateAndApplyColor(option.Highlight, theme.Colors.Separator, masterOpacity * 0.4)
-            else
-                option.Highlight.Opacity = 0
-            end
-            currentOptionY = currentOptionY + optionHeight
+    -- [[ НОВЫЙ БЛОК ДЛЯ ОТРИСОВКИ АНИМИРОВАННОГО ДРОПДАУНА ]]
+    if dd.IsOpen or dd.IsClosing then
+        local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4
+        local animationSpeed = (speed_value / 1.5) / 10.0
+        
+        if dd.IsOpen and not dd.IsClosing then
+            dd.FadeOpacity = math.min(1, dd.FadeOpacity + animationSpeed)
+        elseif dd.IsClosing then
+            dd.FadeOpacity = math.max(0, dd.FadeOpacity - animationSpeed)
+            if dd.FadeOpacity == 0 then dd.IsClosing = false end
         end
+
+        if dd.FadeOpacity > 0 then
+            local finalOpacity = masterOpacity * dd.FadeOpacity
+            local optionHeight = 25
+            local popupHeight = (#dd.Options * optionHeight) + 10
+            local popupY = dd.ClickRegion.y2 + 5
+            
+            self:_SetVisibility(dd.PopupBg, true)
+            self:_SetVisibility(dd.Border, true)
+            
+            dd.PopupBg.Position = {dd.ClickRegion.x1, popupY}; dd.PopupBg.Size = {squareSize, popupHeight}
+            self:_AnimateAndApplyColor(dd.PopupBg, theme.Colors.SectionBackground, finalOpacity)
+            dd.Border.Position = {dd.ClickRegion.x1, popupY}; dd.Border.Size = {squareSize, popupHeight}
+            self:_AnimateAndApplyColor(dd.Border, theme.Colors.Separator, finalOpacity)
+            
+            self:_RenderGlowEffect(dd.Glow, dd.ClickRegion.x1, popupY, squareSize, popupHeight, dd.PopupBg.Rounding, theme.Colors.GlowColor, nil, finalOpacity)
+
+            local currentOptionY = popupY + 5
+            for i, option in ipairs(dd.Options) do
+                self:_SetVisibility(option.Text, true)
+                self:_SetVisibility(option.Highlight, true)
+
+                option.ClickRegion = {x1 = dd.ClickRegion.x1, y1 = currentOptionY, x2 = dd.ClickRegion.x1 + squareSize, y2 = currentOptionY + optionHeight}
+                option.Text.Position = {dd.ClickRegion.x1 + 10, currentOptionY + optionHeight/2 - option.Text.Size/2}
+                self:_AnimateAndApplyColor(option.Text, theme.Colors.TextPrimary, finalOpacity)
+                
+                option.Highlight.Position = {dd.ClickRegion.x1 + 5, currentOptionY}; option.Highlight.Size = {squareSize - 10, optionHeight}
+                local isHovered = (picker.HoveredDropdownIndex == i)
+                if isHovered then
+                    self:_AnimateAndApplyColor(option.Highlight, theme.Colors.Separator, finalOpacity * 0.4)
+                else
+                    option.Highlight.Opacity = 0
+                end
+                currentOptionY = currentOptionY + optionHeight
+            end
+        end
+    else
+        self:_SetVisibility(dd.PopupBg, false)
+        self:_SetVisibility(dd.Border, false)
+        for _, option in ipairs(dd.Options) do
+            self:_SetVisibility(option.Text, false)
+            self:_SetVisibility(option.Highlight, false)
+        end
+        self:_HideGlowEffect(dd.Glow)
     end
 end
 
@@ -3142,26 +3169,24 @@ function Library:_InputLoop()
             end
 
             if not click_was_handled then
-                if picker.IsOpen and picker.DropdownIsOpen then
+                if picker.IsOpen and picker.Dropdown.IsOpen then
                     local dd = picker.Dropdown
-                    local optionHeight = 25
-                    local popupHeight = (#dd.Options * optionHeight) + 10
-                    local popupY = dd.ClickRegion.y2 + 5
-                    local popup_region = {x1 = dd.ClickRegion.x1, y1 = popupY, x2 = dd.ClickRegion.x2, y2 = popupY + popupHeight}
-
-                    -- Проверяем, был ли клик ВНУТРИ самого списка опций
+                    local popup_region = {
+                        x1 = dd.ClickRegion.x1, y1 = dd.ClickRegion.y2 + 5,
+                        x2 = dd.ClickRegion.x2, y2 = dd.ClickRegion.y2 + 5 + (#dd.Options * 25) + 10
+                    }
                     if self:_IsPointInRegion(mouse_x, mouse_y, popup_region) then
                         if picker.HoveredDropdownIndex > 0 then
                             picker.Mode = picker.Dropdown.Options[picker.HoveredDropdownIndex].Text.Text
                         end
-                        picker.DropdownIsOpen = false -- Закрываем после выбора
+                        dd.IsOpen, dd.IsClosing = false, true
                         click_was_handled = true
                     elseif not self:_IsPointInRegion(mouse_x, mouse_y, dd.ClickRegion) then
-                        -- Если клик был не в списке и не по кнопке, тоже закрываем
-                        picker.DropdownIsOpen = false
-                        click_was_handled = true -- [[ ВОТ ЭТА СТРОКА ИСПРАВЛЯЕТ БАГ ]]
+                        dd.IsOpen, dd.IsClosing = false, true
                     end
-                elseif anyDropdownOpen then
+                end
+
+                if not click_was_handled and anyDropdownOpen then
                     for _, section in ipairs(self.UI.Sections) do for _, el in ipairs(section.Elements) do
                         if (el.type == "Dropdown" or el.type == "Multidropdown") and el.IsOpen then
                             if el.PopupClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, el.PopupClickRegion) then
@@ -3246,9 +3271,20 @@ function Library:_InputLoop()
                     elseif picker.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, picker_region) then
                          if self:_IsPointInRegion(mouse_x, mouse_y, picker.Input.ClickRegion) then
                             picker.IsEditing = true; picker.InputText = picker.Input.Text.Text
-                        elseif self:_IsPointInRegion(mouse_x, mouse_y, picker.Dropdown.ClickRegion) then
-                            picker.DropdownIsOpen = not picker.DropdownIsOpen
+                    elseif self:_IsPointInRegion(mouse_x, mouse_y, picker.Dropdown.ClickRegion) then
+                        local openingThisOne = not picker.Dropdown.IsOpen
+                        -- Закрываем все остальные дропдауны
+                        for _, s_inner in ipairs(self.UI.Sections) do for _, el_inner in ipairs(s_inner.Elements) do if (el_inner.type == "Dropdown" or el_inner.type == "Multidropdown") and el_inner.IsOpen then el_inner.IsOpen = false; el_inner.IsClosing = true; end end end
+                        
+                        if openingThisOne then
+                            picker.Dropdown.IsOpen = true
+                            picker.Dropdown.IsClosing = false
+                            picker.Dropdown.FadeOpacity = 0.0
+                        else
+                            picker.Dropdown.IsOpen = false
+                            picker.Dropdown.IsClosing = true
                         end
+                    end
                     elseif settings_popup.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, settings_popup.ClickRegion) then
                         for _, element in ipairs(settings_popup.ActiveToggle.SettingsElements or {}) do if element.type == "Keybind" and self:_IsPointInRegion(mouse_x, mouse_y, element.ClickRegion) then element.IsListening = not element.IsListening; break; end end;
                     elseif configsTab.OptionsPopup.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, configsTab.OptionsPopup.ClickRegion) then
