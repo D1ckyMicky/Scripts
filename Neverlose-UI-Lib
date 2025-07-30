@@ -1973,10 +1973,16 @@ function Library:_RenderColorPickerWindow()
     local sliderHeight = 6
     local sliderSpacing = 12
     local inputRowHeight = 25
-
     local pickerW = squareSize + (padding * 2)
-    local pickerH = squareY + squareSize + (padding * 3) + (sliderHeight * 2) + (sliderSpacing * 2) + (inputRowHeight * 2) - pickerY
+
+    -- [[ НАЧАЛО ИСПРАВЛЕНИЯ: Правильный порядок определения переменных ]]
     local pickerX, pickerY = picker.Pos.x, picker.Pos.y
+    local squareX = pickerX + padding
+    local squareY = pickerY + padding
+    
+    local finalY = squareY + squareSize + sliderSpacing + sliderHeight + sliderSpacing + sliderHeight + sliderSpacing + 5 + inputRowHeight + padding
+    local pickerH = finalY - pickerY
+    -- [[ КОНЕЦ ИСПРАВЛЕНИЯ ]]
     
     picker.ClickRegion = {x1=pickerX, y1=pickerY, x2=pickerX+pickerW, y2=pickerY+pickerH}
 
@@ -1986,7 +1992,6 @@ function Library:_RenderColorPickerWindow()
     self:_AnimateAndApplyColor(picker.Border, theme.Colors.Separator, masterOpacity)
     self:_RenderGlowEffect(picker.Glow, pickerX, pickerY, pickerW, pickerH, picker.Background.Rounding, theme.Colors.GlowColor, nil, masterOpacity)
 
-    local squareX = pickerX + padding; local squareY = pickerY + padding
     picker.ColorSquare.Position = {squareX, squareY}; picker.ColorSquare.Size = {squareSize, squareSize}
     local pureHue = self:_HSVtoRGB(picker.h, 1, 1);
     picker.ColorSquare.Color = {pureHue[1], pureHue[2], pureHue[3]}
@@ -2103,7 +2108,6 @@ function Library:_RenderColorPickerWindow()
             local popupWidth = 120
             local popupHeight = (#dd.Options * optionHeight) + 10
             
-            -- [[ ИСПРАВЛЕНО: Позиционирование по центру кнопки ]]
             local popupX = dd.ClickRegion.x1 + (dd.ClickRegion.x2 - dd.ClickRegion.x1) / 2 - (popupWidth / 2)
             local popupY = dd.ClickRegion.y2 + 5
             
@@ -2126,7 +2130,6 @@ function Library:_RenderColorPickerWindow()
 
                 option.ClickRegion = {x1 = popupX, y1 = currentOptionY, x2 = popupX + popupWidth, y2 = currentOptionY + optionHeight}
                 
-                -- [[ ИСПРАВЛЕНО: Подсветка текущего режима и наведения ]]
                 local isSelected = (picker.Mode == option.Name)
                 local isHovered = (picker.HoveredDropdownIndex == i)
                 local targetTextColor = isSelected and theme.Colors.Accent or theme.Colors.TextPrimary
