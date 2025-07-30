@@ -1744,12 +1744,12 @@ function Library:_RenderSettingsPopup()
     for _, element in ipairs(popup.ActiveToggle.SettingsElements or {}) do
         if element.type == "Keybind" then
             local keybind = element
-            self:_SetVisibility(keybind.Label, true) -- << ДОБАВЛЕНО
+            self:_SetVisibility(keybind.Label, true)
             self:_SetVisibility(keybind.Button, true)
             self:_SetVisibility(keybind.Border, true)
             self:_SetVisibility(keybind.ButtonText, true)
 
-            keybind.Label.zIndex = z + 2 -- << ДОБАВЛЕНО
+            keybind.Label.zIndex = z + 2
             keybind.Button.zIndex = z + 2
             keybind.Border.zIndex = z + 3
             keybind.ButtonText.zIndex = z + 3
@@ -1758,12 +1758,14 @@ function Library:_RenderSettingsPopup()
             local buttonTextColor = keybind.IsListening and self:_GetTextColorForBackground(buttonBackgroundColor) or theme.Colors.TextPrimary
             local buttonBorderColor = keybind.IsListening and theme.Colors.Accent or theme.Colors.Separator
 
-            self:_AnimateAndApplyColor(keybind.Label, theme.Colors.TextSecondary) -- << ДОБАВЛЕНО
+            self:_AnimateAndApplyColor(keybind.Label, theme.Colors.TextSecondary)
             self:_AnimateAndApplyColor(keybind.Button, buttonBackgroundColor)
             self:_AnimateAndApplyColor(keybind.Border, buttonBorderColor)
             self:_AnimateAndApplyColor(keybind.ButtonText, buttonTextColor)
 
-            keybind.Label.Position = { pX + 15, currentY } -- << ДОБАВЛЕНО
+            -- [[ ДОБАВЛЕНА ЭТА СТРОКА ]]
+            keybind.Label.Position = { pX + 15, currentY }
+
             local bindButtonX = pX + pW - keybind.Size.width - 15
             keybind.Button.Position = {bindButtonX, currentY - 5}; keybind.Button.Size = {keybind.Size.width, keybind.Size.height};
             keybind.Border.Position = {bindButtonX, currentY - 5}; keybind.Border.Size = {keybind.Size.width, keybind.Size.height};
@@ -3452,7 +3454,7 @@ function Library:_AddPresetsTab()
 end
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3xxxxx1")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3xx5151xxx1")
     local is_first_frame = true
     while true do
         self:_InputLoop()
