@@ -2040,9 +2040,10 @@ function Library:_RenderColorPickerWindow()
     input.Background.Position = {squareX, currentY}; input.Background.Size = {squareSize, inputRowHeight}
     self:_AnimateAndApplyColor(input.Background, theme.Colors.DarkBlue, masterOpacity)
     
+    -- [[ ИЗМЕНЕНИЕ: Умное отображение текста в поле ввода ]]
     local text_to_show
     if picker.IsEditing then
-        text_to_show = picker.InputText
+        text_to_show = picker.Mode == "HEX" and ("#" .. picker.InputText) or picker.InputText
     else
         local rgb = self:_HSVtoRGB(picker.h, picker.s, picker.v)
         if picker.Mode == "HEX" then
@@ -2088,7 +2089,6 @@ function Library:_RenderColorPickerWindow()
             local optionHeight = 25
             local popupHeight = (#dd.Options * optionHeight) + 10
             
-            -- [[ ИЗМЕНЕНИЕ: Центрируем попап относительно кнопки ]]
             local buttonCenterY = dd.ClickRegion.y1 + (inputRowHeight / 2)
             local popupY = buttonCenterY - (popupHeight / 2)
             dd.PopupClickRegion = {x1=dd.ClickRegion.x1, y1=popupY, x2=dd.ClickRegion.x1+squareSize, y2=popupY+popupHeight}
@@ -2126,7 +2126,7 @@ function Library:_RenderColorPickerWindow()
             end
         end
     else
-        dd.PopupClickRegion = nil -- [[ ДОБАВЛЕНО: Сбрасываем регион, когда попап закрыт ]]
+        dd.PopupClickRegion = nil
         self:_SetVisibility(dd.PopupBg, false)
         self:_SetVisibility(dd.Border, false)
         for _, option in ipairs(dd.Options) do
@@ -3002,7 +3002,9 @@ function Library:_InputLoop()
         picker.IsEditing = false
         local newColor
         if picker.Mode == "HEX" then
-            newColor = self:_HEXtoRGB(picker.InputText)
+            -- [[ ИЗМЕНЕНИЕ: Добавляем # перед проверкой, если его нет ]]
+            local hex_input = picker.InputText:gsub("#", "")
+            newColor = self:_HEXtoRGB("#" .. hex_input)
         else
             local nums = {}
             for n in string.gmatch(picker.InputText, "%d+") do table.insert(nums, tonumber(n)) end
@@ -3168,29 +3170,22 @@ function Library:_InputLoop()
         if not is_dragging_something then
             local click_was_handled = false
 
-            -- [[ НАЧАЛО ИЗМЕНЕНИЙ: Умная обработка кликов для попапов ]]
-
-            -- ШАГ 1: Обрабатываем клики для выпадающего списка в палитре
             if picker.IsOpen and picker.Dropdown.IsOpen then
-                -- Если клик внутри списка опций
                 if picker.Dropdown.PopupClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, picker.Dropdown.PopupClickRegion) then
                     if picker.HoveredDropdownIndex > 0 then
                         picker.Mode = picker.Dropdown.Options[picker.HoveredDropdownIndex].Text.Text
                     end
                     picker.Dropdown.IsOpen, picker.Dropdown.IsClosing = false, true
                     click_was_handled = true
-                -- Если клик не на самом списке и не на кнопке - закрываем
                 elseif not self:_IsPointInRegion(mouse_x, mouse_y, picker.Dropdown.ClickRegion) then
                     picker.Dropdown.IsOpen, picker.Dropdown.IsClosing = false, true
-                    click_was_handled = true -- Поглощаем клик!
+                    click_was_handled = true
                 end
             end
 
-            -- ШАГ 2: Обрабатываем другие выпадающие списки
             if not click_was_handled and anyDropdownOpen then
                  for _, section in ipairs(self.UI.Sections) do for _, el in ipairs(section.Elements) do
                     if (el.type == "Dropdown" or el.type == "Multidropdown") and el.IsOpen then
-                        -- Если клик внутри списка опций
                         if el.PopupClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, el.PopupClickRegion) then
                              if el.HoveredOptionIndex > 0 then
                                 local i = el.HoveredOptionIndex
@@ -3206,17 +3201,15 @@ function Library:_InputLoop()
                                 end
                             end
                             click_was_handled = true; break
-                        -- Если клик не на списке и не на кнопке - закрываем
                         elseif not self:_IsPointInRegion(mouse_x, mouse_y, el.ClickRegion) then
                             el.IsOpen, el.IsClosing = false, true
-                            click_was_handled = true -- Поглощаем клик!
+                            click_was_handled = true
                             break
                         end
                     end
                 end if click_was_handled then break end end
             end
             
-            -- ШАГ 3: Обрабатываем ввод в текстовые поля
             if not click_was_handled then
                 local active_slider_editing = nil
                 for _, section in ipairs(self.UI.Sections) do for _, el in ipairs(section.Elements) do if el.type == "Slider" and el.IsEditing then active_slider_editing = el; break; end end if active_slider_editing then break end end
@@ -3228,7 +3221,6 @@ function Library:_InputLoop()
                 end
             end
 
-            -- ШАГ 4: Обрабатываем клики по остальным элементам, если клик не был поглощен ранее
             if not click_was_handled then
                 local picker_region = picker.IsOpen and {x1=picker.Background.Position.x, y1=picker.Background.Position.y, x2=picker.Background.Position.x+picker.Background.Size.x, y2=picker.Background.Position.y+picker.Background.Size.y} or nil
                 if (about_window.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, about_window.ClickRegion)) or (style_window.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, style_window.ClickRegion)) then
@@ -3274,10 +3266,15 @@ function Library:_InputLoop()
                     if burger_popup.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, burger_popup.ClickRegion) then
                         if burger_popup.HoveredItemIndex > 0 then local item = burger_popup.Items[burger_popup.HoveredItemIndex]; self.UI.Values[item.id] = not self.UI.Values[item.id]; end;
                     elseif picker.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, picker_region) then
+                        -- [[ ИЗМЕНЕНИЕ: Логика клика на поле ввода ]]
                          if self:_IsPointInRegion(mouse_x, mouse_y, picker.Input.ClickRegion) then
-                            picker.IsEditing = true; picker.InputText = picker.Input.Text.Text
+                            picker.IsEditing = true
+                            if picker.Mode == "HEX" then
+                                picker.InputText = picker.Input.Text.Text:gsub("#", "")
+                            else
+                                picker.InputText = picker.Input.Text.Text
+                            end
                         elseif self:_IsPointInRegion(mouse_x, mouse_y, picker.Dropdown.ClickRegion) then
-                            -- Открываем/закрываем дропдаун палитры
                             local openingThisOne = not picker.Dropdown.IsOpen
                             if openingThisOne then picker.Dropdown.IsOpen = true; picker.Dropdown.IsClosing = false; picker.Dropdown.FadeOpacity = 0.0; else picker.Dropdown.IsOpen = false; picker.Dropdown.IsClosing = true; end
                         end
@@ -3339,7 +3336,6 @@ function Library:_InputLoop()
                     end
                 end
             end
-            -- [[ КОНЕЦ ИЗМЕНЕНИЙ ]]
         end
 
         wm.IsDragging = false; self.Window.IsDragging = false; 
@@ -3354,6 +3350,7 @@ function Library:_InputLoop()
         local KEY_REPEAT_DELAY = 0.05
         local key = getpressedkey()
 
+        -- [[ ИЗМЕНЕНИЕ: Улучшенная логика обработки ввода текста ]]
         local function handle_text_input(target, input_key)
             if target.type == "Slider" then
                 if input_key == "Backspace" then
@@ -3378,9 +3375,14 @@ function Library:_InputLoop()
                 elseif input_key == "Enter" then
                     applyColorInput(picker)
                 elseif string.len(input_key) == 1 then
-                    local valid_char = (picker.Mode == "HEX" and string.match(input_key:lower(), "[0-9a-f#]")) or (picker.Mode == "RGBA" and string.match(input_key, "[%d ,]"))
-                    if valid_char and #picker.InputText < 25 then
-                        picker.InputText = picker.InputText .. input_key
+                    if picker.Mode == "HEX" then
+                        if string.match(input_key:lower(), "[0-9a-f]") and #picker.InputText < 8 then
+                            picker.InputText = picker.InputText .. input_key:lower()
+                        end
+                    elseif picker.Mode == "RGBA" then
+                        if string.match(input_key, "[%d ,]") and #picker.InputText < 19 then
+                            picker.InputText = picker.InputText .. input_key
+                        end
                     end
                 end
             end
