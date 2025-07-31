@@ -2254,7 +2254,6 @@ function Library:_RenderColorPickerWindow()
 end
 
 
-
 function Library:_RenderLoop()
     local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4
     local animationSpeed = (speed_value > 0) and (speed_value / 10.0) or 1
