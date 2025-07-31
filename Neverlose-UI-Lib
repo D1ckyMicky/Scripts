@@ -3351,7 +3351,7 @@ function Library:_InputLoop()
             -- ---[[ ИСПРАВЛЕНИЕ: Строгая иерархия обработки кликов ]]
             -- 1. Самый верхний слой: Палитра (Color Picker)
             if picker.IsOpen then
-                click_was_handled = true -- Считаем, что клик обработан, даже если он был вне палитры (для ее закрытия)
+                click_was_handled = true 
                 if picker.ClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, picker.ClickRegion) then
                     if picker.Dropdown.IsOpen then
                         if picker.Dropdown.PopupClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, picker.Dropdown.PopupClickRegion) then
@@ -3362,17 +3362,21 @@ function Library:_InputLoop()
                         local clicked_swatch = false
                         for i, swatch in ipairs(picker.Swatches) do
                             if self:_IsPointInRegion(mouse_x, mouse_y, swatch.ClickRegion) then
-                                if swatch.IsAddButton then
-                                    local current_color_rgb = self:_HSVtoRGB(picker.h, picker.s, picker.v)
-                                    local final_color = {current_color_rgb[1], current_color_rgb[2], current_color_rgb[3], picker.a * 255}
-                                    self:_AddColorSwatch(final_color)
+                                if is_right_clicked then
+                                    self:_RemoveColorSwatch(i)
                                 else
-                                    local preset_color = swatch.Color
-                                    picker.h, picker.s, picker.v, picker.a = self:_RGBtoHSV(preset_color[1], preset_color[2], preset_color[3], preset_color[4])
-                                    if picker.EditingValueID then self.UI.Values[picker.EditingValueID] = preset_color
-                                    elseif picker.EditingColorName then
-                                        style_window.EditingTheme.Colors[picker.EditingColorName] = preset_color
-                                        if self.UI.Values.EditStyleRealTime and self.TempTheme then self.TempTheme.Colors[picker.EditingColorName] = preset_color end
+                                    if swatch.IsAddButton then
+                                        local current_color_rgb = self:_HSVtoRGB(picker.h, picker.s, picker.v)
+                                        local final_color = {current_color_rgb[1], current_color_rgb[2], current_color_rgb[3], picker.a * 255}
+                                        self:_AddColorSwatch(final_color)
+                                    else
+                                        local preset_color = swatch.Color
+                                        picker.h, picker.s, picker.v, picker.a = self:_RGBtoHSV(preset_color[1], preset_color[2], preset_color[3], preset_color[4])
+                                        if picker.EditingValueID then self.UI.Values[picker.EditingValueID] = preset_color
+                                        elseif picker.EditingColorName then
+                                            style_window.EditingTheme.Colors[picker.EditingColorName] = preset_color
+                                            if self.UI.Values.EditStyleRealTime and self.TempTheme then self.TempTheme.Colors[picker.EditingColorName] = preset_color end
+                                        end
                                     end
                                 end
                                 clicked_swatch = true
@@ -3384,7 +3388,8 @@ function Library:_InputLoop()
                                 picker.IsEditing = true
                                 if picker.Mode == "HEX" then picker.InputText = picker.Input.Text.Text:gsub("#", "") else picker.InputText = picker.Input.Text.Text end
                             elseif self:_IsPointInRegion(mouse_x, mouse_y, picker.Dropdown.ClickRegion) then
-                                picker.Dropdown.IsOpen, picker.Dropdown.IsClosing = true, false; picker.Dropdown.FadeOpacity = 0.0
+                                picker.Dropdown.IsOpen, picker.Dropdown.IsClosing = not picker.Dropdown.IsOpen, picker.Dropdown.IsOpen
+                                if picker.Dropdown.IsOpen then picker.Dropdown.FadeOpacity = 0.0 end
                             end
                         end
                     end
@@ -3469,17 +3474,21 @@ function Library:_InputLoop()
             if not click_was_handled then
                 if anyDropdownOpen then
                     for _, section in ipairs(self.UI.Sections) do for _, el in ipairs(section.Elements) do
-                        if (el.type == "Dropdown" or el.type == "Multidropdown") and el.IsOpen and el.HoveredOptionIndex > 0 then
-                            local i = el.HoveredOptionIndex
-                            if el.type == "Dropdown" then
-                                self.UI.Values[el.id] = el.Options[i]
-                                el.IsOpen, el.IsClosing = false, true
+                        if (el.type == "Dropdown" or el.type == "Multidropdown") and el.IsOpen then
+                            if el.HoveredOptionIndex > 0 then
+                                local i = el.HoveredOptionIndex
+                                if el.type == "Dropdown" then
+                                    self.UI.Values[el.id] = el.Options[i]
+                                    el.IsOpen, el.IsClosing = false, true
+                                else
+                                    local opt = el.Options[i]
+                                    local found_idx = table.find(self.UI.Values[el.id], opt)
+                                    if found_idx then table.remove(self.UI.Values[el.id], found_idx) else table.insert(self.UI.Values[el.id], opt) end
+                                end
+                                if el.Callback then el.Callback(self.UI.Values[el.id]) end
                             else
-                                local opt = el.Options[i]
-                                local found_idx = table.find(self.UI.Values[el.id], opt)
-                                if found_idx then table.remove(self.UI.Values[el.id], found_idx) else table.insert(self.UI.Values[el.id], opt) end
+                                el.IsOpen, el.IsClosing = false, true
                             end
-                            if el.Callback then el.Callback(self.UI.Values[el.id]) end
                             click_was_handled = true; break;
                         end
                     end if click_was_handled then break end end
