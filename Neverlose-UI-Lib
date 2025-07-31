@@ -2107,7 +2107,10 @@ function Library:_RenderColorPickerWindow()
 
                 option.ClickRegion = {x1 = dd.ClickRegion.x1, y1 = currentOptionY, x2 = dd.ClickRegion.x1 + squareSize, y2 = currentOptionY + optionHeight}
                 option.Text.Position = {dd.ClickRegion.x1 + 10, currentOptionY + optionHeight/2 - option.Text.Size/2}
-                self:_AnimateAndApplyColor(option.Text, theme.Colors.TextPrimary, finalOpacity)
+
+                local isSelected = (picker.Mode == option.Text.Text)
+                local targetTextColor = isSelected and theme.Colors.Accent or theme.Colors.TextPrimary
+                self:_AnimateAndApplyColor(option.Text, targetTextColor, finalOpacity)
                 
                 option.Highlight.Position = {dd.ClickRegion.x1 + 5, currentOptionY}; option.Highlight.Size = {squareSize - 10, optionHeight}
                 local isHovered = (picker.HoveredDropdownIndex == i)
@@ -3200,9 +3203,7 @@ function Library:_InputLoop()
                         dd.IsOpen, dd.IsClosing = false, true
                         click_was_handled = true
                     end
-                end
-
-                if not click_was_handled and anyDropdownOpen then
+                elseif anyDropdownOpen then
                     for _, section in ipairs(self.UI.Sections) do for _, el in ipairs(section.Elements) do
                         if (el.type == "Dropdown" or el.type == "Multidropdown") and el.IsOpen then
                             if el.PopupClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, el.PopupClickRegion) then
