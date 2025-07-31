@@ -90,6 +90,7 @@ Library.UI = { TabGroups = {}, Sections = {}, Values = {}, DrawingObjects = {}, 
 
 local drag_offset = {x = 0, y = 0}
 local was_left_pressed = false
+local was_right_pressed = false
 local is_dragging_something = false
 local was_dragging_picker = false -- << ДОБАВЬ ЭТУ СТРОКУ
 local lastToggleTime = 0
@@ -2160,7 +2161,7 @@ function Library:_RenderColorPickerWindow()
     end
     
     currentY = currentY + inputRowHeight + 15
-    local swatchSpacing = 22
+    local swatchSpacing = 24
     local currentSwatchX = squareX + 10 -- [[ ИЗМЕНЕНИЕ: Убираем центрирование, ставим фикс. отступ слева ]]
     
     for _, swatch in ipairs(picker.Swatches) do
@@ -3086,6 +3087,10 @@ function Library:_InputLoop()
     local is_left_pressed_now = isleftpressed()
     local is_left_clicked = was_left_pressed and not is_left_pressed_now
     local is_press_started = is_left_pressed_now and not was_left_pressed
+    
+    -- [[ ДОБАВЛЕНО: Отслеживание правого клика ]]
+    local is_right_pressed_now = isrightpressed()
+    local is_right_clicked = was_right_pressed and not is_right_pressed_now
 
     local picker = self.UI.Popups.ColorPicker
     local style_window = self.UI.Popups.EditStyle
@@ -3282,6 +3287,19 @@ function Library:_InputLoop()
             update_color_picker()
         end
     end
+    
+    -- [[ ДОБАВЛЕНО: Обработка правого клика для удаления пресетов ]]
+    if is_right_clicked then
+        if picker.IsOpen then
+            for i, swatch in ipairs(picker.Swatches) do
+                if not swatch.IsAddButton and self:_IsPointInRegion(mouse_x, mouse_y, swatch.ClickRegion) then
+                    table.remove(self.UI.ColorPresets, i)
+                    self:_RebuildColorSwatches()
+                    break
+                end
+            end
+        end
+    end
 
     if is_left_clicked then
         if not is_dragging_something then
@@ -3342,7 +3360,7 @@ function Library:_InputLoop()
                         for i, swatch in ipairs(picker.Swatches) do
                             if self:_IsPointInRegion(mouse_x, mouse_y, swatch.ClickRegion) then
                                 if swatch.IsAddButton then
-                                    if #self.UI.ColorPresets < 7 then -- [[ ИЗМЕНЕНИЕ: Проверяем лимит ]]
+                                    if #self.UI.ColorPresets < 7 then
                                         local current_color_rgb = self:_HSVtoRGB(picker.h, picker.s, picker.v)
                                         local final_color = {current_color_rgb[1], current_color_rgb[2], current_color_rgb[3], picker.a * 255}
                                         table.insert(self.UI.ColorPresets, final_color)
@@ -3650,6 +3668,7 @@ function Library:_InputLoop()
     end
 
     was_left_pressed = is_left_pressed_now
+    was_right_pressed = is_right_pressed_now -- [[ ДОБАВЛЕНО: Обновляем состояние правой кнопки ]]
 end
 
 function Library:_AddPresetsTab()
