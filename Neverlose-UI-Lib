@@ -525,9 +525,8 @@ end
 
 function Library:_RebuildColorSwatches()
     local picker = self.UI.Popups.ColorPicker
-    local z = picker.Background.zIndex + 10 -- Убедимся, что они выше фона
+    local z = picker.Background.zIndex + 10 
 
-    -- Очищаем старые объекты, чтобы избежать утечек памяти
     for _, swatch in ipairs(picker.Swatches) do
         if swatch.Circle then swatch.Circle:Remove() end
         if swatch.Border then swatch.Border:Remove() end
@@ -536,7 +535,6 @@ function Library:_RebuildColorSwatches()
     end
     picker.Swatches = {}
 
-    -- Создаем кружки для каждого сохраненного цвета
     for _, color in ipairs(self.UI.ColorPresets) do
         local swatch = {
             IsAddButton = false,
@@ -546,28 +544,31 @@ function Library:_RebuildColorSwatches()
             ClickRegion = {}
         }
         if swatch.Circle then 
-            swatch.Circle.Filled = true; swatch.Circle.zIndex = z; swatch.Circle.Radius = 9; 
+            swatch.Circle.Filled = true; swatch.Circle.zIndex = z; 
+            swatch.Circle.Radius = 6; -- [[ ИЗМЕНЕНИЕ: Уменьшен радиус ]]
             swatch.Circle.Color = {color[1], color[2], color[3]};
-            swatch.Circle.Opacity = (color[4] or 255) / 255;
+            -- Opacity будет применен в функции рендеринга
         end
-        if swatch.Border then swatch.Border.Filled = false; swatch.Border.Thickness = 1; swatch.Border.zIndex = z + 1; swatch.Border.Radius = 10; end
+        if swatch.Border then swatch.Border.Filled = false; swatch.Border.Thickness = 1; swatch.Border.zIndex = z + 1; swatch.Border.Radius = 7; end -- [[ ИЗМЕНЕНИЕ: Уменьшен радиус ]]
         table.insert(picker.Swatches, swatch)
     end
 
-    -- Создаем кнопку "Добавить" в конце
-    local addSwatch = {
-        IsAddButton = true,
-        Circle = self:_CreateDrawingObject("Circle"),
-        Border = self:_CreateDrawingObject("Circle"),
-        PlusLine1 = self:_CreateDrawingObject("Line"),
-        PlusLine2 = self:_CreateDrawingObject("Line"),
-        ClickRegion = {}
-    }
-    if addSwatch.Circle then addSwatch.Circle.Filled = true; addSwatch.Circle.zIndex = z; addSwatch.Circle.Radius = 9; end
-    if addSwatch.Border then addSwatch.Border.Filled = false; addSwatch.Border.Thickness = 1; addSwatch.Border.zIndex = z + 1; addSwatch.Border.Radius = 10; end
-    if addSwatch.PlusLine1 then addSwatch.PlusLine1.Thickness = 1.5; addSwatch.PlusLine1.zIndex = z + 1; end
-    if addSwatch.PlusLine2 then addSwatch.PlusLine2.Thickness = 1.5; addSwatch.PlusLine2.zIndex = z + 1; end
-    table.insert(picker.Swatches, addSwatch)
+    -- [[ ИЗМЕНЕНИЕ: Создаем кнопку "Добавить", только если лимит не достигнут ]]
+    if #self.UI.ColorPresets < 7 then
+        local addSwatch = {
+            IsAddButton = true,
+            Circle = self:_CreateDrawingObject("Circle"),
+            Border = self:_CreateDrawingObject("Circle"),
+            PlusLine1 = self:_CreateDrawingObject("Line"),
+            PlusLine2 = self:_CreateDrawingObject("Line"),
+            ClickRegion = {}
+        }
+        if addSwatch.Circle then addSwatch.Circle.Filled = true; addSwatch.Circle.zIndex = z; addSwatch.Circle.Radius = 6; end -- [[ ИЗМЕНЕНИЕ: Уменьшен радиус ]]
+        if addSwatch.Border then addSwatch.Border.Filled = false; addSwatch.Border.Thickness = 1; addSwatch.Border.zIndex = z + 1; addSwatch.Border.Radius = 7; end -- [[ ИЗМЕНЕНИЕ: Уменьшен радиус ]]
+        if addSwatch.PlusLine1 then addSwatch.PlusLine1.Thickness = 1.5; addSwatch.PlusLine1.zIndex = z + 1; end
+        if addSwatch.PlusLine2 then addSwatch.PlusLine2.Thickness = 1.5; addSwatch.PlusLine2.zIndex = z + 1; end
+        table.insert(picker.Swatches, addSwatch)
+    end
 end
 
 
@@ -2055,10 +2056,9 @@ function Library:_RenderColorPickerWindow()
     local sliderHeight = 4
     local sliderSpacing = 10
     local inputRowHeight = 25
-    local swatchRowHeight = 35 -- [[ ДОБАВЛЕНО: Высота для ряда с пресетами ]]
+    local swatchRowHeight = 30 -- [[ ИЗМЕНЕНИЕ: Скорректирована высота ]]
 
     local pickerW = squareSize + (padding * 2)
-    -- [[ ИЗМЕНЕНИЕ: Увеличиваем высоту палитры ]]
     local pickerH = squareSize + (padding * 4) + (sliderHeight * 2) + (sliderSpacing * 2) + (inputRowHeight * 2) + swatchRowHeight
     local pickerX, pickerY = picker.Pos.x, picker.Pos.y
     
@@ -2159,26 +2159,27 @@ function Library:_RenderColorPickerWindow()
         self:_AnimateAndApplyColor(input.Cursor, theme.Colors.Accent, masterOpacity)
     end
     
-    -- [[ БЛОК ОТРИСОВКИ ПРЕСЕТОВ ЦВЕТА ]]
-    currentY = currentY + inputRowHeight + 12
-    local swatchSpacing = 25
-    local currentSwatchX = squareX + 10
+    -- [[ БЛОК ОТРИСОВКИ ПРЕСЕТОВ ЦВЕТА (ПОЛНОСТЬЮ ПЕРЕРАБОТАН) ]]
+    currentY = currentY + inputRowHeight + 15 -- Опускаем ниже
+    local swatchSpacing = 22 -- Уменьшаем расстояние для плотной компоновки
+    local totalSwatchesWidth = #picker.Swatches * swatchSpacing
+    local currentSwatchX = squareX + (squareSize - totalSwatchesWidth + swatchSpacing) / 2 -- Динамическое центрирование
     
     for _, swatch in ipairs(picker.Swatches) do
         swatch.Circle.Position = {currentSwatchX, currentY}
         swatch.Border.Position = {currentSwatchX, currentY}
-        swatch.ClickRegion = {x1 = currentSwatchX - 11, y1 = currentY - 11, x2 = currentSwatchX + 11, y2 = currentY + 11}
+        swatch.ClickRegion = {x1 = currentSwatchX - 10, y1 = currentY - 10, x2 = currentSwatchX + 10, y2 = currentY + 10}
 
         self:_AnimateAndApplyColor(swatch.Border, theme.Colors.Separator, masterOpacity)
         if swatch.IsAddButton then
             self:_AnimateAndApplyColor(swatch.Circle, theme.Colors.DarkBlue, masterOpacity)
-            swatch.PlusLine1.From = {currentSwatchX - 4, currentY}; swatch.PlusLine1.To = {currentSwatchX + 4, currentY}
-            swatch.PlusLine2.From = {currentSwatchX, currentY - 4}; swatch.PlusLine2.To = {currentSwatchX, currentY + 4}
+            swatch.PlusLine1.From = {currentSwatchX - 3, currentY}; swatch.PlusLine1.To = {currentSwatchX + 3, currentY}
+            swatch.PlusLine2.From = {currentSwatchX, currentY - 3}; swatch.PlusLine2.To = {currentSwatchX, currentY + 3}
             self:_AnimateAndApplyColor(swatch.PlusLine1, theme.Colors.TextSecondary, masterOpacity)
             self:_AnimateAndApplyColor(swatch.PlusLine2, theme.Colors.TextSecondary, masterOpacity)
         else
-            -- Для обычных кружков цвет уже установлен при создании, просто анимируем прозрачность
-            swatch.Circle.Opacity = masterOpacity
+            -- ИСПРАВЛЕНИЕ: Учитываем альфа-канал
+            swatch.Circle.Opacity = ((swatch.Color[4] or 255) / 255) * masterOpacity
         end
 
         currentSwatchX = currentSwatchX + swatchSpacing
@@ -3340,15 +3341,16 @@ function Library:_InputLoop()
                     handled_by_popup = true
                     local picker_region = {x1=picker.Background.Position.x, y1=picker.Background.Position.y, x2=picker.Background.Position.x+picker.Background.Size.x, y2=picker.Background.Position.y+picker.Background.Size.y}
                     if self:_IsPointInRegion(mouse_x, mouse_y, picker_region) then
-                        -- [[ ИЗМЕНЕНИЕ: Добавлена логика для пресетов ]]
                         local clicked_swatch = false
                         for i, swatch in ipairs(picker.Swatches) do
                             if self:_IsPointInRegion(mouse_x, mouse_y, swatch.ClickRegion) then
                                 if swatch.IsAddButton then
-                                    local current_color_rgb = self:_HSVtoRGB(picker.h, picker.s, picker.v)
-                                    local final_color = {current_color_rgb[1], current_color_rgb[2], current_color_rgb[3], picker.a * 255}
-                                    table.insert(self.UI.ColorPresets, final_color)
-                                    self:_RebuildColorSwatches()
+                                    if #self.UI.ColorPresets < 7 then -- [[ ИЗМЕНЕНИЕ: Проверяем лимит ]]
+                                        local current_color_rgb = self:_HSVtoRGB(picker.h, picker.s, picker.v)
+                                        local final_color = {current_color_rgb[1], current_color_rgb[2], current_color_rgb[3], picker.a * 255}
+                                        table.insert(self.UI.ColorPresets, final_color)
+                                        self:_RebuildColorSwatches()
+                                    end
                                 else
                                     local preset_color = swatch.Color
                                     picker.h, picker.s, picker.v, picker.a = self:_RGBtoHSV(preset_color[1], preset_color[2], preset_color[3], preset_color[4])
