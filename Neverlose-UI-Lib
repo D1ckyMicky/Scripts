@@ -3325,9 +3325,17 @@ function Library:_InputLoop()
                     end end if clicked_element_in_section then break end end
 
                     if not clicked_element_in_section then
-                        for _, group in ipairs(self.UI.TabGroups) do for _, tab in ipairs(group.Tabs) do
-                            if self:_IsPointInRegion(mouse_x, mouse_y, tab.ClickRegion) then self.Window.ActiveTab = tab.Name; break; end
-                        end if self.Window.ActiveTab == tab.Name then break end end
+                        local tab_clicked = false
+                        for _, group in ipairs(self.UI.TabGroups) do
+                            for _, tab in ipairs(group.Tabs) do
+                                if self:_IsPointInRegion(mouse_x, mouse_y, tab.ClickRegion) then
+                                    self.Window.ActiveTab = tab.Name
+                                    tab_clicked = true
+                                    break
+                                end
+                            end
+                            if tab_clicked then break end
+                        end
                     end
                 end
             end
