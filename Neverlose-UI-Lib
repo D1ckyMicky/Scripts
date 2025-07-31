@@ -2188,73 +2188,71 @@ function Library:_RenderColorPickerWindow()
     end
 
     -- ---[[ НАЧАЛО ИСПРАВЛЕНИЯ: Новая, более надежная логика анимации и скрытия ]]
-    if dd.IsOpen or dd.IsClosing then
-        local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4
-        local animationSpeed = (speed_value / 1.5) / 10.0
+    local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4
+    local animationSpeed = (speed_value / 1.5) / 10.0
+    
+    if dd.IsOpen and not dd.IsClosing then
+        dd.FadeOpacity = math.min(1, dd.FadeOpacity + animationSpeed)
+    elseif dd.IsClosing then
+        dd.FadeOpacity = math.max(0, dd.FadeOpacity - animationSpeed)
+    end
+
+    if dd.FadeOpacity > 0 then
+        local finalOpacity = masterOpacity * dd.FadeOpacity
+        local optionHeight = 25
+        local popupHeight = (#dd.Options * optionHeight) + 10
         
-        if dd.IsOpen and not dd.IsClosing then
-            dd.FadeOpacity = math.min(1, dd.FadeOpacity + animationSpeed)
-        elseif dd.IsClosing then
-            dd.FadeOpacity = math.max(0, dd.FadeOpacity - animationSpeed)
-            if dd.FadeOpacity <= 0 then 
-                dd.IsClosing = false 
+        local buttonCenterY = dd.ClickRegion.y1 + (inputRowHeight / 2)
+        local popupY = buttonCenterY - (popupHeight / 2)
+        dd.PopupClickRegion = {x1=dd.ClickRegion.x1, y1=popupY, x2=dd.ClickRegion.x1+squareSize, y2=popupY+popupHeight}
+
+        self:_SetVisibility(dd.PopupBg, true)
+        self:_SetVisibility(dd.Border, true)
+        
+        dd.PopupBg.Position = {dd.ClickRegion.x1, popupY}; dd.PopupBg.Size = {squareSize, popupHeight}
+        self:_AnimateAndApplyColor(dd.PopupBg, theme.Colors.SectionBackground, finalOpacity)
+        dd.Border.Position = {dd.ClickRegion.x1, popupY}; dd.Border.Size = {squareSize, popupHeight}
+        self:_AnimateAndApplyColor(dd.Border, theme.Colors.Separator, finalOpacity)
+        
+        self:_RenderGlowEffect(dd.Glow, dd.ClickRegion.x1, popupY, squareSize, popupHeight, dd.PopupBg.Rounding, theme.Colors.GlowColor, nil, finalOpacity)
+
+        local currentOptionY = popupY + 5
+        for i, option in ipairs(dd.Options) do
+            self:_SetVisibility(option.Text, true)
+            self:_SetVisibility(option.Highlight, true)
+
+            option.ClickRegion = {x1 = dd.ClickRegion.x1, y1 = currentOptionY, x2 = dd.ClickRegion.x1 + squareSize, y2 = currentOptionY + optionHeight}
+            option.Text.Position = {dd.ClickRegion.x1 + 10, currentOptionY + optionHeight/2 - option.Text.Size/2}
+            
+            local isSelected = (picker.Mode == option.Text.Text)
+            local targetTextColor = isSelected and theme.Colors.Accent or theme.Colors.TextPrimary
+            self:_AnimateAndApplyColor(option.Text, targetTextColor, finalOpacity)
+            
+            option.Highlight.Position = {dd.ClickRegion.x1 + 5, currentOptionY}; option.Highlight.Size = {squareSize - 10, optionHeight}
+            local isHovered = (picker.HoveredDropdownIndex == i)
+            if isHovered then
+                self:_AnimateAndApplyColor(option.Highlight, theme.Colors.Separator, finalOpacity * 0.4)
+            else
+                option.Highlight.Opacity = 0
             end
+            currentOptionY = currentOptionY + optionHeight
         end
-
-        if dd.FadeOpacity > 0 then
-            local finalOpacity = masterOpacity * dd.FadeOpacity
-            local optionHeight = 25
-            local popupHeight = (#dd.Options * optionHeight) + 10
-            
-            local buttonCenterY = dd.ClickRegion.y1 + (inputRowHeight / 2)
-            local popupY = buttonCenterY - (popupHeight / 2)
-            dd.PopupClickRegion = {x1=dd.ClickRegion.x1, y1=popupY, x2=dd.ClickRegion.x1+squareSize, y2=popupY+popupHeight}
-
-            self:_SetVisibility(dd.PopupBg, true)
-            self:_SetVisibility(dd.Border, true)
-            
-            dd.PopupBg.Position = {dd.ClickRegion.x1, popupY}; dd.PopupBg.Size = {squareSize, popupHeight}
-            self:_AnimateAndApplyColor(dd.PopupBg, theme.Colors.SectionBackground, finalOpacity)
-            dd.Border.Position = {dd.ClickRegion.x1, popupY}; dd.Border.Size = {squareSize, popupHeight}
-            self:_AnimateAndApplyColor(dd.Border, theme.Colors.Separator, finalOpacity)
-            
-            self:_RenderGlowEffect(dd.Glow, dd.ClickRegion.x1, popupY, squareSize, popupHeight, dd.PopupBg.Rounding, theme.Colors.GlowColor, nil, finalOpacity)
-
-            local currentOptionY = popupY + 5
-            for i, option in ipairs(dd.Options) do
-                self:_SetVisibility(option.Text, true)
-                self:_SetVisibility(option.Highlight, true)
-
-                option.ClickRegion = {x1 = dd.ClickRegion.x1, y1 = currentOptionY, x2 = dd.ClickRegion.x1 + squareSize, y2 = currentOptionY + optionHeight}
-                option.Text.Position = {dd.ClickRegion.x1 + 10, currentOptionY + optionHeight/2 - option.Text.Size/2}
-                
-                local isSelected = (picker.Mode == option.Text.Text)
-                local targetTextColor = isSelected and theme.Colors.Accent or theme.Colors.TextPrimary
-                self:_AnimateAndApplyColor(option.Text, targetTextColor, finalOpacity)
-                
-                option.Highlight.Position = {dd.ClickRegion.x1 + 5, currentOptionY}; option.Highlight.Size = {squareSize - 10, optionHeight}
-                local isHovered = (picker.HoveredDropdownIndex == i)
-                if isHovered then
-                    self:_AnimateAndApplyColor(option.Highlight, theme.Colors.Separator, finalOpacity * 0.4)
-                else
-                    option.Highlight.Opacity = 0
-                end
-                currentOptionY = currentOptionY + optionHeight
-            end
-        else
-            -- Этот блок теперь будет выполняться каждый кадр, когда анимация завершена
-            dd.PopupClickRegion = nil
-            self:_SetVisibility(dd.PopupBg, false)
-            self:_SetVisibility(dd.Border, false)
-            for _, option in ipairs(dd.Options) do
-                self:_SetVisibility(option.Text, false)
-                self:_SetVisibility(option.Highlight, false)
-            end
-            self:_HideGlowEffect(dd.Glow)
+    else
+        if dd.IsClosing then
+            dd.IsClosing = false 
         end
+        dd.PopupClickRegion = nil
+        self:_SetVisibility(dd.PopupBg, false)
+        self:_SetVisibility(dd.Border, false)
+        for _, option in ipairs(dd.Options) do
+            self:_SetVisibility(option.Text, false)
+            self:_SetVisibility(option.Highlight, false)
+        end
+        self:_HideGlowEffect(dd.Glow)
     end
     -- ---[[ КОНЕЦ ИСПРАВЛЕНИЯ ]]
 end
+
 
 
 function Library:_RenderLoop()
@@ -3701,7 +3699,7 @@ function Library:_AddPresetsTab()
 end
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3xxxx71x1")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3xxxxx1")
     local is_first_frame = true
     while true do
         self:_InputLoop()
