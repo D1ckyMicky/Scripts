@@ -513,6 +513,15 @@ function Library:_UpdatePopupAnimation(popup)
     end
 end
 
+function Library:_SplitString(inputstr, sep)
+    if sep == nil then sep = "%s" end
+    local t = {}
+    for str in string.gmatch(inputstr, "([^" .. sep .. "]+)") do
+        table.insert(t, str)
+    end
+    return t
+end
+
 
 --================================================================
 --[[ PRIVATE: GLOW EFFECT HELPERS ]]
@@ -2997,19 +3006,33 @@ function Library:_InputLoop()
         slider.IsEditing = false
     end
 
+    -- [[ ИЗМЕНЕНИЕ: Улучшенная логика применения цвета ]]
     local function applyColorInput(picker)
         if not picker.IsEditing then return end
         picker.IsEditing = false
         local newColor
+
         if picker.Mode == "HEX" then
-            -- [[ ИЗМЕНЕНИЕ: Добавляем # перед проверкой, если его нет ]]
             local hex_input = picker.InputText:gsub("#", "")
             newColor = self:_HEXtoRGB("#" .. hex_input)
-        else
+        else -- RGBA Mode
             local nums = {}
-            for n in string.gmatch(picker.InputText, "%d+") do table.insert(nums, tonumber(n)) end
-            if #nums >= 3 then
-                newColor = { math.clamp(nums[1],0,255), math.clamp(nums[2],0,255), math.clamp(nums[3],0,255), math.clamp(nums[4] or 255,0,255) }
+            -- Надежно извлекаем все числа из строки
+            for num_str in string.gmatch(picker.InputText, "%d+") do
+                local num = tonumber(num_str)
+                if num then
+                    -- Ограничиваем число и добавляем в таблицу
+                    table.insert(nums, math.clamp(num, 0, 255))
+                end
+            end
+            -- Убеждаемся, что у нас есть 4 значения, подставляя стандартные при необходимости
+            if #nums > 0 then
+                newColor = {
+                    nums[1] or 0,
+                    nums[2] or 0,
+                    nums[3] or 0,
+                    nums[4] or 255
+                }
             end
         end
 
@@ -3266,7 +3289,6 @@ function Library:_InputLoop()
                     if burger_popup.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, burger_popup.ClickRegion) then
                         if burger_popup.HoveredItemIndex > 0 then local item = burger_popup.Items[burger_popup.HoveredItemIndex]; self.UI.Values[item.id] = not self.UI.Values[item.id]; end;
                     elseif picker.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, picker_region) then
-                        -- [[ ИЗМЕНЕНИЕ: Логика клика на поле ввода ]]
                          if self:_IsPointInRegion(mouse_x, mouse_y, picker.Input.ClickRegion) then
                             picker.IsEditing = true
                             if picker.Mode == "HEX" then
@@ -3374,14 +3396,47 @@ function Library:_InputLoop()
                     if #picker.InputText > 0 then picker.InputText = string.sub(picker.InputText, 1, -2) end
                 elseif input_key == "Enter" then
                     applyColorInput(picker)
+
+                -- [[ НОВАЯ ЛОГИКА ДЛЯ RGBA ]]
+                elseif picker.Mode == "RGBA" and (input_key == "Space" or input_key == ",") then
+                    -- Убираем лишние пробелы и запятые в конце
+                    picker.InputText = picker.InputText:match("^%s*(.-)%s*$"):gsub("[,%s]*$", "")
+                    local parts = self:_SplitString(picker.InputText, ",")
+                    
+                    if #parts < 4 then
+                        local last_part = parts[#parts] or ""
+                        local last_num_str = last_part:match("%d+")
+                        local last_num = tonumber(last_num_str) or 0
+                        
+                        parts[#parts] = tostring(math.clamp(last_num, 0, 255))
+                        picker.InputText = table.concat(parts, ", ") .. ", "
+                    end
+
                 elseif string.len(input_key) == 1 then
                     if picker.Mode == "HEX" then
                         if string.match(input_key:lower(), "[0-9a-f]") and #picker.InputText < 8 then
                             picker.InputText = picker.InputText .. input_key:lower()
                         end
                     elseif picker.Mode == "RGBA" then
-                        if string.match(input_key, "[%d ,]") and #picker.InputText < 19 then
-                            picker.InputText = picker.InputText .. input_key
+                        if string.match(input_key, "%d") then
+                             -- Проверяем, сколько уже есть групп чисел
+                            local temp_text = picker.InputText .. input_key
+                            local parts = self:_SplitString(temp_text, ",")
+                            local current_part = parts[#parts] or ""
+                            local current_num = tonumber(current_part:match("%d+")) or 0
+
+                            -- Разрешаем ввод, если групп меньше 4 ИЛИ если текущее число не превысит 255
+                            if #parts < 4 or (#parts == 4 and current_num <= 255) then
+                                picker.InputText = temp_text
+                                -- Если число стало > 255, корректируем его
+                                if current_num > 255 then
+                                    parts[#parts] = "255"
+                                    picker.InputText = table.concat(parts, ", ")
+                                    if #parts < 4 then
+                                        picker.InputText = picker.InputText .. ", "
+                                    end
+                                end
+                            end
                         end
                     end
                 end
