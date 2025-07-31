@@ -86,7 +86,7 @@ Library.CustomThemeCounter = 0
 Library.TempTheme = nil
 Library.PreEditThemeName = nil
 
-Library.UI = { TabGroups = {}, Sections = {}, Values = {}, DrawingObjects = {}, Popups = {} }
+Library.UI = { TabGroups = {}, Sections = {}, Values = {}, DrawingObjects = {}, Popups = {}, ColorPresets = {} }
 
 local drag_offset = {x = 0, y = 0}
 local was_left_pressed = false
@@ -521,6 +521,53 @@ function Library:_SplitString(inputstr, sep)
         table.insert(t, str:match("^%s*(.-)%s*$"))
     end
     return t
+end
+
+function Library:_RebuildColorSwatches()
+    local picker = self.UI.Popups.ColorPicker
+    local z = picker.Background.zIndex + 10 -- Убедимся, что они выше фона
+
+    -- Очищаем старые объекты, чтобы избежать утечек памяти
+    for _, swatch in ipairs(picker.Swatches) do
+        if swatch.Circle then swatch.Circle:Remove() end
+        if swatch.Border then swatch.Border:Remove() end
+        if swatch.PlusLine1 then swatch.PlusLine1:Remove() end
+        if swatch.PlusLine2 then swatch.PlusLine2:Remove() end
+    end
+    picker.Swatches = {}
+
+    -- Создаем кружки для каждого сохраненного цвета
+    for _, color in ipairs(self.UI.ColorPresets) do
+        local swatch = {
+            IsAddButton = false,
+            Color = color,
+            Circle = self:_CreateDrawingObject("Circle"),
+            Border = self:_CreateDrawingObject("Circle"),
+            ClickRegion = {}
+        }
+        if swatch.Circle then 
+            swatch.Circle.Filled = true; swatch.Circle.zIndex = z; swatch.Circle.Radius = 9; 
+            swatch.Circle.Color = {color[1], color[2], color[3]};
+            swatch.Circle.Opacity = (color[4] or 255) / 255;
+        end
+        if swatch.Border then swatch.Border.Filled = false; swatch.Border.Thickness = 1; swatch.Border.zIndex = z + 1; swatch.Border.Radius = 10; end
+        table.insert(picker.Swatches, swatch)
+    end
+
+    -- Создаем кнопку "Добавить" в конце
+    local addSwatch = {
+        IsAddButton = true,
+        Circle = self:_CreateDrawingObject("Circle"),
+        Border = self:_CreateDrawingObject("Circle"),
+        PlusLine1 = self:_CreateDrawingObject("Line"),
+        PlusLine2 = self:_CreateDrawingObject("Line"),
+        ClickRegion = {}
+    }
+    if addSwatch.Circle then addSwatch.Circle.Filled = true; addSwatch.Circle.zIndex = z; addSwatch.Circle.Radius = 9; end
+    if addSwatch.Border then addSwatch.Border.Filled = false; addSwatch.Border.Thickness = 1; addSwatch.Border.zIndex = z + 1; addSwatch.Border.Radius = 10; end
+    if addSwatch.PlusLine1 then addSwatch.PlusLine1.Thickness = 1.5; addSwatch.PlusLine1.zIndex = z + 1; end
+    if addSwatch.PlusLine2 then addSwatch.PlusLine2.Thickness = 1.5; addSwatch.PlusLine2.zIndex = z + 1; end
+    table.insert(picker.Swatches, addSwatch)
 end
 
 
@@ -1044,6 +1091,10 @@ function Library:_InitializeColorPickerWindow()
     picker.SaturationValueRegion = {}
     picker.HueSliderRegion = {}
     picker.OpacitySliderRegion = {}
+    
+    -- [[ ДОБАВЛЕНО: Инициализация пресетов ]]
+    picker.Swatches = {}
+    self:_RebuildColorSwatches()
 end
 
 
@@ -2004,9 +2055,11 @@ function Library:_RenderColorPickerWindow()
     local sliderHeight = 4
     local sliderSpacing = 10
     local inputRowHeight = 25
+    local swatchRowHeight = 35 -- [[ ДОБАВЛЕНО: Высота для ряда с пресетами ]]
 
     local pickerW = squareSize + (padding * 2)
-    local pickerH = squareSize + (padding * 4) + (sliderHeight * 2) + (sliderSpacing * 2) + (inputRowHeight * 2)
+    -- [[ ИЗМЕНЕНИЕ: Увеличиваем высоту палитры ]]
+    local pickerH = squareSize + (padding * 4) + (sliderHeight * 2) + (sliderSpacing * 2) + (inputRowHeight * 2) + swatchRowHeight
     local pickerX, pickerY = picker.Pos.x, picker.Pos.y
     
     picker.Background.Position = {pickerX, pickerY}; picker.Background.Size = {pickerW, pickerH}
@@ -2074,7 +2127,6 @@ function Library:_RenderColorPickerWindow()
     input.Background.Position = {squareX, currentY}; input.Background.Size = {squareSize, inputRowHeight}
     self:_AnimateAndApplyColor(input.Background, theme.Colors.DarkBlue, masterOpacity)
     
-    -- [[ ИЗМЕНЕНИЕ: Умное отображение текста в поле ввода ]]
     local text_to_show
     if picker.IsEditing then
         text_to_show = picker.Mode == "HEX" and ("#" .. picker.InputText) or picker.InputText
@@ -2106,6 +2158,32 @@ function Library:_RenderColorPickerWindow()
         input.Cursor.To = {cursorX, currentY + inputRowHeight - 4}
         self:_AnimateAndApplyColor(input.Cursor, theme.Colors.Accent, masterOpacity)
     end
+    
+    -- [[ БЛОК ОТРИСОВКИ ПРЕСЕТОВ ЦВЕТА ]]
+    currentY = currentY + inputRowHeight + 12
+    local swatchSpacing = 25
+    local currentSwatchX = squareX + 10
+    
+    for _, swatch in ipairs(picker.Swatches) do
+        swatch.Circle.Position = {currentSwatchX, currentY}
+        swatch.Border.Position = {currentSwatchX, currentY}
+        swatch.ClickRegion = {x1 = currentSwatchX - 11, y1 = currentY - 11, x2 = currentSwatchX + 11, y2 = currentY + 11}
+
+        self:_AnimateAndApplyColor(swatch.Border, theme.Colors.Separator, masterOpacity)
+        if swatch.IsAddButton then
+            self:_AnimateAndApplyColor(swatch.Circle, theme.Colors.DarkBlue, masterOpacity)
+            swatch.PlusLine1.From = {currentSwatchX - 4, currentY}; swatch.PlusLine1.To = {currentSwatchX + 4, currentY}
+            swatch.PlusLine2.From = {currentSwatchX, currentY - 4}; swatch.PlusLine2.To = {currentSwatchX, currentY + 4}
+            self:_AnimateAndApplyColor(swatch.PlusLine1, theme.Colors.TextSecondary, masterOpacity)
+            self:_AnimateAndApplyColor(swatch.PlusLine2, theme.Colors.TextSecondary, masterOpacity)
+        else
+            -- Для обычных кружков цвет уже установлен при создании, просто анимируем прозрачность
+            swatch.Circle.Opacity = masterOpacity
+        end
+
+        currentSwatchX = currentSwatchX + swatchSpacing
+    end
+
 
     if dd.IsOpen or dd.IsClosing then
         local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4
@@ -3211,9 +3289,6 @@ function Library:_InputLoop()
         if not is_dragging_something then
             local click_was_handled = false
             
-            -- [[ НАЧАЛО ИЗМЕНЕНИЙ: Новая иерархия обработки кликов ]]
-            
-            -- ШАГ 1: Проверка текстовых полей вне фокуса
             local active_slider_editing = nil
             local slider_about = about_window.AnimationSpeedSlider
             if slider_about and slider_about.IsEditing then active_slider_editing = slider_about end
@@ -3226,7 +3301,6 @@ function Library:_InputLoop()
                 applyColorInput(picker); click_was_handled = true
             end
 
-            -- ШАГ 2: Обработка самого верхнего слоя - выпадающих списков
             if not click_was_handled then
                 if anyDropdownOpen or (picker.IsOpen and picker.Dropdown.IsOpen) then
                     if picker.IsOpen and picker.Dropdown.IsOpen then
@@ -3243,6 +3317,7 @@ function Library:_InputLoop()
                                         if el.type == "Dropdown" then
                                             self.UI.Values[el.id] = el.Options[i]
                                             if el.Callback then el.Callback(self.UI.Values[el.id]) end
+                                            el.IsOpen, el.IsClosing = false, true
                                         else
                                             local opt = el.Options[i]
                                             local found_idx = table.find(self.UI.Values[el.id], opt)
@@ -3259,46 +3334,72 @@ function Library:_InputLoop()
                 end
             end
 
-            -- ШАГ 3: Если клик не ушел на выпадающие списки, обрабатываем попапы в порядке их появления
             if not click_was_handled then
                 local handled_by_popup = false
                 if picker.IsOpen then
                     handled_by_popup = true
                     local picker_region = {x1=picker.Background.Position.x, y1=picker.Background.Position.y, x2=picker.Background.Position.x+picker.Background.Size.x, y2=picker.Background.Position.y+picker.Background.Size.y}
                     if self:_IsPointInRegion(mouse_x, mouse_y, picker_region) then
-                        if self:_IsPointInRegion(mouse_x, mouse_y, picker.Input.ClickRegion) then
-                           picker.IsEditing = true
-                           if picker.Mode == "HEX" then picker.InputText = picker.Input.Text.Text:gsub("#", "") else picker.InputText = picker.Input.Text.Text end
-                       elseif self:_IsPointInRegion(mouse_x, mouse_y, picker.Dropdown.ClickRegion) then
-                           picker.Dropdown.IsOpen, picker.Dropdown.IsClosing = true, false; picker.Dropdown.FadeOpacity = 0.0
-                       end
+                        -- [[ ИЗМЕНЕНИЕ: Добавлена логика для пресетов ]]
+                        local clicked_swatch = false
+                        for i, swatch in ipairs(picker.Swatches) do
+                            if self:_IsPointInRegion(mouse_x, mouse_y, swatch.ClickRegion) then
+                                if swatch.IsAddButton then
+                                    local current_color_rgb = self:_HSVtoRGB(picker.h, picker.s, picker.v)
+                                    local final_color = {current_color_rgb[1], current_color_rgb[2], current_color_rgb[3], picker.a * 255}
+                                    table.insert(self.UI.ColorPresets, final_color)
+                                    self:_RebuildColorSwatches()
+                                else
+                                    local preset_color = swatch.Color
+                                    picker.h, picker.s, picker.v, picker.a = self:_RGBtoHSV(preset_color[1], preset_color[2], preset_color[3], preset_color[4])
+                                    if picker.EditingValueID then self.UI.Values[picker.EditingValueID] = preset_color
+                                    elseif picker.EditingColorName then
+                                        style_window.EditingTheme.Colors[picker.EditingColorName] = preset_color
+                                        if self.UI.Values.EditStyleRealTime and self.TempTheme then self.TempTheme.Colors[picker.EditingColorName] = preset_color end
+                                    end
+                                end
+                                clicked_swatch = true
+                                break
+                            end
+                        end
+
+                        if not clicked_swatch then
+                             if self:_IsPointInRegion(mouse_x, mouse_y, picker.Input.ClickRegion) then
+                                picker.IsEditing = true
+                                if picker.Mode == "HEX" then picker.InputText = picker.Input.Text.Text:gsub("#", "") else picker.InputText = picker.Input.Text.Text end
+                            elseif self:_IsPointInRegion(mouse_x, mouse_y, picker.Dropdown.ClickRegion) then
+                                picker.Dropdown.IsOpen, picker.Dropdown.IsClosing = true, false; picker.Dropdown.FadeOpacity = 0.0
+                            end
+                        end
                     else
                         picker.Animation.IsClosing = true; picker.Animation.IsOpening = false
                     end
                 elseif style_window.IsOpen then
                     handled_by_popup = true
                     if self:_IsPointInRegion(mouse_x, mouse_y, style_window.ClickRegion) then
-                        if self:_IsPointInRegion(mouse_x, mouse_y, style_window.CloseButton.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, style_window.CancelButton.ClickRegion) then self:_revert_realtime_changes(); style_window.Animation.IsClosing = true; style_window.Animation.IsOpening = false; style_window.IsEditingName = false;
-                        elseif self:_IsPointInRegion(mouse_x, mouse_y, style_window.SaveButton.ClickRegion) then
-                            local newTheme = self:_DeepCopy(style_window.EditingTheme); local newName = style_window.StyleNameInputText.Text; local originalName = style_window.EditingThemeName
-                            if newName == "" then newName = "Custom" end
-                            if newName ~= originalName and self.Themes[originalName] and not self.Themes[originalName].IsPreset then self.Themes[originalName] = nil end
-                            if self.Themes[newName] and newName ~= originalName then local i = 1; while self.Themes[newName .. " (" .. i .. ")"] do i = i + 1 end; newName = newName .. " (" .. i .. ")"; end
-                            newTheme.Name = newName; newTheme.IsPreset = false; self.Themes[newName] = newTheme; self:_RebuildStyleCircles(); self.UI.Values.AboutSelectedStyle = newTheme.Name; self.ActiveTheme = newTheme; self.TempTheme = nil; self.PreEditThemeName = nil; self.UI.Values.EditStyleRealTime = false; style_window.Animation.IsClosing = true; style_window.Animation.IsOpening = false; style_window.IsEditingName = false;
-                        elseif self:_IsPointInRegion(mouse_x, mouse_y, style_window.RealTimeToggle.ClickRegion) then
-                            self.UI.Values.EditStyleRealTime = not self.UI.Values.EditStyleRealTime
-                            if self.UI.Values.EditStyleRealTime then self.PreEditThemeName = self.ActiveTheme.Name; self.TempTheme = self:_DeepCopy(style_window.EditingTheme); self.ActiveTheme = self.TempTheme;
-                            else self.ActiveTheme = self.Themes[self.PreEditThemeName] or self.Themes.Blue; self.UI.Values.AboutSelectedStyle = self.ActiveTheme.Name; self.TempTheme = nil; self.PreEditThemeName = nil; end
-                        elseif self:_IsPointInRegion(mouse_x, mouse_y, style_window.StyleNameInputClickRegion) then style_window.IsEditingName = true
-                        else
-                            local clicked_color = false
-                            for _, item in ipairs(style_window.ColorItems) do
-                                if self:_IsPointInRegion(mouse_x, mouse_y, item.ClickRegion) then
-                                    picker.IsOpen = true; picker.Animation.IsOpening = true; picker.Animation.IsClosing = false;
-                                    picker.EditingColorName = item.Name; picker.EditingValueID = nil; picker.Pos = {x = mouse_x, y = mouse_y}; local color_to_edit = style_window.EditingTheme.Colors[item.Name]; picker.h, picker.s, picker.v, picker.a = self:_RGBtoHSV(color_to_edit[1], color_to_edit[2], color_to_edit[3], color_to_edit[4]); clicked_color = true; break;
+                        if not picker.IsOpen then
+                            if self:_IsPointInRegion(mouse_x, mouse_y, style_window.CloseButton.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, style_window.CancelButton.ClickRegion) then self:_revert_realtime_changes(); style_window.Animation.IsClosing = true; style_window.Animation.IsOpening = false; style_window.IsEditingName = false;
+                            elseif self:_IsPointInRegion(mouse_x, mouse_y, style_window.SaveButton.ClickRegion) then
+                                local newTheme = self:_DeepCopy(style_window.EditingTheme); local newName = style_window.StyleNameInputText.Text; local originalName = style_window.EditingThemeName
+                                if newName == "" then newName = "Custom" end
+                                if newName ~= originalName and self.Themes[originalName] and not self.Themes[originalName].IsPreset then self.Themes[originalName] = nil end
+                                if self.Themes[newName] and newName ~= originalName then local i = 1; while self.Themes[newName .. " (" .. i .. ")"] do i = i + 1 end; newName = newName .. " (" .. i .. ")"; end
+                                newTheme.Name = newName; newTheme.IsPreset = false; self.Themes[newName] = newTheme; self:_RebuildStyleCircles(); self.UI.Values.AboutSelectedStyle = newTheme.Name; self.ActiveTheme = newTheme; self.TempTheme = nil; self.PreEditThemeName = nil; self.UI.Values.EditStyleRealTime = false; style_window.Animation.IsClosing = true; style_window.Animation.IsOpening = false; style_window.IsEditingName = false;
+                            elseif self:_IsPointInRegion(mouse_x, mouse_y, style_window.RealTimeToggle.ClickRegion) then
+                                self.UI.Values.EditStyleRealTime = not self.UI.Values.EditStyleRealTime
+                                if self.UI.Values.EditStyleRealTime then self.PreEditThemeName = self.ActiveTheme.Name; self.TempTheme = self:_DeepCopy(style_window.EditingTheme); self.ActiveTheme = self.TempTheme;
+                                else self.ActiveTheme = self.Themes[self.PreEditThemeName] or self.Themes.Blue; self.UI.Values.AboutSelectedStyle = self.ActiveTheme.Name; self.TempTheme = nil; self.PreEditThemeName = nil; end
+                            elseif self:_IsPointInRegion(mouse_x, mouse_y, style_window.StyleNameInputClickRegion) then style_window.IsEditingName = true
+                            else
+                                local clicked_color = false
+                                for _, item in ipairs(style_window.ColorItems) do
+                                    if self:_IsPointInRegion(mouse_x, mouse_y, item.ClickRegion) then
+                                        picker.IsOpen = true; picker.Animation.IsOpening = true; picker.Animation.IsClosing = false;
+                                        picker.EditingColorName = item.Name; picker.EditingValueID = nil; picker.Pos = {x = mouse_x, y = mouse_y}; local color_to_edit = style_window.EditingTheme.Colors[item.Name]; picker.h, picker.s, picker.v, picker.a = self:_RGBtoHSV(color_to_edit[1], color_to_edit[2], color_to_edit[3], color_to_edit[4]); clicked_color = true; break;
+                                    end
                                 end
+                                if not clicked_color then style_window.IsEditingName = false end
                             end
-                            if not clicked_color then style_window.IsEditingName = false end
                         end
                     else
                         self:_revert_realtime_changes(); style_window.Animation.IsClosing = true; style_window.Animation.IsOpening = false;
@@ -3347,7 +3448,6 @@ function Library:_InputLoop()
                 if handled_by_popup then click_was_handled = true end
             end
             
-            -- ШАГ 4: Если ни один попап не обработал клик, работаем с основным UI
             if not click_was_handled then
                 if self:_IsPointInRegion(mouse_x, mouse_y, burger_button.ClickRegion) then 
                     burger_popup.IsOpen = not burger_popup.IsOpen;
@@ -3360,40 +3460,42 @@ function Library:_InputLoop()
                 elseif self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.ViewESP.ClickRegion) then self.UI.Core.HeaderButtons.ViewESP.IsOpen = not self.UI.Core.HeaderButtons.ViewESP; self.UI.Core.HeaderButtons.ViewESP.ClickTime = tick();
                 elseif self.Window.ActiveTab == "Configs" then
                     for i, item in ipairs(configsTab.Items) do local d = item.Drawing
-                        if configsTab.LoadedConfigName == item.Name and self:_IsPointInRegion(mouse_x, mouse_y, d.SaveButton.ClickRegion) then self:_SaveConfig(item.Name); break;
-                        elseif configsTab.LoadedConfigName ~= item.Name and self:_IsPointInRegion(mouse_x, mouse_y, d.LoadButton.ClickRegion) then self:_LoadConfig(item.Name); break;
-                        elseif self:_IsPointInRegion(mouse_x, mouse_y, d.OptionsButton.ClickRegion) then local popup = configsTab.OptionsPopup; popup.IsOpen = not popup.IsOpen; popup.ItemIndex = i; popup.Pos = {x = mouse_x - 155, y = mouse_y}; break; end
+                        if configsTab.LoadedConfigName == item.Name and self:_IsPointInRegion(mouse_x, mouse_y, d.SaveButton.ClickRegion) then self:_SaveConfig(item.Name); click_was_handled = true; break;
+                        elseif configsTab.LoadedConfigName ~= item.Name and self:_IsPointInRegion(mouse_x, mouse_y, d.LoadButton.ClickRegion) then self:_LoadConfig(item.Name); click_was_handled = true; break;
+                        elseif self:_IsPointInRegion(mouse_x, mouse_y, d.OptionsButton.ClickRegion) then local popup = configsTab.OptionsPopup; popup.IsOpen = not popup.IsOpen; popup.ItemIndex = i; popup.Pos = {x = mouse_x - 155, y = mouse_y}; click_was_handled = true; break; end
                     end
                 end
 
-                local clicked_element_in_section = false
-                for _, section in ipairs(self.UI.Sections) do if section.ParentTab == self.Window.ActiveTab then for _, el in ipairs(section.Elements) do
-                    if self:_IsPointInRegion(mouse_x, mouse_y, el.ClickRegion) then
-                        if el.type == "Toggle" then self.UI.Values[el.id] = not self.UI.Values[el.id]; if el.Callback then el.Callback(self.UI.Values[el.id]) end
-                        elseif el.type == "Dropdown" or el.type == "Multidropdown" then
-                            local openingThisOne = not el.IsOpen; for _, s_inner in ipairs(self.UI.Sections) do for _, el_inner in ipairs(s_inner.Elements) do if (el_inner.type == "Dropdown" or el_inner.type == "Multidropdown") and el_inner.IsOpen then el_inner.IsOpen = false; el_inner.IsClosing = true; end end end
-                            if openingThisOne then el.IsOpen = true; el.IsClosing = false; el.FadeOpacity = 0.0; end
-                        end; clicked_element_in_section = true; break;
-                    elseif el.type == "Toggle" and el.HasColor and self:_IsPointInRegion(mouse_x, mouse_y, el.ColorClickRegion) then
-                        picker.IsOpen = true; picker.Animation.IsOpening = true; picker.Animation.IsClosing = false; picker.EditingValueID = el.HasColor.id; picker.EditingColorName = nil; picker.Pos = {x = mouse_x, y = mouse_y}; local color_to_edit = self.UI.Values[el.HasColor.id]; picker.h, picker.s, picker.v, picker.a = self:_RGBtoHSV(color_to_edit[1], color_to_edit[2], color_to_edit[3], color_to_edit[4]); clicked_element_in_section = true; break;
-                    elseif el.HasSettings and self:_IsPointInRegion(mouse_x, mouse_y, el.SettingsClickRegion) then
-                        settings_popup.IsOpen = true; settings_popup.ActiveToggle = el; settings_popup.Pos = {x = mouse_x, y = mouse_y}; clicked_element_in_section = true; break;
-                    elseif el.type == "Slider" and self:_IsPointInRegion(mouse_x, mouse_y, el.ValueInputClickRegion) then
-                        el.IsEditing = true; el.InputText = tostring(math.floor(self.UI.Values[el.id])); clicked_element_in_section = true; break;
-                    end
-                end end if clicked_element_in_section then break end end
-
-                if not clicked_element_in_section then
-                    local tab_clicked = false
-                    for _, group in ipairs(self.UI.TabGroups) do
-                        for _, tab in ipairs(group.Tabs) do
-                            if self:_IsPointInRegion(mouse_x, mouse_y, tab.ClickRegion) then
-                                self.Window.ActiveTab = tab.Name
-                                tab_clicked = true
-                                break
-                            end
+                if not click_was_handled then
+                    local clicked_element_in_section = false
+                    for _, section in ipairs(self.UI.Sections) do if section.ParentTab == self.Window.ActiveTab then for _, el in ipairs(section.Elements) do
+                        if self:_IsPointInRegion(mouse_x, mouse_y, el.ClickRegion) then
+                            if el.type == "Toggle" then self.UI.Values[el.id] = not self.UI.Values[el.id]; if el.Callback then el.Callback(self.UI.Values[el.id]) end
+                            elseif el.type == "Dropdown" or el.type == "Multidropdown" then
+                                local openingThisOne = not el.IsOpen; for _, s_inner in ipairs(self.UI.Sections) do for _, el_inner in ipairs(s_inner.Elements) do if (el_inner.type == "Dropdown" or el_inner.type == "Multidropdown") and el_inner.IsOpen then el_inner.IsOpen = false; el_inner.IsClosing = true; end end end
+                                if openingThisOne then el.IsOpen = true; el.IsClosing = false; el.FadeOpacity = 0.0; end
+                            end; clicked_element_in_section = true; break;
+                        elseif el.type == "Toggle" and el.HasColor and self:_IsPointInRegion(mouse_x, mouse_y, el.ColorClickRegion) then
+                            picker.IsOpen = true; picker.Animation.IsOpening = true; picker.Animation.IsClosing = false; picker.EditingValueID = el.HasColor.id; picker.EditingColorName = nil; picker.Pos = {x = mouse_x, y = mouse_y}; local color_to_edit = self.UI.Values[el.HasColor.id]; picker.h, picker.s, picker.v, picker.a = self:_RGBtoHSV(color_to_edit[1], color_to_edit[2], color_to_edit[3], color_to_edit[4]); clicked_element_in_section = true; break;
+                        elseif el.HasSettings and self:_IsPointInRegion(mouse_x, mouse_y, el.SettingsClickRegion) then
+                            settings_popup.IsOpen = true; settings_popup.ActiveToggle = el; settings_popup.Pos = {x = mouse_x, y = mouse_y}; clicked_element_in_section = true; break;
+                        elseif el.type == "Slider" and self:_IsPointInRegion(mouse_x, mouse_y, el.ValueInputClickRegion) then
+                            el.IsEditing = true; el.InputText = tostring(math.floor(self.UI.Values[el.id])); clicked_element_in_section = true; break;
                         end
-                        if tab_clicked then break end
+                    end end if clicked_element_in_section then break end end
+
+                    if not clicked_element_in_section then
+                        local tab_clicked = false
+                        for _, group in ipairs(self.UI.TabGroups) do
+                            for _, tab in ipairs(group.Tabs) do
+                                if self:_IsPointInRegion(mouse_x, mouse_y, tab.ClickRegion) then
+                                    self.Window.ActiveTab = tab.Name
+                                    tab_clicked = true
+                                    break
+                                end
+                            end
+                            if tab_clicked then break end
+                        end
                     end
                 end
             end
@@ -3591,7 +3693,7 @@ function Library:_AddPresetsTab()
 end
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 30901")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3xxxxx1")
     local is_first_frame = true
     while true do
         self:_InputLoop()
