@@ -2056,7 +2056,7 @@ function Library:_RenderColorPickerWindow()
     local sliderHeight = 4
     local sliderSpacing = 10
     local inputRowHeight = 25
-    local swatchRowHeight = 30 -- [[ ИЗМЕНЕНИЕ: Скорректирована высота ]]
+    local swatchRowHeight = 18 -- [[ ИЗМЕНЕНИЕ: Уменьшаем высоту, чтобы поднять "подбородок" ]]
 
     local pickerW = squareSize + (padding * 2)
     local pickerH = squareSize + (padding * 4) + (sliderHeight * 2) + (sliderSpacing * 2) + (inputRowHeight * 2) + swatchRowHeight
@@ -2159,11 +2159,9 @@ function Library:_RenderColorPickerWindow()
         self:_AnimateAndApplyColor(input.Cursor, theme.Colors.Accent, masterOpacity)
     end
     
-    -- [[ БЛОК ОТРИСОВКИ ПРЕСЕТОВ ЦВЕТА (ПОЛНОСТЬЮ ПЕРЕРАБОТАН) ]]
-    currentY = currentY + inputRowHeight + 15 -- Опускаем ниже
-    local swatchSpacing = 22 -- Уменьшаем расстояние для плотной компоновки
-    local totalSwatchesWidth = #picker.Swatches * swatchSpacing
-    local currentSwatchX = squareX + (squareSize - totalSwatchesWidth + swatchSpacing) / 2 -- Динамическое центрирование
+    currentY = currentY + inputRowHeight + 15
+    local swatchSpacing = 22
+    local currentSwatchX = squareX + 10 -- [[ ИЗМЕНЕНИЕ: Убираем центрирование, ставим фикс. отступ слева ]]
     
     for _, swatch in ipairs(picker.Swatches) do
         swatch.Circle.Position = {currentSwatchX, currentY}
@@ -2178,7 +2176,6 @@ function Library:_RenderColorPickerWindow()
             self:_AnimateAndApplyColor(swatch.PlusLine1, theme.Colors.TextSecondary, masterOpacity)
             self:_AnimateAndApplyColor(swatch.PlusLine2, theme.Colors.TextSecondary, masterOpacity)
         else
-            -- ИСПРАВЛЕНИЕ: Учитываем альфа-канал
             swatch.Circle.Opacity = ((swatch.Color[4] or 255) / 255) * masterOpacity
         end
 
