@@ -709,7 +709,7 @@ function Library:_InitializeCoreUI()
     if tooltip.Author then tooltip.Author.Font = self.ActiveTheme.Fonts.Main; tooltip.Author.Size = self.ActiveTheme.Fonts.Size; tooltip.Author.zIndex = 51; end
 
     UI.Core.ViewESPPanel = self:_CreateDrawingObject("Square"); if UI.Core.ViewESPPanel then UI.Core.ViewESPPanel.Filled = true; UI.Core.ViewESPPanel.zIndex = 1; UI.Core.ViewESPPanel.Rounding = self.ActiveTheme.Rounding.Window; end
-    UI.Core.ViewESPImage = self:_CreateDrawingObject("Image"); if UI.Core.ViewESPImage then UI.Core.ViewESPImage.zIndex = 2; UI.Core.ViewESPImage.Visible = false; UI.Core.ViewESPImage.Url = "https://s6.imgcdn.dev/Y4wqGT.jpg"; UI.Core.ViewESPImage.Rounding = self.ActiveTheme.Rounding.Window - 2; end
+    if UI.Core.ViewESPImage then UI.Core.ViewESPImage.zIndex = 2; UI.Core.ViewESPImage.Visible = false; UI.Core.ViewESPImage.Url = "https://i.postimg.cc/hhFQJgcn/image.png"; UI.Core.ViewESPImage.Rounding = self.ActiveTheme.Rounding.Window - 2; end
     UI.Core.ViewESPPanelBorder = self:_CreateDrawingObject("Square"); if UI.Core.ViewESPPanelBorder then UI.Core.ViewESPPanelBorder.Filled = false; UI.Core.ViewESPPanelBorder.Thickness = 1; UI.Core.ViewESPPanelBorder.zIndex = 3; UI.Core.ViewESPPanelBorder.Rounding = self.ActiveTheme.Rounding.Window; end
 
     self:_InitializeAboutWindow()
@@ -1187,13 +1187,16 @@ function Library:_InitializeWatermark()
 end
 
 function Library:_InitializeHotkeys()
-    -- [[ ИЗМЕНЕНИЕ: Добавляем Animation table ]]
     local hk = { Animation = { IsOpening = false, IsClosing = false, CurrentOpacity = 0 } }; 
     self.UI.Hotkeys = hk; 
     local z = 110
 
     hk.Position = {x = 20, y = 80} 
-    hk.ActiveBinds = {} 
+    hk.ActiveBinds = {}
+    
+    -- [[ ДОБАВЬ ЭТИ ДВЕ СТРОКИ ]]
+    hk.IsDragging = false
+    hk.DragOffset = {x = 0, y = 0}
 
     hk.Title = {
         Background = self:_CreateDrawingObject("Square"),
@@ -3079,7 +3082,10 @@ end
 function Library:_InputLoop()
     self:_CheckGlobalBinds()
 
-    if not self.Window.Visible and not self.UI.Values["BurgerWatermark"] then return end
+    -- ---[[ ИЗМЕНЕНИЕ: Проверка видимости вынесена наверх для оптимизации ]]
+    if not self.Window.Visible and not self.UI.Values["BurgerWatermark"] and not self.UI.Values["BurgerHotkeys"] then 
+        return 
+    end
 
     local mouse_pos = getmouseposition()
     if not mouse_pos then return end
@@ -3089,10 +3095,10 @@ function Library:_InputLoop()
     local is_left_clicked = was_left_pressed and not is_left_pressed_now
     local is_press_started = is_left_pressed_now and not was_left_pressed
     
-    -- [[ ДОБАВЛЕНО: Отслеживание правого клика ]]
     local is_right_pressed_now = isrightpressed()
     local is_right_clicked = was_right_pressed and not is_right_pressed_now
 
+    -- ---[[ ИЗМЕНЕНИЕ: Получаем ссылки на все интерактивные окна для удобства ]]
     local picker = self.UI.Popups.ColorPicker
     local style_window = self.UI.Popups.EditStyle
     local configsTab = self.UI.Core.ConfigsTab
@@ -3101,7 +3107,9 @@ function Library:_InputLoop()
     local burger_popup = self.UI.Popups.BurgerMenu
     local burger_button = self.UI.Core.HeaderButtons.BurgerMenu
     local wm = self.UI.Watermark
+    local hk = self.UI.Hotkeys
 
+    -- ---[[ ИЗМЕНЕНИЕ: Вспомогательные функции для чистоты кода ]]
     local function applySliderInput(slider)
         if not slider.IsEditing then return end
         local num = tonumber(slider.InputText)
@@ -3139,7 +3147,7 @@ function Library:_InputLoop()
         end
 
         if newColor then
-            picker.h, picker.s, picker.v, picker.a = self:_RGBtoHSV(newColor[1], newColor[2], newColor[3], newColor[4])
+            picker.h, picker.s, picker.v, picker.a = self:_RGBtoHSV(newColor[1], newColor[2], new_color[3], newColor[4])
             if picker.EditingValueID then
                 self.UI.Values[picker.EditingValueID] = newColor
             elseif picker.EditingColorName then
@@ -3151,106 +3159,111 @@ function Library:_InputLoop()
         end
     end
 
+    -- ---[[ ИЗМЕНЕНИЕ: Упрощенная и более надежная проверка наведения на элементы ]]
     local any_popup_is_open = burger_popup.IsOpen or settings_popup.IsOpen or style_window.IsOpen or picker.IsOpen or configsTab.OptionsPopup.IsOpen or about_window.IsOpen
     local anyDropdownOpen = false
-    picker.HoveredDropdownIndex = 0
-
-    if picker.IsOpen and picker.Dropdown.IsOpen and picker.Dropdown.PopupClickRegion then
-        for i, option in ipairs(picker.Dropdown.Options) do
-            if self:_IsPointInRegion(mouse_x, mouse_y, option.ClickRegion) then
-                picker.HoveredDropdownIndex = i; break;
+    
+    -- Обновляем состояния наведения (hover)
+    local function updateHoverStates()
+        picker.HoveredDropdownIndex = 0
+        if picker.IsOpen and picker.Dropdown.IsOpen and picker.Dropdown.PopupClickRegion then
+            for i, option in ipairs(picker.Dropdown.Options) do
+                if self:_IsPointInRegion(mouse_x, mouse_y, option.ClickRegion) then
+                    picker.HoveredDropdownIndex = i; return
+                end
             end
         end
-    end
 
-    for _, section in ipairs(self.UI.Sections) do
-        if section.ParentTab == self.Window.ActiveTab then
-            for _, el in ipairs(section.Elements) do
-                if (el.type == "Dropdown" or el.type == "Multidropdown") and el.IsOpen then
-                    anyDropdownOpen = true
-                    local hoveredFound = false
-                    if el.PopupClickRegion then
-                        for i, option in ipairs(el.OptionList) do
-                            if self:_IsPointInRegion(mouse_x, mouse_y, option.ClickRegion) then
-                                el.HoveredOptionIndex = i; hoveredFound = true; break;
+        for _, section in ipairs(self.UI.Sections) do
+            if section.ParentTab == self.Window.ActiveTab then
+                for _, el in ipairs(section.Elements) do
+                    if (el.type == "Dropdown" or el.type == "Multidropdown") and el.IsOpen then
+                        anyDropdownOpen = true
+                        el.HoveredOptionIndex = 0
+                        if el.PopupClickRegion then
+                            for i, option in ipairs(el.OptionList) do
+                                if self:_IsPointInRegion(mouse_x, mouse_y, option.ClickRegion) then
+                                    el.HoveredOptionIndex = i; return
+                                end
                             end
                         end
                     end
-                    if not hoveredFound then el.HoveredOptionIndex = 0 end
                 end
             end
         end
-    end
-    if burger_popup.IsOpen then
-        local hoveredFound = false
-        for i, item in ipairs(burger_popup.Items) do
-            if self:_IsPointInRegion(mouse_x, mouse_y, item.ClickRegion) then
-                burger_popup.HoveredItemIndex = i; hoveredFound = true; break;
-            end
-        end
-        if not hoveredFound then burger_popup.HoveredItemIndex = 0 end
-    end
-    if about_window.IsOpen then
-        local is_hovering_any_circle = false
-        for _, circle in ipairs(about_window.StyleCircles) do
-            if self:_IsPointInRegion(mouse_x, mouse_y, circle.ClickRegion) then
-                is_hovering_any_circle = true
-                if about_window.HoveredThemeCircle.Name ~= circle.Name then
-                    about_window.HoveredThemeCircle.Name = circle.Name
-                    about_window.HoveredThemeCircle.HoverStartTime = tick()
-                end
-                break
-            end
-        end
-        if not is_hovering_any_circle then about_window.HoveredThemeCircle.Name = nil end
-    end
 
+        if burger_popup.IsOpen then
+            burger_popup.HoveredItemIndex = 0
+            for i, item in ipairs(burger_popup.Items) do
+                if self:_IsPointInRegion(mouse_x, mouse_y, item.ClickRegion) then
+                    burger_popup.HoveredItemIndex = i; return
+                end
+            end
+        end
+
+        if about_window.IsOpen then
+            local is_hovering_any_circle = false
+            for _, circle in ipairs(about_window.StyleCircles) do
+                if self:_IsPointInRegion(mouse_x, mouse_y, circle.ClickRegion) then
+                    is_hovering_any_circle = true
+                    if about_window.HoveredThemeCircle.Name ~= circle.Name then
+                        about_window.HoveredThemeCircle.Name = circle.Name
+                        about_window.HoveredThemeCircle.HoverStartTime = tick()
+                    end
+                    return
+                end
+            end
+            if not is_hovering_any_circle then about_window.HoveredThemeCircle.Name = nil end
+        end
+    end
+    updateHoverStates()
+
+
+    -- ---[[ ИЗМЕНЕНИЕ: Переработанная логика перетаскивания ]]
     if is_press_started then
         is_dragging_something = false 
         
-        if anyDropdownOpen or (picker.IsOpen and picker.Dropdown.IsOpen) then
+        -- Проверяем, началось ли перетаскивание какого-либо элемента
+        local started_drag = false
+        if self.UI.Values["BurgerWatermark"] and self:_IsPointInRegion(mouse_x, mouse_y, wm.DragArea) then
+            wm.IsDragging = true; started_drag = true; wm.DragOffset = {x = mouse_x - wm.Position.x, y = mouse_y - wm.Position.y};
+        elseif self.UI.Values["BurgerHotkeys"] and self:_IsPointInRegion(mouse_x, mouse_y, hk.Title.Background) then
+            hk.IsDragging = true; started_drag = true; hk.DragOffset = {x = mouse_x - hk.Position.x, y = mouse_y - hk.Position.y};
+        elseif about_window.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, about_window.AnimationSpeedSlider.ClickRegion) then
+            about_window.AnimationSpeedSlider.IsDragging = true; started_drag = true;
+        elseif picker.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, picker.HueSliderRegion) then
+            picker.isDraggingHue = true; started_drag = true;
+        elseif picker.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, picker.OpacitySliderRegion) then
+            picker.isDraggingOpacity = true; started_drag = true;
+        elseif picker.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, picker.SaturationValueRegion) then
+            picker.isDraggingSaturationValue = true; started_drag = true;
         else
-            local picker_region = picker.IsOpen and {x1=picker.Background.Position.x, y1=picker.Background.Position.y, x2=picker.Background.Position.x+picker.Background.Size.x, y2=picker.Background.Position.y+picker.Background.Size.y} or nil
-            if picker.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, picker_region) then
-                picker.pressStartedInside = true
-            else
-                picker.pressStartedInside = false
-            end
-    
-            if self.UI.Values["BurgerWatermark"] and self:_IsPointInRegion(mouse_x, mouse_y, {x1=wm.DragArea.Position.x, y1=wm.DragArea.Position.y, x2=wm.DragArea.Position.x + wm.DragArea.Size.x, y2=wm.DragArea.Position.y + wm.DragArea.Size.y}) then
-                wm.IsDragging = true; is_dragging_something = true; wm.DragOffset = {x = mouse_x - wm.Position.x, y = mouse_y - wm.Position.y};
-            elseif about_window.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, about_window.AnimationSpeedSlider.ClickRegion) then
-                about_window.AnimationSpeedSlider.IsDragging = true; is_dragging_something = true;
-            elseif picker.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, picker.HueSliderRegion) then
-                picker.isDraggingHue = true; is_dragging_something = true;
-            elseif picker.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, picker.OpacitySliderRegion) then
-                picker.isDraggingOpacity = true; is_dragging_something = true;
-            elseif picker.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, picker.SaturationValueRegion) then
-                picker.isDraggingSaturationValue = true; is_dragging_something = true;
-            elseif not anyDropdownOpen and not picker.pressStartedInside then
-                local started_slider_drag = false
-                for _, section in ipairs(self.UI.Sections) do
-                    for _, el in ipairs(section.Elements) do
-                        if el.type == "Slider" and self:_IsPointInRegion(mouse_x, mouse_y, el.ClickRegion) then
-                            el.IsDragging = true; started_slider_drag = true; is_dragging_something = true; break;
-                        end
-                    end
-                    if started_slider_drag then break end
-                end
-                if not started_slider_drag then
-                    local header_drag_region = {x1 = self.Window.X, y1 = self.Window.Y, x2 = self.Window.X + self.Window.Width, y2 = self.Window.Y + self.Window.HeaderHeight}
-                    local on_header_button = self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.Save.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.ViewESP.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.CreateNew.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.Settings.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, burger_button.ClickRegion)
-                    
-                    if self:_IsPointInRegion(mouse_x, mouse_y, header_drag_region) and not on_header_button and not any_popup_is_open then
-                        self.Window.IsDragging = true; is_dragging_something = true; drag_offset = {x = mouse_x - self.Window.X, y = mouse_y - self.Window.Y};
+            for _, section in ipairs(self.UI.Sections) do
+                for _, el in ipairs(section.Elements) do
+                    if el.type == "Slider" and self:_IsPointInRegion(mouse_x, mouse_y, el.ClickRegion) then
+                        el.IsDragging = true; started_drag = true; break;
                     end
                 end
+                if started_drag then break end
             end
         end
+
+        -- Если не перетаскиваем элемент, проверяем перетаскивание основного окна
+        if not started_drag then
+            local header_drag_region = {x1 = self.Window.X, y1 = self.Window.Y, x2 = self.Window.X + self.Window.Width, y2 = self.Window.Y + self.Window.HeaderHeight}
+            local on_header_button = self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.Save.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.ViewESP.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.CreateNew.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.Settings.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, burger_button.ClickRegion)
+            
+            if self:_IsPointInRegion(mouse_x, mouse_y, header_drag_region) and not on_header_button and not any_popup_is_open then
+                self.Window.IsDragging = true; started_drag = true; drag_offset = {x = mouse_x - self.Window.X, y = mouse_y - self.Window.Y};
+            end
+        end
+        is_dragging_something = started_drag
     end
     
+    -- Обновляем позиции при перетаскивании
     if is_left_pressed_now then
         if wm.IsDragging then wm.Position.x = mouse_x - wm.DragOffset.x; wm.Position.y = mouse_y - wm.DragOffset.y; end
+        if hk.IsDragging then hk.Position.x = mouse_x - hk.DragOffset.x; hk.Position.y = mouse_y - hk.DragOffset.y; end
         if self.Window.IsDragging then self.Window.X = mouse_x - drag_offset.x; self.Window.Y = mouse_y - drag_offset.y; end
         
         local function update_slider_value(slider, min, max, increment, id)
@@ -3265,6 +3278,7 @@ function Library:_InputLoop()
                 if slider.Callback then slider.Callback(clamped_value) end 
             end
         end
+
         if about_window.IsOpen and about_window.AnimationSpeedSlider.IsDragging then
             local s = about_window.AnimationSpeedSlider; update_slider_value(s, s.Min, s.Max, s.Increment, s.id);
         end
@@ -3289,7 +3303,6 @@ function Library:_InputLoop()
         end
     end
     
-    -- [[ ДОБАВЛЕНО: Обработка правого клика для удаления пресетов ]]
     if is_right_clicked then
         if picker.IsOpen then
             for i, swatch in ipairs(picker.Swatches) do
@@ -3302,53 +3315,61 @@ function Library:_InputLoop()
         end
     end
 
+    -- ---[[ ИЗМЕНЕНИЕ: Полностью переработанная логика кликов для надежности ]]
     if is_left_clicked then
         if not is_dragging_something then
             local click_was_handled = false
-            
-            local active_slider_editing = nil
-            local slider_about = about_window.AnimationSpeedSlider
-            if slider_about and slider_about.IsEditing then active_slider_editing = slider_about end
-            if not active_slider_editing then
-                for _, section in ipairs(self.UI.Sections) do for _, el in ipairs(section.Elements) do if el.type == "Slider" and el.IsEditing then active_slider_editing = el; break; end end if active_slider_editing then break end end
-            end
-            if active_slider_editing and not self:_IsPointInRegion(mouse_x, mouse_y, active_slider_editing.ValueInputClickRegion) then
-                applySliderInput(active_slider_editing); click_was_handled = true
-            elseif picker.IsEditing and not self:_IsPointInRegion(mouse_x, mouse_y, picker.Input.ClickRegion) then
-                applyColorInput(picker); click_was_handled = true
-            end
 
-            if not click_was_handled then
-                if anyDropdownOpen or (picker.IsOpen and picker.Dropdown.IsOpen) then
-                    if picker.IsOpen and picker.Dropdown.IsOpen then
-                        if picker.Dropdown.PopupClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, picker.Dropdown.PopupClickRegion) then
-                            if picker.HoveredDropdownIndex > 0 then picker.Mode = picker.Dropdown.Options[picker.HoveredDropdownIndex].Text.Text end
+            -- 1. Сначала закрываем все открытые окна/дропдауны, если клик был вне их области
+            if anyDropdownOpen then
+                for _, section in ipairs(self.UI.Sections) do for _, el in ipairs(section.Elements) do
+                    if (el.type == "Dropdown" or el.type == "Multidropdown") and el.IsOpen then
+                        if not self:_IsPointInRegion(mouse_x, mouse_y, el.PopupClickRegion) then
+                            el.IsOpen, el.IsClosing = false, true
+                            click_was_handled = true
                         end
-                        picker.Dropdown.IsOpen, picker.Dropdown.IsClosing = false, true
-                    else
-                         for _, section in ipairs(self.UI.Sections) do for _, el in ipairs(section.Elements) do
-                            if (el.type == "Dropdown" or el.type == "Multidropdown") and el.IsOpen then
-                                if el.PopupClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, el.PopupClickRegion) then
-                                     if el.HoveredOptionIndex > 0 then
-                                        local i = el.HoveredOptionIndex
-                                        if el.type == "Dropdown" then
-                                            self.UI.Values[el.id] = el.Options[i]
-                                            if el.Callback then el.Callback(self.UI.Values[el.id]) end
-                                            el.IsOpen, el.IsClosing = false, true
-                                        else
-                                            local opt = el.Options[i]
-                                            local found_idx = table.find(self.UI.Values[el.id], opt)
-                                            if found_idx then table.remove(self.UI.Values[el.id], found_idx) else table.insert(self.UI.Values[el.id], opt) end
-                                            if el.Callback then el.Callback(self.UI.Values[el.id]) end
-                                        end
-                                    end
-                                end
-                                el.IsOpen, el.IsClosing = false, true; break
-                            end
-                        end end
                     end
-                    click_was_handled = true
+                end end
+            end
+            if picker.IsOpen and picker.Dropdown.IsOpen and not self:_IsPointInRegion(mouse_x, mouse_y, picker.Dropdown.PopupClickRegion) then
+                 picker.Dropdown.IsOpen, picker.Dropdown.IsClosing = false, true
+                 click_was_handled = true
+            end
+            if not click_was_handled and any_popup_is_open then
+                if picker.IsOpen and not self:_IsPointInRegion(mouse_x, mouse_y, picker.Background) then picker.Animation.IsClosing = true; picker.Animation.IsOpening = false; click_was_handled = true; end
+                if style_window.IsOpen and not self:_IsPointInRegion(mouse_x, mouse_y, style_window.Background) then self:_revert_realtime_changes(); style_window.Animation.IsClosing = true; style_window.Animation.IsOpening = false; click_was_handled = true; end
+                if about_window.IsOpen and not self:_IsPointInRegion(mouse_x, mouse_y, about_window.Background) then about_window.Animation.IsClosing = true; about_window.Animation.IsOpening = false; click_was_handled = true; end
+                if settings_popup.IsOpen and not self:_IsPointInRegion(mouse_x, mouse_y, settings_popup.Background) then settings_popup.IsOpen = false; self:_HideSettingsPopupElements(settings_popup); click_was_handled = true; end
+                if burger_popup.IsOpen and not self:_IsPointInRegion(mouse_x, mouse_y, burger_popup.Background) then burger_popup.Animation.IsClosing = true; burger_popup.Animation.IsOpening = false; click_was_handled = true; end
+                if configsTab.OptionsPopup.IsOpen and not self:_IsPointInRegion(mouse_x, mouse_y, configsTab.OptionsPopup.Background) then configsTab.OptionsPopup.IsOpen = false; click_was_handled = true; end
+            end
+            
+            -- 2. Затем обрабатываем клики по конкретным элементам, если клик еще не был обработан
+            if not click_was_handled then
+                -- Проверяем клики внутри дропдаунов
+                local clicked_in_dropdown = false
+                if picker.IsOpen and picker.Dropdown.IsOpen then
+                    if picker.HoveredDropdownIndex > 0 then picker.Mode = picker.Dropdown.Options[picker.HoveredDropdownIndex].Text.Text end
+                    picker.Dropdown.IsOpen, picker.Dropdown.IsClosing = false, true
+                    clicked_in_dropdown = true
+                else
+                    for _, section in ipairs(self.UI.Sections) do for _, el in ipairs(section.Elements) do
+                        if (el.type == "Dropdown" or el.type == "Multidropdown") and el.IsOpen and el.HoveredOptionIndex > 0 then
+                            local i = el.HoveredOptionIndex
+                            if el.type == "Dropdown" then
+                                self.UI.Values[el.id] = el.Options[i]
+                                el.IsOpen, el.IsClosing = false, true -- Закрываем только обычный дропдаун
+                            else -- Логика для Multidropdown
+                                local opt = el.Options[i]
+                                local found_idx = table.find(self.UI.Values[el.id], opt)
+                                if found_idx then table.remove(self.UI.Values[el.id], found_idx) else table.insert(self.UI.Values[el.id], opt) end
+                            end
+                            if el.Callback then el.Callback(self.UI.Values[el.id]) end
+                            clicked_in_dropdown = true; break;
+                        end
+                    end end
                 end
+                if clicked_in_dropdown then click_was_handled = true end
             end
 
             if not click_was_handled then
@@ -3465,7 +3486,8 @@ function Library:_InputLoop()
                 end
                 if handled_by_popup then click_was_handled = true end
             end
-            
+
+            -- 3. Если клик все еще не обработан, обрабатываем основные элементы UI
             if not click_was_handled then
                 if self:_IsPointInRegion(mouse_x, mouse_y, burger_button.ClickRegion) then 
                     burger_popup.IsOpen = not burger_popup.IsOpen;
@@ -3482,9 +3504,8 @@ function Library:_InputLoop()
                         elseif configsTab.LoadedConfigName ~= item.Name and self:_IsPointInRegion(mouse_x, mouse_y, d.LoadButton.ClickRegion) then self:_LoadConfig(item.Name); click_was_handled = true; break;
                         elseif self:_IsPointInRegion(mouse_x, mouse_y, d.OptionsButton.ClickRegion) then local popup = configsTab.OptionsPopup; popup.IsOpen = not popup.IsOpen; popup.ItemIndex = i; popup.Pos = {x = mouse_x - 155, y = mouse_y}; click_was_handled = true; break; end
                     end
-                end
-
-                if not click_was_handled then
+                else
+                    -- Клик по элементам в секциях (тогглы, кнопки дропдаунов и т.д.)
                     local clicked_element_in_section = false
                     for _, section in ipairs(self.UI.Sections) do if section.ParentTab == self.Window.ActiveTab then for _, el in ipairs(section.Elements) do
                         if self:_IsPointInRegion(mouse_x, mouse_y, el.ClickRegion) then
@@ -3503,29 +3524,24 @@ function Library:_InputLoop()
                     end end if clicked_element_in_section then break end end
 
                     if not clicked_element_in_section then
-                        local tab_clicked = false
-                        for _, group in ipairs(self.UI.TabGroups) do
-                            for _, tab in ipairs(group.Tabs) do
-                                if self:_IsPointInRegion(mouse_x, mouse_y, tab.ClickRegion) then
-                                    self.Window.ActiveTab = tab.Name
-                                    tab_clicked = true
-                                    break
-                                end
-                            end
-                            if tab_clicked then break end
-                        end
+                        -- Клик по вкладкам
+                        for _, group in ipairs(self.UI.TabGroups) do for _, tab in ipairs(group.Tabs) do
+                            if self:_IsPointInRegion(mouse_x, mouse_y, tab.ClickRegion) then self.Window.ActiveTab = tab.Name; break end
+                        end end
                     end
                 end
             end
         end
 
-        wm.IsDragging = false; self.Window.IsDragging = false; 
+        -- Сброс состояний перетаскивания
+        wm.IsDragging = false; self.Window.IsDragging = false; hk.IsDragging = false;
         if about_window.IsOpen then about_window.AnimationSpeedSlider.IsDragging = false end
         picker.isDraggingHue, picker.isDraggingOpacity, picker.isDraggingSaturationValue = false, false, false;
         for _, section in ipairs(self.UI.Sections) do for _, el in ipairs(section.Elements) do if el.IsDragging then el.IsDragging = false end end end
         is_dragging_something = false
     end
 
+    -- ---[[ ИЗМЕНЕНИЕ: Логика ввода с клавиатуры осталась прежней, но теперь она часть общей чистой структуры ]]
     do
         local KEY_INITIAL_DELAY = 0.4 
         local KEY_REPEAT_DELAY = 0.05
@@ -3669,8 +3685,9 @@ function Library:_InputLoop()
     end
 
     was_left_pressed = is_left_pressed_now
-    was_right_pressed = is_right_pressed_now -- [[ ДОБАВЛЕНО: Обновляем состояние правой кнопки ]]
+    was_right_pressed = is_right_pressed_now
 end
+
 
 function Library:_AddPresetsTab()
     local tabGroupName = "PRESETS"
@@ -3712,7 +3729,7 @@ function Library:_AddPresetsTab()
 end
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3xxx6xx1")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3xxxxx1")
     local is_first_frame = true
     while true do
         self:_InputLoop()
