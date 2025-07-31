@@ -2057,7 +2057,7 @@ function Library:_RenderColorPickerWindow()
     local sliderHeight = 4
     local sliderSpacing = 10
     local inputRowHeight = 25
-    local swatchRowHeight = 18 -- [[ ИЗМЕНЕНИЕ: Уменьшаем высоту, чтобы поднять "подбородок" ]]
+    local swatchRowHeight = 18 
 
     local pickerW = squareSize + (padding * 2)
     local pickerH = squareSize + (padding * 4) + (sliderHeight * 2) + (sliderSpacing * 2) + (inputRowHeight * 2) + swatchRowHeight
@@ -2161,8 +2161,8 @@ function Library:_RenderColorPickerWindow()
     end
     
     currentY = currentY + inputRowHeight + 15
-    local swatchSpacing = 24
-    local currentSwatchX = squareX + 10 -- [[ ИЗМЕНЕНИЕ: Убираем центрирование, ставим фикс. отступ слева ]]
+    local swatchSpacing = 22
+    local currentSwatchX = squareX + 10
     
     for _, swatch in ipairs(picker.Swatches) do
         swatch.Circle.Position = {currentSwatchX, currentY}
@@ -2183,7 +2183,6 @@ function Library:_RenderColorPickerWindow()
         currentSwatchX = currentSwatchX + swatchSpacing
     end
 
-
     if dd.IsOpen or dd.IsClosing then
         local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4
         local animationSpeed = (speed_value / 1.5) / 10.0
@@ -2192,7 +2191,19 @@ function Library:_RenderColorPickerWindow()
             dd.FadeOpacity = math.min(1, dd.FadeOpacity + animationSpeed)
         elseif dd.IsClosing then
             dd.FadeOpacity = math.max(0, dd.FadeOpacity - animationSpeed)
-            if dd.FadeOpacity == 0 then dd.IsClosing = false end
+            if dd.FadeOpacity == 0 then 
+                dd.IsClosing = false 
+                -- [[ НАЧАЛО ИСПРАВЛЕНИЯ: Немедленно скрываем все элементы ]]
+                dd.PopupClickRegion = nil
+                self:_SetVisibility(dd.PopupBg, false)
+                self:_SetVisibility(dd.Border, false)
+                for _, option in ipairs(dd.Options) do
+                    self:_SetVisibility(option.Text, false)
+                    self:_SetVisibility(option.Highlight, false)
+                end
+                self:_HideGlowEffect(dd.Glow)
+                -- [[ КОНЕЦ ИСПРАВЛЕНИЯ ]]
+            end
         end
 
         if dd.FadeOpacity > 0 then
@@ -2236,15 +2247,7 @@ function Library:_RenderColorPickerWindow()
                 currentOptionY = currentOptionY + optionHeight
             end
         end
-    else
-        dd.PopupClickRegion = nil
-        self:_SetVisibility(dd.PopupBg, false)
-        self:_SetVisibility(dd.Border, false)
-        for _, option in ipairs(dd.Options) do
-            self:_SetVisibility(option.Text, false)
-            self:_SetVisibility(option.Highlight, false)
-        end
-        self:_HideGlowEffect(dd.Glow)
+    -- [[ ИЗМЕНЕНИЕ: Убираем лишний блок 'else', т.к. скрытие теперь происходит выше ]]
     end
 end
 
