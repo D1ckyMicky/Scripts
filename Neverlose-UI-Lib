@@ -517,7 +517,8 @@ function Library:_SplitString(inputstr, sep)
     if sep == nil then sep = "%s" end
     local t = {}
     for str in string.gmatch(inputstr, "([^" .. sep .. "]+)") do
-        table.insert(t, str)
+        -- ИЗМЕНЕНИЕ: Убираем лишние пробелы с каждой стороны для каждого элемента
+        table.insert(t, str:match("^%s*(.-)%s*$"))
     end
     return t
 end
@@ -3368,7 +3369,6 @@ function Library:_InputLoop()
         local KEY_REPEAT_DELAY = 0.05
         local key = getpressedkey()
         
-        -- [[ ИЗМЕНЕНИЕ: Полностью переработанная функция для RGBA ]]
         local function handle_text_input(target, input_key)
             if target.type == "Slider" then
                 if input_key == "Backspace" then
@@ -3394,13 +3394,12 @@ function Library:_InputLoop()
                     applyColorInput(picker)
 
                 elseif picker.Mode == "RGBA" and (input_key == "Space" or input_key == ",") then
-                    picker.InputText = picker.InputText:match("^%s*(.-)"):gsub("[,%s]*$", "")
+                    picker.InputText = picker.InputText:match("^%s*(.-)%s*$"):gsub("[,%s]*$", "")
                     local parts = self:_SplitString(picker.InputText, ",")
                     
                     if #parts > 0 and #parts < 4 then
                         local last_part = parts[#parts]
-                        local last_num_str = last_part:match("%d+")
-                        local last_num = tonumber(last_num_str) or 0
+                        local last_num = tonumber(last_part) or 0
                         
                         parts[#parts] = tostring(math.clamp(last_num, 0, 255))
                         picker.InputText = table.concat(parts, ", ") .. ", "
@@ -3420,7 +3419,7 @@ function Library:_InputLoop()
                                 local last_part = parts[#parts] or ""
                                 local current_num = tonumber(last_part) or 0
                                 
-                                if #last_part == 4 then -- Умная коррекция 4-значных чисел
+                                if #last_part == 4 then
                                     local corrected_part = string.sub(last_part, 1, 3)
                                     local corrected_num = tonumber(corrected_part)
                                     
@@ -3430,13 +3429,13 @@ function Library:_InputLoop()
                                     if #parts < 4 then
                                         picker.InputText = picker.InputText .. ", "
                                     end
-                                elseif current_num > 255 then -- Стандартная коррекция для чисел > 255
+                                elseif #last_part == 3 and current_num > 255 then
                                     parts[#parts] = "255"
                                     picker.InputText = table.concat(parts, ", ")
                                     if #parts < 4 then
                                         picker.InputText = picker.InputText .. ", "
                                     end
-                                else -- В остальных случаях просто добавляем цифру
+                                else
                                     picker.InputText = temp_text
                                 end
                             end
@@ -3504,7 +3503,6 @@ function Library:_InputLoop()
     was_left_pressed = is_left_pressed_now
 end
 
-
 function Library:_AddPresetsTab()
     local tabGroupName = "PRESETS"
     local tabName = "Configs"
@@ -3545,7 +3543,7 @@ function Library:_AddPresetsTab()
 end
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 301")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3xxxxx1")
     local is_first_frame = true
     while true do
         self:_InputLoop()
