@@ -2065,9 +2065,8 @@ function Library:_RenderColorPickerWindow()
     local pickerW = squareSize + (padding * 2)
     local pickerH = squareSize + (padding * 4) + (sliderHeight * 2) + (sliderSpacing * 2) + (inputRowHeight * 2) + swatchRowHeight
     local pickerX, pickerY = picker.Pos.x, picker.Pos.y
-    -- [[ ДОБАВЬ ЭТУ СТРОКУ ]]
-    picker.ClickRegion = {x1 = pickerX, y1 = pickerY, x2 = pickerX + pickerW, y2 = pickerY + pickerH}
     
+    picker.ClickRegion = {x1 = pickerX, y1 = pickerY, x2 = pickerX + pickerW, y2 = pickerY + pickerH}
     picker.Background.Position = {pickerX, pickerY}; picker.Background.Size = {pickerW, pickerH}
     self:_AnimateAndApplyColor(picker.Background, theme.Colors.SectionBackground, masterOpacity)
     picker.Border.Position = {pickerX, pickerY}; picker.Border.Size = {pickerW, pickerH}
@@ -2188,6 +2187,7 @@ function Library:_RenderColorPickerWindow()
         currentSwatchX = currentSwatchX + swatchSpacing
     end
 
+    -- ---[[ НАЧАЛО ИСПРАВЛЕНИЯ: Новая, более надежная логика анимации и скрытия ]]
     if dd.IsOpen or dd.IsClosing then
         local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4
         local animationSpeed = (speed_value / 1.5) / 10.0
@@ -2196,17 +2196,8 @@ function Library:_RenderColorPickerWindow()
             dd.FadeOpacity = math.min(1, dd.FadeOpacity + animationSpeed)
         elseif dd.IsClosing then
             dd.FadeOpacity = math.max(0, dd.FadeOpacity - animationSpeed)
-            -- [[ ИЗМЕНЕНИЕ: Используем <= вместо == для надежности и явно скрываем все элементы ]]
             if dd.FadeOpacity <= 0 then 
                 dd.IsClosing = false 
-                dd.PopupClickRegion = nil
-                self:_SetVisibility(dd.PopupBg, false)
-                self:_SetVisibility(dd.Border, false)
-                for _, option in ipairs(dd.Options) do
-                    self:_SetVisibility(option.Text, false)
-                    self:_SetVisibility(option.Highlight, false)
-                end
-                self:_HideGlowEffect(dd.Glow)
             end
         end
 
@@ -2250,8 +2241,19 @@ function Library:_RenderColorPickerWindow()
                 end
                 currentOptionY = currentOptionY + optionHeight
             end
+        else
+            -- Этот блок теперь будет выполняться каждый кадр, когда анимация завершена
+            dd.PopupClickRegion = nil
+            self:_SetVisibility(dd.PopupBg, false)
+            self:_SetVisibility(dd.Border, false)
+            for _, option in ipairs(dd.Options) do
+                self:_SetVisibility(option.Text, false)
+                self:_SetVisibility(option.Highlight, false)
+            end
+            self:_HideGlowEffect(dd.Glow)
         end
     end
+    -- ---[[ КОНЕЦ ИСПРАВЛЕНИЯ ]]
 end
 
 
