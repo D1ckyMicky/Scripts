@@ -524,51 +524,95 @@ function Library:_SplitString(inputstr, sep)
     return t
 end
 
+function Library:_CreateSwatchObject(color, isAddButton)
+    local picker = self.UI.Popups.ColorPicker
+    local z = picker.Background.zIndex + 10
+    local swatch = {
+        IsAddButton = isAddButton or false,
+        Color = color,
+        Circle = self:_CreateDrawingObject("Circle"),
+        Border = self:_CreateDrawingObject("Circle"),
+        ClickRegion = {}
+    }
+
+    if swatch.Circle then 
+        swatch.Circle.Filled = true; swatch.Circle.zIndex = z; swatch.Circle.Radius = 6;
+    end
+    if swatch.Border then 
+        swatch.Border.Filled = false; swatch.Border.Thickness = 1; swatch.Border.zIndex = z + 1; swatch.Border.Radius = 7;
+    end
+
+    if isAddButton then
+        swatch.PlusLine1 = self:_CreateDrawingObject("Line")
+        swatch.PlusLine2 = self:_CreateDrawingObject("Line")
+        if swatch.PlusLine1 then swatch.PlusLine1.Thickness = 1.5; swatch.PlusLine1.zIndex = z + 1; end
+        if swatch.PlusLine2 then swatch.PlusLine2.Thickness = 1.5; swatch.PlusLine2.zIndex = z + 1; end
+    end
+    
+    return swatch
+end
+
+function Library:_AddColorSwatch(color)
+    local picker = self.UI.Popups.ColorPicker
+    if #self.UI.ColorPresets >= 7 then return end
+
+    table.insert(self.UI.ColorPresets, color)
+
+    -- Удаляем старую кнопку "Add"
+    if #picker.Swatches > 0 and picker.Swatches[#picker.Swatches].IsAddButton then
+        local oldAddButton = table.remove(picker.Swatches)
+        self:_CleanupDrawingObjects(oldAddButton)
+    end
+
+    -- Добавляем новый кружок цвета
+    local newSwatch = self:_CreateSwatchObject(color, false)
+    table.insert(picker.Swatches, newSwatch)
+
+    -- Добавляем новую кнопку "Add", если есть место
+    if #self.UI.ColorPresets < 7 then
+        local newAddButton = self:_CreateSwatchObject(nil, true)
+        table.insert(picker.Swatches, newAddButton)
+    end
+end
+
+function Library:_RemoveColorSwatch(index)
+    local picker = self.UI.Popups.ColorPicker
+    if not picker.Swatches[index] or picker.Swatches[index].IsAddButton then return end
+
+    -- Удаляем пресет и объект отрисовки
+    table.remove(self.UI.ColorPresets, index)
+    local swatchToRemove = table.remove(picker.Swatches, index)
+    self:_CleanupDrawingObjects(swatchToRemove)
+
+    -- Проверяем, нужно ли добавить кнопку "Add" обратно
+    local hasAddButton = false
+    for _, s in ipairs(picker.Swatches) do
+        if s.IsAddButton then hasAddButton = true; break; end
+    end
+
+    if not hasAddButton and #self.UI.ColorPresets < 7 then
+        local newAddButton = self:_CreateSwatchObject(nil, true)
+        table.insert(picker.Swatches, newAddButton)
+    end
+end
+
 function Library:_RebuildColorSwatches()
     local picker = self.UI.Popups.ColorPicker
-    local z = picker.Background.zIndex + 10 
-
+    
+    -- Очищаем старые объекты, если они есть
     for _, swatch in ipairs(picker.Swatches) do
-        if swatch.Circle then swatch.Circle:Remove() end
-        if swatch.Border then swatch.Border:Remove() end
-        if swatch.PlusLine1 then swatch.PlusLine1:Remove() end
-        if swatch.PlusLine2 then swatch.PlusLine2:Remove() end
+        self:_CleanupDrawingObjects(swatch)
     end
     picker.Swatches = {}
 
+    -- Создаем кружки для существующих пресетов
     for _, color in ipairs(self.UI.ColorPresets) do
-        local swatch = {
-            IsAddButton = false,
-            Color = color,
-            Circle = self:_CreateDrawingObject("Circle"),
-            Border = self:_CreateDrawingObject("Circle"),
-            ClickRegion = {}
-        }
-        if swatch.Circle then 
-            swatch.Circle.Filled = true; swatch.Circle.zIndex = z; 
-            swatch.Circle.Radius = 6; -- [[ ИЗМЕНЕНИЕ: Уменьшен радиус ]]
-            swatch.Circle.Color = {color[1], color[2], color[3]};
-            -- Opacity будет применен в функции рендеринга
-        end
-        if swatch.Border then swatch.Border.Filled = false; swatch.Border.Thickness = 1; swatch.Border.zIndex = z + 1; swatch.Border.Radius = 7; end -- [[ ИЗМЕНЕНИЕ: Уменьшен радиус ]]
-        table.insert(picker.Swatches, swatch)
+        table.insert(picker.Swatches, self:_CreateSwatchObject(color, false))
     end
 
-    -- [[ ИЗМЕНЕНИЕ: Создаем кнопку "Добавить", только если лимит не достигнут ]]
+    -- Создаем кнопку "Добавить", если есть место
     if #self.UI.ColorPresets < 7 then
-        local addSwatch = {
-            IsAddButton = true,
-            Circle = self:_CreateDrawingObject("Circle"),
-            Border = self:_CreateDrawingObject("Circle"),
-            PlusLine1 = self:_CreateDrawingObject("Line"),
-            PlusLine2 = self:_CreateDrawingObject("Line"),
-            ClickRegion = {}
-        }
-        if addSwatch.Circle then addSwatch.Circle.Filled = true; addSwatch.Circle.zIndex = z; addSwatch.Circle.Radius = 6; end -- [[ ИЗМЕНЕНИЕ: Уменьшен радиус ]]
-        if addSwatch.Border then addSwatch.Border.Filled = false; addSwatch.Border.Thickness = 1; addSwatch.Border.zIndex = z + 1; addSwatch.Border.Radius = 7; end -- [[ ИЗМЕНЕНИЕ: Уменьшен радиус ]]
-        if addSwatch.PlusLine1 then addSwatch.PlusLine1.Thickness = 1.5; addSwatch.PlusLine1.zIndex = z + 1; end
-        if addSwatch.PlusLine2 then addSwatch.PlusLine2.Thickness = 1.5; addSwatch.PlusLine2.zIndex = z + 1; end
-        table.insert(picker.Swatches, addSwatch)
+        table.insert(picker.Swatches, self:_CreateSwatchObject(nil, true))
     end
 end
 
@@ -2187,14 +2231,16 @@ function Library:_RenderColorPickerWindow()
         currentSwatchX = currentSwatchX + swatchSpacing
     end
 
-    -- ---[[ НАЧАЛО ИСПРАВЛЕНИЯ: Новая, более надежная логика анимации и скрытия ]]
+    -- ---[[ НАЧАЛО ИСПРАВЛЕНИЯ: Финальная версия логики анимации дропдауна ]]
     local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4
     local animationSpeed = (speed_value / 1.5) / 10.0
     
-    if dd.IsOpen and not dd.IsClosing then
-        dd.FadeOpacity = math.min(1, dd.FadeOpacity + animationSpeed)
-    elseif dd.IsClosing then
-        dd.FadeOpacity = math.max(0, dd.FadeOpacity - animationSpeed)
+    local targetOpacity = (dd.IsOpen and not dd.IsClosing) and 1 or 0
+    dd.FadeOpacity = dd.FadeOpacity + (targetOpacity - dd.FadeOpacity) * animationSpeed
+    
+    if math.abs(targetOpacity - dd.FadeOpacity) < 0.01 then
+        dd.FadeOpacity = targetOpacity
+        if dd.IsClosing then dd.IsClosing = false end
     end
 
     if dd.FadeOpacity > 0 then
@@ -2238,9 +2284,6 @@ function Library:_RenderColorPickerWindow()
             currentOptionY = currentOptionY + optionHeight
         end
     else
-        if dd.IsClosing then
-            dd.IsClosing = false 
-        end
         dd.PopupClickRegion = nil
         self:_SetVisibility(dd.PopupBg, false)
         self:_SetVisibility(dd.Border, false)
@@ -3337,7 +3380,7 @@ function Library:_InputLoop()
                  click_was_handled = true
             end
             if not click_was_handled and any_popup_is_open then
-                if picker.IsOpen and picker.ClickRegion and not self:_IsPointInRegion(mouse_x, mouse_y, picker.ClickRegion) then picker.Animation.IsClosing = true; picker.Animation.IsOpening = false; click_was_handled = true; end
+                if picker.IsOpen and picker.ClickRegion and not self:_IsPointInRegion(mouse_x, mouse_y, picker.ClickRegion) then picker.Animation.IsClosing = true; picker.Animation.IsOpening = false; click_was_handled = true; end -- aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
                 if style_window.IsOpen and style_window.ClickRegion and not self:_IsPointInRegion(mouse_x, mouse_y, style_window.ClickRegion) then self:_revert_realtime_changes(); style_window.Animation.IsClosing = true; style_window.Animation.IsOpening = false; click_was_handled = true; end
                 if about_window.IsOpen and about_window.ClickRegion and not self:_IsPointInRegion(mouse_x, mouse_y, about_window.ClickRegion) then about_window.Animation.IsClosing = true; about_window.Animation.IsOpening = false; click_was_handled = true; end
                 if settings_popup.IsOpen and settings_popup.ClickRegion and not self:_IsPointInRegion(mouse_x, mouse_y, settings_popup.ClickRegion) then settings_popup.IsOpen = false; self:_HideSettingsPopupElements(settings_popup); click_was_handled = true; end
@@ -3375,36 +3418,54 @@ function Library:_InputLoop()
                 local handled_by_popup = false
                 if picker.IsOpen then
                     handled_by_popup = true
-                    local clicked_swatch = false
-                    for i, swatch in ipairs(picker.Swatches) do
-                        if self:_IsPointInRegion(mouse_x, mouse_y, swatch.ClickRegion) then
-                            if swatch.IsAddButton then
-                                if #self.UI.ColorPresets < 7 then
-                                    local current_color_rgb = self:_HSVtoRGB(picker.h, picker.s, picker.v)
-                                    local final_color = {current_color_rgb[1], current_color_rgb[2], current_color_rgb[3], picker.a * 255}
-                                    table.insert(self.UI.ColorPresets, final_color)
-                                    self:_RebuildColorSwatches()
-                                end
-                            else
-                                local preset_color = swatch.Color
-                                picker.h, picker.s, picker.v, picker.a = self:_RGBtoHSV(preset_color[1], preset_color[2], preset_color[3], preset_color[4])
-                                if picker.EditingValueID then self.UI.Values[picker.EditingValueID] = preset_color
-                                elseif picker.EditingColorName then
-                                    style_window.EditingTheme.Colors[picker.EditingColorName] = preset_color
-                                    if self.UI.Values.EditStyleRealTime and self.TempTheme then self.TempTheme.Colors[picker.EditingColorName] = preset_color end
+                    if picker.ClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, picker.ClickRegion) then
+                        local clicked_swatch = false
+                        -- ---[[ ИСПРАВЛЕНИЕ: Используем новые функции для добавления/удаления ]]
+                        -- Правый клик для удаления
+                        if is_right_clicked then
+                            for i = #picker.Swatches, 1, -1 do
+                                local swatch = picker.Swatches[i]
+                                if not swatch.IsAddButton and self:_IsPointInRegion(mouse_x, mouse_y, swatch.ClickRegion) then
+                                    self:_RemoveColorSwatch(i)
+                                    clicked_swatch = true
+                                    break
                                 end
                             end
-                            clicked_swatch = true
-                            break
+                        -- Левый клик для добавления/выбора
+                        elseif is_left_clicked then
+                            for i, swatch in ipairs(picker.Swatches) do
+                                if self:_IsPointInRegion(mouse_x, mouse_y, swatch.ClickRegion) then
+                                    if swatch.IsAddButton then
+                                        local current_color_rgb = self:_HSVtoRGB(picker.h, picker.s, picker.v)
+                                        local final_color = {current_color_rgb[1], current_color_rgb[2], current_color_rgb[3], picker.a * 255}
+                                        self:_AddColorSwatch(final_color)
+                                    else
+                                        local preset_color = swatch.Color
+                                        picker.h, picker.s, picker.v, picker.a = self:_RGBtoHSV(preset_color[1], preset_color[2], preset_color[3], preset_color[4])
+                                        if picker.EditingValueID then self.UI.Values[picker.EditingValueID] = preset_color
+                                        elseif picker.EditingColorName then
+                                            style_window.EditingTheme.Colors[picker.EditingColorName] = preset_color
+                                            if self.UI.Values.EditStyleRealTime and self.TempTheme then self.TempTheme.Colors[picker.EditingColorName] = preset_color end
+                                        end
+                                    end
+                                    clicked_swatch = true
+                                    break
+                                end
+                            end
                         end
-                    end
 
-                    if not clicked_swatch then
-                         if self:_IsPointInRegion(mouse_x, mouse_y, picker.Input.ClickRegion) then
-                            picker.IsEditing = true
-                            if picker.Mode == "HEX" then picker.InputText = picker.Input.Text.Text:gsub("#", "") else picker.InputText = picker.Input.Text.Text end
-                        elseif self:_IsPointInRegion(mouse_x, mouse_y, picker.Dropdown.ClickRegion) then
-                            picker.Dropdown.IsOpen, picker.Dropdown.IsClosing = true, false; picker.Dropdown.FadeOpacity = 0.0
+                        if not clicked_swatch and is_left_clicked then
+                            if self:_IsPointInRegion(mouse_x, mouse_y, picker.Input.ClickRegion) then
+                                picker.IsEditing = true
+                                if picker.Mode == "HEX" then picker.InputText = picker.Input.Text.Text:gsub("#", "") else picker.InputText = picker.Input.Text.Text end
+                            elseif self:_IsPointInRegion(mouse_x, mouse_y, picker.Dropdown.ClickRegion) then
+                                picker.Dropdown.IsOpen, picker.Dropdown.IsClosing = not picker.Dropdown.IsOpen, picker.Dropdown.IsOpen
+                                if picker.Dropdown.IsOpen then picker.Dropdown.FadeOpacity = 0.0 end
+                            end
+                        end
+                    else
+                        if is_left_clicked then
+                            picker.Animation.IsClosing = true; picker.Animation.IsOpening = false
                         end
                     end
                 elseif style_window.IsOpen then
