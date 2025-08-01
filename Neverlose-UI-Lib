@@ -3666,14 +3666,14 @@ function Library:_InputLoop()
         if key and key ~= "None" then
             if active_target then
                 if key ~= active_target.last_key_pressed then
-                    handle_text_input(target, input_key)
+                    handle_text_input(active_target, key) -- << ИСПРАВЛЕНО ЗДЕСЬ
                     active_target.last_key_press_time = tick()
                     active_target.last_key_pressed = key
                     active_target.is_in_repeat = false
                 else
                     local delay = active_target.is_in_repeat and KEY_REPEAT_DELAY or KEY_INITIAL_DELAY
                     if (tick() - active_target.last_key_press_time) > delay then
-                        handle_text_input(target, input_key)
+                        handle_text_input(active_target, key) -- << И ИСПРАВЛЕНО ЗДЕСЬ
                         active_target.last_key_press_time = tick()
                         active_target.is_in_repeat = true
                     end
