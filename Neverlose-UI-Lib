@@ -26,10 +26,12 @@ Library.lastUIToggleTime = 0
 Library.Window = {
     Visible = true, X = 400, Y = 200, Width = 750, Height = 620,
     SidebarWidth = 187, HeaderHeight = 65, IsDragging = false,
+    IsFastDragging = false, -- << [НОВОЕ] Добавь эту строку
     ActiveTab = "", PanelOverlap = 4,
     LastRenderedTab = "",
-    Animation = { State = "IDLE", OldTab = nil } -- << ИЗМЕНИ ЭТУ СТРОКУ
+    Animation = { State = "IDLE", OldTab = nil }
 }
+
 
 Library.ConfigFolderPath = "NL_Configs" -- Новая папка для конфигов
 
@@ -289,34 +291,40 @@ end
 function Library:_AnimateAndApplyColor(drawingObject, targetColor, masterOpacity, ignoreGlobalOpacity)
     if not drawingObject or type(targetColor) ~= "table" then return end
 
-    local state = self.AnimationState[drawingObject]
-    if not state then
-        state = { CurrentColor = self:_DeepCopy(targetColor) }
-        self.AnimationState[drawingObject] = state
+    local finalColor
+    -- [[ ОПТИМИЗАЦИЯ: Если включен режим быстрого переноса, не анимируем цвет, а применяем его сразу ]]
+    if self.Window.IsFastDragging then
+        finalColor = targetColor
+    else
+        local state = self.AnimationState[drawingObject]
+        if not state then
+            state = { CurrentColor = self:_DeepCopy(targetColor) }
+            self.AnimationState[drawingObject] = state
+        end
+
+        local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.5
+        local animationSpeed = speed_value / 16.0
+
+        state.CurrentColor = self:_LerpColor(state.CurrentColor, targetColor, animationSpeed)
+        finalColor = state.CurrentColor
     end
 
-    local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.5 
-    local animationSpeed = speed_value / 16.0
+    if finalColor then
+        drawingObject.Color = {finalColor[1], finalColor[2], finalColor[3]}
+        local baseOpacity = (finalColor[4] or 255) / 255
 
-    state.CurrentColor = self:_LerpColor(state.CurrentColor, targetColor, animationSpeed)
-
-    local color = state.CurrentColor
-    if color then
-        drawingObject.Color = {color[1], color[2], color[3]}
-        local baseOpacity = (color[4] or 255) / 255
-        
         masterOpacity = (masterOpacity == nil) and 1 or masterOpacity
-        
-        -- [[ ИЗМЕНЕНИЕ: Условное применение глобальной прозрачности ]]
-        local finalOpacity = baseOpacity * masterOpacity
+
+        local finalOpacityValue = baseOpacity * masterOpacity
         if not ignoreGlobalOpacity then
             local globalOpacity = self.GlobalAnimation and self.GlobalAnimation.Opacity or 1
-            finalOpacity = finalOpacity * globalOpacity
+            finalOpacityValue = finalOpacityValue * globalOpacity
         end
-        
-        drawingObject.Opacity = finalOpacity
+
+        drawingObject.Opacity = finalOpacityValue
     end
 end
+
 
 function Library:_GetTextColorForBackground(backgroundColor)
     local theme = self.ActiveTheme
@@ -637,45 +645,61 @@ end
 
 function Library:_RenderGlowEffect(glowSet, x, y, width, height, rounding, targetColor, sides, masterOpacity)
     if not glowSet or #glowSet == 0 or not targetColor then return end
-    
+
+    -- [[ ОПТИМИЗАЦИЯ: Снижаем качество свечения во время переноса, а не отключаем его ]]
+    local maxGlowLayers = self.Window.IsFastDragging and 5 or #glowSet
+
     local globalOpacity = self.GlobalAnimation and self.GlobalAnimation.Opacity or 1
     masterOpacity = masterOpacity or 1
-    
+
     sides = sides or {top=true, bottom=true, left=true, right=true}
-    
+
     local glowBaseOpacity = (targetColor[4] or 255) / 255
     local targetGlowRGB = {targetColor[1], targetColor[2], targetColor[3]}
 
     for i, glowSquare in ipairs(glowSet) do
-        local spread = i * 0.6
-        local glowX, glowY, glowW, glowH = x, y, width, height
+        -- Если мы в режиме быстрого переноса и уже отрисовали достаточно слоёв,
+        -- остальные просто скрываем.
+        if i > maxGlowLayers then
+            self:_SetVisibility(glowSquare, false)
+        else
+            local spread = i * 0.6
+            local glowX, glowY, glowW, glowH = x, y, width, height
 
-        if sides.left then glowX = x - spread; glowW = glowW + spread; end
-        if sides.right then glowW = glowW + spread; end
-        if sides.top then glowY = y - spread; glowH = glowH + spread; end
-        if sides.bottom then glowH = glowH + spread; end
-        
-        glowSquare.Position = {glowX, glowY}
-        glowSquare.Size = {glowW, glowH}
-        glowSquare.Rounding = rounding + spread
-        
-        local state = self.AnimationState[glowSquare]
-        if not state then
-            state = { CurrentColor = self:_DeepCopy(targetGlowRGB) }
-            self.AnimationState[glowSquare] = state
+            if sides.left then glowX = x - spread; glowW = glowW + spread; end
+            if sides.right then glowW = glowW + spread; end
+            if sides.top then glowY = y - spread; glowH = glowH + spread; end
+            if sides.bottom then glowH = glowH + spread; end
+
+            glowSquare.Position = {glowX, glowY}
+            glowSquare.Size = {glowW, glowH}
+            glowSquare.Rounding = rounding + spread
+
+            local finalColor
+            if self.Window.IsFastDragging then
+                finalColor = targetGlowRGB
+            else
+                local state = self.AnimationState[glowSquare]
+                if not state then
+                    state = { CurrentColor = self:_DeepCopy(targetGlowRGB) }
+                    self.AnimationState[glowSquare] = state
+                end
+                local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.5
+                local animationSpeed = speed_value / 16.0
+                state.CurrentColor = self:_LerpColor(state.CurrentColor, targetGlowRGB, animationSpeed)
+                finalColor = state.CurrentColor
+            end
+            
+            glowSquare.Color = {finalColor[1], finalColor[2], finalColor[3]}
+
+            local alpha_factor = 0.24 * math.exp(-0.24 * i)
+            glowSquare.Opacity = glowBaseOpacity * globalOpacity * alpha_factor * masterOpacity
+
+            self:_SetVisibility(glowSquare, true)
         end
-        local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.5 
-        local animationSpeed = speed_value / 16.0
-        state.CurrentColor = self:_LerpColor(state.CurrentColor, targetGlowRGB, animationSpeed)
-        glowSquare.Color = {state.CurrentColor[1], state.CurrentColor[2], state.CurrentColor[3]}
-
-        local alpha_factor = 0.24 * math.exp(-0.24 * i)
-        -- [[ ИЗМЕНЕНИЕ: Умножаем на masterOpacity ]]
-        glowSquare.Opacity = glowBaseOpacity * globalOpacity * alpha_factor * masterOpacity
-        
-        self:_SetVisibility(glowSquare, true)
     end
 end
+
 
 function Library:_HideGlowEffect(glowSet)
     if not glowSet then return end
@@ -3295,7 +3319,10 @@ function Library:_InputLoop()
             local on_header_button = self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.Save.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.ViewESP.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.CreateNew.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.Settings.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, burger_button.ClickRegion)
 
             if self:_IsPointInRegion(mouse_x, mouse_y, header_drag_region) and not on_header_button and not (picker.IsOpen or style_window.IsOpen or about_window.IsOpen or settings_popup.IsOpen or burger_popup.IsOpen or configsTab.OptionsPopup.IsOpen) then
-                self.Window.IsDragging = true; started_drag = true; drag_offset = {x = mouse_x - self.Window.X, y = mouse_y - self.Window.Y};
+                self.Window.IsDragging = true;
+                self.Window.IsFastDragging = true; -- << [НОВОЕ] Включаем режим быстрой отрисовки
+                started_drag = true;
+                drag_offset = {x = mouse_x - self.Window.X, y = mouse_y - self.Window.Y};
             end
         end
         is_dragging_something = started_drag
@@ -3591,6 +3618,7 @@ function Library:_InputLoop()
         picker.isDraggingHue, picker.isDraggingOpacity, picker.isDraggingSaturationValue = false, false, false;
         for _, section in ipairs(self.UI.Sections) do for _, el in ipairs(section.Elements) do if el.IsDragging then el.IsDragging = false end end end
         is_dragging_something = false
+        self.Window.IsFastDragging = false; -- << [НОВОЕ] Выключаем режим быстрой отрисовки
     end
 
     do
@@ -3738,6 +3766,7 @@ function Library:_InputLoop()
     was_left_pressed = is_left_pressed_now
     was_right_pressed = is_right_pressed_now
 end
+
 
 
 
