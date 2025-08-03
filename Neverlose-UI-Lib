@@ -1484,7 +1484,6 @@ function Library:_LoadConfig(name)
     print(SCRIPT_PREFIX .. "Config '" .. name .. "' loaded successfully.")
 
     -- [[ НОВОЕ: Сбрасываем кэш анимаций и помечаем UI для перерисовки ]]
-    self.AnimationState = {}
     self.UI.isDirty = true
 end
 
@@ -3745,9 +3744,30 @@ function Library:_InputLoop()
                 elseif configsTab.OptionsPopup.IsOpen then
                     click_was_handled = true
                     if not (configsTab.OptionsPopup.ClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, configsTab.OptionsPopup.ClickRegion)) then
-                        configsTab.OptionsPopup.IsOpen = false
+                        -- Clicked outside the popup, start closing animation
+                        configsTab.OptionsPopup.Animation.IsClosing = true
+                        configsTab.OptionsPopup.Animation.IsOpening = false
                     else
-                        if self:_IsPointInRegion(mouse_x, mouse_y, configsTab.OptionsPopup.IncludeStyleToggle.ClickRegion) then self.UI.Values[configsTab.OptionsPopup.IncludeStyleToggle.id] = not self.UI.Values[configsTab.OptionsPopup.IncludeStyleToggle.id]; end;
+                        -- Clicked inside the popup
+                        if self:_IsPointInRegion(mouse_x, mouse_y, configsTab.OptionsPopup.IncludeStyleToggle.ClickRegion) then 
+                            self.UI.Values[configsTab.OptionsPopup.IncludeStyleToggle.id] = not self.UI.Values[configsTab.OptionsPopup.IncludeStyleToggle.id]
+                        end
+
+                        -- [[ НОВОЕ: Логика клика по кнопке Delete ]]
+                        local delBtn = configsTab.OptionsPopup.DeleteButton
+                        if self:_IsPointInRegion(mouse_x, mouse_y, delBtn.ClickRegion) then
+                            local itemIndex = configsTab.OptionsPopup.ItemIndex
+                            if itemIndex and configsTab.Items[itemIndex] then
+                                local configNameToDelete = configsTab.Items[itemIndex].Name
+                                print(SCRIPT_PREFIX .. "Deleting config: " .. configNameToDelete)
+                                deletefile(self:_GetConfigPath(configNameToDelete))
+
+                                -- Закрываем попап и обновляем список
+                                configsTab.OptionsPopup.Animation.IsClosing = true
+                                configsTab.OptionsPopup.Animation.IsOpening = false
+                                configsTab.NeedsRefresh = true
+                            end
+                        end
                     end
                 end
             end
@@ -3768,7 +3788,22 @@ function Library:_InputLoop()
                         for i, item in ipairs(configsTab.Items) do local d = item.Drawing
                             if configsTab.LoadedConfigName == item.Name and self:_IsPointInRegion(mouse_x, mouse_y, d.SaveButton.ClickRegion) then self:_SaveConfig(item.Name); clicked_on_main_ui = true; break;
                             elseif configsTab.LoadedConfigName ~= item.Name and self:_IsPointInRegion(mouse_x, mouse_y, d.LoadButton.ClickRegion) then self:_LoadConfig(item.Name); clicked_on_main_ui = true; break;
-                            elseif self:_IsPointInRegion(mouse_x, mouse_y, d.OptionsButton.ClickRegion) then local popup = configsTab.OptionsPopup; popup.IsOpen = not popup.IsOpen; popup.ItemIndex = i; popup.Pos = {x = mouse_x - 155, y = mouse_y}; clicked_on_main_ui = true; break; end
+                            elseif self:_IsPointInRegion(mouse_x, mouse_y, d.OptionsButton.ClickRegion) then 
+                                local popup = configsTab.OptionsPopup
+                                popup.IsOpen = not popup.IsOpen
+                                if popup.IsOpen then
+                                    popup.Animation.IsOpening = true
+                                    popup.Animation.IsClosing = false
+                                    popup.Animation.CurrentOpacity = 0 -- Reset for a clean fade-in
+                                else
+                                    popup.Animation.IsClosing = true
+                                    popup.Animation.IsOpening = false
+                                end
+                                popup.ItemIndex = i
+                                popup.Pos = {x = mouse_x - 155, y = mouse_y}
+                                clicked_on_main_ui = true
+                                break
+                            end
                         end
                     else
                         for _, section in ipairs(self.UI.Sections) do if section.ParentTab == self.Window.ActiveTab then for _, el in ipairs(section.Elements) do
