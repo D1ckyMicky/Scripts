@@ -660,10 +660,15 @@ function Library:_UpdateAllAnimations()
             break
         end
     end
-    if self.UI.Core.AboutWindow.Animation.IsOpening or self.UI.Core.AboutWindow.Animation.IsClosing then anyAnimationActive = true end
-    if self.UI.Watermark.Animation.IsOpening or self.UI.Watermark.Animation.IsClosing then anyAnimationActive = true end
-    if self.UI.Hotkeys.Animation.IsOpening or self.UI.Hotkeys.Animation.IsClosing then anyAnimationActive = true end
-
+    if not anyAnimationActive then
+        if self.UI.Core.AboutWindow.Animation.IsOpening or self.UI.Core.AboutWindow.Animation.IsClosing then anyAnimationActive = true end
+    end
+    if not anyAnimationActive then
+        if self.UI.Watermark.Animation.IsOpening or self.UI.Watermark.Animation.IsClosing then anyAnimationActive = true end
+    end
+    if not anyAnimationActive then
+        if self.UI.Hotkeys.Animation.IsOpening or self.UI.Hotkeys.Animation.IsClosing then anyAnimationActive = true end
+    end
 
     -- Обновляем и проверяем анимацию смены вкладок
     self:_UpdateAnimationStates()
@@ -676,10 +681,45 @@ function Library:_UpdateAllAnimations()
         anyAnimationActive = true
     end
 
+    -- [[ НОВОЕ: Проверка анимаций отдельных элементов ]]
+    if not self.UI.Values["BurgerLow-EndMode"] and not anyAnimationActive then
+        -- Проверяем переключатели и слайдеры в секциях
+        for _, section in ipairs(self.UI.Sections) do
+            for _, el in ipairs(section.Elements) do
+                if el.type == "Toggle" then
+                    local is_on = self.UI.Values[el.id]
+                    local targetOffset = is_on and (el.Size.width - el.Size.height / 2) or (el.Size.height / 2)
+                    if math.abs(el.AnimatedNubOffset - targetOffset) > 0.1 then
+                        anyAnimationActive = true; break
+                    end
+                elseif el.type == "Slider" then
+                    local targetValue = self.UI.Values[el.id]
+                    if math.abs(el.AnimatedValue - targetValue) > 0.01 then
+                        anyAnimationActive = true; break
+                    end
+                elseif el.type == "Dropdown" or el.type == "Multidropdown" then
+                    if el.IsClosing or (el.IsOpen and el.FadeOpacity < 1) then
+                        anyAnimationActive = true; break
+                    end
+                end
+            end
+            if anyAnimationActive then break end
+        end
+        
+        -- Проверяем слайдер в окне "About"
+        if not anyAnimationActive then
+            local slider_about = self.UI.Core.AboutWindow.AnimationSpeedSlider
+            if slider_about then
+                 local targetValue = self.UI.Values[slider_about.id]
+                 if math.abs(slider_about.AnimatedValue - targetValue) > 0.01 then
+                    anyAnimationActive = true
+                 end
+            end
+        end
+    end
+
     return anyAnimationActive
 end
-
-
 
 --================================================================
 --[[ PRIVATE: GLOW EFFECT HELPERS ]]
@@ -3913,7 +3953,7 @@ function Library:_AddPresetsTab()
 end
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started.")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. x2")
     local is_first_frame = true
     while true do
         -- Сначала обрабатываем ввод. Он может пометить UI как "грязный".
@@ -3921,6 +3961,28 @@ function Library:_MainLoop()
 
         -- Затем обновляем все анимации и проверяем, активны ли они.
         local hasActiveAnimations = self:_UpdateAllAnimations()
+
+        -- [[ НОВОЕ: Проверка на активный ввод текста для мигания курсора ]]
+        local is_text_input_active = false
+        if self.UI.Popups.EditStyle.IsEditingName or self.UI.Popups.ColorPicker.IsEditing then
+            is_text_input_active = true
+        else
+            for _, section in ipairs(self.UI.Sections) do
+                for _, el in ipairs(section.Elements) do
+                    if el.type == "Slider" and el.IsEditing then
+                        is_text_input_active = true
+                        break
+                    end
+                end
+                if is_text_input_active then break end
+            end
+            if not is_text_input_active and self.UI.Core.AboutWindow.AnimationSpeedSlider and self.UI.Core.AboutWindow.AnimationSpeedSlider.IsEditing then
+                is_text_input_active = true
+            end
+        end
+        if is_text_input_active then
+            self.UI.isDirty = true
+        end
 
         -- Перерисовываем UI только если он "грязный" или есть активные анимации.
         if self.UI.isDirty or hasActiveAnimations then
@@ -3942,6 +4004,7 @@ function Library:_MainLoop()
         wait(0.01)
     end
 end
+
 
 
 
