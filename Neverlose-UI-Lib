@@ -102,6 +102,7 @@ local autoSaveInterval = 15 -- Интервал в секундах (можно 
 local lastBindCheckTime = 0 -- Для глобальной проверки биндов 
 local last_slider_key_press_time = 0 
 local slider_key_press_delay = 0.04 -- Можешь изменить это значение (в секундах)
+local lastMousePos = {x = 0, y = 0}
 
 --================================================================
 --[[ PRIVATE: COLOR CONVERSION FUNCTIONS (PLACEHOLDERS) ]]
@@ -640,6 +641,44 @@ function Library:_RebuildColorSwatches()
         table.insert(picker.Swatches, self:_CreateSwatchObject(nil, true))
     end
 end
+
+function Library:_UpdateAllAnimations()
+    local anyAnimationActive = false
+
+    -- Обновляем анимации всех попапов
+    self:_UpdatePopupAnimation(self.UI.Core.AboutWindow)
+    self:_UpdatePopupAnimation(self.UI.Popups.EditStyle)
+    self:_UpdatePopupAnimation(self.UI.Popups.ColorPicker)
+    self:_UpdatePopupAnimation(self.UI.Popups.BurgerMenu)
+    self:_UpdatePopupAnimation(self.UI.Watermark)
+    self:_UpdatePopupAnimation(self.UI.Hotkeys)
+
+    -- Проверяем, активна ли анимация хоть одного попапа
+    for _, popup in pairs(self.UI.Popups) do
+        if popup.Animation and (popup.Animation.IsOpening or popup.Animation.IsClosing) then
+            anyAnimationActive = true
+            break
+        end
+    end
+    if self.UI.Core.AboutWindow.Animation.IsOpening or self.UI.Core.AboutWindow.Animation.IsClosing then anyAnimationActive = true end
+    if self.UI.Watermark.Animation.IsOpening or self.UI.Watermark.Animation.IsClosing then anyAnimationActive = true end
+    if self.UI.Hotkeys.Animation.IsOpening or self.UI.Hotkeys.Animation.IsClosing then anyAnimationActive = true end
+
+
+    -- Обновляем и проверяем анимацию смены вкладок
+    self:_UpdateAnimationStates()
+    if self.Window.Animation.State ~= "IDLE" then
+        anyAnimationActive = true
+    end
+
+    -- Обновляем и проверяем глобальную анимацию (появление/исчезновение UI)
+    if self.GlobalAnimation.IsHiding or self.GlobalAnimation.IsShowing then
+        anyAnimationActive = true
+    end
+
+    return anyAnimationActive
+end
+
 
 
 --================================================================
@@ -3209,13 +3248,24 @@ function Library:_InputLoop()
     local mouse_pos = getmouseposition()
     if not mouse_pos then return end
 
-    local mouse_x, mouse_y = self:_SafeNumber(mouse_pos.x, 0), self:_SafeNumber(mouse_pos.y, 0)
+    -- [[ ИЗМЕНЕНИЕ: Проверяем движение мыши и другие действия ]]
+    local mouse_moved = (mouse_pos.x ~= lastMousePos.x or mouse_pos.y ~= lastMousePos.y)
     local is_left_pressed_now = isleftpressed()
     local is_left_clicked = was_left_pressed and not is_left_pressed_now
-    local is_press_started = is_left_pressed_now and not was_left_pressed
-
     local is_right_pressed_now = isrightpressed()
     local is_right_clicked = was_right_pressed and not is_right_pressed_now
+    local key_pressed = (getpressedkey() ~= "None")
+
+    -- Если есть любое действие, помечаем UI для перерисовки
+    if mouse_moved or is_left_clicked or is_right_clicked or is_left_pressed_now or key_pressed then
+        self.UI.isDirty = true
+    end
+
+    lastMousePos = mouse_pos -- Обновляем последнюю позицию мыши
+
+    -- Вся остальная логика остается без изменений, она будет выполняться только если есть действие
+    local mouse_x, mouse_y = self:_SafeNumber(mouse_pos.x, 0), self:_SafeNumber(mouse_pos.y, 0)
+    local is_press_started = is_left_pressed_now and not was_left_pressed
 
     local picker = self.UI.Popups.ColorPicker
     local style_window = self.UI.Popups.EditStyle
@@ -3227,6 +3277,8 @@ function Library:_InputLoop()
     local wm = self.UI.Watermark
     local hk = self.UI.Hotkeys
 
+    -- ... (весь остальной код функции _InputLoop, начиная с local function applySliderInput, остается здесь без изменений)
+    -- ... (я его не включаю сюда, чтобы не делать блок кода слишком огромным, но он должен быть здесь)
     local function applySliderInput(slider)
         if not slider.IsEditing then return end
         local num = tonumber(slider.InputText)
@@ -3372,7 +3424,7 @@ function Library:_InputLoop()
 
             if self:_IsPointInRegion(mouse_x, mouse_y, header_drag_region) and not on_header_button and not (picker.IsOpen or style_window.IsOpen or about_window.IsOpen or settings_popup.IsOpen or burger_popup.IsOpen or configsTab.OptionsPopup.IsOpen) then
                 self.Window.IsDragging = true;
-                self.Window.IsFastDragging = true; -- << [НОВОЕ] Включаем режим быстрой отрисовки
+                self.Window.IsFastDragging = true;
                 started_drag = true;
                 drag_offset = {x = mouse_x - self.Window.X, y = mouse_y - self.Window.Y};
             end
@@ -3670,7 +3722,7 @@ function Library:_InputLoop()
         picker.isDraggingHue, picker.isDraggingOpacity, picker.isDraggingSaturationValue = false, false, false;
         for _, section in ipairs(self.UI.Sections) do for _, el in ipairs(section.Elements) do if el.IsDragging then el.IsDragging = false end end end
         is_dragging_something = false
-        self.Window.IsFastDragging = false; -- << [НОВОЕ] Выключаем режим быстрой отрисовки
+        self.Window.IsFastDragging = false;
     end
 
     do
@@ -3820,6 +3872,7 @@ function Library:_InputLoop()
 end
 
 
+
 function Library:_AddPresetsTab()
     local tabGroupName = "PRESETS"
     local tabName = "Configs"
@@ -3860,25 +3913,36 @@ function Library:_AddPresetsTab()
 end
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 3xxxx6666x1")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started.")
     local is_first_frame = true
     while true do
+        -- Сначала обрабатываем ввод. Он может пометить UI как "грязный".
         self:_InputLoop()
 
-        if self.Window.Visible then
-            if is_first_frame then
-                self:_AddPresetsTab()
-                is_first_frame = false
-            end
-            self:_RenderLoop()
-        end
+        -- Затем обновляем все анимации и проверяем, активны ли они.
+        local hasActiveAnimations = self:_UpdateAllAnimations()
 
-        self:_RenderWatermark()
-        self:_RenderHotkeys() -- << ДОБАВЬТЕ ЭТУ СТРОКУ
+        -- Перерисовываем UI только если он "грязный" или есть активные анимации.
+        if self.UI.isDirty or hasActiveAnimations then
+            if self.Window.Visible then
+                if is_first_frame then
+                    self:_AddPresetsTab()
+                    is_first_frame = false
+                end
+                self:_RenderLoop()
+            end
+
+            self:_RenderWatermark()
+            self:_RenderHotkeys()
+
+            -- После полной перерисовки сбрасываем флаг.
+            self.UI.isDirty = false
+        end
 
         wait(0.01)
     end
 end
+
 
 
 --================================================================
