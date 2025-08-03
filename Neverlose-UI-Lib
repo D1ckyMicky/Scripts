@@ -344,7 +344,6 @@ function Library:_UpdateAnimationStates()
     local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.5
     local animationSpeed = (speed_value * 1.5) / 15.0
 
-    -- === Расчет состояний для каждой секции ===
     for _, section in ipairs(self.UI.Sections) do
         local anim_state = self.AnimationState[section.Drawing.Background]
         if not anim_state then
@@ -367,14 +366,19 @@ function Library:_UpdateAnimationStates()
             targetOpacity, targetYOffset = 0, anim_state.YOffset
         end
         
-        anim_state.Opacity = anim_state.Opacity + (targetOpacity - anim_state.Opacity) * animationSpeed
-        anim_state.YOffset = anim_state.YOffset + (targetYOffset - anim_state.YOffset) * animationSpeed
+        -- [[ ИЗМЕНЕНИЕ: Добавляем проверку на Low-End Mode ]]
+        if self.UI.Values["BurgerLowEndMode"] then
+            anim_state.Opacity = targetOpacity
+            anim_state.YOffset = targetYOffset
+        else
+            anim_state.Opacity = anim_state.Opacity + (targetOpacity - anim_state.Opacity) * animationSpeed
+            anim_state.YOffset = anim_state.YOffset + (targetYOffset - anim_state.YOffset) * animationSpeed
+        end
         
         if math.abs(anim_state.Opacity - targetOpacity) < 0.01 then anim_state.Opacity = targetOpacity end
         if math.abs(anim_state.YOffset - targetYOffset) < 0.01 then anim_state.YOffset = targetYOffset end
     end
 
-    -- === Смена состояний анимации ===
     if self.Window.Animation.State == "FADING_OUT" and not still_fading_out then
         self.Window.Animation.State = "FADING_IN"
         self.Window.Animation.OldTab = nil
@@ -390,9 +394,8 @@ function Library:_UpdateAnimationStates()
                 for _, el in ipairs(section.Elements) do
                     if el.type == "Toggle" and self.UI.Values[el.id] then
                         el.AnimatedNubOffset = el.Size.height / 2
-                    -- ИЗМЕНЕНИЕ: Добавляем сброс анимации для слайдеров
                     elseif el.type == "Slider" then
-                        el.AnimatedValue = el.Min -- Сбрасываем анимированное значение до минимума
+                        el.AnimatedValue = el.Min
                     end
                 end
             end
@@ -401,6 +404,7 @@ function Library:_UpdateAnimationStates()
         self.Window.Animation.State = "IDLE"
     end
 end
+
 
 function Library:_SetSectionAndElementsVisibility(section, visible)
     -- Сначала обрабатываем собственные объекты секции (фон, заголовок и т.д.)
@@ -502,24 +506,38 @@ end
 function Library:_UpdatePopupAnimation(popup)
     if not popup.Animation then return end
     local anim = popup.Animation
-    local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4
-    local animationSpeed = (speed_value > 0) and (speed_value / 15.0) or 1
-    
-    if anim.IsOpening then
-        anim.CurrentOpacity = anim.CurrentOpacity + animationSpeed
-        if anim.CurrentOpacity >= 1 then
+
+    -- [[ ИЗМЕНЕНИЕ: Добавляем проверку на Low-End Mode ]]
+    if self.UI.Values["BurgerLowEndMode"] then
+        if anim.IsOpening then
             anim.CurrentOpacity = 1
             anim.IsOpening = false
-        end
-    elseif anim.IsClosing then
-        anim.CurrentOpacity = anim.CurrentOpacity - animationSpeed
-        if anim.CurrentOpacity <= 0 then
+        elseif anim.IsClosing then
             anim.CurrentOpacity = 0
             anim.IsClosing = false
             if popup.IsOpen ~= nil then popup.IsOpen = false end
         end
+    else
+        local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4
+        local animationSpeed = (speed_value > 0) and (speed_value / 15.0) or 1
+        
+        if anim.IsOpening then
+            anim.CurrentOpacity = anim.CurrentOpacity + animationSpeed
+            if anim.CurrentOpacity >= 1 then
+                anim.CurrentOpacity = 1
+                anim.IsOpening = false
+            end
+        elseif anim.IsClosing then
+            anim.CurrentOpacity = anim.CurrentOpacity - animationSpeed
+            if anim.CurrentOpacity <= 0 then
+                anim.CurrentOpacity = 0
+                anim.IsClosing = false
+                if popup.IsOpen ~= nil then popup.IsOpen = false end
+            end
+        end
     end
 end
+
 
 function Library:_SplitString(inputstr, sep)
     if sep == nil then sep = "%s" end
@@ -644,9 +662,14 @@ function Library:_Internal_CreateGlowSet(zIndex, count)
 end
 
 function Library:_RenderGlowEffect(glowSet, x, y, width, height, rounding, targetColor, sides, masterOpacity)
+    -- [[ ИЗМЕНЕНИЕ: Добавляем проверку на Low-End Mode и опцию Glow ]]
+    if self.UI.Values["BurgerLowEndMode"] or not self.UI.Values["BurgerGlow"] then
+        self:_HideGlowEffect(glowSet)
+        return
+    end
+
     if not glowSet or #glowSet == 0 or not targetColor then return end
 
-    -- [[ ОПТИМИЗАЦИЯ: Снижаем качество свечения во время переноса, а не отключаем его ]]
     local maxGlowLayers = self.Window.IsFastDragging and 5 or #glowSet
 
     local globalOpacity = self.GlobalAnimation and self.GlobalAnimation.Opacity or 1
@@ -658,8 +681,6 @@ function Library:_RenderGlowEffect(glowSet, x, y, width, height, rounding, targe
     local targetGlowRGB = {targetColor[1], targetColor[2], targetColor[3]}
 
     for i, glowSquare in ipairs(glowSet) do
-        -- Если мы в режиме быстрого переноса и уже отрисовали достаточно слоёв,
-        -- остальные просто скрываем.
         if i > maxGlowLayers then
             self:_SetVisibility(glowSquare, false)
         else
@@ -676,7 +697,7 @@ function Library:_RenderGlowEffect(glowSet, x, y, width, height, rounding, targe
             glowSquare.Rounding = rounding + spread
 
             local finalColor
-            if self.Window.IsFastDragging then
+            if self.Window.IsFastDragging or self.UI.Values["BurgerLowEndMode"] then
                 finalColor = targetGlowRGB
             else
                 local state = self.AnimationState[glowSquare]
@@ -699,6 +720,7 @@ function Library:_RenderGlowEffect(glowSet, x, y, width, height, rounding, targe
         end
     end
 end
+
 
 
 function Library:_HideGlowEffect(glowSet)
@@ -808,33 +830,42 @@ function Library:_InitializeCoreUI()
 end
 
 function Library:_InitializeBurgerMenu()
-    local z = 30 
+    local z = 30
     local headerButtons = self.UI.Core.HeaderButtons
-    
+
     headerButtons.BurgerMenu = {
         Line1 = self:_CreateDrawingObject("Line"),
         Line2 = self:_CreateDrawingObject("Line"),
         Line3 = self:_CreateDrawingObject("Line"),
         ClickRegion = {},
-        Pos = {x = 0, y = 0} 
+        Pos = {x = 0, y = 0}
     }
     if headerButtons.BurgerMenu.Line1 then headerButtons.BurgerMenu.Line1.Thickness = 2; headerButtons.BurgerMenu.Line1.zIndex = 5; end
     if headerButtons.BurgerMenu.Line2 then headerButtons.BurgerMenu.Line2.Thickness = 2; headerButtons.BurgerMenu.Line2.zIndex = 5; end
     if headerButtons.BurgerMenu.Line3 then headerButtons.BurgerMenu.Line3.Thickness = 2; headerButtons.BurgerMenu.Line3.zIndex = 5; end
 
-    -- [[ ИЗМЕНЕНИЕ: Добавляем Animation table ]]
-    local popup = { IsOpen = false, Animation = { IsOpening = false, IsClosing = false, CurrentOpacity = 0 } }; 
+    local popup = { IsOpen = false, Animation = { IsOpening = false, IsClosing = false, CurrentOpacity = 0 } };
     self.UI.Popups.BurgerMenu = popup
-    popup.Pos = {x=0, y=0} 
+    popup.Pos = {x=0, y=0}
     popup.Background = self:_CreateDrawingObject("Square"); if popup.Background then popup.Background.Filled = true; popup.Background.zIndex = z; popup.Background.Rounding = self.ActiveTheme.Rounding.Section; end
     popup.Border = self:_CreateDrawingObject("Square"); if popup.Border then popup.Border.Filled = false; popup.Border.Thickness = 1; popup.Border.zIndex = z + 1; popup.Border.Rounding = self.ActiveTheme.Rounding.Section; end
     popup.Glow = self:_Internal_CreateGlowSet(z - 1)
-    
+
     popup.Items = {}
-    local itemNames = {"Watermark", "Hotkeys"}
+    -- [[ ИЗМЕНЕНИЕ: Добавляем "Glow" и "Low-End Mode" ]]
+    local itemNames = {"Watermark", "Hotkeys", "Glow", "Low-End Mode"}
+
     for _, name in ipairs(itemNames) do
-        local id = "Burger" .. name
-        if self.UI.Values[id] == nil then self.UI.Values[id] = false end
+        local id = "Burger" .. name:gsub(" ", "") -- Убираем пробелы для ID
+        
+        -- [[ ИЗМЕНЕНИЕ: Устанавливаем значения по умолчанию ]]
+        if self.UI.Values[id] == nil then
+            if name == "Glow" then
+                self.UI.Values[id] = true -- Glow включен по умолчанию
+            else
+                self.UI.Values[id] = false
+            end
+        end
 
         local item = {
             id = id,
@@ -846,24 +877,30 @@ function Library:_InitializeBurgerMenu()
             Highlight = self:_CreateDrawingObject("Square"),
             ClickRegion = {}
         }
-        
-        if item.Icon then 
+
+        if item.Icon then
             item.Icon.Size = {17, 17};
             item.Icon.zIndex = z + 2;
+            -- [[ ИЗМЕНЕНИЕ: Добавляем иконки для новых опций ]]
             if name == "Watermark" then
                 item.Icon.Url = "https://i.postimg.cc/hhFQJgcn/image.png"
             elseif name == "Hotkeys" then
                 item.Icon.Url = "https://i.postimg.cc/0jSdXVN8/image.png"
+            elseif name == "Glow" then
+                item.Icon.Url = "https://i.postimg.cc/L8y2zL1P/sparkle.png" -- Иконка свечения
+            elseif name == "Low-End Mode" then
+                item.Icon.Url = "https://i.postimg.cc/P5g45x7k/feather.png" -- Иконка легкости
             end
         end
         if item.Label then item.Label.Font = self.ActiveTheme.Fonts.Main; item.Label.Size = self.ActiveTheme.Fonts.Size + 1; item.Label.Text = name; item.Label.zIndex = z + 2; end
         if item.CheckmarkLine1 then item.CheckmarkLine1.Thickness = 2; item.CheckmarkLine1.zIndex = z + 3; end
         if item.CheckmarkLine2 then item.CheckmarkLine2.Thickness = 2; item.CheckmarkLine2.zIndex = z + 3; end
         if item.Highlight then item.Highlight.Filled = true; item.Highlight.zIndex = z + 1; item.Highlight.Rounding = self.ActiveTheme.Rounding.Element; end
-        
+
         table.insert(popup.Items, item)
     end
 end
+
 
 function Library:_InitializeAboutWindow()
     local about = {}; 
@@ -2616,13 +2653,17 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
             local is_on = self.UI.Values[el.id]; local nubY = toggleBackY + el.Size.height / 2; local targetBackColor, targetNubColor
             if is_on then if isThemeLight then targetBackColor = theme.Colors.Accent; targetNubColor = theme.Colors.SectionBackground else targetBackColor = self:_DarkenColor(theme.Colors.Accent, 0.3); targetNubColor = theme.Colors.Accent end else targetBackColor = theme.Colors.DarkGray; targetNubColor = theme.Colors.LightGray end
             
-            local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.5
-            local animationSpeed = speed_value / 10.0
             local targetOffset = is_on and (el.Size.width - el.Size.height / 2) or (el.Size.height / 2)
             
-            if el.AnimatedNubOffset ~= targetOffset or is_on then
+            -- [[ ИЗМЕНЕНИЕ: Добавляем проверку на Low-End Mode ]]
+            if self.UI.Values["BurgerLowEndMode"] then
+                el.AnimatedNubOffset = targetOffset
+            else
+                local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.5
+                local animationSpeed = speed_value / 10.0
                 el.AnimatedNubOffset = el.AnimatedNubOffset + (targetOffset - el.AnimatedNubOffset) * animationSpeed
             end
+            
             el.Nub.Position = {toggleBackX + el.AnimatedNubOffset, nubY}
 
             self:_AnimateAndApplyColor(el.Back, targetBackColor, masterOpacity); self:_AnimateAndApplyColor(el.Nub, targetNubColor, masterOpacity)
@@ -2633,35 +2674,35 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
             else if el.SettingsIcon then self:_SetVisibility(el.SettingsIcon, false) end end
             elementY_offset = elementY_offset + 35
         elseif el.type == "Slider" then
-            -- ИЗМЕНЕНИЕ: Добавляем отрисовку поля ввода и анимацию значения
             self:_SetVisibility(el.Back, true); self:_SetVisibility(el.LeftFill, true); self:_SetVisibility(el.Nub, true); self:_SetVisibility(el.ValueText, true); self:_SetVisibility(el.ValueInputBg, true); self:_SetVisibility(el.ValueInputBorder, true)
             self:_SetVisibility(el.ValueInputCursor, el.IsEditing and math.sin(tick() * 5) > 0)
 
             local currentElementY = animatedY + elementY_offset
             self:_AnimateAndApplyColor(el.Label, theme.Colors.TextSecondary, masterOpacity); el.Label.Position = {sectionX + 10, currentElementY}
             
-            -- Позиционирование поля ввода
             local valueBoxW, valueBoxH = 45, 22
             local valueBoxX = sectionX + columnWidth - valueBoxW - 10
             el.ValueInputBg.Position = {valueBoxX, currentElementY - 4}; el.ValueInputBg.Size = {valueBoxW, valueBoxH}
             el.ValueInputBorder.Position = {valueBoxX, currentElementY - 4}; el.ValueInputBorder.Size = {valueBoxW, valueBoxH}
             el.ValueInputClickRegion = {x1 = valueBoxX, y1 = currentElementY - 4, x2 = valueBoxX + valueBoxW, y2 = currentElementY - 4 + valueBoxH}
             
-            -- Позиционирование слайдера
             local sliderBackX = sectionX + 100
             local sliderBackWidth = (valueBoxX - 10) - sliderBackX
             el.Back.Position = {sliderBackX, currentElementY + 8}; el.Back.Size = {sliderBackWidth, 2}; el.ClickRegion = { x1 = sliderBackX, y1 = currentElementY - 2, x2 = sliderBackX + sliderBackWidth, y2 = currentElementY + 18 };
             
-            -- Анимация значения и положения кружка
-            local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.5
-            local animationSpeed = speed_value / 15.0
-            el.AnimatedValue = el.AnimatedValue + (self.UI.Values[el.id] - el.AnimatedValue) * animationSpeed
+            -- [[ ИЗМЕНЕНИЕ: Добавляем проверку на Low-End Mode ]]
+            if self.UI.Values["BurgerLowEndMode"] then
+                el.AnimatedValue = self.UI.Values[el.id]
+            else
+                local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.5
+                local animationSpeed = speed_value / 15.0
+                el.AnimatedValue = el.AnimatedValue + (self.UI.Values[el.id] - el.AnimatedValue) * animationSpeed
+            end
             
             local value_percentage = math.clamp((el.AnimatedValue - el.Min) / (el.Max - el.Min), 0, 1)
             local nubX = sliderBackX + sliderBackWidth * value_percentage
             el.LeftFill.Position = {sliderBackX, currentElementY + 8}; el.LeftFill.Size = {nubX - sliderBackX, 2}; el.Nub.Position = {nubX, currentElementY + 9}
             
-            -- Цвет и текст
             local borderColor = el.IsEditing and theme.Colors.Accent or theme.Colors.Separator
             self:_AnimateAndApplyColor(el.ValueInputBg, theme.Colors.DarkBlue, masterOpacity)
             self:_AnimateAndApplyColor(el.ValueInputBorder, borderColor, masterOpacity)
@@ -2680,9 +2721,7 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
 
             local glowWidth = nubX - sliderBackX; local glowHeight = 6
             if glowWidth > 0 and el.Glow then
-                local glowColor = theme.Colors.GlowAccent
-                local animatedGlowColor = {glowColor[1], glowColor[2], glowColor[3], (glowColor[4] or 255) * masterOpacity}
-                self:_RenderGlowEffect(el.Glow, sliderBackX, currentElementY + 9 - (glowHeight / 2), glowWidth, glowHeight, el.LeftFill.Rounding, animatedGlowColor, {top=true, bottom=true, left=true, right=false})
+                self:_RenderGlowEffect(el.Glow, sliderBackX, currentElementY + 9 - (glowHeight / 2), glowWidth, glowHeight, el.LeftFill.Rounding, theme.Colors.GlowAccent, {top=true, bottom=true, left=true, right=false}, masterOpacity)
             elseif el.Glow then 
                 self:_HideGlowEffect(el.Glow) 
             end
@@ -2701,7 +2740,14 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
             elementY_offset = elementY_offset + 35
             if el.IsOpen or el.IsClosing then
                 local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4; local animationSpeed = (speed_value / 1.5) / 10.0
-                if el.IsOpen and not el.IsClosing then el.FadeOpacity = math.min(1, el.FadeOpacity + animationSpeed) elseif el.IsClosing then el.FadeOpacity = math.max(0, el.FadeOpacity - animationSpeed); if el.FadeOpacity == 0 then el.IsClosing = false end end
+                
+                if self.UI.Values["BurgerLowEndMode"] then
+                    el.FadeOpacity = (el.IsOpen and not el.IsClosing) and 1 or 0
+                    if el.FadeOpacity == 0 then el.IsClosing = false end
+                else
+                    if el.IsOpen and not el.IsClosing then el.FadeOpacity = math.min(1, el.FadeOpacity + animationSpeed) elseif el.IsClosing then el.FadeOpacity = math.max(0, el.FadeOpacity - animationSpeed); if el.FadeOpacity == 0 then el.IsClosing = false end end
+                end
+
                 if el.FadeOpacity > 0 then
                     local finalOpacity = masterOpacity * el.FadeOpacity; local popupWidth = 150; local optionHeight = 25; local popupHeight = (#el.Options * optionHeight) + 10
                     local popupX = dropdownButtonX + (el.Size.width / 2) - (popupWidth / 2); local popupY = dropdownButtonY + (el.Size.height / 2) - (popupHeight / 2)
@@ -2709,10 +2755,15 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
                     self:_SetVisibility(el.OptionBackground, true); self:_SetVisibility(el.Border, true)
                     self:_AnimateAndApplyColor(el.OptionBackground, theme.Colors.SectionBackground, finalOpacity); self:_AnimateAndApplyColor(el.Border, theme.Colors.Separator, finalOpacity)
                     el.OptionBackground.Position = {popupX, popupY}; el.OptionBackground.Size = {popupWidth, popupHeight}; el.Border.Position = {popupX, popupY}; el.Border.Size = {popupWidth, popupHeight}
-                    local glowFinalOpacity = 0
-                    if el.IsOpen and not el.IsClosing then local threshold = 0.5; if el.FadeOpacity > threshold then local glowProgress = (el.FadeOpacity - threshold) / (1.0 - threshold); glowFinalOpacity = masterOpacity * glowProgress end elseif el.IsClosing then glowFinalOpacity = masterOpacity * (el.FadeOpacity * el.FadeOpacity) end
-                    local glowColor = self.ActiveTheme.Colors.GlowColor; local animatedGlowColor = {glowColor[1], glowColor[2], glowColor[3], (glowColor[4] or 255) * glowFinalOpacity}
-                    self:_RenderGlowEffect(el.Glow, popupX, popupY, popupWidth, popupHeight, el.OptionBackground.Rounding, animatedGlowColor)
+                    
+                    if not self.UI.Values["BurgerLowEndMode"] then
+                        local glowFinalOpacity = 0
+                        if el.IsOpen and not el.IsClosing then local threshold = 0.5; if el.FadeOpacity > threshold then local glowProgress = (el.FadeOpacity - threshold) / (1.0 - threshold); glowFinalOpacity = masterOpacity * glowProgress end elseif el.IsClosing then glowFinalOpacity = masterOpacity * (el.FadeOpacity * el.FadeOpacity) end
+                        self:_RenderGlowEffect(el.Glow, popupX, popupY, popupWidth, popupHeight, el.OptionBackground.Rounding, theme.Colors.GlowColor, nil, glowFinalOpacity)
+                    else
+                        self:_HideGlowEffect(el.Glow)
+                    end
+
                     local currentOptionY = popupY + 5; local hasSelection = el.type == "Multidropdown" and #self.UI.Values[el.id] > 0; local textX = popupX + (hasSelection and 25 or 10)
                     for i, option in ipairs(el.OptionList) do
                         self:_SetVisibility(option.Text, true); self:_SetVisibility(option.Highlight, true)
@@ -2740,6 +2791,7 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
     sDrawing.Background.Size = {columnWidth, sectionHeight}; sDrawing.Border.Size = {columnWidth, sectionHeight}
     return sectionHeight
 end
+
 
 function Library:_RenderSections(panelX, panelY, headerHeight)
     local leftColumnY, rightColumnY = panelY + headerHeight + 20, panelY + headerHeight + 20
@@ -3766,8 +3818,6 @@ function Library:_InputLoop()
     was_left_pressed = is_left_pressed_now
     was_right_pressed = is_right_pressed_now
 end
-
-
 
 
 function Library:_AddPresetsTab()
