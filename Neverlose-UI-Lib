@@ -292,8 +292,8 @@ function Library:_AnimateAndApplyColor(drawingObject, targetColor, masterOpacity
     if not drawingObject or type(targetColor) ~= "table" then return end
 
     local finalColor
-    -- [[ ОПТИМИЗАЦИЯ: Если включен режим быстрого переноса, не анимируем цвет, а применяем его сразу ]]
-    if self.Window.IsFastDragging then
+    -- [[ ИСПРАВЛЕНИЕ: Используем правильный ID "BurgerLow-EndMode" ]]
+    if self.Window.IsFastDragging or self.UI.Values["BurgerLow-EndMode"] then
         finalColor = targetColor
     else
         local state = self.AnimationState[drawingObject]
@@ -366,8 +366,8 @@ function Library:_UpdateAnimationStates()
             targetOpacity, targetYOffset = 0, anim_state.YOffset
         end
         
-        -- [[ ИЗМЕНЕНИЕ: Добавляем проверку на Low-End Mode ]]
-        if self.UI.Values["BurgerLowEndMode"] then
+        -- [[ ИСПРАВЛЕНИЕ: Используем правильный ID "BurgerLow-EndMode" ]]
+        if self.UI.Values["BurgerLow-EndMode"] then
             anim_state.Opacity = targetOpacity
             anim_state.YOffset = targetYOffset
         else
@@ -404,7 +404,6 @@ function Library:_UpdateAnimationStates()
         self.Window.Animation.State = "IDLE"
     end
 end
-
 
 function Library:_SetSectionAndElementsVisibility(section, visible)
     -- Сначала обрабатываем собственные объекты секции (фон, заголовок и т.д.)
@@ -507,8 +506,8 @@ function Library:_UpdatePopupAnimation(popup)
     if not popup.Animation then return end
     local anim = popup.Animation
 
-    -- [[ ИЗМЕНЕНИЕ: Добавляем проверку на Low-End Mode ]]
-    if self.UI.Values["BurgerLowEndMode"] then
+    -- [[ ИСПРАВЛЕНИЕ: Используем правильный ID "BurgerLow-EndMode" ]]
+    if self.UI.Values["BurgerLow-EndMode"] then
         if anim.IsOpening then
             anim.CurrentOpacity = 1
             anim.IsOpening = false
@@ -2655,8 +2654,8 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
             
             local targetOffset = is_on and (el.Size.width - el.Size.height / 2) or (el.Size.height / 2)
             
-            -- [[ ИЗМЕНЕНИЕ: Добавляем проверку на Low-End Mode ]]
-            if self.UI.Values["BurgerLowEndMode"] then
+            -- [[ ИСПРАВЛЕНИЕ: Используем правильный ID "BurgerLow-EndMode" ]]
+            if self.UI.Values["BurgerLow-EndMode"] then
                 el.AnimatedNubOffset = targetOffset
             else
                 local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.5
@@ -2690,8 +2689,8 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
             local sliderBackWidth = (valueBoxX - 10) - sliderBackX
             el.Back.Position = {sliderBackX, currentElementY + 8}; el.Back.Size = {sliderBackWidth, 2}; el.ClickRegion = { x1 = sliderBackX, y1 = currentElementY - 2, x2 = sliderBackX + sliderBackWidth, y2 = currentElementY + 18 };
             
-            -- [[ ИЗМЕНЕНИЕ: Добавляем проверку на Low-End Mode ]]
-            if self.UI.Values["BurgerLowEndMode"] then
+            -- [[ ИСПРАВЛЕНИЕ: Используем правильный ID "BurgerLow-EndMode" ]]
+            if self.UI.Values["BurgerLow-EndMode"] then
                 el.AnimatedValue = self.UI.Values[el.id]
             else
                 local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.5
@@ -2741,7 +2740,8 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
             if el.IsOpen or el.IsClosing then
                 local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4; local animationSpeed = (speed_value / 1.5) / 10.0
                 
-                if self.UI.Values["BurgerLowEndMode"] then
+                -- [[ ИСПРАВЛЕНИЕ: Используем правильный ID "BurgerLow-EndMode" ]]
+                if self.UI.Values["BurgerLow-EndMode"] then
                     el.FadeOpacity = (el.IsOpen and not el.IsClosing) and 1 or 0
                     if el.FadeOpacity == 0 then el.IsClosing = false end
                 else
@@ -2756,7 +2756,7 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
                     self:_AnimateAndApplyColor(el.OptionBackground, theme.Colors.SectionBackground, finalOpacity); self:_AnimateAndApplyColor(el.Border, theme.Colors.Separator, finalOpacity)
                     el.OptionBackground.Position = {popupX, popupY}; el.OptionBackground.Size = {popupWidth, popupHeight}; el.Border.Position = {popupX, popupY}; el.Border.Size = {popupWidth, popupHeight}
                     
-                    if not self.UI.Values["BurgerLowEndMode"] then
+                    if not self.UI.Values["BurgerLow-EndMode"] then
                         local glowFinalOpacity = 0
                         if el.IsOpen and not el.IsClosing then local threshold = 0.5; if el.FadeOpacity > threshold then local glowProgress = (el.FadeOpacity - threshold) / (1.0 - threshold); glowFinalOpacity = masterOpacity * glowProgress end elseif el.IsClosing then glowFinalOpacity = masterOpacity * (el.FadeOpacity * el.FadeOpacity) end
                         self:_RenderGlowEffect(el.Glow, popupX, popupY, popupWidth, popupHeight, el.OptionBackground.Rounding, theme.Colors.GlowColor, nil, glowFinalOpacity)
