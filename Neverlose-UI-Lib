@@ -82,7 +82,6 @@ Library.Themes = {
 }
 
 Library.ActiveTheme = Library.Themes.Blue
-Library.CustomThemeCounter = 0
 Library.TempTheme = nil
 Library.PreEditThemeName = nil
 
@@ -3376,20 +3375,26 @@ function Library:_InputLoop()
                          for _, section in ipairs(self.UI.Sections) do for _, el in ipairs(section.Elements) do
                             if (el.type == "Dropdown" or el.type == "Multidropdown") and el.IsOpen then
                                 if el.PopupClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, el.PopupClickRegion) then
-                                     if el.HoveredOptionIndex > 0 then
+                                    if el.HoveredOptionIndex > 0 then
                                         local i = el.HoveredOptionIndex
                                         if el.type == "Dropdown" then
                                             self.UI.Values[el.id] = el.Options[i]
-                                            if el.Callback then el.Callback(self.UI.Values[el.id]) end
-                                        else
+                                            if el.Callback then pcall(el.Callback, self.UI.Values[el.id]) end
+                                            -- Для обычного дропдауна - закрываем сразу
+                                            el.IsOpen, el.IsClosing = false, true
+                                        else -- Это Multidropdown
                                             local opt = el.Options[i]
                                             local found_idx = table.find(self.UI.Values[el.id], opt)
                                             if found_idx then table.remove(self.UI.Values[el.id], found_idx) else table.insert(self.UI.Values[el.id], opt) end
-                                            if el.Callback then el.Callback(self.UI.Values[el.id]) end
+                                            if el.Callback then pcall(el.Callback, self.UI.Values[el.id]) end
+                                            -- Для мультидропдауна НЕ закрываем окно
                                         end
                                     end
+                                else
+                                    -- Если клик был, но не по опции, значит он был вне попапа. Закрываем.
+                                    el.IsOpen, el.IsClosing = false, true
                                 end
-                                el.IsOpen, el.IsClosing = false, true; break
+                                break -- выходим из цикла, так как мы нашли и обработали активный дропдаун
                             end
                         end end
                     end
@@ -3403,14 +3408,21 @@ function Library:_InputLoop()
                     if not (picker.ClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, picker.ClickRegion)) then
                         picker.Animation.IsClosing = true; picker.Animation.IsOpening = false
                     else
-                        local clicked_swatch = false
+                        local swatch_click_handled = false
+                        -- Сначала обрабатываем правый клик (УДАЛЕНИЕ)
                         if is_right_clicked then
                             for i = #picker.Swatches, 1, -1 do
-                                if not picker.Swatches[i].IsAddButton and self:_IsPointInRegion(mouse_x, mouse_y, picker.Swatches[i].ClickRegion) then
-                                    self:_RemoveColorSwatch(i); clicked_swatch = true; break
+                                local swatch = picker.Swatches[i]
+                                if not swatch.IsAddButton and self:_IsPointInRegion(mouse_x, mouse_y, swatch.ClickRegion) then
+                                    self:_RemoveColorSwatch(i)
+                                    swatch_click_handled = true
+                                    break
                                 end
                             end
-                        else
+                        end
+
+                        -- Затем, если не было правого клика, обрабатываем левый (ВЫБОР/ДОБАВЛЕНИЕ)
+                        if not swatch_click_handled and is_left_clicked then
                             for i, swatch in ipairs(picker.Swatches) do
                                 if self:_IsPointInRegion(mouse_x, mouse_y, swatch.ClickRegion) then
                                     if swatch.IsAddButton then
@@ -3419,18 +3431,22 @@ function Library:_InputLoop()
                                     else
                                         local preset_color = swatch.Color
                                         picker.h, picker.s, picker.v, picker.a = self:_RGBtoHSV(preset_color[1], preset_color[2], preset_color[3], preset_color[4])
-                                        if picker.EditingValueID then self.UI.Values[picker.EditingValueID] = preset_color
+                                        if picker.EditingValueID then
+                                            self.UI.Values[picker.EditingValueID] = preset_color
                                         elseif picker.EditingColorName then
                                             style_window.EditingTheme.Colors[picker.EditingColorName] = preset_color
                                             if self.UI.Values.EditStyleRealTime and self.TempTheme then self.TempTheme.Colors[picker.EditingColorName] = preset_color end
                                         end
                                     end
-                                    clicked_swatch = true; break
+                                    swatch_click_handled = true
+                                    break
                                 end
                             end
                         end
-                        if not clicked_swatch then
-                             if self:_IsPointInRegion(mouse_x, mouse_y, picker.Input.ClickRegion) then
+
+                        -- Если клик не пришелся на палитру, обрабатываем остальное
+                        if not swatch_click_handled and is_left_clicked then
+                            if self:_IsPointInRegion(mouse_x, mouse_y, picker.Input.ClickRegion) then
                                 picker.IsEditing = true
                                 if picker.Mode == "HEX" then picker.InputText = picker.Input.Text.Text:gsub("#", "") else picker.InputText = picker.Input.Text.Text end
                             elseif self:_IsPointInRegion(mouse_x, mouse_y, picker.Dropdown.ClickRegion) then
@@ -3476,7 +3492,21 @@ function Library:_InputLoop()
                         else
                             for _, circle in ipairs(about_window.StyleCircles) do
                                 if self:_IsPointInRegion(mouse_x, mouse_y, circle.ClickRegion) then
-                                    if circle.IsAddButton then self.CustomThemeCounter = self.CustomThemeCounter + 1; local newName = "Custom " .. self.CustomThemeCounter; style_window.EditingTheme = self:_DeepCopy(self.ActiveTheme); style_window.EditingThemeName = newName; style_window.StyleNameInputText.Text = newName; style_window.IsOpen = true; style_window.Animation.IsOpening = true; style_window.Animation.IsClosing = false;
+                                    if circle.IsAddButton then
+                                        -- Динамически ищем следующее свободное имя для темы
+                                        local newName = "Custom 1"
+                                        local i = 1
+                                        while self.Themes[newName] do
+                                            i = i + 1
+                                            newName = "Custom " .. i
+                                        end
+
+                                        style_window.EditingTheme = self:_DeepCopy(self.ActiveTheme)
+                                        style_window.EditingThemeName = newName
+                                        style_window.StyleNameInputText.Text = newName
+                                        style_window.IsOpen = true
+                                        style_window.Animation.IsOpening = true
+                                        style_window.Animation.IsClosing = false
                                     else self.UI.Values.AboutSelectedStyle = circle.Name; self.ActiveTheme = self.Themes[circle.Name]; end; break;
                                 end
                             end
