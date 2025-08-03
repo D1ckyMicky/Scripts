@@ -652,6 +652,7 @@ function Library:_UpdateAllAnimations()
     self:_UpdatePopupAnimation(self.UI.Popups.BurgerMenu)
     self:_UpdatePopupAnimation(self.UI.Watermark)
     self:_UpdatePopupAnimation(self.UI.Hotkeys)
+    self:_UpdatePopupAnimation(self.UI.Core.ConfigsTab.OptionsPopup) -- << [НОВОЕ] Добавляем попап конфигов
 
     -- Проверяем, активна ли анимация хоть одного попапа
     for _, popup in pairs(self.UI.Popups) do
@@ -669,6 +670,11 @@ function Library:_UpdateAllAnimations()
     if not anyAnimationActive then
         if self.UI.Hotkeys.Animation.IsOpening or self.UI.Hotkeys.Animation.IsClosing then anyAnimationActive = true end
     end
+    -- << [НОВОЕ] Проверяем попап конфигов отдельно
+    if not anyAnimationActive then
+        if self.UI.Core.ConfigsTab.OptionsPopup.Animation.IsOpening or self.UI.Core.ConfigsTab.OptionsPopup.Animation.IsClosing then anyAnimationActive = true end
+    end
+
 
     -- Обновляем и проверяем анимацию смены вкладок
     self:_UpdateAnimationStates()
@@ -681,9 +687,7 @@ function Library:_UpdateAllAnimations()
         anyAnimationActive = true
     end
 
-    -- [[ НОВОЕ: Проверка анимаций отдельных элементов ]]
     if not self.UI.Values["BurgerLow-EndMode"] and not anyAnimationActive then
-        -- Проверяем переключатели и слайдеры в секциях
         for _, section in ipairs(self.UI.Sections) do
             for _, el in ipairs(section.Elements) do
                 if el.type == "Toggle" then
@@ -706,7 +710,6 @@ function Library:_UpdateAllAnimations()
             if anyAnimationActive then break end
         end
         
-        -- Проверяем слайдер в окне "About"
         if not anyAnimationActive then
             local slider_about = self.UI.Core.AboutWindow.AnimationSpeedSlider
             if slider_about then
@@ -720,6 +723,7 @@ function Library:_UpdateAllAnimations()
 
     return anyAnimationActive
 end
+
 
 --================================================================
 --[[ PRIVATE: GLOW EFFECT HELPERS ]]
@@ -1422,21 +1426,17 @@ function Library:_LoadConfig(name)
     local success, decodedData = pcall(JSONDecode, fileContent)
     if not success or not decodedData then warn(SCRIPT_PREFIX .. "Failed to decode config JSON: " .. name); return end
 
-    -- << НАЧАЛО ИСПРАВЛЕНИЯ: ОЧИСТКА СТАРЫХ КАСТОМНЫХ ТЕМ >>
     do
         local themesToRemove = {}
-        -- Сначала собираем имена всех тем, которые не являются стандартными
         for themeName, themeData in pairs(self.Themes) do
             if not themeData.IsPreset then
                 table.insert(themesToRemove, themeName)
             end
         end
-        -- Затем удаляем их
         for _, themeNameToRemove in ipairs(themesToRemove) do
             self.Themes[themeNameToRemove] = nil
         end
     end
-    -- << КОНЕЦ ИСПРАВЛЕНИЯ >>
 
     if decodedData.Themes then
         for themeName, savedThemeData in pairs(decodedData.Themes) do
@@ -1454,7 +1454,7 @@ function Library:_LoadConfig(name)
             self.Themes[themeName] = fullTheme
         end
     end
-    self:_RebuildStyleCircles() -- Перестраиваем кружки стилей уже с правильным набором тем
+    self:_RebuildStyleCircles()
 
     if decodedData.Values then
         for id, value in pairs(decodedData.Values) do
@@ -1476,14 +1476,18 @@ function Library:_LoadConfig(name)
         self.ActiveTheme = self.Themes[decodedData.ActiveThemeName]
         self.UI.Values.AboutSelectedStyle = decodedData.ActiveThemeName
     else
-        -- Если активной темы из конфига нет, ставим стандартную
         self.ActiveTheme = self.Themes.Blue
         self.UI.Values.AboutSelectedStyle = "Blue"
     end
 
     self.UI.Core.ConfigsTab.LoadedConfigName = name
     print(SCRIPT_PREFIX .. "Config '" .. name .. "' loaded successfully.")
+
+    -- [[ НОВОЕ: Сбрасываем кэш анимаций и помечаем UI для перерисовки ]]
+    self.AnimationState = {}
+    self.UI.isDirty = true
 end
+
 
 function Library:_InitializeConfigsTab()
     local configs = {}; self.UI.Core.ConfigsTab = configs; local z = 4
