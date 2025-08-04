@@ -1539,11 +1539,8 @@ function Library:_InitializeConfigsTab()
     local delBtn = popup.DeleteButton
     if delBtn.Background then delBtn.Background.Filled = true; delBtn.Background.zIndex = z + 12; delBtn.Background.Rounding = self.ActiveTheme.Rounding.Button; end
     if delBtn.Border then delBtn.Border.Filled = false; delBtn.Border.Thickness = 1; delBtn.Border.zIndex = z + 13; delBtn.Border.Rounding = self.ActiveTheme.Rounding.Button; end
-    if delBtn.Icon then delBtn.Icon.Size = {14, 14}; delBtn.Icon.zIndex = z + 13; end
-    if delBtn.Label then delBtn.Label.Font = self.ActiveTheme.Fonts.Main; delBtn.Label.Size = self.ActiveTheme.Fonts.Size; delBtn.Label.Text = "Delete config"; delBtn.Label.Center = false; delBtn.Label.zIndex = z + 13; end
-    if delBtn.Icon then 
-    delBtn.Icon.Url = "https://i.postimg.cc/ZRt0nCNT/dawwwwwww.png" 
-    end
+    if delBtn.Icon then delBtn.Icon.Size = {16, 16}; delBtn.Icon.zIndex = z + 13; delBtn.Icon.Url = "https://i.postimg.cc/ZRt0nCNT/dawwwwwww.png"; end
+    if delBtn.Label then delBtn.Label.Font = self.ActiveTheme.Fonts.Main; delBtn.Label.Size = self.ActiveTheme.Fonts.Size + 1; delBtn.Label.Text = "Delete config"; delBtn.Label.Center = false; delBtn.Label.zIndex = z + 13; end
 end
 
 
@@ -3107,14 +3104,15 @@ function Library:_RenderConfigOptionsPopup()
     self:_AnimateAndApplyColor(delBtn.Label, deleteColor, masterOpacity)
     self:_AnimateAndApplyColor(delBtn.Icon, deleteColor, masterOpacity)
 
-    -- Размещаем фон, иконку и текст
-    delBtn.Background.Position = {btnX, btnY}
-    delBtn.Background.Size = {btnW, btnH}
-    delBtn.Background.Rounding = self.ActiveTheme.Rounding.Button -- Добавим скругление
+-- Размещаем фон, иконку и текст
+delBtn.Background.Position = {btnX, btnY}
+delBtn.Background.Size = {btnW, btnH}
+delBtn.Background.Rounding = self.ActiveTheme.Rounding.Button
 
-    local iconX = btnX + (btnW / 2) - (delBtn.Label.TextBounds.x / 2) - (delBtn.Icon.Size.x / 2) - 2
-    delBtn.Icon.Position = {iconX, btnY + (btnH / 2) - (delBtn.Icon.Size.y / 2)}
-    delBtn.Label.Position = {iconX + delBtn.Icon.Size.x + 5, btnY + (btnH / 2) - (delBtn.Label.Size / 2)}
+-- Новая логика для выравнивания по левому краю с отступом
+local iconX = btnX + 10 -- Отступ в 10 пикселей слева
+delBtn.Icon.Position = {iconX, btnY + (btnH / 2) - (delBtn.Icon.Size.y / 2)}
+delBtn.Label.Position = {iconX + delBtn.Icon.Size.x + 5, btnY + (btnH / 2) - (delBtn.Label.Size / 2)}
 
     currentY = currentY + btnH + 10
     
