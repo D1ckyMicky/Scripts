@@ -1483,8 +1483,6 @@ function Library:_LoadConfig(name)
     self.UI.Core.ConfigsTab.LoadedConfigName = name
     print(SCRIPT_PREFIX .. "Config '" .. name .. "' loaded successfully.")
 
-    -- [[ НОВОЕ: Сбрасываем кэш анимаций и помечаем UI для перерисовки ]]
-    self.UI.isDirty = true
 end
 
 
@@ -3335,11 +3333,6 @@ function Library:_InputLoop()
     local is_right_clicked = was_right_pressed and not is_right_pressed_now
     local key_pressed = (getpressedkey() ~= "None")
 
-    -- Если есть любое действие, помечаем UI для перерисовки
-    if mouse_moved or is_left_clicked or is_right_clicked or is_left_pressed_now or key_pressed then
-        self.UI.isDirty = true
-    end
-
     lastMousePos = mouse_pos -- Обновляем последнюю позицию мыши
 
     -- Вся остальная логика остается без изменений, она будет выполняться только если есть действие
@@ -4055,26 +4048,17 @@ function Library:_MainLoop()
                 is_text_input_active = true
             end
         end
-        if is_text_input_active then
-            self.UI.isDirty = true
-        end
 
-        -- Перерисовываем UI только если он "грязный" или есть активные анимации.
-        if self.UI.isDirty or hasActiveAnimations then
-            if self.Window.Visible then
-                if is_first_frame then
-                    self:_AddPresetsTab()
-                    is_first_frame = false
-                end
-                self:_RenderLoop()
+        if self.Window.Visible then
+            if is_first_frame then
+                self:_AddPresetsTab()
+                is_first_frame = false
             end
-
-            self:_RenderWatermark()
-            self:_RenderHotkeys()
-
-            -- После полной перерисовки сбрасываем флаг.
-            self.UI.isDirty = false
+            self:_RenderLoop()
         end
+
+        self:_RenderWatermark()
+        self:_RenderHotkeys()
 
         wait(0.01)
     end
