@@ -1539,7 +1539,7 @@ function Library:_InitializeConfigsTab()
     local delBtn = popup.DeleteButton
     if delBtn.Background then delBtn.Background.Filled = true; delBtn.Background.zIndex = z + 12; delBtn.Background.Rounding = self.ActiveTheme.Rounding.Button; end
     if delBtn.Border then delBtn.Border.Filled = false; delBtn.Border.Thickness = 1; delBtn.Border.zIndex = z + 13; delBtn.Border.Rounding = self.ActiveTheme.Rounding.Button; end
-    if delBtn.Icon then delBtn.Icon.Size = {17, 17}; delBtn.Icon.zIndex = z + 13; delBtn.Icon.Url = "https://i.postimg.cc/ZRt0nCNT/dawwwwwww.png"; end
+    if delBtn.Icon then delBtn.Icon.Size = {18, 18}; delBtn.Icon.zIndex = z + 13; delBtn.Icon.Url = "https://i.postimg.cc/Bb6VL5RD/udalitkonfig.png"; end
     if delBtn.Label then delBtn.Label.Font = self.ActiveTheme.Fonts.Main; delBtn.Label.Size = self.ActiveTheme.Fonts.Size + 1; delBtn.Label.Text = "Delete config"; delBtn.Label.Center = false; delBtn.Label.zIndex = z + 13; end
 end
 
@@ -3110,7 +3110,7 @@ delBtn.Background.Size = {btnW, btnH}
 delBtn.Background.Rounding = self.ActiveTheme.Rounding.Button
 
 -- Новая логика для выравнивания по левому краю с отступом
-local iconX = btnX + 7 -- Отступ в 10 пикселей слева
+local iconX = btnX + 3 -- Отступ в 10 пикселей слева
 delBtn.Icon.Position = {iconX, btnY + (btnH / 2) - (delBtn.Icon.Size.y / 2)}
 delBtn.Label.Position = {iconX + delBtn.Icon.Size.x + 5, btnY + (btnH / 2) - (delBtn.Label.Size / 2)}
 
