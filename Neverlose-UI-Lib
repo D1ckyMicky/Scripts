@@ -969,9 +969,9 @@ function Library:_InitializeBurgerMenu()
             elseif name == "Hotkeys" then
                 item.Icon.Url = "https://i.postimg.cc/0jSdXVN8/image.png"
             elseif name == "Glow" then
-                item.Icon.Url = "https://i.postimg.cc/L8y2zL1P/sparkle.png" -- Иконка свечения
+                item.Icon.Url = "https://i.postimg.cc/5tN34BTM/glowglowglow.png" -- Иконка свечения
             elseif name == "Low-End Mode" then
-                item.Icon.Url = "https://i.postimg.cc/P5g45x7k/feather.png" -- Иконка легкости
+                item.Icon.Url = "https://i.postimg.cc/jd04w0mc/badpc.png" -- Иконка легкости
             end
         end
         if item.Label then item.Label.Font = self.ActiveTheme.Fonts.Main; item.Label.Size = self.ActiveTheme.Fonts.Size + 1; item.Label.Text = name; item.Label.zIndex = z + 2; end
