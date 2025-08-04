@@ -1541,6 +1541,9 @@ function Library:_InitializeConfigsTab()
     if delBtn.Border then delBtn.Border.Filled = false; delBtn.Border.Thickness = 1; delBtn.Border.zIndex = z + 13; delBtn.Border.Rounding = self.ActiveTheme.Rounding.Button; end
     if delBtn.Icon then delBtn.Icon.Size = {14, 14}; delBtn.Icon.zIndex = z + 13; end
     if delBtn.Label then delBtn.Label.Font = self.ActiveTheme.Fonts.Main; delBtn.Label.Size = self.ActiveTheme.Fonts.Size; delBtn.Label.Text = "Delete config"; delBtn.Label.Center = false; delBtn.Label.zIndex = z + 13; end
+    if delBtn.Icon then 
+    delBtn.Icon.Url = "https://i.postimg.cc/ZRt0nCNT/dawwwwwww.png" 
+    end
 end
 
 
@@ -3079,20 +3082,35 @@ function Library:_RenderConfigOptionsPopup()
     local delBtn = popup.DeleteButton
     local btnW, btnH = pW - 20, 28
     local btnX, btnY = pX + 10, currentY
-    
-    delBtn.Background.Position = {btnX, btnY}
-    delBtn.Background.Size = {btnW, btnH}
-    delBtn.Border.Position = {btnX, btnY}
-    delBtn.Border.Size = {btnW, btnH}
+
+    -- Обновляем IsHovered флаг в реальном времени
+    local mouse_pos = getmouseposition()
+    if mouse_pos then
+        delBtn.IsHovered = self:_IsPointInRegion(mouse_pos.x, mouse_pos.y, delBtn.ClickRegion)
+    end
+
     delBtn.ClickRegion = {x1 = btnX, y1 = btnY, x2 = btnX + btnW, y2 = btnY + btnH}
 
-    local deleteColor = {165, 88, 92, 255}
-    self:_AnimateAndApplyColor(delBtn.Background, theme.Colors.SectionBackground, masterOpacity)
+    -- Прячем рамку, она больше не нужна
+    self:_SetVisibility(delBtn.Border, false)
+
+    -- Определяем цвета
+    local deleteColor = {165, 88, 92, 255} -- Цвет для иконки и текста
+    local deleteHoverColor = {165, 88, 92, 50} -- Полупрозрачный красный для фона при наведении
+    local transparentColor = {0, 0, 0, 0} -- Полностью прозрачный фон по умолчанию
+
+    -- Выбираем цвет фона в зависимости от наведения
+    local targetBackgroundColor = delBtn.IsHovered and deleteHoverColor or transparentColor
+
+    -- Применяем цвета к элементам
+    self:_AnimateAndApplyColor(delBtn.Background, targetBackgroundColor, masterOpacity)
     self:_AnimateAndApplyColor(delBtn.Label, deleteColor, masterOpacity)
     self:_AnimateAndApplyColor(delBtn.Icon, deleteColor, masterOpacity)
 
-    local targetBorderColor = delBtn.IsHovered and deleteColor or theme.Colors.Separator
-    self:_AnimateAndApplyColor(delBtn.Border, targetBorderColor, masterOpacity)
+    -- Размещаем фон, иконку и текст
+    delBtn.Background.Position = {btnX, btnY}
+    delBtn.Background.Size = {btnW, btnH}
+    delBtn.Background.Rounding = self.ActiveTheme.Rounding.Button -- Добавим скругление
 
     local iconX = btnX + (btnW / 2) - (delBtn.Label.TextBounds.x / 2) - (delBtn.Icon.Size.x / 2) - 2
     delBtn.Icon.Position = {iconX, btnY + (btnH / 2) - (delBtn.Icon.Size.y / 2)}
