@@ -2631,9 +2631,15 @@ function Library:_RenderLoop()
         self:_AnimateAndApplyColor(burger.Line1, burgerColor); self:_AnimateAndApplyColor(burger.Line2, burgerColor); self:_AnimateAndApplyColor(burger.Line3, burgerColor)
     end
 
+    -- ЗАМЕНИ НА ЭТОТ БЛОК
     do
         local isESPOpen = Core.HeaderButtons.ViewESP.IsOpen
         
+        -- [ОТЛАДКА] Проверяем состояние на каждом кадре отрисовки
+        if isESPOpen then
+            print(SCRIPT_PREFIX .. "RenderLoop: Trying to draw ESP panel because isESPOpen is true.")
+        end
+
         -- Устанавливаем видимость для всех элементов ESP ОДИНАКОВО
         self:_SetVisibility(Core.ViewESPPanel, isESPOpen)
         self:_SetVisibility(Core.ViewESPPanelBorder, isESPOpen)
@@ -2643,6 +2649,9 @@ function Library:_RenderLoop()
 
         -- Если панель должна быть видна, отрисовываем и позиционируем её
         if isESPOpen then
+            -- [ОТЛАДКА] Проверяем, что объекты не nil и их видимость установилась
+            print(SCRIPT_PREFIX .. "Inside rendering block. Panel object valid: " .. tostring(Core.ViewESPPanel ~= nil) .. ". Panel visibility: " .. tostring(Core.ViewESPPanel.Visible))
+
             local panelX = windowX + self.Window.Width + 11
             
             self:_AnimateAndApplyColor(Core.ViewESPPanel, theme.Colors.SectionBackground)
@@ -3854,7 +3863,11 @@ function Library:_InputLoop()
                     if about_window.IsOpen then about_window.Animation.IsOpening = true; about_window.Animation.IsClosing = false; else about_window.Animation.IsClosing = true; about_window.Animation.IsOpening = false; end
                 elseif self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.CreateNew.ClickRegion) and self.Window.ActiveTab == "Configs" then self.UI.Core.HeaderButtons.CreateNew.ClickTime = tick(); self:_CreateNewConfig();
                 elseif self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.Save.ClickRegion) then self.UI.Core.HeaderButtons.Save.ClickTime = tick(); if configsTab.LoadedConfigName ~= "" then self:_SaveConfig(configsTab.LoadedConfigName) end
-                elseif self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.ViewESP.ClickRegion) then self.UI.Core.HeaderButtons.ViewESP.IsOpen = not self.UI.Core.HeaderButtons.ViewESP; self.UI.Core.HeaderButtons.ViewESP.ClickTime = tick();
+                elseif self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.ViewESP.ClickRegion) then
+                self.UI.Core.HeaderButtons.ViewESP.IsOpen = not self.UI.Core.HeaderButtons.ViewESP.IsOpen
+                -- [ОТЛАДКА]
+                print(SCRIPT_PREFIX .. "View ESP button clicked. New IsOpen state: " .. tostring(self.UI.Core.HeaderButtons.ViewESP.IsOpen))
+                self.UI.Core.HeaderButtons.ViewESP.ClickTime = tick()
                 else
                     local clicked_on_main_ui = false
                     if self.Window.ActiveTab == "Configs" then
