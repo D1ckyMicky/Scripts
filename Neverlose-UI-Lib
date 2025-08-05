@@ -1001,7 +1001,7 @@ function Library:_InitializeBurgerMenu()
             elseif name == "Hotkeys" then
                 item.Icon.Url = "https://i.postimg.cc/0jSdXVN8/image.png"
             elseif name == "Glow" then
-                item.Icon.Url = "https://i.postimg.cc/vZ0ZxFnm/image.png" -- Иконка свечения
+                item.Icon.Url = "https://i.postimg.cc/qMCsGww0/image.png" -- Иконка свечения
             elseif name == "Low-End Mode" then
                 item.Icon.Url = "https://i.postimg.cc/jd04w0mc/badpc.png" -- Иконка легкости
             end
@@ -2631,16 +2631,36 @@ function Library:_RenderLoop()
         self:_AnimateAndApplyColor(burger.Line1, burgerColor); self:_AnimateAndApplyColor(burger.Line2, burgerColor); self:_AnimateAndApplyColor(burger.Line3, burgerColor)
     end
 
-    self:_SetVisibility(Core.ViewESPPanel, Core.HeaderButtons.ViewESP.IsOpen); self:_SetVisibility(Core.ViewESPPanelBorder, Core.HeaderButtons.ViewESP.IsOpen)
-    if Core.HeaderButtons.ViewESP.IsOpen then
-        local panelX = windowX + self.Window.Width + 11;
-        self:_AnimateAndApplyColor(Core.ViewESPPanel, theme.Colors.SectionBackground)
-        self:_AnimateAndApplyColor(Core.ViewESPPanelBorder, theme.Colors.Separator)
-        self:_AnimateAndApplyColor(Core.ViewESPImage, {255,255,255,255})
-        Core.ViewESPPanel.Position = {panelX, windowY}; Core.ViewESPPanel.Size = {200, 310};
-        Core.ViewESPPanelBorder.Position = {panelX, windowY}; Core.ViewESPPanelBorder.Size = {200, 310};
-        if Core.ViewESPImage then self:_SetVisibility(Core.ViewESPImage, true); local imageX, imageY = panelX + 3, windowY + 3; Core.ViewESPImage.Position = {imageX, imageY}; Core.ViewESPImage.Size = {194, 304}; end
-    elseif Core.ViewESPImage then self:_SetVisibility(Core.ViewESPImage, false) end
+    do
+        local isESPOpen = Core.HeaderButtons.ViewESP.IsOpen
+        
+        -- Устанавливаем видимость для всех элементов ESP ОДИНАКОВО
+        self:_SetVisibility(Core.ViewESPPanel, isESPOpen)
+        self:_SetVisibility(Core.ViewESPPanelBorder, isESPOpen)
+        if Core.ViewESPImage then
+            self:_SetVisibility(Core.ViewESPImage, isESPOpen)
+        end
+
+        -- Если панель должна быть видна, отрисовываем и позиционируем её
+        if isESPOpen then
+            local panelX = windowX + self.Window.Width + 11
+            
+            self:_AnimateAndApplyColor(Core.ViewESPPanel, theme.Colors.SectionBackground)
+            self:_AnimateAndApplyColor(Core.ViewESPPanelBorder, theme.Colors.Separator)
+            
+            Core.ViewESPPanel.Position = {panelX, windowY}
+            Core.ViewESPPanel.Size = {200, 310}
+            Core.ViewESPPanelBorder.Position = {panelX, windowY}
+            Core.ViewESPPanelBorder.Size = {200, 310}
+
+            if Core.ViewESPImage then
+                self:_AnimateAndApplyColor(Core.ViewESPImage, {255, 255, 255, 255})
+                local imageX, imageY = panelX + 3, windowY + 3
+                Core.ViewESPImage.Position = {imageX, imageY}
+                Core.ViewESPImage.Size = {194, 304}
+            end
+        end
+    end
 
     self:_RenderTabs(windowX, windowY + headerHeight, sidebarWidth)
 
