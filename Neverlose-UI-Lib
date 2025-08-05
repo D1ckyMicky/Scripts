@@ -88,6 +88,7 @@ Library.TempTheme = nil
 Library.PreEditThemeName = nil
 
 Library.UI = { TabGroups = {}, Sections = {}, Values = {}, DrawingObjects = {}, Popups = {}, ColorPresets = {} }
+Library.ObjectsToRemove = {}
 
 local drag_offset = {x = 0, y = 0}
 local was_left_pressed = false
@@ -218,8 +219,8 @@ function Library:_CleanupDrawingObjects(tbl)
     for _, v in pairs(tbl) do
         if type(v) == 'table' then
             if v.Remove and type(v.Remove) == 'function' then
-                -- Это объект отрисовки, удаляем его
-                pcall(v.Remove, v)
+                -- НЕ УДАЛЯЕМ СРАЗУ, а добавляем в очередь на удаление
+                table.insert(self.ObjectsToRemove, v)
             else
                 -- Это обычная таблица, идем глубже
                 self:_CleanupDrawingObjects(v)
@@ -722,6 +723,16 @@ function Library:_UpdateAllAnimations()
     end
 
     return anyAnimationActive
+end
+
+function Library:_ProcessRemovalQueue()
+    if #self.ObjectsToRemove > 0 then
+        for _, obj in ipairs(self.ObjectsToRemove) do
+            pcall(obj.Remove, obj)
+        end
+        -- Очищаем очередь после обработки
+        self.ObjectsToRemove = {}
+    end
 end
 
 
@@ -4040,6 +4051,8 @@ function Library:_MainLoop()
     print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. x2")
     local is_first_frame = true
     while true do
+        -- Обрабатываем очередь на удаление в начале каждого кадра
+        self:_ProcessRemovalQueue()
         -- Сначала обрабатываем ввод. Он может пометить UI как "грязный".
         self:_InputLoop()
 
