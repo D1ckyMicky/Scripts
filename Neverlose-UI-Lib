@@ -249,8 +249,23 @@ end
 function Library:_RenderSaveTooltip()
     local tooltip = self.UI.Core.SaveTooltip
     local saveBtn = self.UI.Core.HeaderButtons.Save
-    local isVisible = saveBtn.IsHovered
     local theme = self.ActiveTheme
+    
+    -- Определяем, должна ли подсказка быть видимой
+    local shouldBeVisible = saveBtn.IsHovered and self.Window.ActiveTab == "Configs"
+
+    -- Управляем состоянием анимации
+    if shouldBeVisible and tooltip.Animation.CurrentOpacity < 1 and not tooltip.Animation.IsOpening then
+        tooltip.Animation.IsOpening = true
+        tooltip.Animation.IsClosing = false
+    elseif not shouldBeVisible and tooltip.Animation.CurrentOpacity > 0 and not tooltip.Animation.IsClosing then
+        tooltip.Animation.IsOpening = false
+        tooltip.Animation.IsClosing = true
+    end
+
+    -- Получаем текущую прозрачность из аниматора
+    local masterOpacity = tooltip.Animation.CurrentOpacity
+    local isVisible = masterOpacity > 0
 
     self:_SetVisibility(tooltip.Background, isVisible)
     self:_SetVisibility(tooltip.Border, isVisible)
@@ -258,10 +273,11 @@ function Library:_RenderSaveTooltip()
     self:_SetVisibility(tooltip.Author, isVisible)
 
     if isVisible then
-        self:_AnimateAndApplyColor(tooltip.Background, theme.Colors.SectionBackground)
-        self:_AnimateAndApplyColor(tooltip.Border, theme.Colors.Separator)
-        self:_AnimateAndApplyColor(tooltip.ConfigName, theme.Colors.TextPrimary)
-        self:_AnimateAndApplyColor(tooltip.Author, theme.Colors.TextSecondary)
+        -- Применяем цвета, используя текущую прозрачность для fade-эффекта
+        self:_AnimateAndApplyColor(tooltip.Background, theme.Colors.SectionBackground, masterOpacity)
+        self:_AnimateAndApplyColor(tooltip.Border, theme.Colors.Separator, masterOpacity)
+        self:_AnimateAndApplyColor(tooltip.ConfigName, theme.Colors.TextPrimary, masterOpacity)
+        self:_AnimateAndApplyColor(tooltip.Author, theme.Colors.TextSecondary, masterOpacity)
     
         local configName = self.UI.Core.ConfigsTab.LoadedConfigName
         if configName == "" then configName = "default" end
@@ -284,7 +300,7 @@ function Library:_RenderSaveTooltip()
         tooltip.ConfigName.Position = {tooltipX + (padding / 2), tooltipY + 8}
         tooltip.Author.Position = {tooltipX + (padding / 2), tooltipY + 28}
         
-        self:_RenderGlowEffect(tooltip.Glow, tooltipX, tooltipY, tooltipW, tooltipH, tooltip.Background.Rounding, theme.Colors.GlowColor)
+        self:_RenderGlowEffect(tooltip.Glow, tooltipX, tooltipY, tooltipW, tooltipH, tooltip.Background.Rounding, theme.Colors.GlowColor, masterOpacity)
     else
         self:_HideGlowEffect(tooltip.Glow)
     end
@@ -654,6 +670,7 @@ function Library:_UpdateAllAnimations()
     self:_UpdatePopupAnimation(self.UI.Watermark)
     self:_UpdatePopupAnimation(self.UI.Hotkeys)
     self:_UpdatePopupAnimation(self.UI.Core.ConfigsTab.OptionsPopup) -- << [НОВОЕ] Добавляем попап конфигов
+    self:_UpdatePopupAnimation(self.UI.Core.SaveTooltip)
 
     -- Проверяем, активна ли анимация хоть одного попапа
     for _, popup in pairs(self.UI.Popups) do
@@ -865,7 +882,8 @@ function Library:_InitializeCoreUI()
         Border = self:_CreateDrawingObject("Square"),
         Glow = self:_Internal_CreateGlowSet(49),
         ConfigName = self:_CreateDrawingObject("Text"),
-        Author = self:_CreateDrawingObject("Text")
+        Author = self:_CreateDrawingObject("Text"),
+        Animation = { IsOpening = false, IsClosing = false, CurrentOpacity = 0 } -- << ДОБАВЛЕНО
     }
     
     --[[ ИЗМЕНЕНИЕ: Убираем self.UI.Popups.About отсюда, так как состояние будет храниться в self.UI.Core.AboutWindow ]]
@@ -882,8 +900,9 @@ function Library:_InitializeCoreUI()
     setupHeaderButton(UI.Core.HeaderButtons.CreateNew, " Create new", true)
     
     if UI.Core.HeaderButtons.Save.Icon then UI.Core.HeaderButtons.Save.Icon.Url = "https://i.postimg.cc/0QgnsgKT/vaseinko.png"; end
-    if UI.Core.HeaderButtons.CreateNew.Icon then UI.Core.HeaderButtons.CreateNew.Icon.Url = "https://i.imgur.com/plus-sign-icon.png"; end
+    if UI.Core.HeaderButtons.CreateNew.Icon then UI.Core.HeaderButtons.CreateNew.Icon.Url = "https://i.imgur.com/plus-sign-icon.png"; end -- иконка у create new в header
     if UI.Core.HeaderButtons.Settings.Icon then UI.Core.HeaderButtons.Settings.Icon.Url = "https://i.postimg.cc/QMZSLGTR/image.png"; UI.Core.HeaderButtons.Settings.Icon.Size = {20, 20}; UI.Core.HeaderButtons.Settings.Icon.zIndex = 5; end
+    UI.Core.ViewESPImage = self:_CreateDrawingObject("Image")
 
     local tooltip = UI.Core.SaveTooltip
     if tooltip.Background then tooltip.Background.Filled = true; tooltip.Background.zIndex = 50; tooltip.Background.Rounding = self.ActiveTheme.Rounding.Element; end
@@ -2547,15 +2566,27 @@ function Library:_RenderLoop()
              local isHovered = self:_IsPointInRegion(mouse_pos.x, mouse_pos.y, button.ClickRegion)
              button.IsHovered = isHovered
              local targetBgColor, targetTextColor
-             if button == Core.HeaderButtons.CreateNew then
+            if button == Core.HeaderButtons.CreateNew then
+                -- Логика для кнопки "Create New" остается без изменений
                 local baseColor = theme.Colors.Accent
                 local opacity = isHovered and 255 or (255 * 0.6)
                 targetBgColor = {baseColor[1], baseColor[2], baseColor[3], opacity}
                 targetTextColor = self:_GetTextColorForBackground(baseColor)
-             else
-                targetBgColor = isHovered and self:_DarkenColor(theme.Colors.Accent, 0.5) or (is_accent and theme.Colors.Accent or theme.Colors.MainBackground)
-                targetTextColor = is_accent and self:_GetTextColorForBackground(theme.Colors.Accent) or theme.Colors.TextPrimary
-             end
+            else
+                -- Новая логика для кнопок "Save" и "View ESP"
+                if isHovered then
+                    if isThemeLight then
+                        targetBgColor = theme.Colors.Accent -- Обычный акцентный цвет для светлой темы
+                    else
+                        targetBgColor = self:_DarkenColor(theme.Colors.Accent, 0.5) -- Затемненный для темной
+                    end
+                    targetTextColor = self:_GetTextColorForBackground(targetBgColor) -- Авто-подбор цвета текста
+                else
+                    -- Цвет по умолчанию (когда нет наведения)
+                    targetBgColor = is_accent and theme.Colors.Accent or theme.Colors.MainBackground
+                    targetTextColor = is_accent and self:_GetTextColorForBackground(theme.Colors.Accent) or theme.Colors.TextPrimary
+                end
+            end
              local targetBorderColor = (tick() - (button.ClickTime or 0) < 0.1 or (button.IsOpen)) and theme.Colors.Accent or theme.Colors.Separator
              self:_AnimateAndApplyColor(button.Background, targetBgColor)
              self:_AnimateAndApplyColor(button.Border, targetBorderColor)
