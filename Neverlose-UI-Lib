@@ -1001,7 +1001,7 @@ function Library:_InitializeBurgerMenu()
             elseif name == "Hotkeys" then
                 item.Icon.Url = "https://i.postimg.cc/0jSdXVN8/image.png"
             elseif name == "Glow" then
-                item.Icon.Url = "https://i.postimg.cc/5tN34BTM/glowglowglow.png" -- Иконка свечения
+                item.Icon.Url = "https://i.postimg.cc/vZ0ZxFnm/image.png" -- Иконка свечения
             elseif name == "Low-End Mode" then
                 item.Icon.Url = "https://i.postimg.cc/jd04w0mc/badpc.png" -- Иконка легкости
             end
