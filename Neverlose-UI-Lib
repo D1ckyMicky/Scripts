@@ -749,7 +749,7 @@ function Library:_UpdateSidePanelAnimation(panelController)
     if not panelController.Animation then return end
     local anim = panelController.Animation
     local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4
-    local animationSpeed = (speed_value > 0) and (speed_value / 15.0) or 1
+    local animationSpeed = (speed_value > 0) and (speed_value / 25.0) or 1
 
     if anim.IsOpening then
         anim.CurrentOpacity = math.min(1.0, anim.CurrentOpacity + animationSpeed)
