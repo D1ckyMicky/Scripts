@@ -246,13 +246,14 @@ function Library:_LerpColor(from, to, alpha)
 end
 
 -- Новая функция для отрисовки подсказки у кнопки Save
+-- ЗАМЕНИ НА ЭТОТ КОД
 function Library:_RenderSaveTooltip()
     local tooltip = self.UI.Core.SaveTooltip
     local saveBtn = self.UI.Core.HeaderButtons.Save
     local theme = self.ActiveTheme
     
-    -- Определяем, должна ли подсказка быть видимой
-    local shouldBeVisible = saveBtn.IsHovered and self.Window.ActiveTab == "Configs"
+    -- ИСПРАВЛЕНИЕ №1: Подсказка должна быть видна при наведении на кнопку в любой вкладке.
+    local shouldBeVisible = saveBtn.IsHovered
 
     -- Управляем состоянием анимации
     if shouldBeVisible and tooltip.Animation.CurrentOpacity < 1 and not tooltip.Animation.IsOpening then
@@ -300,7 +301,8 @@ function Library:_RenderSaveTooltip()
         tooltip.ConfigName.Position = {tooltipX + (padding / 2), tooltipY + 8}
         tooltip.Author.Position = {tooltipX + (padding / 2), tooltipY + 28}
         
-        self:_RenderGlowEffect(tooltip.Glow, tooltipX, tooltipY, tooltipW, tooltipH, tooltip.Background.Rounding, theme.Colors.GlowColor, masterOpacity)
+        -- ИСПРАВЛЕНИЕ №2: Передаём аргументы в функцию свечения в правильном порядке.
+        self:_RenderGlowEffect(tooltip.Glow, tooltipX, tooltipY, tooltipW, tooltipH, tooltip.Background.Rounding, theme.Colors.GlowColor, nil, masterOpacity)
     else
         self:_HideGlowEffect(tooltip.Glow)
     end
@@ -911,7 +913,7 @@ function Library:_InitializeCoreUI()
     if tooltip.Author then tooltip.Author.Font = self.ActiveTheme.Fonts.Main; tooltip.Author.Size = self.ActiveTheme.Fonts.Size; tooltip.Author.zIndex = 51; end
 
     UI.Core.ViewESPPanel = self:_CreateDrawingObject("Square"); if UI.Core.ViewESPPanel then UI.Core.ViewESPPanel.Filled = true; UI.Core.ViewESPPanel.zIndex = 1; UI.Core.ViewESPPanel.Rounding = self.ActiveTheme.Rounding.Window; end
-    if UI.Core.ViewESPImage then UI.Core.ViewESPImage.zIndex = 2; UI.Core.ViewESPImage.Visible = false; UI.Core.ViewESPImage.Url = "https://i.postimg.cc/hhFQJgcn/image.png"; UI.Core.ViewESPImage.Rounding = self.ActiveTheme.Rounding.Window - 2; end
+    if UI.Core.ViewESPImage then UI.Core.ViewESPImage.zIndex = 2; UI.Core.ViewESPImage.Visible = false; UI.Core.ViewESPImage.Url = "https://i.postimg.cc/sgvbDYfL/image.png"; UI.Core.ViewESPImage.Rounding = self.ActiveTheme.Rounding.Window - 2; end
     UI.Core.ViewESPPanelBorder = self:_CreateDrawingObject("Square"); if UI.Core.ViewESPPanelBorder then UI.Core.ViewESPPanelBorder.Filled = false; UI.Core.ViewESPPanelBorder.Thickness = 1; UI.Core.ViewESPPanelBorder.zIndex = 3; UI.Core.ViewESPPanelBorder.Rounding = self.ActiveTheme.Rounding.Window; end
 
     self:_InitializeAboutWindow()
