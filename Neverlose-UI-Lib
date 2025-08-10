@@ -538,7 +538,7 @@ function Library:_UpdatePopupAnimation(popup)
         end
     else
         local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4
-        local animationSpeed = (speed_value > 0) and (speed_value / 15.0) or 1
+        local animationSpeed = (speed_value > 0) and (speed_value / 25.0) or 1
         
         if anim.IsOpening then
             anim.CurrentOpacity = anim.CurrentOpacity + animationSpeed
@@ -674,6 +674,9 @@ function Library:_UpdateAllAnimations()
     self:_UpdatePopupAnimation(self.UI.Core.ConfigsTab.OptionsPopup) -- << [НОВОЕ] Добавляем попап конфигов
     self:_UpdatePopupAnimation(self.UI.Core.SaveTooltip)
     self:_UpdateSidePanelAnimation(self.UI.Core.HeaderButtons.ViewESP)
+    -- << [НОВОЕ] Добавляем попап настроек в цикл обновления анимаций >>
+    self:_UpdatePopupAnimation(self.UI.Popups.Settings) 
+    self:_UpdatePopupAnimation(self.UI.Watermark)
 
     -- Проверяем, активна ли анимация хоть одного попапа
     for _, popup in pairs(self.UI.Popups) do
@@ -1162,6 +1165,7 @@ end
 function Library:_InitializeSettingsPopup()
     local popup = {}; self.UI.Popups.Settings = popup; local z = 20
     popup.IsOpen = false; popup.Pos = {x=0, y=0}
+    popup.Animation = { IsOpening = false, IsClosing = false, CurrentOpacity = 0 }
     popup.ActiveToggle = nil -- Ссылка на Toggle, чьи настройки открыты 
 
     -- Создаем базовые элементы окна: фон, границу и свечение [cite: 46, 47]
@@ -2037,25 +2041,32 @@ end
 
 function Library:_RenderSettingsPopup()
     local popup = self.UI.Popups.Settings
-    local isVisible = popup.IsOpen and popup.ActiveToggle
     local theme = self.ActiveTheme
-    local z = 20 -- Базовый z-index для всплывающего окна
+    
+    -- [[ ИЗМЕНЕНИЕ: Используем CurrentOpacity из анимации ]]
+    local masterOpacity = popup.Animation.CurrentOpacity
 
-    self:_SetVisibility(popup.Background, isVisible); self:_SetVisibility(popup.Border, isVisible); self:_SetVisibility(popup.Title, isVisible); self:_SetVisibility(popup.Separator, isVisible);
-
-    if not isVisible then
+    -- Если попап полностью невидим, ничего не делаем и прячем свечение
+    if masterOpacity <= 0 then
         if popup.Glow then self:_HideGlowEffect(popup.Glow) end
-        self:_HideSettingsPopupElements(popup)
+        -- Также убедимся, что при полном закрытии флаг IsOpen сбрасывается
+        if popup.IsOpen then 
+            popup.IsOpen = false 
+            self:_HideSettingsPopupElements(popup) -- Прячем элементы только один раз при закрытии
+        end
         return
     end
 
-    self:_AnimateAndApplyColor(popup.Background, theme.Colors.SectionBackground)
-    self:_AnimateAndApplyColor(popup.Border, theme.Colors.Separator)
-    self:_AnimateAndApplyColor(popup.Separator, theme.Colors.Separator)
+    -- Если попап видим, делаем видимыми его базовые элементы
+    self:_SetVisibility(popup.Background, true); self:_SetVisibility(popup.Border, true); self:_SetVisibility(popup.Title, true); self:_SetVisibility(popup.Separator, true);
+
+    -- [[ ИЗМЕНЕНИЕ: Применяем цвета с учётом masterOpacity ]]
+    self:_AnimateAndApplyColor(popup.Background, theme.Colors.SectionBackground, masterOpacity)
+    self:_AnimateAndApplyColor(popup.Border, theme.Colors.Separator, masterOpacity)
+    self:_AnimateAndApplyColor(popup.Separator, theme.Colors.Separator, masterOpacity)
 
     popup.Title.Text = popup.ActiveToggle.Name .. " Settings"
-    self:_AnimateAndApplyColor(popup.Title, theme.Colors.TextPrimary)
-    popup.Title.zIndex = z + 2
+    self:_AnimateAndApplyColor(popup.Title, theme.Colors.TextPrimary, masterOpacity)
 
     local pX, pY = popup.Pos.x, popup.Pos.y
     local pW = 250
@@ -2068,34 +2079,29 @@ function Library:_RenderSettingsPopup()
     for _, element in ipairs(popup.ActiveToggle.SettingsElements or {}) do
         if element.type == "Keybind" then
             local keybind = element
+            -- [[ ИЗМЕНЕНИЕ: Делаем все элементы кейбинда видимыми ]]
             self:_SetVisibility(keybind.Label, true)
             self:_SetVisibility(keybind.Button, true)
             self:_SetVisibility(keybind.Border, true)
             self:_SetVisibility(keybind.ButtonText, true)
 
-            keybind.Label.zIndex = z + 2
-            keybind.Button.zIndex = z + 2
-            keybind.Border.zIndex = z + 3
-            keybind.ButtonText.zIndex = z + 3
-
             local buttonBackgroundColor = keybind.IsListening and theme.Colors.Accent or theme.Colors.DarkBlue
             local buttonTextColor = keybind.IsListening and self:_GetTextColorForBackground(buttonBackgroundColor) or theme.Colors.TextPrimary
             local buttonBorderColor = keybind.IsListening and theme.Colors.Accent or theme.Colors.Separator
 
-            self:_AnimateAndApplyColor(keybind.Label, theme.Colors.TextSecondary)
-            self:_AnimateAndApplyColor(keybind.Button, buttonBackgroundColor)
-            self:_AnimateAndApplyColor(keybind.Border, buttonBorderColor)
-            self:_AnimateAndApplyColor(keybind.ButtonText, buttonTextColor)
+            -- [[ ИЗМЕНЕНИЕ: Применяем цвета с masterOpacity ко всем элементам ]]
+            self:_AnimateAndApplyColor(keybind.Label, theme.Colors.TextSecondary, masterOpacity)
+            self:_AnimateAndApplyColor(keybind.Button, buttonBackgroundColor, masterOpacity)
+            self:_AnimateAndApplyColor(keybind.Border, buttonBorderColor, masterOpacity)
+            self:_AnimateAndApplyColor(keybind.ButtonText, buttonTextColor, masterOpacity)
 
-            -- [[ ДОБАВЛЕНА ЭТА СТРОКА ]]
             keybind.Label.Position = { pX + 15, currentY }
-
             local bindButtonX = pX + pW - keybind.Size.width - 15
             keybind.Button.Position = {bindButtonX, currentY - 5}; keybind.Button.Size = {keybind.Size.width, keybind.Size.height};
             keybind.Border.Position = {bindButtonX, currentY - 5}; keybind.Border.Size = {keybind.Size.width, keybind.Size.height};
             keybind.ButtonText.Text = keybind.IsListening and "..." or string.upper(self.UI.Values[keybind.id] or "none")
             keybind.ButtonText.Position = { bindButtonX + (keybind.Size.width / 2), currentY - 5 + (keybind.Size.height / 2) - (keybind.ButtonText.Size / 2) }
-            keybind.ClickRegion = {x1 = bindButtonX, y1 = currentY - 5, x2 = bindButtonX + keybind.Size.width, y2 = currentY - 5 + keybind.Size.height}
+            keybind.ClickRegion = {x1 = bindButtonX, y1 = currentY - 5, x2 = bindButtonX + keybind.Size.width, y2 = keybind.Size.height}
             currentY = currentY + 35
         end
     end
@@ -2104,7 +2110,9 @@ function Library:_RenderSettingsPopup()
     popup.ClickRegion = {x1 = pX, y1 = pY, x2 = pX + pW, y2 = pY + totalHeight}
     if popup.Background then popup.Background.Position = {pX, pY}; popup.Background.Size = {pW, totalHeight}; end
     if popup.Border then popup.Border.Position = {pX, pY}; popup.Border.Size = {pW, totalHeight}; end
-    if popup.Glow then self:_RenderGlowEffect(popup.Glow, pX, pY, pW, totalHeight, popup.Background.Rounding, theme.Colors.GlowColor) end
+    
+    -- [[ ИЗМЕНЕНИЕ: Рендерим свечение с masterOpacity ]]
+    if popup.Glow then self:_RenderGlowEffect(popup.Glow, pX, pY, pW, totalHeight, popup.Background.Rounding, theme.Colors.GlowColor, nil, masterOpacity) end
 end
 
 function Library:_RenderEditStyleWindow()
@@ -3833,13 +3841,24 @@ function Library:_InputLoop()
                     else
                         about_window.Animation.IsClosing = true; about_window.Animation.IsOpening = false;
                     end
+
                 elseif settings_popup.IsOpen then
                     click_was_handled = true
+                    -- [[ НАЧАЛО ИЗМЕНЕНИЙ ]]
                     if not (settings_popup.ClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, settings_popup.ClickRegion)) then
-                        settings_popup.IsOpen = false; self:_HideSettingsPopupElements(settings_popup);
+                        -- Кликнули снаружи, запускаем анимацию закрытия
+                        settings_popup.Animation.IsClosing = true
+                        settings_popup.Animation.IsOpening = false
                     else
-                        for _, element in ipairs(settings_popup.ActiveToggle.SettingsElements or {}) do if element.type == "Keybind" and self:_IsPointInRegion(mouse_x, mouse_y, element.ClickRegion) then element.IsListening = not element.IsListening; break; end end;
+                        -- Кликнули внутри, проверяем бинды
+                        for _, element in ipairs(settings_popup.ActiveToggle.SettingsElements or {}) do
+                            if element.type == "Keybind" and self:_IsPointInRegion(mouse_x, mouse_y, element.ClickRegion) then
+                                element.IsListening = not element.IsListening;
+                                break;
+                            end
+                        end;
                     end
+
                 elseif burger_popup.IsOpen then
                     click_was_handled = true
                     if burger_popup.ClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, burger_popup.ClickRegion) then
@@ -3924,7 +3943,14 @@ function Library:_InputLoop()
                             elseif el.type == "Toggle" and el.HasColor and self:_IsPointInRegion(mouse_x, mouse_y, el.ColorClickRegion) then
                                 picker.IsOpen = true; picker.Animation.IsOpening = true; picker.Animation.IsClosing = false; picker.EditingValueID = el.HasColor.id; picker.EditingColorName = nil; picker.Pos = {x = mouse_x, y = mouse_y}; local color_to_edit = self.UI.Values[el.HasColor.id]; picker.h, picker.s, picker.v, picker.a = self:_RGBtoHSV(color_to_edit[1], color_to_edit[2], color_to_edit[3], color_to_edit[4]); clicked_on_main_ui = true; break;
                             elseif el.HasSettings and self:_IsPointInRegion(mouse_x, mouse_y, el.SettingsClickRegion) then
-                                settings_popup.IsOpen = true; settings_popup.ActiveToggle = el; settings_popup.Pos = {x = mouse_x, y = mouse_y}; clicked_on_main_ui = true; break;
+                                settings_popup.IsOpen = true -- Флаг для рендера
+                                settings_popup.Animation.IsOpening = true
+                                settings_popup.Animation.IsClosing = false
+                                -- [[ КОНЕЦ ИЗМЕНЕНИЙ ]]
+                                settings_popup.ActiveToggle = el;
+                                settings_popup.Pos = {x = mouse_x, y = mouse_y};
+                                clicked_on_main_ui = true;
+                                break;
                             elseif el.type == "Slider" and self:_IsPointInRegion(mouse_x, mouse_y, el.ValueInputClickRegion) then
                                 el.IsEditing = true; el.InputText = tostring(math.floor(self.UI.Values[el.id])); clicked_on_main_ui = true; break;
                             end
