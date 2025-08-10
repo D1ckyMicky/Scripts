@@ -526,7 +526,6 @@ function Library:_UpdatePopupAnimation(popup)
     if not popup.Animation then return end
     local anim = popup.Animation
 
-    -- [[ ИСПРАВЛЕНИЕ: Используем правильный ID "BurgerLow-EndMode" ]]
     if self.UI.Values["BurgerLow-EndMode"] then
         if anim.IsOpening then
             anim.CurrentOpacity = 1
@@ -534,13 +533,7 @@ function Library:_UpdatePopupAnimation(popup)
         elseif anim.IsClosing then
             anim.CurrentOpacity = 0
             anim.IsClosing = false
-            if popup.IsOpen ~= nil then 
-                popup.IsOpen = false 
-                -- << [ФИКС] Сбрасываем активный элемент при закрытии >>
-                if popup == self.UI.Popups.Settings then
-                    popup.ActiveToggle = nil
-                end
-            end
+            if popup.IsOpen ~= nil then popup.IsOpen = false end
         end
     else
         local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4
@@ -557,18 +550,11 @@ function Library:_UpdatePopupAnimation(popup)
             if anim.CurrentOpacity <= 0 then
                 anim.CurrentOpacity = 0
                 anim.IsClosing = false
-                if popup.IsOpen ~= nil then 
-                    popup.IsOpen = false 
-                    -- << [ФИКС] Сбрасываем активный элемент при закрытии >>
-                    if popup == self.UI.Popups.Settings then
-                        popup.ActiveToggle = nil
-                    end
-                end
+                if popup.IsOpen ~= nil then popup.IsOpen = false end
             end
         end
     end
 end
-
 
 function Library:_SplitString(inputstr, sep)
     if sep == nil then sep = "%s" end
@@ -2054,20 +2040,26 @@ end
 function Library:_RenderSettingsPopup()
     local popup = self.UI.Popups.Settings
     local theme = self.ActiveTheme
-    
-    -- [[ ФИКС #1: Убираем зависимость от .IsOpen, теперь всё управляется анимацией ]]
     local masterOpacity = popup.Animation.CurrentOpacity
-    local z = 20 -- Базовый z-index для этого попапа
+    local z = 20
 
-    -- Если попап полностью невидим, ничего не делаем и прячем свечение
+    -- [[ ГЛАВНЫЙ ФИКС: Логика полного скрытия, как в других попапах ]]
     if masterOpacity <= 0 then
-        if popup.Glow then self:_HideGlowEffect(popup.Glow) end
-        -- Эта проверка нужна, чтобы спрятать элементы кейбинда один раз, когда анимация закончилась
-        if popup.IsOpen then 
-            popup.IsOpen = false 
-            self:_HideSettingsPopupElements(popup)
-        end
-        return
+        -- Прячем основные элементы самого попапа
+        self:_SetVisibility(popup.Background, false)
+        self:_SetVisibility(popup.Border, false)
+        self:_SetVisibility(popup.Title, false)
+        self:_SetVisibility(popup.Separator, false)
+        self:_HideGlowEffect(popup.Glow)
+        
+        -- Прячем вложенные элементы (кейбинды), если они ещё не спрятаны
+        self:_HideSettingsPopupElements(popup) 
+        
+        -- Сбрасываем состояние только после того, как всё гарантированно скрыто
+        if popup.IsOpen then popup.IsOpen = false end
+        if popup.ActiveToggle then popup.ActiveToggle = nil end
+        
+        return -- Прекращаем отрисовку
     end
 
     -- Если попап видим, делаем видимыми его базовые элементы
@@ -3858,21 +3850,22 @@ function Library:_InputLoop()
                         about_window.Animation.IsClosing = true; about_window.Animation.IsOpening = false;
                     end
 
-                elseif settings_popup.IsOpen then
+                elseif settings_popup.Animation.CurrentOpacity > 0 then -- ИЗМЕНЕНИЕ: Проверяем по анимации, а не по IsOpen
                     click_was_handled = true
-                    -- [[ НАЧАЛО ИЗМЕНЕНИЙ ]]
                     if not (settings_popup.ClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, settings_popup.ClickRegion)) then
                         -- Кликнули снаружи, запускаем анимацию закрытия
                         settings_popup.Animation.IsClosing = true
                         settings_popup.Animation.IsOpening = false
                     else
                         -- Кликнули внутри, проверяем бинды
-                        for _, element in ipairs(settings_popup.ActiveToggle.SettingsElements or {}) do
-                            if element.type == "Keybind" and self:_IsPointInRegion(mouse_x, mouse_y, element.ClickRegion) then
-                                element.IsListening = not element.IsListening;
-                                break;
-                            end
-                        end;
+                        if settings_popup.ActiveToggle then
+                            for _, element in ipairs(settings_popup.ActiveToggle.SettingsElements or {}) do
+                                if element.type == "Keybind" and self:_IsPointInRegion(mouse_x, mouse_y, element.ClickRegion) then
+                                    element.IsListening = not element.IsListening;
+                                    break;
+                                end
+                            end;
+                        end
                     end
 
                 elseif burger_popup.IsOpen then
@@ -3959,10 +3952,12 @@ function Library:_InputLoop()
                             elseif el.type == "Toggle" and el.HasColor and self:_IsPointInRegion(mouse_x, mouse_y, el.ColorClickRegion) then
                                 picker.IsOpen = true; picker.Animation.IsOpening = true; picker.Animation.IsClosing = false; picker.EditingValueID = el.HasColor.id; picker.EditingColorName = nil; picker.Pos = {x = mouse_x, y = mouse_y}; local color_to_edit = self.UI.Values[el.HasColor.id]; picker.h, picker.s, picker.v, picker.a = self:_RGBtoHSV(color_to_edit[1], color_to_edit[2], color_to_edit[3], color_to_edit[4]); clicked_on_main_ui = true; break;
                             elseif el.HasSettings and self:_IsPointInRegion(mouse_x, mouse_y, el.SettingsClickRegion) then
-                                settings_popup.IsOpen = true -- Флаг для рендера
+                                -- Запускаем анимацию открытия
+                                settings_popup.IsOpen = true -- Этот флаг нужен, чтобы аниматор знал, что попап может закрыться
                                 settings_popup.Animation.IsOpening = true
                                 settings_popup.Animation.IsClosing = false
-                                -- [[ КОНЕЦ ИЗМЕНЕНИЙ ]]
+                                settings_popup.Animation.CurrentOpacity = 0 -- Сбрасываем для чистого появления
+                                
                                 settings_popup.ActiveToggle = el;
                                 settings_popup.Pos = {x = mouse_x, y = mouse_y};
                                 clicked_on_main_ui = true;
