@@ -943,10 +943,10 @@ function Library:_InitializeCoreUI()
 
     local Players = game:FindService("Players")
     if Players and Players.localPlayer then
-        local localPlayerName = Players.localPlayer.Name
+        local localPlayerName = getname(localPlayer)
         UI.Core.PlayerDisplayName.Text = localPlayerName
         if UI.Core.AboutWindow.InfoRegisteredToValue then UI.Core.AboutWindow.InfoRegisteredToValue.Text = " " .. localPlayerName end
-        local userId = Players.localPlayer.UserId
+        local userId = getuserid(localPlayer)
         if userId and userId > 0 then
             local avatarUrl; pcall(function() avatarUrl = self:_getAvatarThumbnail(userId) end)
             if avatarUrl then
@@ -3443,6 +3443,9 @@ function Library:_InputLoop()
     local is_right_clicked = was_right_pressed and not is_right_pressed_now
     local key_pressed = (getpressedkey() ~= "None")
 
+        -- << [НОВОЕ] >> Запускаем основную логику только если было действие
+    if mouse_moved or is_left_pressed_now or is_left_clicked or is_right_pressed_now or is_right_clicked or key_pressed then
+
     lastMousePos = mouse_pos -- Обновляем последнюю позицию мыши
 
     -- Вся остальная логика остается без изменений, она будет выполняться только если есть действие
@@ -4085,6 +4088,7 @@ function Library:_InputLoop()
             end
             if about_window.AnimationSpeedSlider.last_key_pressed ~= "None" then about_window.AnimationSpeedSlider.last_key_pressed = "None"; about_window.AnimationSpeedSlider.is_in_repeat = false; end
         end
+    end
     end
 
     was_left_pressed = is_left_pressed_now
