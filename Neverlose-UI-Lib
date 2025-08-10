@@ -943,10 +943,10 @@ function Library:_InitializeCoreUI()
 
     local Players = game:FindService("Players")
     if Players and Players.localPlayer then
-        local localPlayerName = getname(localPlayer)
+        local localPlayerName = Players.localPlayer.Name
         UI.Core.PlayerDisplayName.Text = localPlayerName
         if UI.Core.AboutWindow.InfoRegisteredToValue then UI.Core.AboutWindow.InfoRegisteredToValue.Text = " " .. localPlayerName end
-        local userId = getuserid(localPlayer)
+        local userId = Players.localPlayer.UserId
         if userId and userId > 0 then
             local avatarUrl; pcall(function() avatarUrl = self:_getAvatarThumbnail(userId) end)
             if avatarUrl then
