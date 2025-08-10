@@ -2043,16 +2043,17 @@ function Library:_RenderSettingsPopup()
     local popup = self.UI.Popups.Settings
     local theme = self.ActiveTheme
     
-    -- [[ ИЗМЕНЕНИЕ: Используем CurrentOpacity из анимации ]]
+    -- [[ ФИКС #1: Убираем зависимость от .IsOpen, теперь всё управляется анимацией ]]
     local masterOpacity = popup.Animation.CurrentOpacity
+    local z = 20 -- Базовый z-index для этого попапа
 
     -- Если попап полностью невидим, ничего не делаем и прячем свечение
     if masterOpacity <= 0 then
         if popup.Glow then self:_HideGlowEffect(popup.Glow) end
-        -- Также убедимся, что при полном закрытии флаг IsOpen сбрасывается
+        -- Эта проверка нужна, чтобы спрятать элементы кейбинда один раз, когда анимация закончилась
         if popup.IsOpen then 
             popup.IsOpen = false 
-            self:_HideSettingsPopupElements(popup) -- Прячем элементы только один раз при закрытии
+            self:_HideSettingsPopupElements(popup)
         end
         return
     end
@@ -2060,13 +2061,14 @@ function Library:_RenderSettingsPopup()
     -- Если попап видим, делаем видимыми его базовые элементы
     self:_SetVisibility(popup.Background, true); self:_SetVisibility(popup.Border, true); self:_SetVisibility(popup.Title, true); self:_SetVisibility(popup.Separator, true);
 
-    -- [[ ИЗМЕНЕНИЕ: Применяем цвета с учётом masterOpacity ]]
     self:_AnimateAndApplyColor(popup.Background, theme.Colors.SectionBackground, masterOpacity)
     self:_AnimateAndApplyColor(popup.Border, theme.Colors.Separator, masterOpacity)
     self:_AnimateAndApplyColor(popup.Separator, theme.Colors.Separator, masterOpacity)
 
     popup.Title.Text = popup.ActiveToggle.Name .. " Settings"
     self:_AnimateAndApplyColor(popup.Title, theme.Colors.TextPrimary, masterOpacity)
+    -- [[ ФИКС #2: Устанавливаем zIndex для заголовка, чтобы он был НАД фоном ]]
+    popup.Title.zIndex = z + 2
 
     local pX, pY = popup.Pos.x, popup.Pos.y
     local pW = 250
@@ -2076,33 +2078,36 @@ function Library:_RenderSettingsPopup()
     if popup.Separator then popup.Separator.From = {pX + 10, currentY}; popup.Separator.To = {pX + pW - 10, currentY}; end
     currentY = currentY + 15
 
-    for _, element in ipairs(popup.ActiveToggle.SettingsElements or {}) do
-        if element.type == "Keybind" then
-            local keybind = element
-            -- [[ ИЗМЕНЕНИЕ: Делаем все элементы кейбинда видимыми ]]
-            self:_SetVisibility(keybind.Label, true)
-            self:_SetVisibility(keybind.Button, true)
-            self:_SetVisibility(keybind.Border, true)
-            self:_SetVisibility(keybind.ButtonText, true)
+    if popup.ActiveToggle and popup.ActiveToggle.SettingsElements then
+        for _, element in ipairs(popup.ActiveToggle.SettingsElements) do
+            if element.type == "Keybind" then
+                local keybind = element
+                self:_SetVisibility(keybind.Label, true); self:_SetVisibility(keybind.Button, true); self:_SetVisibility(keybind.Border, true); self:_SetVisibility(keybind.ButtonText, true)
 
-            local buttonBackgroundColor = keybind.IsListening and theme.Colors.Accent or theme.Colors.DarkBlue
-            local buttonTextColor = keybind.IsListening and self:_GetTextColorForBackground(buttonBackgroundColor) or theme.Colors.TextPrimary
-            local buttonBorderColor = keybind.IsListening and theme.Colors.Accent or theme.Colors.Separator
+                -- [[ ФИКС #2: Устанавливаем zIndex для всех элементов кейбинда ]]
+                keybind.Label.zIndex = z + 2
+                keybind.Button.zIndex = z + 2
+                keybind.Border.zIndex = z + 3
+                keybind.ButtonText.zIndex = z + 3
 
-            -- [[ ИЗМЕНЕНИЕ: Применяем цвета с masterOpacity ко всем элементам ]]
-            self:_AnimateAndApplyColor(keybind.Label, theme.Colors.TextSecondary, masterOpacity)
-            self:_AnimateAndApplyColor(keybind.Button, buttonBackgroundColor, masterOpacity)
-            self:_AnimateAndApplyColor(keybind.Border, buttonBorderColor, masterOpacity)
-            self:_AnimateAndApplyColor(keybind.ButtonText, buttonTextColor, masterOpacity)
+                local buttonBackgroundColor = keybind.IsListening and theme.Colors.Accent or theme.Colors.DarkBlue
+                local buttonTextColor = keybind.IsListening and self:_GetTextColorForBackground(buttonBackgroundColor) or theme.Colors.TextPrimary
+                local buttonBorderColor = keybind.IsListening and theme.Colors.Accent or theme.Colors.Separator
 
-            keybind.Label.Position = { pX + 15, currentY }
-            local bindButtonX = pX + pW - keybind.Size.width - 15
-            keybind.Button.Position = {bindButtonX, currentY - 5}; keybind.Button.Size = {keybind.Size.width, keybind.Size.height};
-            keybind.Border.Position = {bindButtonX, currentY - 5}; keybind.Border.Size = {keybind.Size.width, keybind.Size.height};
-            keybind.ButtonText.Text = keybind.IsListening and "..." or string.upper(self.UI.Values[keybind.id] or "none")
-            keybind.ButtonText.Position = { bindButtonX + (keybind.Size.width / 2), currentY - 5 + (keybind.Size.height / 2) - (keybind.ButtonText.Size / 2) }
-            keybind.ClickRegion = {x1 = bindButtonX, y1 = currentY - 5, x2 = bindButtonX + keybind.Size.width, y2 = keybind.Size.height}
-            currentY = currentY + 35
+                self:_AnimateAndApplyColor(keybind.Label, theme.Colors.TextSecondary, masterOpacity)
+                self:_AnimateAndApplyColor(keybind.Button, buttonBackgroundColor, masterOpacity)
+                self:_AnimateAndApplyColor(keybind.Border, buttonBorderColor, masterOpacity)
+                self:_AnimateAndApplyColor(keybind.ButtonText, buttonTextColor, masterOpacity)
+
+                keybind.Label.Position = { pX + 15, currentY }
+                local bindButtonX = pX + pW - keybind.Size.width - 15
+                keybind.Button.Position = {bindButtonX, currentY - 5}; keybind.Button.Size = {keybind.Size.width, keybind.Size.height};
+                keybind.Border.Position = {bindButtonX, currentY - 5}; keybind.Border.Size = {keybind.Size.width, keybind.Size.height};
+                keybind.ButtonText.Text = keybind.IsListening and "..." or string.upper(self.UI.Values[keybind.id] or "none")
+                keybind.ButtonText.Position = { bindButtonX + (keybind.Size.width / 2), currentY - 5 + (keybind.Size.height / 2) - (keybind.ButtonText.Size / 2) }
+                keybind.ClickRegion = {x1 = bindButtonX, y1 = currentY - 5, x2 = bindButtonX + keybind.Size.width, y2 = currentY - 5 + keybind.Size.height}
+                currentY = currentY + 35
+            end
         end
     end
 
@@ -2111,7 +2116,6 @@ function Library:_RenderSettingsPopup()
     if popup.Background then popup.Background.Position = {pX, pY}; popup.Background.Size = {pW, totalHeight}; end
     if popup.Border then popup.Border.Position = {pX, pY}; popup.Border.Size = {pW, totalHeight}; end
     
-    -- [[ ИЗМЕНЕНИЕ: Рендерим свечение с masterOpacity ]]
     if popup.Glow then self:_RenderGlowEffect(popup.Glow, pX, pY, pW, totalHeight, popup.Background.Rounding, theme.Colors.GlowColor, nil, masterOpacity) end
 end
 
