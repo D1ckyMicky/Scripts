@@ -534,11 +534,17 @@ function Library:_UpdatePopupAnimation(popup)
         elseif anim.IsClosing then
             anim.CurrentOpacity = 0
             anim.IsClosing = false
-            if popup.IsOpen ~= nil then popup.IsOpen = false end
+            if popup.IsOpen ~= nil then 
+                popup.IsOpen = false 
+                -- << [ФИКС] Сбрасываем активный элемент при закрытии >>
+                if popup == self.UI.Popups.Settings then
+                    popup.ActiveToggle = nil
+                end
+            end
         end
     else
         local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4
-        local animationSpeed = (speed_value > 0) and (speed_value / 25.0) or 1
+        local animationSpeed = (speed_value > 0) and (speed_value / 15.0) or 1
         
         if anim.IsOpening then
             anim.CurrentOpacity = anim.CurrentOpacity + animationSpeed
@@ -551,7 +557,13 @@ function Library:_UpdatePopupAnimation(popup)
             if anim.CurrentOpacity <= 0 then
                 anim.CurrentOpacity = 0
                 anim.IsClosing = false
-                if popup.IsOpen ~= nil then popup.IsOpen = false end
+                if popup.IsOpen ~= nil then 
+                    popup.IsOpen = false 
+                    -- << [ФИКС] Сбрасываем активный элемент при закрытии >>
+                    if popup == self.UI.Popups.Settings then
+                        popup.ActiveToggle = nil
+                    end
+                end
             end
         end
     end
