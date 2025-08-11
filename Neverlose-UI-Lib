@@ -537,7 +537,7 @@ function Library:_UpdatePopupAnimation(popup)
         end
     else
         local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4
-        local animationSpeed = (speed_value > 0) and (speed_value / 15.0) or 1
+        local animationSpeed = (speed_value > 0) and (speed_value / 150.0) or 1 --150 lf
         
         if anim.IsOpening then
             anim.CurrentOpacity = anim.CurrentOpacity + animationSpeed
@@ -1922,7 +1922,7 @@ function Library:_RenderAboutWindow(mouse_pos)
     end
     
     local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.5
-    local animationSpeed = speed_value / 10.0
+    local animationSpeed = speed_value / 25.0 -- lf 10
     local targetOffset = is_on and (toggle.Size.width - toggle.Size.height / 2) or (toggle.Size.height / 2)
     toggle.AnimatedNubOffset = toggle.AnimatedNubOffset + (targetOffset - toggle.AnimatedNubOffset) * animationSpeed
     toggle.Nub.Position = {toggleBackX + toggle.AnimatedNubOffset, nubY}
@@ -2276,7 +2276,7 @@ function Library:_RenderEditStyleWindow()
       end
       
       local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.5
-      local animationSpeed = speed_value / 10.0
+      local animationSpeed = speed_value / 25.0 -- lf 10
       local targetOffset = is_on and (toggle.Size.width - toggle.Size.height / 2) or (toggle.Size.height / 2)
       toggle.AnimatedNubOffset = toggle.AnimatedNubOffset + (targetOffset - toggle.AnimatedNubOffset) * animationSpeed
       toggle.Nub.Position = {toggleBackX + toggle.AnimatedNubOffset, nubY}
