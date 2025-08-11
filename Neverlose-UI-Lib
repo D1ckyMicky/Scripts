@@ -3050,20 +3050,21 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
     local MAX_VISIBLE_ITEMS = 7
 
     -- [[ ИЗМЕНЕНИЕ ЗДЕСЬ ]]
-    -- Создаем единую переменную для вертикальных отступов сверху и снизу.
-    local verticalPadding = 35 
+    -- 1. Определяем отступ, который мы хотим видеть сверху и снизу.
+    local verticalPadding = 35
 
-    -- Сдвигаем верхнюю границу видимой области ВНИЗ на величину отступа.
-    local visibleAreaY = (startY + 25) + verticalPadding 
-    
-    -- Вычисляем общую высоту, которую занимали бы 7 элементов.
-    local totalVisibleHeight = (MAX_VISIBLE_ITEMS * totalItemHeight) - itemSpacing
-    
-    -- Уменьшаем высоту видимой области на ДВА отступа (сверху и снизу).
-    local visibleAreaHeight = totalVisibleHeight - (verticalPadding * 2)
-    
+    -- 2. Вычисляем ПОЛНУЮ область, где могут отображаться 7 конфигов (без отступов).
+    --    Это будет использоваться для позиционирования скроллбара и начала отрисовки списка.
+    local fullRenderAreaY = startY + 25
+    local fullRenderAreaHeight = (MAX_VISIBLE_ITEMS * totalItemHeight) - itemSpacing
+
+    -- 3. Теперь создаем отдельную, "урезанную" область для ОБРЕЗКИ (clipping).
+    --    Она начинается ниже и она короче на два отступа.
+    local clippingAreaY = fullRenderAreaY + verticalPadding
+    local clippingAreaHeight = fullRenderAreaHeight - (verticalPadding * 2)
+
     local totalContentHeight = (#configs.Items * totalItemHeight) - itemSpacing
-    local needsScrollbar = totalContentHeight > visibleAreaHeight
+    local needsScrollbar = totalContentHeight > fullRenderAreaHeight
 
     self:_SetVisibility(configs.Scrollbar.Background, needsScrollbar)
     self:_SetVisibility(configs.Scrollbar.Nub, needsScrollbar)
@@ -3073,17 +3074,18 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
     if needsScrollbar then
         local scrollbarX = startX + contentAreaWidth + 5
         local minNubHeight = 30 
-
-        configs.Scrollbar.Background.Position = {scrollbarX, visibleAreaY}
-        configs.Scrollbar.Background.Size = {scrollbarWidth, visibleAreaHeight}
+        
+        -- 4. Скроллбар рисуется в ПОЛНОЙ области, как и должен.
+        configs.Scrollbar.Background.Position = {scrollbarX, fullRenderAreaY}
+        configs.Scrollbar.Background.Size = {scrollbarWidth, fullRenderAreaHeight}
         self:_AnimateAndApplyColor(configs.Scrollbar.Background, theme.Colors.DarkBlue)
 
-        local nubHeight = (totalContentHeight > 0) and math.max(minNubHeight, visibleAreaHeight * (visibleAreaHeight / totalContentHeight)) or minNubHeight
+        local nubHeight = (totalContentHeight > 0) and math.max(minNubHeight, fullRenderAreaHeight * (fullRenderAreaHeight / totalContentHeight)) or minNubHeight
         
-        local maxScrollOffset = totalContentHeight - visibleAreaHeight
+        local maxScrollOffset = totalContentHeight - fullRenderAreaHeight
         local scrollPercentage = (maxScrollOffset > 0) and (configs.Scrollbar.ScrollOffset / maxScrollOffset) or 0
         
-        local nubY = visibleAreaY + ((visibleAreaHeight - nubHeight) * scrollPercentage)
+        local nubY = fullRenderAreaY + ((fullRenderAreaHeight - nubHeight) * scrollPercentage)
         
         configs.Scrollbar.Nub.Position = {scrollbarX, nubY}
         configs.Scrollbar.Nub.Size = {scrollbarWidth, nubHeight}
@@ -3092,12 +3094,13 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
         configs.Scrollbar.NubClickRegion = { x1 = scrollbarX, y1 = nubY, x2 = scrollbarX + scrollbarWidth, y2 = nubY + nubHeight }
     end
 
-    local loopStartY = visibleAreaY
+    -- 5. Начинаем рисовать элементы с самого верха ПОЛНОЙ области.
+    local loopStartY = fullRenderAreaY
     for i, item in ipairs(configs.Items) do
         local itemY = (loopStartY + (i - 1) * totalItemHeight) - configs.Scrollbar.ScrollOffset
         
-        -- Логика обрезки теперь идеально работает для верха и низа.
-        local isVisible = (itemY + itemHeight > visibleAreaY) and (itemY < visibleAreaY + visibleAreaHeight)
+        -- 6. А вот для проверки видимости используем УРЕЗАННУЮ область с отступами.
+        local isVisible = (itemY + itemHeight > clippingAreaY) and (itemY < clippingAreaY + clippingAreaHeight)
         
         if isVisible then
             local d = item.Drawing
@@ -3105,6 +3108,7 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
             
             self:_SetDrawingTableVisibility(d, true)
 
+            -- Вся остальная логика отрисовки остается без изменений
             self:_AnimateAndApplyColor(d.Background, theme.Colors.SectionBackground)
             self:_AnimateAndApplyColor(d.Border, theme.Colors.Separator)
             self:_AnimateAndApplyColor(d.Name, theme.Colors.TextPrimary)
@@ -3113,7 +3117,6 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
             self:_AnimateAndApplyColor(d.OptionsButton.Dot1, theme.Colors.TextSecondary)
             self:_AnimateAndApplyColor(d.OptionsButton.Dot2, theme.Colors.TextSecondary)
             self:_AnimateAndApplyColor(d.OptionsButton.Dot3, theme.Colors.TextSecondary)
-
             d.Background.Position = {startX, itemY}; d.Background.Size = {contentAreaWidth, itemHeight}
             d.Border.Position = {startX, itemY}; d.Border.Size = {contentAreaWidth, itemHeight}
             d.Name.Text = item.Name; d.Name.Position = {startX + 15, itemY + 12}
@@ -3128,37 +3131,24 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
             local optionsBtnX = btnX - 25; local optionsBtnY = itemY + (itemHeight / 2)
             d.OptionsButton.Dot1.Position = {optionsBtnX - 6, optionsBtnY}; d.OptionsButton.Dot2.Position = {optionsBtnX, optionsBtnY}; d.OptionsButton.Dot3.Position = {optionsBtnX + 6, optionsBtnY}
             d.OptionsButton.ClickRegion = {x1 = optionsBtnX - 10, y1 = optionsBtnY - 10, x2 = optionsBtnX + 10, y2 = optionsBtnY + 10}
-
             if isLoaded then
                 self:_SetVisibility(d.SaveButton.Background, true); self:_SetVisibility(d.SaveButton.Border, true); self:_SetVisibility(d.SaveButton.Icon, true); self:_SetVisibility(d.SaveButton.Label, true)
                 self:_SetVisibility(d.LoadButton.Background, false); self:_SetVisibility(d.LoadButton.Icon, false); self:_SetVisibility(d.LoadButton.Label, false)
-
                 local saveBtn = d.SaveButton
-                self:_AnimateAndApplyColor(saveBtn.Background, theme.Colors.SectionBackground)
-                self:_AnimateAndApplyColor(saveBtn.Border, theme.Colors.Accent)
-                self:_AnimateAndApplyColor(saveBtn.Icon, theme.Colors.TextPrimary)
-                self:_AnimateAndApplyColor(saveBtn.Label, theme.Colors.TextPrimary)
-                saveBtn.Background.Position = {btnX, btnY}; saveBtn.Background.Size = {btnWidth, btnHeight}
-                saveBtn.Border.Position = {btnX, btnY}; saveBtn.Border.Size = {btnWidth, btnHeight}
+                self:_AnimateAndApplyColor(saveBtn.Background, theme.Colors.SectionBackground); self:_AnimateAndApplyColor(saveBtn.Border, theme.Colors.Accent); self:_AnimateAndApplyColor(saveBtn.Icon, theme.Colors.TextPrimary); self:_AnimateAndApplyColor(saveBtn.Label, theme.Colors.TextPrimary)
+                saveBtn.Background.Position = {btnX, btnY}; saveBtn.Background.Size = {btnWidth, btnHeight}; saveBtn.Border.Position = {btnX, btnY}; saveBtn.Border.Size = {btnWidth, btnHeight}
                 local iconX = btnX + 15
-                saveBtn.Icon.Position = {iconX, btnY + (btnHeight / 2) - (saveBtn.Icon.Size.y / 2)}
-                saveBtn.Label.Position = {iconX + saveBtn.Icon.Size.x + 8, btnY + (btnHeight / 2) - (saveBtn.Label.Size / 2)}
-                saveBtn.ClickRegion = {x1 = btnX, y1 = btnY, x2 = btnX + btnWidth, y2 = btnY + btnHeight}
+                saveBtn.Icon.Position = {iconX, btnY + (btnHeight / 2) - (saveBtn.Icon.Size.y / 2)}; saveBtn.Label.Position = {iconX + saveBtn.Icon.Size.x + 8, btnY + (btnHeight / 2) - (saveBtn.Label.Size / 2)}; saveBtn.ClickRegion = {x1 = btnX, y1 = btnY, x2 = btnX + btnWidth, y2 = btnY + btnHeight}
             else
                 self:_SetVisibility(d.SaveButton.Background, false); self:_SetVisibility(d.SaveButton.Border, false); self:_SetVisibility(d.SaveButton.Icon, false); self:_SetVisibility(d.SaveButton.Label, false)
                 self:_SetVisibility(d.LoadButton.Background, true); self:_SetVisibility(d.LoadButton.Icon, true); self:_SetVisibility(d.LoadButton.Label, true)
-
                 local loadBtn = d.LoadButton
                 local accentColor = theme.Colors.Accent
                 local textColorForAccent = self:_GetTextColorForBackground(accentColor)
-                self:_AnimateAndApplyColor(loadBtn.Background, accentColor)
-                self:_AnimateAndApplyColor(loadBtn.Icon, textColorForAccent)
-                self:_AnimateAndApplyColor(loadBtn.Label, textColorForAccent)
+                self:_AnimateAndApplyColor(loadBtn.Background, accentColor); self:_AnimateAndApplyColor(loadBtn.Icon, textColorForAccent); self:_AnimateAndApplyColor(loadBtn.Label, textColorForAccent)
                 loadBtn.Background.Position = {btnX, btnY}; loadBtn.Background.Size = {btnWidth, btnHeight}
                 local iconX = btnX + 15
-                loadBtn.Icon.Position = {iconX, btnY + (btnHeight / 2) - (loadBtn.Icon.Size.y / 2)}
-                loadBtn.Label.Position = {iconX + loadBtn.Icon.Size.x + 8, btnY + (btnHeight / 2) - (loadBtn.Label.Size / 2)}
-                loadBtn.ClickRegion = {x1 = btnX, y1 = btnY, x2 = btnX + btnWidth, y2 = btnY + btnHeight}
+                loadBtn.Icon.Position = {iconX, btnY + (btnHeight / 2) - (loadBtn.Icon.Size.y / 2)}; loadBtn.Label.Position = {iconX + loadBtn.Icon.Size.x + 8, btnY + (btnHeight / 2) - (loadBtn.Label.Size / 2)}; loadBtn.ClickRegion = {x1 = btnX, y1 = btnY, x2 = btnX + btnWidth, y2 = btnY + btnHeight}
             end
         else
             self:_SetDrawingTableVisibility(item.Drawing, false)
