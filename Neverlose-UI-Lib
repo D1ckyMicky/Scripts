@@ -4241,7 +4241,7 @@ function Library:_AddPresetsTab()
 end
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. x242")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. x24x22")
     local is_first_frame = true
     while true do
         -- Обрабатываем очередь на удаление в начале каждого кадра
