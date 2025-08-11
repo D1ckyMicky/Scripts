@@ -1062,9 +1062,9 @@ function Library:_InitializeAboutWindow()
         if value then value.Font = self.ActiveTheme.Fonts.Main; value.Size = self.ActiveTheme.Fonts.Size + 2; value.Text = value_text; value.Center = false; value.zIndex = about_z; end
         return label, value
     end
-    about.InfoVersionLabel, about.InfoVersionValue = setupInfoText("Version:", " 2.0.0")
-    about.InfoBuildDateLabel, about.InfoBuildDateValue = setupInfoText("Build date:", " Dec 30 2020")
-    about.InfoBuildTypeLabel, about.InfoBuildTypeValue = setupInfoText("Build type:", " Release")
+    about.InfoVersionLabel, about.InfoVersionValue = setupInfoText("Version:", " 1.0.0")
+    about.InfoBuildDateLabel, about.InfoBuildDateValue = setupInfoText("Build date:", " Aug 11 2025")
+    about.InfoBuildTypeLabel, about.InfoBuildTypeValue = setupInfoText("Build type:", " Beta")
     about.InfoRegisteredToLabel, about.InfoRegisteredToValue = setupInfoText("Registered to:", "")
     about.InfoSubscriptionLabel, about.InfoSubscriptionValue = setupInfoText("Subscription till:", " FOREVER")
 
@@ -1548,10 +1548,19 @@ function Library:_InitializeConfigsTab()
         configs.MyItemsLabel.Font = self.ActiveTheme.Fonts.Main; configs.MyItemsLabel.Size = self.ActiveTheme.Fonts.Size + 2; configs.MyItemsLabel.Text = "- My items"; configs.MyItemsLabel.Center = false; configs.MyItemsLabel.zIndex = z;
     end
 
+    -- [[ ИЗМЕНЕНИЕ: Дополняем объект скроллбара новыми полями состояния ]]
     configs.Scrollbar = {
         Background = self:_CreateDrawingObject("Square"),
-        Nub = self:_CreateDrawingObject("Square")
+        Nub = self:_CreateDrawingObject("Square"),
+        -- Новые поля для управления логикой
+        IsDraggingNub = false,      -- Флаг, показывающий, тащим ли мы ползунок
+        ScrollOffset = 0,           -- Текущее смещение контента в пикселях
+        DragStartMouseY = 0,        -- Позиция Y мыши в начале перетаскивания
+        DragStartOffset = 0,        -- Смещение контента в начале перетаскивания
+        NubClickRegion = {}         -- Область нажатия для самого ползунка
     }
+    -- [[ КОНЕЦ ИЗМЕНЕНИЙ ]]
+
     if configs.Scrollbar.Background then configs.Scrollbar.Background.Filled = true; configs.Scrollbar.Background.zIndex = z + 2; configs.Scrollbar.Background.Rounding = 2; end
     if configs.Scrollbar.Nub then configs.Scrollbar.Nub.Filled = true; configs.Scrollbar.Nub.zIndex = z + 3; configs.Scrollbar.Nub.Rounding = 2; end
 
@@ -1590,7 +1599,7 @@ function Library:_InitializeConfigsTab()
     if delBtn.Background then delBtn.Background.Filled = true; delBtn.Background.zIndex = z + 12; delBtn.Background.Rounding = self.ActiveTheme.Rounding.Button; end
     if delBtn.Border then delBtn.Border.Filled = false; delBtn.Border.Thickness = 1; delBtn.Border.zIndex = z + 13; delBtn.Border.Rounding = self.ActiveTheme.Rounding.Button; end
     if delBtn.Icon then delBtn.Icon.Size = {18, 18}; delBtn.Icon.zIndex = z + 13; delBtn.Icon.Url = "https://i.postimg.cc/Bb6VL5RD/udalitkonfig.png"; end
-    if delBtn.Label then delBtn.Label.Font = self.ActiveTheme.Fonts.Main; delBtn.Label.Size = self.ActiveTheme.Fonts.Size + 1; delBtn.Label.Text = "Delete config"; delBtn.Label.Center = false; delBtn.Label.zIndex = z + 13; end
+    if delBtn.Label then delBtn.Label.Font = self.ActiveTheme.Fonts.Main; delBtn.Label.Size = self.ActiveTheme.Fonts.Size + 1; delBtn.Label.Text = " Delete config"; delBtn.Label.Center = false; delBtn.Label.zIndex = z + 13; end
 end
 
 
@@ -3029,95 +3038,125 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
     local configs = self.UI.Core.ConfigsTab
     local theme = self.ActiveTheme
 
-    self:_SetVisibility(configs.MyItemsLabel, true)
-    self:_SetVisibility(configs.Scrollbar.Background, true)
-    self:_SetVisibility(configs.Scrollbar.Nub, true)
-    self:_AnimateAndApplyColor(configs.MyItemsLabel, theme.Colors.TextPrimary)
-    self:_AnimateAndApplyColor(configs.Scrollbar.Background, theme.Colors.DarkBlue)
-    self:_AnimateAndApplyColor(configs.Scrollbar.Nub, theme.Colors.Accent)
+    -- [[ НАЧАЛО НОВОЙ ЛОГИКИ ]]
 
-    for _, item in ipairs(configs.Items) do
-        local d = item.Drawing
-        self:_SetVisibility(d.Background, true); self:_SetVisibility(d.Border, true); self:_SetVisibility(d.Name, true); self:_SetVisibility(d.Modified, true); self:_SetVisibility(d.Author, true); self:_SetVisibility(d.OptionsButton.Dot1, true); self:_SetVisibility(d.OptionsButton.Dot2, true); self:_SetVisibility(d.OptionsButton.Dot3, true)
-        
-        self:_AnimateAndApplyColor(d.Background, theme.Colors.SectionBackground)
-        self:_AnimateAndApplyColor(d.Border, theme.Colors.Separator)
-        self:_AnimateAndApplyColor(d.Name, theme.Colors.TextPrimary)
-        self:_AnimateAndApplyColor(d.Modified, theme.Colors.TextSecondary)
-        self:_AnimateAndApplyColor(d.Author, theme.Colors.TextSecondary)
-        self:_AnimateAndApplyColor(d.OptionsButton.Dot1, theme.Colors.TextSecondary)
-        self:_AnimateAndApplyColor(d.OptionsButton.Dot2, theme.Colors.TextSecondary)
-        self:_AnimateAndApplyColor(d.OptionsButton.Dot3, theme.Colors.TextSecondary)
-    end
-
+    -- 1. Определяем константы и размеры
     local startX = panelX + 20
     local startY = panelY + headerHeight + 20
     local contentWidth = (self.Window.Width - self.Window.SidebarWidth + self.Window.PanelOverlap) - 40
     local scrollbarWidth = 6
     local contentAreaWidth = contentWidth - scrollbarWidth - 10
-    configs.MyItemsLabel.Position = {startX, startY}
-    local currentY = startY + 25
+    
     local itemHeight = 60
     local itemSpacing = 10
+    local totalItemHeight = itemHeight + itemSpacing
+    local MAX_VISIBLE_ITEMS = 7
 
-    for i, item in ipairs(configs.Items) do
-        local d = item.Drawing
-        d.Background.Position = {startX, currentY}; d.Background.Size = {contentAreaWidth, itemHeight}
-        d.Border.Position = {startX, currentY}; d.Border.Size = {contentAreaWidth, itemHeight}
-        d.Name.Text = item.Name; d.Name.Position = {startX + 15, currentY + 12}
-        d.Modified.Text = "Modified: " .. item.Modified; d.Modified.Position = {startX + 15, currentY + 35}
-        if d.Modified.TextBounds and d.Modified.TextBounds.x then
-            d.Author.Text = "Author: " .. item.Author
-            d.Author.Position = {startX + 15 + d.Modified.TextBounds.x + 10, currentY + 35}
-        end
-        local btnWidth, btnHeight = 85, 28
-        local btnX = startX + contentAreaWidth - btnWidth - 15
-        local btnY = currentY + (itemHeight / 2) - (btnHeight / 2)
-        local optionsBtnX = btnX - 25; local optionsBtnY = currentY + (itemHeight / 2)
-        d.OptionsButton.Dot1.Position = {optionsBtnX - 6, optionsBtnY}; d.OptionsButton.Dot2.Position = {optionsBtnX, optionsBtnY}; d.OptionsButton.Dot3.Position = {optionsBtnX + 6, optionsBtnY}
-        d.OptionsButton.ClickRegion = {x1 = optionsBtnX - 10, y1 = optionsBtnY - 10, x2 = optionsBtnX + 10, y2 = optionsBtnY + 10}
-        local isLoaded = (configs.LoadedConfigName == item.Name)
-        self:_SetVisibility(d.SaveButton.Background, isLoaded); self:_SetVisibility(d.SaveButton.Border, isLoaded); self:_SetVisibility(d.SaveButton.Icon, isLoaded); self:_SetVisibility(d.SaveButton.Label, isLoaded)
-        self:_SetVisibility(d.LoadButton.Background, not isLoaded); self:_SetVisibility(d.LoadButton.Icon, not isLoaded); self:_SetVisibility(d.LoadButton.Label, not isLoaded)
+    -- 2. Рассчитываем высоты
+    local visibleAreaY = startY + 25 -- Начало видимой области (после "- My items")
+    local visibleAreaHeight = (MAX_VISIBLE_ITEMS * totalItemHeight) - itemSpacing
+    local totalContentHeight = (#configs.Items * totalItemHeight) - itemSpacing
+    local needsScrollbar = totalContentHeight > visibleAreaHeight
+
+    -- 3. Управляем видимостью скроллбара
+    self:_SetVisibility(configs.Scrollbar.Background, needsScrollbar)
+    self:_SetVisibility(configs.Scrollbar.Nub, needsScrollbar)
+    self:_AnimateAndApplyColor(configs.MyItemsLabel, theme.Colors.TextPrimary)
+    configs.MyItemsLabel.Position = {startX, startY}
+
+    if needsScrollbar then
+        -- 4. Рассчитываем геометрию скроллбара
+        local scrollbarX = startX + contentAreaWidth + 5
+        local minNubHeight = 30 -- Минимальная высота ползунка
+
+        configs.Scrollbar.Background.Position = {scrollbarX, visibleAreaY}
+        configs.Scrollbar.Background.Size = {scrollbarWidth, visibleAreaHeight}
+        self:_AnimateAndApplyColor(configs.Scrollbar.Background, theme.Colors.DarkBlue)
+
+        local nubHeight = math.max(minNubHeight, visibleAreaHeight * (visibleAreaHeight / totalContentHeight))
         
-        if isLoaded then
-            local saveBtn = d.SaveButton
-            self:_AnimateAndApplyColor(saveBtn.Background, theme.Colors.SectionBackground)
-            self:_AnimateAndApplyColor(saveBtn.Border, theme.Colors.Accent)
-            self:_AnimateAndApplyColor(saveBtn.Icon, theme.Colors.TextPrimary)
-            self:_AnimateAndApplyColor(saveBtn.Label, theme.Colors.TextPrimary)
-            saveBtn.Background.Position = {btnX, btnY}; saveBtn.Background.Size = {btnWidth, btnHeight}
-            saveBtn.Border.Position = {btnX, btnY}; saveBtn.Border.Size = {btnWidth, btnHeight}
-            local iconX = btnX + 15
-            saveBtn.Icon.Position = {iconX, btnY + (btnHeight / 2) - (saveBtn.Icon.Size.y / 2)}
-            saveBtn.Label.Position = {iconX + saveBtn.Icon.Size.x + 8, btnY + (btnHeight / 2) - (saveBtn.Label.Size / 2)}
-            saveBtn.ClickRegion = {x1 = btnX, y1 = btnY, x2 = btnX + btnWidth, y2 = btnY + btnHeight}
-        else
-            local loadBtn = d.LoadButton
-            local accentColor = theme.Colors.Accent
-            local textColorForAccent = self:_GetTextColorForBackground(accentColor)
-            
-            self:_AnimateAndApplyColor(loadBtn.Background, accentColor)
-            self:_AnimateAndApplyColor(loadBtn.Icon, textColorForAccent)
-            self:_AnimateAndApplyColor(loadBtn.Label, textColorForAccent)
-
-            loadBtn.Background.Position = {btnX, btnY}; loadBtn.Background.Size = {btnWidth, btnHeight}
-            local iconX = btnX + 15
-            loadBtn.Icon.Position = {iconX, btnY + (btnHeight / 2) - (loadBtn.Icon.Size.y / 2)}
-            loadBtn.Label.Position = {iconX + loadBtn.Icon.Size.x + 8, btnY + (btnHeight / 2) - (loadBtn.Label.Size / 2)}
-            loadBtn.ClickRegion = {x1 = btnX, y1 = btnY, x2 = btnX + btnWidth, y2 = btnY + btnHeight}
-        end
-        currentY = currentY + itemHeight + itemSpacing
+        local maxScrollOffset = totalContentHeight - visibleAreaHeight
+        local scrollPercentage = configs.Scrollbar.ScrollOffset / maxScrollOffset
+        
+        local nubY = visibleAreaY + ((visibleAreaHeight - nubHeight) * scrollPercentage)
+        
+        configs.Scrollbar.Nub.Position = {scrollbarX, nubY}
+        configs.Scrollbar.Nub.Size = {scrollbarWidth, nubHeight}
+        self:_AnimateAndApplyColor(configs.Scrollbar.Nub, theme.Colors.Accent)
+        
+        -- Обновляем кликабельную область для будущего перетаскивания
+        configs.Scrollbar.NubClickRegion = { x1 = scrollbarX, y1 = nubY, x2 = scrollbarX + scrollbarWidth, y2 = nubY + nubHeight }
     end
-    local scrollbarX = startX + contentAreaWidth + 5
-    local scrollbarHeight = self.Window.Height - headerHeight - 40
-    configs.Scrollbar.Background.Position = {scrollbarX, startY}
-    configs.Scrollbar.Background.Size = {scrollbarWidth, scrollbarHeight}
-    local nubHeight = 80
-    configs.Scrollbar.Nub.Position = {scrollbarX, startY}
-    configs.Scrollbar.Nub.Size = {scrollbarWidth, nubHeight}
-end
 
+    -- 5. Отрисовка и "обрезка" элементов
+    local loopStartY = visibleAreaY
+    for i, item in ipairs(configs.Items) do
+        -- Вычисляем "виртуальную" позицию элемента с учётом скролла
+        local itemY = (loopStartY + (i - 1) * totalItemHeight) - configs.Scrollbar.ScrollOffset
+        
+        -- Проверяем, находится ли элемент в пределах видимой области (viewport)
+        local isVisible = (itemY + itemHeight > visibleAreaY) and (itemY < visibleAreaY + visibleAreaHeight)
+        
+        -- Устанавливаем видимость для всей группы элементов
+        self:_SetDrawingTableVisibility(item.Drawing, isVisible)
+
+        if isVisible then
+            -- Если элемент виден, отрисовываем его в вычисленной позиции
+            local d = item.Drawing
+            
+            -- Применяем цвета (это можно делать всегда, т.к. невидимые объекты не тратят ресурсы)
+            self:_AnimateAndApplyColor(d.Background, theme.Colors.SectionBackground)
+            self:_AnimateAndApplyColor(d.Border, theme.Colors.Separator)
+            self:_AnimateAndApplyColor(d.Name, theme.Colors.TextPrimary)
+            -- ... (остальные вызовы _AnimateAndApplyColor для кнопок и текста)
+
+            -- Позиционируем элементы
+            d.Background.Position = {startX, itemY}; d.Background.Size = {contentAreaWidth, itemHeight}
+            d.Border.Position = {startX, itemY}; d.Border.Size = {contentAreaWidth, itemHeight}
+            d.Name.Text = item.Name; d.Name.Position = {startX + 15, itemY + 12}
+            -- ... (остальное позиционирование текста и кнопок, используя itemY вместо currentY)
+            
+            d.Modified.Text = "Modified: " .. item.Modified; d.Modified.Position = {startX + 15, itemY + 35}
+            if d.Modified.TextBounds and d.Modified.TextBounds.x then
+                d.Author.Text = "Author: " .. item.Author
+                d.Author.Position = {startX + 15 + d.Modified.TextBounds.x + 10, itemY + 35}
+            end
+            local btnWidth, btnHeight = 85, 28
+            local btnX = startX + contentAreaWidth - btnWidth - 15
+            local btnY = itemY + (itemHeight / 2) - (btnHeight / 2)
+            local optionsBtnX = btnX - 25; local optionsBtnY = itemY + (itemHeight / 2)
+            d.OptionsButton.Dot1.Position = {optionsBtnX - 6, optionsBtnY}; d.OptionsButton.Dot2.Position = {optionsBtnX, optionsBtnY}; d.OptionsButton.Dot3.Position = {optionsBtnX + 6, optionsBtnY}
+            d.OptionsButton.ClickRegion = {x1 = optionsBtnX - 10, y1 = optionsBtnY - 10, x2 = optionsBtnX + 10, y2 = optionsBtnY + 10}
+
+            local isLoaded = (configs.LoadedConfigName == item.Name)
+            if isLoaded then
+                local saveBtn = d.SaveButton
+                self:_AnimateAndApplyColor(saveBtn.Background, theme.Colors.SectionBackground)
+                self:_AnimateAndApplyColor(saveBtn.Border, theme.Colors.Accent)
+                self:_AnimateAndApplyColor(saveBtn.Icon, theme.Colors.TextPrimary)
+                self:_AnimateAndApplyColor(saveBtn.Label, theme.Colors.TextPrimary)
+                saveBtn.Background.Position = {btnX, btnY}; saveBtn.Background.Size = {btnWidth, btnHeight}
+                saveBtn.Border.Position = {btnX, btnY}; saveBtn.Border.Size = {btnWidth, btnHeight}
+                local iconX = btnX + 15
+                saveBtn.Icon.Position = {iconX, btnY + (btnHeight / 2) - (saveBtn.Icon.Size.y / 2)}
+                saveBtn.Label.Position = {iconX + saveBtn.Icon.Size.x + 8, btnY + (btnHeight / 2) - (saveBtn.Label.Size / 2)}
+                saveBtn.ClickRegion = {x1 = btnX, y1 = btnY, x2 = btnX + btnWidth, y2 = btnY + btnHeight}
+            else
+                local loadBtn = d.LoadButton
+                local accentColor = theme.Colors.Accent
+                local textColorForAccent = self:_GetTextColorForBackground(accentColor)
+                self:_AnimateAndApplyColor(loadBtn.Background, accentColor)
+                self:_AnimateAndApplyColor(loadBtn.Icon, textColorForAccent)
+                self:_AnimateAndApplyColor(loadBtn.Label, textColorForAccent)
+                loadBtn.Background.Position = {btnX, btnY}; loadBtn.Background.Size = {btnWidth, btnHeight}
+                local iconX = btnX + 15
+                loadBtn.Icon.Position = {iconX, btnY + (btnHeight / 2) - (loadBtn.Icon.Size.y / 2)}
+                loadBtn.Label.Position = {iconX + loadBtn.Icon.Size.x + 8, btnY + (btnHeight / 2) - (loadBtn.Label.Size / 2)}
+                loadBtn.ClickRegion = {x1 = btnX, y1 = btnY, x2 = btnX + btnWidth, y2 = btnY + btnHeight}
+            end
+        end
+    end
+end
 function Library:_RenderConfigOptionsPopup()
     local configs = self.UI.Core.ConfigsTab
     local popup = configs.OptionsPopup
