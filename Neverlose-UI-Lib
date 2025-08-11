@@ -3129,18 +3129,18 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
         if item.Animation.CurrentOpacity > 0 then
             local d = item.Drawing
             local isLoaded = (configs.LoadedConfigName == item.Name)
-            local masterOpacity = item.Animation.CurrentOpacity
+            local itemMasterOpacity = item.Animation.CurrentOpacity
 
             self:_SetDrawingTableVisibility(d, true)
 
-            self:_AnimateAndApplyColor(d.Background, theme.Colors.SectionBackground, masterOpacity)
-            self:_AnimateAndApplyColor(d.Border, theme.Colors.Separator, masterOpacity)
-            self:_AnimateAndApplyColor(d.Name, theme.Colors.TextPrimary, masterOpacity)
-            self:_AnimateAndApplyColor(d.Modified, theme.Colors.TextSecondary, masterOpacity)
-            self:_AnimateAndApplyColor(d.Author, theme.Colors.TextSecondary, masterOpacity)
-            self:_AnimateAndApplyColor(d.OptionsButton.Dot1, theme.Colors.TextSecondary, masterOpacity)
-            self:_AnimateAndApplyColor(d.OptionsButton.Dot2, theme.Colors.TextSecondary, masterOpacity)
-            self:_AnimateAndApplyColor(d.OptionsButton.Dot3, theme.Colors.TextSecondary, masterOpacity)
+            self:_AnimateAndApplyColor(d.Background, theme.Colors.SectionBackground, itemMasterOpacity)
+            self:_AnimateAndApplyColor(d.Border, theme.Colors.Separator, itemMasterOpacity)
+            self:_AnimateAndApplyColor(d.Name, theme.Colors.TextPrimary, itemMasterOpacity)
+            self:_AnimateAndApplyColor(d.Modified, theme.Colors.TextSecondary, itemMasterOpacity)
+            self:_AnimateAndApplyColor(d.Author, theme.Colors.TextSecondary, itemMasterOpacity)
+            self:_AnimateAndApplyColor(d.OptionsButton.Dot1, theme.Colors.TextSecondary, itemMasterOpacity)
+            self:_AnimateAndApplyColor(d.OptionsButton.Dot2, theme.Colors.TextSecondary, itemMasterOpacity)
+            self:_AnimateAndApplyColor(d.OptionsButton.Dot3, theme.Colors.TextSecondary, itemMasterOpacity)
             
             d.Background.Position = {startX, renderY}; d.Background.Size = {contentAreaWidth, itemHeight}
             d.Border.Position = {startX, renderY}; d.Border.Size = {contentAreaWidth, itemHeight}
@@ -3150,6 +3150,7 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
                 d.Author.Text = "Author: " .. item.Author
                 d.Author.Position = {startX + 15 + d.Modified.TextBounds.x + 10, renderY + 35}
             end
+            
             local btnWidth, btnHeight = 85, 28
             local btnX = startX + contentAreaWidth - btnWidth - 15
             local btnY = renderY + (itemHeight / 2) - (btnHeight / 2)
@@ -3157,31 +3158,52 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
             d.OptionsButton.Dot1.Position = {optionsBtnX - 6, optionsBtnY}; d.OptionsButton.Dot2.Position = {optionsBtnX, optionsBtnY}; d.OptionsButton.Dot3.Position = {optionsBtnX + 6, optionsBtnY}
             d.OptionsButton.ClickRegion = {x1 = optionsBtnX - 10, y1 = optionsBtnY - 10, x2 = optionsBtnX + 10, y2 = optionsBtnY + 10}
             
-            if isLoaded then
-                -- [[ ИЗМЕНЕНИЕ: Используем новую функцию для полного скрытия кнопки Load ]]
-                self:_ForceHideDrawingTable(d.LoadButton)
-                
-                -- Показываем и рендерим кнопку Save
-                self:_SetDrawingTableVisibility(d.SaveButton, true)
-                local saveBtn = d.SaveButton
-                self:_AnimateAndApplyColor(saveBtn.Background, theme.Colors.SectionBackground, masterOpacity); self:_AnimateAndApplyColor(saveBtn.Border, theme.Colors.Accent, masterOpacity); self:_AnimateAndApplyColor(saveBtn.Icon, theme.Colors.TextPrimary, masterOpacity); self:_AnimateAndApplyColor(saveBtn.Label, theme.Colors.TextPrimary, masterOpacity)
-                saveBtn.Background.Position = {btnX, btnY}; saveBtn.Background.Size = {btnWidth, btnHeight}; saveBtn.Border.Position = {btnX, btnY}; saveBtn.Border.Size = {btnWidth, btnHeight}
-                local iconX = btnX + 15
-                saveBtn.Icon.Position = {iconX, btnY + (btnHeight / 2) - (saveBtn.Icon.Size.y / 2)}; saveBtn.Label.Position = {iconX + saveBtn.Icon.Size.x + 8, btnY + (btnHeight / 2) - (saveBtn.Label.Size / 2)}; saveBtn.ClickRegion = {x1 = btnX, y1 = btnY, x2 = btnX + btnWidth, y2 = btnY + btnHeight}
-            else
-                -- [[ ИЗМЕНЕНИЕ: Используем новую функцию для полного скрытия кнопки Save ]]
-                self:_ForceHideDrawingTable(d.SaveButton)
+            -- [[ ИЗМЕНЕНИЕ НАЧАЛО: Новая логика отрисовки кнопок ]]
 
-                -- Показываем и рендерим кнопку Load
-                self:_SetDrawingTableVisibility(d.LoadButton, true)
-                local loadBtn = d.LoadButton
-                local accentColor = theme.Colors.Accent
-                local textColorForAccent = self:_GetTextColorForBackground(accentColor)
-                self:_AnimateAndApplyColor(loadBtn.Background, accentColor, masterOpacity); self:_AnimateAndApplyColor(loadBtn.Icon, textColorForAccent, masterOpacity); self:_AnimateAndApplyColor(loadBtn.Label, textColorForAccent, masterOpacity)
-                loadBtn.Background.Position = {btnX, btnY}; loadBtn.Background.Size = {btnWidth, btnHeight}
-                local iconX = btnX + 15
-                loadBtn.Icon.Position = {iconX, btnY + (btnHeight / 2) - (loadBtn.Icon.Size.y / 2)}; loadBtn.Label.Position = {iconX + loadBtn.Icon.Size.x + 8, btnY + (btnHeight / 2) - (loadBtn.Label.Size / 2)}; loadBtn.ClickRegion = {x1 = btnX, y1 = btnY, x2 = btnX + btnWidth, y2 = btnY + btnHeight}
+            -- Определяем целевую прозрачность для каждой кнопки
+            local saveButtonOpacity = isLoaded and itemMasterOpacity or 0
+            local loadButtonOpacity = not isLoaded and itemMasterOpacity or 0
+
+            -- Обрабатываем кнопку SAVE
+            do
+                local saveBtn = d.SaveButton
+                self:_SetDrawingTableVisibility(saveBtn, saveButtonOpacity > 0)
+                if saveButtonOpacity > 0 then
+                    self:_AnimateAndApplyColor(saveBtn.Background, theme.Colors.SectionBackground, saveButtonOpacity)
+                    self:_AnimateAndApplyColor(saveBtn.Border, theme.Colors.Accent, saveButtonOpacity)
+                    self:_AnimateAndApplyColor(saveBtn.Icon, theme.Colors.TextPrimary, saveButtonOpacity)
+                    self:_AnimateAndApplyColor(saveBtn.Label, theme.Colors.TextPrimary, saveButtonOpacity)
+                    
+                    saveBtn.Background.Position = {btnX, btnY}; saveBtn.Background.Size = {btnWidth, btnHeight}
+                    saveBtn.Border.Position = {btnX, btnY}; saveBtn.Border.Size = {btnWidth, btnHeight}
+                    local iconX = btnX + 15
+                    saveBtn.Icon.Position = {iconX, btnY + (btnHeight / 2) - (saveBtn.Icon.Size.y / 2)}
+                    saveBtn.Label.Position = {iconX + saveBtn.Icon.Size.x + 8, btnY + (btnHeight / 2) - (saveBtn.Label.Size / 2)}
+                    saveBtn.ClickRegion = {x1 = btnX, y1 = btnY, x2 = btnX + btnWidth, y2 = btnY + btnHeight}
+                end
             end
+
+            -- Обрабатываем кнопку LOAD
+            do
+                local loadBtn = d.LoadButton
+                self:_SetDrawingTableVisibility(loadBtn, loadButtonOpacity > 0)
+                if loadButtonOpacity > 0 then
+                    local accentColor = theme.Colors.Accent
+                    local textColorForAccent = self:_GetTextColorForBackground(accentColor)
+
+                    self:_AnimateAndApplyColor(loadBtn.Background, accentColor, loadButtonOpacity)
+                    self:_AnimateAndApplyColor(loadBtn.Icon, textColorForAccent, loadButtonOpacity)
+                    self:_AnimateAndApplyColor(loadBtn.Label, textColorForAccent, loadButtonOpacity)
+
+                    loadBtn.Background.Position = {btnX, btnY}; loadBtn.Background.Size = {btnWidth, btnHeight}
+                    local iconX = btnX + 15
+                    loadBtn.Icon.Position = {iconX, btnY + (btnHeight / 2) - (loadBtn.Icon.Size.y / 2)}
+                    loadBtn.Label.Position = {iconX + loadBtn.Icon.Size.x + 8, btnY + (btnHeight / 2) - (loadBtn.Label.Size / 2)}
+                    loadBtn.ClickRegion = {x1 = btnX, y1 = btnY, x2 = btnX + btnWidth, y2 = btnY + btnHeight}
+                end
+            end
+            -- [[ ИЗМЕНЕНИЕ КОНЕЦ ]]
+
         else
             self:_SetDrawingTableVisibility(item.Drawing, false)
         end
