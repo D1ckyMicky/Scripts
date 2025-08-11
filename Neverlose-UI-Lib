@@ -3038,8 +3038,6 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
     local configs = self.UI.Core.ConfigsTab
     local theme = self.ActiveTheme
 
-    -- [[ НАЧАЛО НОВОЙ ЛОГИКИ ]]
-
     -- 1. Определяем константы и размеры
     local startX = panelX + 20
     local startY = panelY + headerHeight + 20
@@ -3053,7 +3051,7 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
     local MAX_VISIBLE_ITEMS = 7
 
     -- 2. Рассчитываем высоты
-    local visibleAreaY = startY + 25 -- Начало видимой области (после "- My items")
+    local visibleAreaY = startY + 25
     local visibleAreaHeight = (MAX_VISIBLE_ITEMS * totalItemHeight) - itemSpacing
     local totalContentHeight = (#configs.Items * totalItemHeight) - itemSpacing
     local needsScrollbar = totalContentHeight > visibleAreaHeight
@@ -3067,7 +3065,7 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
     if needsScrollbar then
         -- 4. Рассчитываем геометрию скроллбара
         local scrollbarX = startX + contentAreaWidth + 5
-        local minNubHeight = 30 -- Минимальная высота ползунка
+        local minNubHeight = 30 
 
         configs.Scrollbar.Background.Position = {scrollbarX, visibleAreaY}
         configs.Scrollbar.Background.Size = {scrollbarWidth, visibleAreaHeight}
@@ -3076,7 +3074,7 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
         local nubHeight = math.max(minNubHeight, visibleAreaHeight * (visibleAreaHeight / totalContentHeight))
         
         local maxScrollOffset = totalContentHeight - visibleAreaHeight
-        local scrollPercentage = configs.Scrollbar.ScrollOffset / maxScrollOffset
+        local scrollPercentage = (maxScrollOffset > 0) and (configs.Scrollbar.ScrollOffset / maxScrollOffset) or 0
         
         local nubY = visibleAreaY + ((visibleAreaHeight - nubHeight) * scrollPercentage)
         
@@ -3084,38 +3082,35 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
         configs.Scrollbar.Nub.Size = {scrollbarWidth, nubHeight}
         self:_AnimateAndApplyColor(configs.Scrollbar.Nub, theme.Colors.Accent)
         
-        -- Обновляем кликабельную область для будущего перетаскивания
         configs.Scrollbar.NubClickRegion = { x1 = scrollbarX, y1 = nubY, x2 = scrollbarX + scrollbarWidth, y2 = nubY + nubHeight }
     end
 
     -- 5. Отрисовка и "обрезка" элементов
     local loopStartY = visibleAreaY
     for i, item in ipairs(configs.Items) do
-        -- Вычисляем "виртуальную" позицию элемента с учётом скролла
         local itemY = (loopStartY + (i - 1) * totalItemHeight) - configs.Scrollbar.ScrollOffset
-        
-        -- Проверяем, находится ли элемент в пределах видимой области (viewport)
         local isVisible = (itemY + itemHeight > visibleAreaY) and (itemY < visibleAreaY + visibleAreaHeight)
         
-        -- Устанавливаем видимость для всей группы элементов
         self:_SetDrawingTableVisibility(item.Drawing, isVisible)
 
         if isVisible then
-            -- Если элемент виден, отрисовываем его в вычисленной позиции
             local d = item.Drawing
+            local isLoaded = (configs.LoadedConfigName == item.Name)
             
-            -- Применяем цвета (это можно делать всегда, т.к. невидимые объекты не тратят ресурсы)
+            -- [[ ФИКС #1: Добавляем обновление цвета для всех текстовых полей ]]
             self:_AnimateAndApplyColor(d.Background, theme.Colors.SectionBackground)
             self:_AnimateAndApplyColor(d.Border, theme.Colors.Separator)
             self:_AnimateAndApplyColor(d.Name, theme.Colors.TextPrimary)
-            -- ... (остальные вызовы _AnimateAndApplyColor для кнопок и текста)
+            self:_AnimateAndApplyColor(d.Modified, theme.Colors.TextSecondary)
+            self:_AnimateAndApplyColor(d.Author, theme.Colors.TextSecondary)
+            self:_AnimateAndApplyColor(d.OptionsButton.Dot1, theme.Colors.TextSecondary)
+            self:_AnimateAndApplyColor(d.OptionsButton.Dot2, theme.Colors.TextSecondary)
+            self:_AnimateAndApplyColor(d.OptionsButton.Dot3, theme.Colors.TextSecondary)
 
-            -- Позиционируем элементы
+            -- Позиционируем всё, как и раньше
             d.Background.Position = {startX, itemY}; d.Background.Size = {contentAreaWidth, itemHeight}
             d.Border.Position = {startX, itemY}; d.Border.Size = {contentAreaWidth, itemHeight}
             d.Name.Text = item.Name; d.Name.Position = {startX + 15, itemY + 12}
-            -- ... (остальное позиционирование текста и кнопок, используя itemY вместо currentY)
-            
             d.Modified.Text = "Modified: " .. item.Modified; d.Modified.Position = {startX + 15, itemY + 35}
             if d.Modified.TextBounds and d.Modified.TextBounds.x then
                 d.Author.Text = "Author: " .. item.Author
@@ -3128,7 +3123,7 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
             d.OptionsButton.Dot1.Position = {optionsBtnX - 6, optionsBtnY}; d.OptionsButton.Dot2.Position = {optionsBtnX, optionsBtnY}; d.OptionsButton.Dot3.Position = {optionsBtnX + 6, optionsBtnY}
             d.OptionsButton.ClickRegion = {x1 = optionsBtnX - 10, y1 = optionsBtnY - 10, x2 = optionsBtnX + 10, y2 = optionsBtnY + 10}
 
-            local isLoaded = (configs.LoadedConfigName == item.Name)
+            -- [[ ФИКС #2: Полностью переписанная логика обновления цветов кнопок ]]
             if isLoaded then
                 local saveBtn = d.SaveButton
                 self:_AnimateAndApplyColor(saveBtn.Background, theme.Colors.SectionBackground)
@@ -3157,6 +3152,7 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
         end
     end
 end
+
 function Library:_RenderConfigOptionsPopup()
     local configs = self.UI.Core.ConfigsTab
     local popup = configs.OptionsPopup
