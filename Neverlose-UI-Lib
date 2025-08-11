@@ -3038,7 +3038,6 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
     local configs = self.UI.Core.ConfigsTab
     local theme = self.ActiveTheme
 
-    -- 1. Определяем константы и размеры
     local startX = panelX + 20
     local startY = panelY + headerHeight + 20
     local contentWidth = (self.Window.Width - self.Window.SidebarWidth + self.Window.PanelOverlap) - 40
@@ -3050,20 +3049,17 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
     local totalItemHeight = itemHeight + itemSpacing
     local MAX_VISIBLE_ITEMS = 7
 
-    -- 2. Рассчитываем высоты
     local visibleAreaY = startY + 25
     local visibleAreaHeight = (MAX_VISIBLE_ITEMS * totalItemHeight) - itemSpacing
     local totalContentHeight = (#configs.Items * totalItemHeight) - itemSpacing
     local needsScrollbar = totalContentHeight > visibleAreaHeight
 
-    -- 3. Управляем видимостью скроллбара
     self:_SetVisibility(configs.Scrollbar.Background, needsScrollbar)
     self:_SetVisibility(configs.Scrollbar.Nub, needsScrollbar)
     self:_AnimateAndApplyColor(configs.MyItemsLabel, theme.Colors.TextPrimary)
     configs.MyItemsLabel.Position = {startX, startY}
 
     if needsScrollbar then
-        -- 4. Рассчитываем геометрию скроллбара
         local scrollbarX = startX + contentAreaWidth + 5
         local minNubHeight = 30 
 
@@ -3085,19 +3081,18 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
         configs.Scrollbar.NubClickRegion = { x1 = scrollbarX, y1 = nubY, x2 = scrollbarX + scrollbarWidth, y2 = nubY + nubHeight }
     end
 
-    -- 5. Отрисовка и "обрезка" элементов
     local loopStartY = visibleAreaY
     for i, item in ipairs(configs.Items) do
         local itemY = (loopStartY + (i - 1) * totalItemHeight) - configs.Scrollbar.ScrollOffset
         local isVisible = (itemY + itemHeight > visibleAreaY) and (itemY < visibleAreaY + visibleAreaHeight)
         
+        -- Сначала мы решаем, виден ли элемент ВООБЩЕ
         self:_SetDrawingTableVisibility(item.Drawing, isVisible)
 
         if isVisible then
             local d = item.Drawing
             local isLoaded = (configs.LoadedConfigName == item.Name)
             
-            -- [[ ФИКС #1: Добавляем обновление цвета для всех текстовых полей ]]
             self:_AnimateAndApplyColor(d.Background, theme.Colors.SectionBackground)
             self:_AnimateAndApplyColor(d.Border, theme.Colors.Separator)
             self:_AnimateAndApplyColor(d.Name, theme.Colors.TextPrimary)
@@ -3107,7 +3102,6 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
             self:_AnimateAndApplyColor(d.OptionsButton.Dot2, theme.Colors.TextSecondary)
             self:_AnimateAndApplyColor(d.OptionsButton.Dot3, theme.Colors.TextSecondary)
 
-            -- Позиционируем всё, как и раньше
             d.Background.Position = {startX, itemY}; d.Background.Size = {contentAreaWidth, itemHeight}
             d.Border.Position = {startX, itemY}; d.Border.Size = {contentAreaWidth, itemHeight}
             d.Name.Text = item.Name; d.Name.Position = {startX + 15, itemY + 12}
@@ -3123,8 +3117,12 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
             d.OptionsButton.Dot1.Position = {optionsBtnX - 6, optionsBtnY}; d.OptionsButton.Dot2.Position = {optionsBtnX, optionsBtnY}; d.OptionsButton.Dot3.Position = {optionsBtnX + 6, optionsBtnY}
             d.OptionsButton.ClickRegion = {x1 = optionsBtnX - 10, y1 = optionsBtnY - 10, x2 = optionsBtnX + 10, y2 = optionsBtnY + 10}
 
-            -- [[ ФИКС #2: Полностью переписанная логика обновления цветов кнопок ]]
+            -- [[ ФИНАЛЬНЫЙ ФИКС: Явное скрытие и показ нужных кнопок ]]
             if isLoaded then
+                -- Элемент активен: показываем кнопку Save, скрываем Load
+                self:_SetVisibility(d.SaveButton.Background, true); self:_SetVisibility(d.SaveButton.Border, true); self:_SetVisibility(d.SaveButton.Icon, true); self:_SetVisibility(d.SaveButton.Label, true)
+                self:_SetVisibility(d.LoadButton.Background, false); self:_SetVisibility(d.LoadButton.Icon, false); self:_SetVisibility(d.LoadButton.Label, false)
+
                 local saveBtn = d.SaveButton
                 self:_AnimateAndApplyColor(saveBtn.Background, theme.Colors.SectionBackground)
                 self:_AnimateAndApplyColor(saveBtn.Border, theme.Colors.Accent)
@@ -3137,6 +3135,10 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
                 saveBtn.Label.Position = {iconX + saveBtn.Icon.Size.x + 8, btnY + (btnHeight / 2) - (saveBtn.Label.Size / 2)}
                 saveBtn.ClickRegion = {x1 = btnX, y1 = btnY, x2 = btnX + btnWidth, y2 = btnY + btnHeight}
             else
+                -- Элемент неактивен: показываем кнопку Load, скрываем Save
+                self:_SetVisibility(d.SaveButton.Background, false); self:_SetVisibility(d.SaveButton.Border, false); self:_SetVisibility(d.SaveButton.Icon, false); self:_SetVisibility(d.SaveButton.Label, false)
+                self:_SetVisibility(d.LoadButton.Background, true); self:_SetVisibility(d.LoadButton.Icon, true); self:_SetVisibility(d.LoadButton.Label, true)
+
                 local loadBtn = d.LoadButton
                 local accentColor = theme.Colors.Accent
                 local textColorForAccent = self:_GetTextColorForBackground(accentColor)
@@ -4209,7 +4211,7 @@ function Library:_AddPresetsTab()
 end
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. x242")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. x2425")
     local is_first_frame = true
     while true do
         -- Обрабатываем очередь на удаление в начале каждого кадра
