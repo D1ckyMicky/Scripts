@@ -3055,6 +3055,7 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
     local needsScrollbar = totalContentHeight > visibleAreaHeight
 
     self:_SetVisibility(configs.Scrollbar.Background, needsScrollbar)
+    self:_SetVisibility(configs.MyItemsLabel, true)
     self:_SetVisibility(configs.Scrollbar.Nub, needsScrollbar)
     self:_AnimateAndApplyColor(configs.MyItemsLabel, theme.Colors.TextPrimary)
     configs.MyItemsLabel.Position = {startX, startY}
@@ -3483,7 +3484,6 @@ function Library:_RenderHotkeys()
     end
 end
 
-
 function Library:_InputLoop()
     self:_CheckGlobalBinds()
 
@@ -3494,7 +3494,6 @@ function Library:_InputLoop()
     local mouse_pos = getmouseposition()
     if not mouse_pos then return end
 
-    -- [[ ИЗМЕНЕНИЕ: Проверяем движение мыши и другие действия ]]
     local mouse_moved = (mouse_pos.x ~= lastMousePos.x or mouse_pos.y ~= lastMousePos.y)
     local is_left_pressed_now = isleftpressed()
     local is_left_clicked = was_left_pressed and not is_left_pressed_now
@@ -3502,12 +3501,11 @@ function Library:_InputLoop()
     local is_right_clicked = was_right_pressed and not is_right_pressed_now
     local key_pressed = (getpressedkey() ~= "None")
 
-        -- << [НОВОЕ] >> Запускаем основную логику только если было действие
-    if mouse_moved or is_left_pressed_now or is_left_clicked or is_right_pressed_now or is_right_clicked or key_pressed then
+    -- Оптимизация: запускаем основную логику только если есть действие или активна анимация
+    if mouse_moved or is_left_pressed_now or is_left_clicked or is_right_pressed_now or is_right_clicked or key_pressed or self:_UpdateAllAnimations() then
 
-    lastMousePos = mouse_pos -- Обновляем последнюю позицию мыши
+    lastMousePos = mouse_pos 
 
-    -- Вся остальная логика остается без изменений, она будет выполняться только если есть действие
     local mouse_x, mouse_y = self:_SafeNumber(mouse_pos.x, 0), self:_SafeNumber(mouse_pos.y, 0)
     local is_press_started = is_left_pressed_now and not was_left_pressed
 
@@ -3520,23 +3518,22 @@ function Library:_InputLoop()
     local burger_button = self.UI.Core.HeaderButtons.BurgerMenu
     local wm = self.UI.Watermark
     local hk = self.UI.Hotkeys
-
-    -- ... (весь остальной код функции _InputLoop, начиная с local function applySliderInput, остается здесь без изменений)
-    -- ... (я его не включаю сюда, чтобы не делать блок кода слишком огромным, но он должен быть здесь)
+    
     local function applySliderInput(slider)
         if not slider.IsEditing then return end
         local num = tonumber(slider.InputText)
         if num then
             num = math.clamp(num, slider.Min, slider.Max)
-            if slider.id == "AboutAnimationSpeed" then
-                 self.UI.Values[slider.id] = num
+            if slider.Increment >= 1 then
+                self.UI.Values[slider.id] = math.floor(num)
             else
-                 self.UI.Values[slider.id] = math.floor(num)
+                self.UI.Values[slider.id] = num
             end
             if slider.Callback then slider.Callback(self.UI.Values[slider.id]) end
         end
         slider.IsEditing = false
     end
+
 
     local function applyColorInput(picker)
         if not picker.IsEditing then return end
@@ -3565,9 +3562,7 @@ function Library:_InputLoop()
                 self.UI.Values[picker.EditingValueID] = newColor
             elseif picker.EditingColorName then
                 style_window.EditingTheme.Colors[picker.EditingColorName] = newColor
-                if self.UI.Values.EditStyleRealTime and self.TempTheme then
-                    self.TempTheme.Colors[picker.EditingColorName] = newColor
-                end
+                if self.UI.Values.EditStyleRealTime and self.TempTheme then self.TempTheme.Colors[picker.EditingColorName] = newColor end
             end
         end
     end
@@ -3631,16 +3626,22 @@ function Library:_InputLoop()
         is_dragging_something = false
         local started_drag = false
 
-        -- [[ НАЧАЛО НОВОГО КОДА ]]
+        -- [[ ИЗМЕНЕНИЕ ЗДЕСЬ ]]
+        -- Проверяем, не тащим ли мы скроллбар во вкладке конфигов
         local scrollbar = configsTab.Scrollbar
-        -- Проверяем, нажали ли мы на ползунок скроллбара
+        -- Проверяем, нужна ли вообще полоса прокрутки
+        local itemHeight = 60; local itemSpacing = 10; local totalItemHeight = itemHeight + itemSpacing; local MAX_VISIBLE_ITEMS = 7
+        local visibleAreaHeight = (MAX_VISIBLE_ITEMS * totalItemHeight) - itemSpacing
+        local totalContentHeight = (#configsTab.Items * totalItemHeight) - itemSpacing
+        local needsScrollbar = totalContentHeight > visibleAreaHeight
+
         if self.Window.ActiveTab == "Configs" and needsScrollbar and self:_IsPointInRegion(mouse_x, mouse_y, scrollbar.NubClickRegion) then
             scrollbar.IsDraggingNub = true
             scrollbar.DragStartMouseY = mouse_y
             scrollbar.DragStartOffset = scrollbar.ScrollOffset
-            started_drag = true -- Помечаем, что мы начали перетаскивание, чтобы не двигать окно
+            started_drag = true
         end
-        -- [[ КОНЕЦ НОВОГО КОДА ]]
+        -- [[ КОНЕЦ ИЗМЕНЕНИЯ ]]
 
         local wmDragRegion = {x1=wm.DragArea.Position.x, y1=wm.DragArea.Position.y, x2=wm.DragArea.Position.x+wm.DragArea.Size.x, y2=wm.DragArea.Position.y+wm.DragArea.Size.y}
         if self.UI.Values["BurgerWatermark"] and self:_IsPointInRegion(mouse_x, mouse_y, wmDragRegion) then
@@ -3651,7 +3652,7 @@ function Library:_InputLoop()
         if not started_drag and self.UI.Values["BurgerHotkeys"] and self:_IsPointInRegion(mouse_x, mouse_y, hkDragRegion) then
             hk.IsDragging = true; started_drag = true; hk.DragOffset = {x = mouse_x - hk.Position.x, y = mouse_y - hk.Position.y};
         end
-
+        
         if not started_drag then
             if about_window.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, about_window.AnimationSpeedSlider.ClickRegion) then
                 about_window.AnimationSpeedSlider.IsDragging = true; started_drag = true;
@@ -3688,52 +3689,64 @@ function Library:_InputLoop()
     end
 
     if is_left_pressed_now then
-        -- [[ НАЧАЛО НОВОГО КОДА ]]
+        -- [[ ИЗМЕНЕНИЕ ЗДЕСЬ ]]
+        -- Добавлена новая, более точная логика перетаскивания скроллбара
         local scrollbar = configsTab.Scrollbar
         if scrollbar.IsDraggingNub then
-            -- Вычисляем необходимые высоты (дублируем из функции рендера для точности)
-            local itemHeight = 60
-            local itemSpacing = 10
-            local totalItemHeight = itemHeight + itemSpacing
-            local MAX_VISIBLE_ITEMS = 7
+            -- Вычисляем все необходимые размеры, чтобы быть уверенными в точности
+            local itemHeight = 60; local itemSpacing = 10; local totalItemHeight = itemHeight + itemSpacing; local MAX_VISIBLE_ITEMS = 7;
             local visibleAreaHeight = (MAX_VISIBLE_ITEMS * totalItemHeight) - itemSpacing
             local totalContentHeight = (#configsTab.Items * totalItemHeight) - itemSpacing
-
-            -- Рассчитываем смещение мыши
+            local minNubHeight = 30
+            local nubHeight = math.max(minNubHeight, visibleAreaHeight * (visibleAreaHeight / totalContentHeight))
+            
+            -- Диапазон, который может прокрутить контент
+            local contentScrollRange = totalContentHeight - visibleAreaHeight
+            -- Диапазон, в котором может двигаться сам ползунок
+            local nubScrollRange = visibleAreaHeight - nubHeight
+            
+            -- Вычисляем смещение мыши с момента нажатия
             local mouseDeltaY = mouse_y - scrollbar.DragStartMouseY
             
-            -- Рассчитываем "коэффициент прокрутки", чтобы движение было пропорциональным
-            local scrollRatio = totalContentHeight / visibleAreaHeight
+            -- Вычисляем пропорцию. Если nubScrollRange равен 0, то и пропорция 0
+            local scrollRatio = (nubScrollRange > 0) and (contentScrollRange / nubScrollRange) or 0
             
             -- Вычисляем новое смещение контента
             local newOffset = scrollbar.DragStartOffset + (mouseDeltaY * scrollRatio)
             
-            -- Ограничиваем смещение, чтобы не уйти за пределы
-            local maxScrollOffset = totalContentHeight - visibleAreaHeight
-            configsTab.Scrollbar.ScrollOffset = math.clamp(newOffset, 0, maxScrollOffset)
+            -- Ограничиваем смещение, чтобы не выйти за пределы
+            configsTab.Scrollbar.ScrollOffset = math.clamp(newOffset, 0, contentScrollRange)
         end
-        -- [[ КОНЕЦ НОВОГО КОДА ]]
+        -- [[ КОНЕЦ ИЗМЕНЕНИЯ ]]
+
         if wm.IsDragging then wm.Position.x = mouse_x - wm.DragOffset.x; wm.Position.y = mouse_y - wm.DragOffset.y; end
         if hk.IsDragging then hk.Position.x = mouse_x - hk.DragOffset.x; hk.Position.y = mouse_y - hk.DragOffset.y; end
         if self.Window.IsDragging then self.Window.X = mouse_x - drag_offset.x; self.Window.Y = mouse_y - drag_offset.y; end
 
-        local function update_slider_value(slider, min, max, increment, id)
+        local function update_slider_value(slider)
             local sliderBackX, sliderBackWidth = self:_SafeNumber(slider.Back.Position.x, 0), self:_SafeNumber(slider.Back.Size.x, 1)
             local mouse_relative_x = math.clamp(mouse_x - sliderBackX, 0, sliderBackWidth)
             local percentage = sliderBackWidth > 0 and (mouse_relative_x / sliderBackWidth) or 0
-            local raw_value = min + (max - min) * percentage
-            local stepped_value = math.floor(raw_value / increment + 0.5) * increment
-            local clamped_value = math.clamp(stepped_value, min, max)
-            if clamped_value ~= self.UI.Values[id] then
-                self.UI.Values[id] = clamped_value
+            local raw_value = slider.Min + (slider.Max - slider.Min) * percentage
+            
+            local stepped_value
+            if slider.Increment >= 1 then
+                stepped_value = math.floor(raw_value / slider.Increment + 0.5) * slider.Increment
+            else
+                stepped_value = tonumber(string.format("%." .. string.len(tostring(slider.Increment):match("%.(.*)") or "") .. "f", (math.floor(raw_value / slider.Increment + 0.5) * slider.Increment)))
+            end
+            
+            local clamped_value = math.clamp(stepped_value, slider.Min, slider.Max)
+            if clamped_value ~= self.UI.Values[slider.id] then
+                self.UI.Values[slider.id] = clamped_value
                 if slider.Callback then slider.Callback(clamped_value) end
             end
         end
 
         if about_window.IsOpen and about_window.AnimationSpeedSlider.IsDragging then
-            local s = about_window.AnimationSpeedSlider; update_slider_value(s, s.Min, s.Max, s.Increment, s.id);
+            update_slider_value(about_window.AnimationSpeedSlider);
         end
-        for _, section in ipairs(self.UI.Sections) do for _, el in ipairs(section.Elements) do if el.type == "Slider" and el.IsDragging then update_slider_value(el, el.Min, el.Max, el.Increment, el.id); break; end end end
+        for _, section in ipairs(self.UI.Sections) do for _, el in ipairs(section.Elements) do if el.type == "Slider" and el.IsDragging then update_slider_value(el); break; end end end
 
         if picker.isDraggingHue or picker.isDraggingOpacity or picker.isDraggingSaturationValue then
             local function update_color_picker()
@@ -3773,8 +3786,7 @@ function Library:_InputLoop()
             local click_was_handled = false
 
             local active_slider_editing = nil
-            local slider_about = about_window.AnimationSpeedSlider
-            if slider_about and slider_about.IsEditing then active_slider_editing = slider_about end
+            if about_window.AnimationSpeedSlider.IsEditing then active_slider_editing = about_window.AnimationSpeedSlider end
             if not active_slider_editing then
                 for _, section in ipairs(self.UI.Sections) do for _, el in ipairs(section.Elements) do if el.type == "Slider" and el.IsEditing then active_slider_editing = el; break; end end if active_slider_editing then break end end
             end
@@ -3929,14 +3941,12 @@ function Library:_InputLoop()
                         about_window.Animation.IsClosing = true; about_window.Animation.IsOpening = false;
                     end
 
-                elseif settings_popup.Animation.CurrentOpacity > 0 then -- ИЗМЕНЕНИЕ: Проверяем по анимации, а не по IsOpen
+                elseif settings_popup.Animation.CurrentOpacity > 0 then
                     click_was_handled = true
                     if not (settings_popup.ClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, settings_popup.ClickRegion)) then
-                        -- Кликнули снаружи, запускаем анимацию закрытия
                         settings_popup.Animation.IsClosing = true
                         settings_popup.Animation.IsOpening = false
                     else
-                        -- Кликнули внутри, проверяем бинды
                         if settings_popup.ActiveToggle then
                             for _, element in ipairs(settings_popup.ActiveToggle.SettingsElements or {}) do
                                 if element.type == "Keybind" and self:_IsPointInRegion(mouse_x, mouse_y, element.ClickRegion) then
@@ -3957,25 +3967,19 @@ function Library:_InputLoop()
                 elseif configsTab.OptionsPopup.IsOpen then
                     click_was_handled = true
                     if not (configsTab.OptionsPopup.ClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, configsTab.OptionsPopup.ClickRegion)) then
-                        -- Clicked outside the popup, start closing animation
                         configsTab.OptionsPopup.Animation.IsClosing = true
                         configsTab.OptionsPopup.Animation.IsOpening = false
                     else
-                        -- Clicked inside the popup
                         if self:_IsPointInRegion(mouse_x, mouse_y, configsTab.OptionsPopup.IncludeStyleToggle.ClickRegion) then 
                             self.UI.Values[configsTab.OptionsPopup.IncludeStyleToggle.id] = not self.UI.Values[configsTab.OptionsPopup.IncludeStyleToggle.id]
                         end
 
-                        -- [[ НОВОЕ: Логика клика по кнопке Delete ]]
                         local delBtn = configsTab.OptionsPopup.DeleteButton
                         if self:_IsPointInRegion(mouse_x, mouse_y, delBtn.ClickRegion) then
                             local itemIndex = configsTab.OptionsPopup.ItemIndex
                             if itemIndex and configsTab.Items[itemIndex] then
                                 local configNameToDelete = configsTab.Items[itemIndex].Name
-                                print(SCRIPT_PREFIX .. "Deleting config: " .. configNameToDelete)
                                 deletefile(self:_GetConfigPath(configNameToDelete))
-
-                                -- Закрываем попап и обновляем список
                                 configsTab.OptionsPopup.Animation.IsClosing = true
                                 configsTab.OptionsPopup.Animation.IsOpening = false
                                 configsTab.NeedsRefresh = true
@@ -4009,7 +4013,7 @@ function Library:_InputLoop()
                                 if popup.IsOpen then
                                     popup.Animation.IsOpening = true
                                     popup.Animation.IsClosing = false
-                                    popup.Animation.CurrentOpacity = 0 -- Reset for a clean fade-in
+                                    popup.Animation.CurrentOpacity = 0
                                 else
                                     popup.Animation.IsClosing = true
                                     popup.Animation.IsOpening = false
@@ -4027,16 +4031,15 @@ function Library:_InputLoop()
                                 elseif el.type == "Dropdown" or el.type == "Multidropdown" then
                                     local openingThisOne = not el.IsOpen; for _, s_inner in ipairs(self.UI.Sections) do for _, el_inner in ipairs(s_inner.Elements) do if (el_inner.type == "Dropdown" or el_inner.type == "Multidropdown") and el_inner.IsOpen then el_inner.IsOpen = false; el_inner.IsClosing = true; end end end
                                     if openingThisOne then el.IsOpen = true; el.IsClosing = false; el.FadeOpacity = 0.0; end
+                                elseif el.type == "Slider" then update_slider_value(el)
                                 end; clicked_on_main_ui = true; break;
                             elseif el.type == "Toggle" and el.HasColor and self:_IsPointInRegion(mouse_x, mouse_y, el.ColorClickRegion) then
                                 picker.IsOpen = true; picker.Animation.IsOpening = true; picker.Animation.IsClosing = false; picker.EditingValueID = el.HasColor.id; picker.EditingColorName = nil; picker.Pos = {x = mouse_x, y = mouse_y}; local color_to_edit = self.UI.Values[el.HasColor.id]; picker.h, picker.s, picker.v, picker.a = self:_RGBtoHSV(color_to_edit[1], color_to_edit[2], color_to_edit[3], color_to_edit[4]); clicked_on_main_ui = true; break;
                             elseif el.HasSettings and self:_IsPointInRegion(mouse_x, mouse_y, el.SettingsClickRegion) then
-                                -- Запускаем анимацию открытия
-                                settings_popup.IsOpen = true -- Этот флаг нужен, чтобы аниматор знал, что попап может закрыться
+                                settings_popup.IsOpen = true
                                 settings_popup.Animation.IsOpening = true
                                 settings_popup.Animation.IsClosing = false
-                                settings_popup.Animation.CurrentOpacity = 0 -- Сбрасываем для чистого появления
-                                
+                                settings_popup.Animation.CurrentOpacity = 0
                                 settings_popup.ActiveToggle = el;
                                 settings_popup.Pos = {x = mouse_x, y = mouse_y};
                                 clicked_on_main_ui = true;
@@ -4059,7 +4062,7 @@ function Library:_InputLoop()
         wm.IsDragging = false; self.Window.IsDragging = false; hk.IsDragging = false;
         if about_window.IsOpen then about_window.AnimationSpeedSlider.IsDragging = false end
         picker.isDraggingHue, picker.isDraggingOpacity, picker.isDraggingSaturationValue = false, false, false;
-        for _, section in ipairs(self.UI.Sections) do for _, el in ipairs(section.Elements) do if el.IsDragging then el.IsDragging = false end end end
+        for _, section in ipairs(self.UI.Sections) do for _, el in ipairs(section.Elements) do if el.type == "Slider" and el.IsDragging then el.IsDragging = false end end end
         is_dragging_something = false
         self.Window.IsFastDragging = false;
         configsTab.Scrollbar.IsDraggingNub = false
@@ -4077,7 +4080,7 @@ function Library:_InputLoop()
                 elseif input_key == "Enter" then
                     applySliderInput(target)
                 elseif string.match(input_key, "[-.0-9]") then
-                    if #target.InputText < 5 then target.InputText = target.InputText .. input_key end
+                    if #target.InputText < 7 then target.InputText = target.InputText .. input_key end
                 end
             elseif target == style_window then
                 local current_text = target.StyleNameInputText.Text
@@ -4152,8 +4155,7 @@ function Library:_InputLoop()
         elseif picker.IsOpen and picker.IsEditing then
             active_target = picker
         else
-            local slider_about = about_window.AnimationSpeedSlider
-            if slider_about and slider_about.IsEditing then active_target = slider_about end
+            if about_window.AnimationSpeedSlider.IsEditing then active_target = about_window.AnimationSpeedSlider end
 
             if not active_target then
                 for _, section in ipairs(self.UI.Sections) do
@@ -4198,12 +4200,12 @@ function Library:_InputLoop()
         else
             if style_window.last_key_pressed ~= "None" then style_window.last_key_pressed = "None"; style_window.is_in_repeat = false end
             if picker.last_key_pressed ~= "None" then picker.last_key_pressed = "None"; picker.is_in_repeat = false end
+            if about_window.AnimationSpeedSlider.last_key_pressed ~= "None" then about_window.AnimationSpeedSlider.last_key_pressed = "None"; about_window.AnimationSpeedSlider.is_in_repeat = false; end
             for _, section in ipairs(self.UI.Sections) do
                 for _, el in ipairs(section.Elements) do
                     if el.type == "Slider" and el.last_key_pressed ~= "None" then el.last_key_pressed = "None"; el.is_in_repeat = false; break end
                 end
             end
-            if about_window.AnimationSpeedSlider.last_key_pressed ~= "None" then about_window.AnimationSpeedSlider.last_key_pressed = "None"; about_window.AnimationSpeedSlider.is_in_repeat = false; end
         end
     end
     end
@@ -4211,7 +4213,6 @@ function Library:_InputLoop()
     was_left_pressed = is_left_pressed_now
     was_right_pressed = is_right_pressed_now
 end
-
 
 
 function Library:_AddPresetsTab()
