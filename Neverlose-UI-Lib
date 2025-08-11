@@ -3086,13 +3086,18 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
         local itemY = (loopStartY + (i - 1) * totalItemHeight) - configs.Scrollbar.ScrollOffset
         local isVisible = (itemY + itemHeight > visibleAreaY) and (itemY < visibleAreaY + visibleAreaHeight)
         
-        -- Сначала мы решаем, виден ли элемент ВООБЩЕ
-        self:_SetDrawingTableVisibility(item.Drawing, isVisible)
+        -- [[ ГЛАВНЫЙ ФИКС: Убираем конфликтную логику ]]
+        -- Вместо того, чтобы сначала всё показывать, а потом прятать,
+        -- мы строим логику на блоке if/else.
 
         if isVisible then
             local d = item.Drawing
             local isLoaded = (configs.LoadedConfigName == item.Name)
             
+            -- Сначала делаем видимыми общие элементы
+            self:_SetVisibility(d.Background, true); self:_SetVisibility(d.Border, true); self:_SetVisibility(d.Name, true); self:_SetVisibility(d.Modified, true); self:_SetVisibility(d.Author, true); self:_SetVisibility(d.OptionsButton.Dot1, true); self:_SetVisibility(d.OptionsButton.Dot2, true); self:_SetVisibility(d.OptionsButton.Dot3, true)
+
+            -- Применяем цвета
             self:_AnimateAndApplyColor(d.Background, theme.Colors.SectionBackground)
             self:_AnimateAndApplyColor(d.Border, theme.Colors.Separator)
             self:_AnimateAndApplyColor(d.Name, theme.Colors.TextPrimary)
@@ -3102,6 +3107,7 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
             self:_AnimateAndApplyColor(d.OptionsButton.Dot2, theme.Colors.TextSecondary)
             self:_AnimateAndApplyColor(d.OptionsButton.Dot3, theme.Colors.TextSecondary)
 
+            -- Позиционируем
             d.Background.Position = {startX, itemY}; d.Background.Size = {contentAreaWidth, itemHeight}
             d.Border.Position = {startX, itemY}; d.Border.Size = {contentAreaWidth, itemHeight}
             d.Name.Text = item.Name; d.Name.Position = {startX + 15, itemY + 12}
@@ -3117,9 +3123,7 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
             d.OptionsButton.Dot1.Position = {optionsBtnX - 6, optionsBtnY}; d.OptionsButton.Dot2.Position = {optionsBtnX, optionsBtnY}; d.OptionsButton.Dot3.Position = {optionsBtnX + 6, optionsBtnY}
             d.OptionsButton.ClickRegion = {x1 = optionsBtnX - 10, y1 = optionsBtnY - 10, x2 = optionsBtnX + 10, y2 = optionsBtnY + 10}
 
-            -- [[ ФИНАЛЬНЫЙ ФИКС: Явное скрытие и показ нужных кнопок ]]
             if isLoaded then
-                -- Элемент активен: показываем кнопку Save, скрываем Load
                 self:_SetVisibility(d.SaveButton.Background, true); self:_SetVisibility(d.SaveButton.Border, true); self:_SetVisibility(d.SaveButton.Icon, true); self:_SetVisibility(d.SaveButton.Label, true)
                 self:_SetVisibility(d.LoadButton.Background, false); self:_SetVisibility(d.LoadButton.Icon, false); self:_SetVisibility(d.LoadButton.Label, false)
 
@@ -3135,7 +3139,6 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
                 saveBtn.Label.Position = {iconX + saveBtn.Icon.Size.x + 8, btnY + (btnHeight / 2) - (saveBtn.Label.Size / 2)}
                 saveBtn.ClickRegion = {x1 = btnX, y1 = btnY, x2 = btnX + btnWidth, y2 = btnY + btnHeight}
             else
-                -- Элемент неактивен: показываем кнопку Load, скрываем Save
                 self:_SetVisibility(d.SaveButton.Background, false); self:_SetVisibility(d.SaveButton.Border, false); self:_SetVisibility(d.SaveButton.Icon, false); self:_SetVisibility(d.SaveButton.Label, false)
                 self:_SetVisibility(d.LoadButton.Background, true); self:_SetVisibility(d.LoadButton.Icon, true); self:_SetVisibility(d.LoadButton.Label, true)
 
@@ -3151,6 +3154,9 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
                 loadBtn.Label.Position = {iconX + loadBtn.Icon.Size.x + 8, btnY + (btnHeight / 2) - (loadBtn.Label.Size / 2)}
                 loadBtn.ClickRegion = {x1 = btnX, y1 = btnY, x2 = btnX + btnWidth, y2 = btnY + btnHeight}
             end
+        else
+            -- Если элемент НЕ виден, мы принудительно скрываем всю его группу
+            self:_SetDrawingTableVisibility(item.Drawing, false)
         end
     end
 end
@@ -4211,7 +4217,7 @@ function Library:_AddPresetsTab()
 end
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. x2425")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. x242")
     local is_first_frame = true
     while true do
         -- Обрабатываем очередь на удаление в начале каждого кадра
