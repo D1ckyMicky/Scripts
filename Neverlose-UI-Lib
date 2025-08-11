@@ -3049,7 +3049,7 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
     local totalItemHeight = itemHeight + itemSpacing
     local MAX_VISIBLE_ITEMS = 7
 
-    local visibleAreaY = startY + 0
+    local visibleAreaY = startY + 55
     local visibleAreaHeight = (MAX_VISIBLE_ITEMS * totalItemHeight) - itemSpacing
     local totalContentHeight = (#configs.Items * totalItemHeight) - itemSpacing
     local needsScrollbar = totalContentHeight > visibleAreaHeight
