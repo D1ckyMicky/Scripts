@@ -537,7 +537,7 @@ function Library:_UpdatePopupAnimation(popup)
         end
     else
         local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4
-        local animationSpeed = (speed_value > 0) and (speed_value / 150.0) or 1 --150 lf
+        local animationSpeed = (speed_value > 0) and (speed_value / 25.0) or 1 --150 lf
         
         if anim.IsOpening then
             anim.CurrentOpacity = anim.CurrentOpacity + animationSpeed
