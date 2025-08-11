@@ -3049,12 +3049,18 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
     local totalItemHeight = itemHeight + itemSpacing
     local MAX_VISIBLE_ITEMS = 7
 
-    local visibleAreaY = startY + 25
-    
     -- [[ ИЗМЕНЕНИЕ ЗДЕСЬ ]]
-    -- Мы вычисляем высоту как и раньше, но затем отнимаем 35 пикселей.
-    -- Это создает невидимый отступ внизу, заставляя элементы исчезать раньше.
-    local visibleAreaHeight = ((MAX_VISIBLE_ITEMS * totalItemHeight) - itemSpacing) - 35
+    -- Создаем единую переменную для вертикальных отступов сверху и снизу.
+    local verticalPadding = 35 
+
+    -- Сдвигаем верхнюю границу видимой области ВНИЗ на величину отступа.
+    local visibleAreaY = (startY + 25) + verticalPadding 
+    
+    -- Вычисляем общую высоту, которую занимали бы 7 элементов.
+    local totalVisibleHeight = (MAX_VISIBLE_ITEMS * totalItemHeight) - itemSpacing
+    
+    -- Уменьшаем высоту видимой области на ДВА отступа (сверху и снизу).
+    local visibleAreaHeight = totalVisibleHeight - (verticalPadding * 2)
     
     local totalContentHeight = (#configs.Items * totalItemHeight) - itemSpacing
     local needsScrollbar = totalContentHeight > visibleAreaHeight
@@ -3072,7 +3078,6 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
         configs.Scrollbar.Background.Size = {scrollbarWidth, visibleAreaHeight}
         self:_AnimateAndApplyColor(configs.Scrollbar.Background, theme.Colors.DarkBlue)
 
-        -- Убеждаемся, что totalContentHeight > 0, чтобы избежать деления на ноль
         local nubHeight = (totalContentHeight > 0) and math.max(minNubHeight, visibleAreaHeight * (visibleAreaHeight / totalContentHeight)) or minNubHeight
         
         local maxScrollOffset = totalContentHeight - visibleAreaHeight
@@ -3091,7 +3096,7 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
     for i, item in ipairs(configs.Items) do
         local itemY = (loopStartY + (i - 1) * totalItemHeight) - configs.Scrollbar.ScrollOffset
         
-        -- Логика обрезки теперь использует новую, уменьшенную высоту visibleAreaHeight
+        -- Логика обрезки теперь идеально работает для верха и низа.
         local isVisible = (itemY + itemHeight > visibleAreaY) and (itemY < visibleAreaY + visibleAreaHeight)
         
         if isVisible then
