@@ -771,6 +771,19 @@ function Library:_ProcessRemovalQueue()
     end
 end
 
+function Library:_ForceHideDrawingTable(tbl)
+    for _, v in pairs(tbl) do
+        if type(v) == 'table' then
+            if v.Remove and type(v.Remove) == 'function' then
+                if v.Visible then v.Visible = false end
+                if v.Opacity then v.Opacity = 0 end
+            else
+                self:_ForceHideDrawingTable(v)
+            end
+        end
+    end
+end
+
 
 --================================================================
 --[[ PRIVATE: GLOW EFFECT HELPERS ]]
@@ -3095,30 +3108,20 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
 
     local loopStartY = fullRenderAreaY
     for i, item in ipairs(configs.Items) do
-        -- Рассчитываем "идеальную" позицию Y на основе скролла
         local itemY = (loopStartY + (i - 1) * totalItemHeight) - configs.Scrollbar.ScrollOffset
         
-        -- Определяем, должен ли элемент быть видим в данный момент
         local isVisible = (itemY + itemHeight > clippingAreaY) and (itemY < clippingAreaY + clippingAreaHeight)
         local targetOpacity = isVisible and 1.0 or 0.0
 
-        -- Анимируем прозрачность
         item.Animation.CurrentOpacity = item.Animation.CurrentOpacity + (targetOpacity - item.Animation.CurrentOpacity) * animationSpeed
         if math.abs(item.Animation.CurrentOpacity - targetOpacity) < 0.01 then
             item.Animation.CurrentOpacity = targetOpacity
         end
 
-        -- [[ ФИНАЛЬНОЕ ИСПРАВЛЕНИЕ: Улучшенная логика позиционирования ]]
-        local renderY = itemY -- По умолчанию используем новую, правильную позицию Y.
-
-        -- Если элемент НЕ должен быть виден, НО он еще не полностью исчез (анимация затухания)...
+        local renderY = itemY
         if not isVisible and item.Animation.CurrentOpacity > 0 then
-            -- ...тогда для отрисовки используем его ПОСЛЕДНЮЮ известную позицию.
-            -- Это заставит его плавно исчезнуть на своем месте, а не "прыгнуть" вверх/вниз.
             renderY = item.Animation.LastVisibleY
         end
-
-        -- Обновляем последнюю известную позицию, только когда элемент действительно виден.
         if isVisible then
             item.Animation.LastVisibleY = itemY
         end
@@ -3130,7 +3133,6 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
 
             self:_SetDrawingTableVisibility(d, true)
 
-            -- Вся остальная логика отрисовки использует `renderY`
             self:_AnimateAndApplyColor(d.Background, theme.Colors.SectionBackground, masterOpacity)
             self:_AnimateAndApplyColor(d.Border, theme.Colors.Separator, masterOpacity)
             self:_AnimateAndApplyColor(d.Name, theme.Colors.TextPrimary, masterOpacity)
@@ -3156,16 +3158,22 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
             d.OptionsButton.ClickRegion = {x1 = optionsBtnX - 10, y1 = optionsBtnY - 10, x2 = optionsBtnX + 10, y2 = optionsBtnY + 10}
             
             if isLoaded then
-                self:_SetVisibility(d.SaveButton.Background, true); self:_SetVisibility(d.SaveButton.Border, true); self:_SetVisibility(d.SaveButton.Icon, true); self:_SetVisibility(d.SaveButton.Label, true)
-                self:_SetVisibility(d.LoadButton.Background, false); self:_SetVisibility(d.LoadButton.Icon, false); self:_SetVisibility(d.LoadButton.Label, false)
+                -- [[ ИЗМЕНЕНИЕ: Используем новую функцию для полного скрытия кнопки Load ]]
+                self:_ForceHideDrawingTable(d.LoadButton)
+                
+                -- Показываем и рендерим кнопку Save
+                self:_SetDrawingTableVisibility(d.SaveButton, true)
                 local saveBtn = d.SaveButton
                 self:_AnimateAndApplyColor(saveBtn.Background, theme.Colors.SectionBackground, masterOpacity); self:_AnimateAndApplyColor(saveBtn.Border, theme.Colors.Accent, masterOpacity); self:_AnimateAndApplyColor(saveBtn.Icon, theme.Colors.TextPrimary, masterOpacity); self:_AnimateAndApplyColor(saveBtn.Label, theme.Colors.TextPrimary, masterOpacity)
                 saveBtn.Background.Position = {btnX, btnY}; saveBtn.Background.Size = {btnWidth, btnHeight}; saveBtn.Border.Position = {btnX, btnY}; saveBtn.Border.Size = {btnWidth, btnHeight}
                 local iconX = btnX + 15
                 saveBtn.Icon.Position = {iconX, btnY + (btnHeight / 2) - (saveBtn.Icon.Size.y / 2)}; saveBtn.Label.Position = {iconX + saveBtn.Icon.Size.x + 8, btnY + (btnHeight / 2) - (saveBtn.Label.Size / 2)}; saveBtn.ClickRegion = {x1 = btnX, y1 = btnY, x2 = btnX + btnWidth, y2 = btnY + btnHeight}
             else
-                self:_SetVisibility(d.SaveButton.Background, false); self:_SetVisibility(d.SaveButton.Border, false); self:_SetVisibility(d.SaveButton.Icon, false); self:_SetVisibility(d.SaveButton.Label, false)
-                self:_SetVisibility(d.LoadButton.Background, true); self:_SetVisibility(d.LoadButton.Icon, true); self:_SetVisibility(d.LoadButton.Label, true)
+                -- [[ ИЗМЕНЕНИЕ: Используем новую функцию для полного скрытия кнопки Save ]]
+                self:_ForceHideDrawingTable(d.SaveButton)
+
+                -- Показываем и рендерим кнопку Load
+                self:_SetDrawingTableVisibility(d.LoadButton, true)
                 local loadBtn = d.LoadButton
                 local accentColor = theme.Colors.Accent
                 local textColorForAccent = self:_GetTextColorForBackground(accentColor)
@@ -4273,7 +4281,7 @@ function Library:_AddPresetsTab()
 end
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. x2425")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. x242")
     local is_first_frame = true
     while true do
         -- Обрабатываем очередь на удаление в начале каждого кадра
