@@ -3038,10 +3038,7 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
     local totalContentHeight = (#configs.Items * totalItemHeight) - itemSpacing
     local needsScrollbar = totalContentHeight > fullRenderAreaHeight
 
-    -- [[ ИЗМЕНЕНИЕ НАЧАЛО: Делаем MyItemsLabel всегда видимым, если активна вкладка ]]
     self:_SetVisibility(configs.MyItemsLabel, true) 
-    -- [[ ИЗМЕНЕНИЕ КОНЕЦ ]]
-    
     self:_SetVisibility(configs.Scrollbar.Background, needsScrollbar)
     self:_SetVisibility(configs.Scrollbar.Nub, needsScrollbar)
     self:_AnimateAndApplyColor(configs.MyItemsLabel, theme.Colors.TextPrimary)
@@ -3068,27 +3065,33 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
 
     local loopStartY = fullRenderAreaY
     for i, item in ipairs(configs.Items) do
+        -- Рассчитываем "идеальную" позицию Y на основе скролла
         local itemY = (loopStartY + (i - 1) * totalItemHeight) - configs.Scrollbar.ScrollOffset
         
+        -- Определяем, должен ли элемент быть видим в данный момент
         local isVisible = (itemY + itemHeight > clippingAreaY) and (itemY < clippingAreaY + clippingAreaHeight)
         local targetOpacity = isVisible and 1.0 or 0.0
 
+        -- Анимируем прозрачность
         item.Animation.CurrentOpacity = item.Animation.CurrentOpacity + (targetOpacity - item.Animation.CurrentOpacity) * animationSpeed
         if math.abs(item.Animation.CurrentOpacity - targetOpacity) < 0.01 then
             item.Animation.CurrentOpacity = targetOpacity
         end
 
-        -- [[ ИЗМЕНЕНИЕ НАЧАЛО: Исправлена логика позиционирования для устранения мерцания ]]
-        local renderY
-        if isVisible then
-            -- Если элемент должен быть виден, всегда используем его актуальную позицию
-            renderY = itemY
-            item.Animation.LastVisibleY = itemY -- и обновляем последнюю известную позицию
-        else
-            -- Если элемент не виден, используем последнюю позицию, чтобы он плавно исчез на своем месте
+        -- [[ ФИНАЛЬНОЕ ИСПРАВЛЕНИЕ: Улучшенная логика позиционирования ]]
+        local renderY = itemY -- По умолчанию используем новую, правильную позицию Y.
+
+        -- Если элемент НЕ должен быть виден, НО он еще не полностью исчез (анимация затухания)...
+        if not isVisible and item.Animation.CurrentOpacity > 0 then
+            -- ...тогда для отрисовки используем его ПОСЛЕДНЮЮ известную позицию.
+            -- Это заставит его плавно исчезнуть на своем месте, а не "прыгнуть" вверх/вниз.
             renderY = item.Animation.LastVisibleY
         end
-        -- [[ ИЗМЕНЕНИЕ КОНЕЦ ]]
+
+        -- Обновляем последнюю известную позицию, только когда элемент действительно виден.
+        if isVisible then
+            item.Animation.LastVisibleY = itemY
+        end
 
         if item.Animation.CurrentOpacity > 0 then
             local d = item.Drawing
@@ -3097,6 +3100,7 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
 
             self:_SetDrawingTableVisibility(d, true)
 
+            -- Вся остальная логика отрисовки использует `renderY`
             self:_AnimateAndApplyColor(d.Background, theme.Colors.SectionBackground, masterOpacity)
             self:_AnimateAndApplyColor(d.Border, theme.Colors.Separator, masterOpacity)
             self:_AnimateAndApplyColor(d.Name, theme.Colors.TextPrimary, masterOpacity)
