@@ -3074,33 +3074,42 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
         configs.Scrollbar.NubClickRegion = { x1 = scrollbarX, y1 = nubY, x2 = scrollbarX + scrollbarWidth, y2 = nubY + nubHeight }
     end
 
-    -- [[ ГЛАВНОЕ ИЗМЕНЕНИЕ ЗДЕСЬ ]]
     local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4
     local animationSpeed = (speed_value > 0) and (speed_value / 15.0) or 1
 
     local loopStartY = fullRenderAreaY
     for i, item in ipairs(configs.Items) do
+        -- Рассчитываем "идеальную" позицию на основе скролла
         local itemY = (loopStartY + (i - 1) * totalItemHeight) - configs.Scrollbar.ScrollOffset
         
-        -- 1. Определяем, должен ли элемент быть видимым.
         local isVisible = (itemY + itemHeight > clippingAreaY) and (itemY < clippingAreaY + clippingAreaHeight)
         local targetOpacity = isVisible and 1.0 or 0.0
 
-        -- 2. Плавно изменяем текущую прозрачность элемента в сторону целевой.
         item.Animation.CurrentOpacity = item.Animation.CurrentOpacity + (targetOpacity - item.Animation.CurrentOpacity) * animationSpeed
         if math.abs(item.Animation.CurrentOpacity - targetOpacity) < 0.01 then
-            item.Animation.CurrentOpacity = targetOpacity -- Принудительно устанавливаем, чтобы избежать "зависания"
+            item.Animation.CurrentOpacity = targetOpacity
         end
 
-        -- 3. Рисуем элемент, если он хотя бы немного видим (для анимации исчезновения).
+        -- [[ ГЛАВНОЕ ИЗМЕНЕНИЕ ЗДЕСЬ ]]
+        -- 1. Определяем, какую Y-координату использовать для отрисовки.
+        local renderY
+        if isVisible then
+            -- Если элемент видим, используем его текущую позицию и сохраняем её.
+            renderY = itemY
+            item.Animation.LastVisibleY = itemY
+        else
+            -- Если элемент не видим (исчезает), используем последнюю сохраненную позицию.
+            renderY = item.Animation.LastVisibleY
+        end
+
         if item.Animation.CurrentOpacity > 0 then
             local d = item.Drawing
             local isLoaded = (configs.LoadedConfigName == item.Name)
-            local masterOpacity = item.Animation.CurrentOpacity -- Используем анимированную прозрачность
+            local masterOpacity = item.Animation.CurrentOpacity
 
             self:_SetDrawingTableVisibility(d, true)
 
-            -- 4. Передаем эту прозрачность в функцию отрисовки для каждого объекта.
+            -- 2. Используем `renderY` для позиционирования ВСЕХ объектов конфига.
             self:_AnimateAndApplyColor(d.Background, theme.Colors.SectionBackground, masterOpacity)
             self:_AnimateAndApplyColor(d.Border, theme.Colors.Separator, masterOpacity)
             self:_AnimateAndApplyColor(d.Name, theme.Colors.TextPrimary, masterOpacity)
@@ -3109,20 +3118,22 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
             self:_AnimateAndApplyColor(d.OptionsButton.Dot1, theme.Colors.TextSecondary, masterOpacity)
             self:_AnimateAndApplyColor(d.OptionsButton.Dot2, theme.Colors.TextSecondary, masterOpacity)
             self:_AnimateAndApplyColor(d.OptionsButton.Dot3, theme.Colors.TextSecondary, masterOpacity)
-            d.Background.Position = {startX, itemY}; d.Background.Size = {contentAreaWidth, itemHeight}
-            d.Border.Position = {startX, itemY}; d.Border.Size = {contentAreaWidth, itemHeight}
-            d.Name.Text = item.Name; d.Name.Position = {startX + 15, itemY + 12}
-            d.Modified.Text = "Modified: " .. item.Modified; d.Modified.Position = {startX + 15, itemY + 35}
+            
+            d.Background.Position = {startX, renderY}; d.Background.Size = {contentAreaWidth, itemHeight}
+            d.Border.Position = {startX, renderY}; d.Border.Size = {contentAreaWidth, itemHeight}
+            d.Name.Text = item.Name; d.Name.Position = {startX + 15, renderY + 12}
+            d.Modified.Text = "Modified: " .. "N/A"; d.Modified.Position = {startX + 15, renderY + 35}
             if d.Modified.TextBounds and d.Modified.TextBounds.x then
                 d.Author.Text = "Author: " .. item.Author
-                d.Author.Position = {startX + 15 + d.Modified.TextBounds.x + 10, itemY + 35}
+                d.Author.Position = {startX + 15 + d.Modified.TextBounds.x + 10, renderY + 35}
             end
             local btnWidth, btnHeight = 85, 28
             local btnX = startX + contentAreaWidth - btnWidth - 15
-            local btnY = itemY + (itemHeight / 2) - (btnHeight / 2)
-            local optionsBtnX = btnX - 25; local optionsBtnY = itemY + (itemHeight / 2)
+            local btnY = renderY + (itemHeight / 2) - (btnHeight / 2)
+            local optionsBtnX = btnX - 25; local optionsBtnY = renderY + (itemHeight / 2)
             d.OptionsButton.Dot1.Position = {optionsBtnX - 6, optionsBtnY}; d.OptionsButton.Dot2.Position = {optionsBtnX, optionsBtnY}; d.OptionsButton.Dot3.Position = {optionsBtnX + 6, optionsBtnY}
             d.OptionsButton.ClickRegion = {x1 = optionsBtnX - 10, y1 = optionsBtnY - 10, x2 = optionsBtnX + 10, y2 = optionsBtnY + 10}
+            
             if isLoaded then
                 self:_SetVisibility(d.SaveButton.Background, true); self:_SetVisibility(d.SaveButton.Border, true); self:_SetVisibility(d.SaveButton.Icon, true); self:_SetVisibility(d.SaveButton.Label, true)
                 self:_SetVisibility(d.LoadButton.Background, false); self:_SetVisibility(d.LoadButton.Icon, false); self:_SetVisibility(d.LoadButton.Label, false)
@@ -4241,7 +4252,7 @@ function Library:_AddPresetsTab()
 end
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. x24x22")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. x242")
     local is_first_frame = true
     while true do
         -- Обрабатываем очередь на удаление в начале каждого кадра
