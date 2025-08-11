@@ -1642,8 +1642,8 @@ function Library:_RefreshConfigList()
                 Name = configName,
                 Modified = "N/A",
                 Author = localPlayerName,
-                -- [[ НОВОЕ: Добавляем каждому конфигу свое состояние анимации ]]
-                Animation = { CurrentOpacity = 0.0 },
+                -- [[ НОВОЕ: Добавляем LastVisibleY для хранения последней позиции ]]
+                Animation = { CurrentOpacity = 0.0, LastVisibleY = 0 },
                 Drawing = {
                     Background = self:_CreateDrawingObject("Square"),
                     Border = self:_CreateDrawingObject("Square"),
@@ -1671,24 +1671,19 @@ function Library:_RefreshConfigList()
             local d = item.Drawing; local z = 4
             if d.Background then d.Background.Filled = true; d.Background.zIndex = z; d.Background.Rounding = self.ActiveTheme.Rounding.Section; end
             if d.Border then d.Border.Filled = false; d.Border.Thickness = 1; d.Border.zIndex = z + 1; d.Border.Rounding = self.ActiveTheme.Rounding.Section; end
-            
             if d.Name then d.Name.Font = self.ActiveTheme.Fonts.Main; d.Name.Size = self.ActiveTheme.Fonts.Size + 2; d.Name.Center = false; d.Name.zIndex = z + 1; end
             if d.Modified then d.Modified.Font = self.ActiveTheme.Fonts.Main; d.Modified.Size = self.ActiveTheme.Fonts.Size; d.Modified.Center = false; d.Modified.zIndex = z + 1; end
-            if d.Author then d.Author.Font = self.ActiveTheme.Fonts.Main; d.Author.Size = self.ActiveTheme.Fonts.Size; d.Author.Center = false; d.Author.zIndex = z + 1; end
-            
+            if d.Author then d.Author.Font = self.ActiveTheme.Fonts.Main; d.Author.Size = self.ActiveTheme.Fonts.Size; d.Author.zIndex = z + 1; end
             if d.OptionsButton.Dot1 then d.OptionsButton.Dot1.Filled = true; d.OptionsButton.Dot1.Radius = 1.5; d.OptionsButton.Dot1.zIndex = z + 2; end
             if d.OptionsButton.Dot2 then d.OptionsButton.Dot2.Filled = true; d.OptionsButton.Dot2.Radius = 1.5; d.OptionsButton.Dot2.zIndex = z + 2; end
             if d.OptionsButton.Dot3 then d.OptionsButton.Dot3.Filled = true; d.OptionsButton.Dot3.Radius = 1.5; d.OptionsButton.Dot3.zIndex = z + 2; end
-
             if d.LoadButton.Background then d.LoadButton.Background.Filled = true; d.LoadButton.Background.zIndex = z + 2; d.LoadButton.Background.Rounding = self.ActiveTheme.Rounding.Button; end
             if d.LoadButton.Icon then d.LoadButton.Icon.Size = {14, 14}; d.LoadButton.Icon.zIndex = z + 3; d.LoadButton.Icon.Url = "https://i.postimg.cc/W3YTY7Hf/image.png"; end
             if d.LoadButton.Label then d.LoadButton.Label.Font = self.ActiveTheme.Fonts.Main; d.LoadButton.Label.Size = self.ActiveTheme.Fonts.Size; d.LoadButton.Label.Text = "Load"; d.LoadButton.Label.Center = false; d.LoadButton.Label.zIndex = z + 3; end
-
             if d.SaveButton.Background then d.SaveButton.Filled = true; d.SaveButton.zIndex = z + 2; d.SaveButton.Rounding = self.ActiveTheme.Rounding.Button; end
             if d.SaveButton.Border then d.SaveButton.Border.Filled = false; d.SaveButton.Border.Thickness = 1; d.SaveButton.Border.zIndex = z + 3; d.SaveButton.Border.Rounding = self.ActiveTheme.Rounding.Button; end
             if d.SaveButton.Icon then d.SaveButton.Icon.Size = {13.33, 13.33}; d.SaveButton.Icon.zIndex = z + 3; d.SaveButton.Icon.Url = "https://i.postimg.cc/0QgnsgKT/vaseinko.png"; end 
             if d.SaveButton.Label then d.SaveButton.Label.Font = self.ActiveTheme.Fonts.Main; d.SaveButton.Label.Size = self.ActiveTheme.Fonts.Size; d.SaveButton.Label.Text = "Save"; d.SaveButton.Label.Center = false; d.SaveButton.Label.zIndex = z + 3; end
-            
             table.insert(configs.Items, item)
         end
     end
