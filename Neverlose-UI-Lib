@@ -2523,8 +2523,6 @@ function Library:_RenderLoop()
         end
     end
 
-    -- [[ Блок обновления анимаций ]]
-    -- [[ ИСПРАВЛЕНИЕ: Указываем правильный путь к объекту About Window ]]
     self:_UpdatePopupAnimation(self.UI.Core.AboutWindow)
     self:_UpdatePopupAnimation(self.UI.Popups.EditStyle)
     self:_UpdatePopupAnimation(self.UI.Popups.ColorPicker)
@@ -2561,9 +2559,12 @@ function Library:_RenderLoop()
     local sidebarWidth, headerHeight = self:_SafeNumber(self.Window.SidebarWidth, 0), self:_SafeNumber(self.Window.HeaderHeight, 0)
     local rightPanelX = windowX + sidebarWidth - self.Window.PanelOverlap
 
+    -- [[ ИЗМЕНЕНИЕ НАЧАЛО: Более надежная логика скрытия/отображения вкладок ]]
+    
+    -- Сначала рендерим общую базу UI (сайдбар, панель и т.д.)
+    -- Эта часть остается без изменений...
     self:_SetVisibility(Core.Sidebar.Drawing, true); self:_SetVisibility(Core.RightPanel.Drawing, true); self:_SetVisibility(Core.VerticalSeparator, true); self:_SetVisibility(Core.SidebarHeaderSeparator, true); self:_SetVisibility(Core.RightPanelHeaderSeparator, true); self:_SetVisibility(Core.Title, true); self:_SetVisibility(Core.SidebarBottomCircle, true); if Core.SidebarAvatar then self:_SetVisibility(Core.SidebarAvatar, true) end; self:_SetVisibility(Core.PlayerDisplayName, true); self:_SetVisibility(Core.TillLabel, true); self:_SetVisibility(Core.ForeverLabel, true)
     self:_SetVisibility(Core.Title2, not isThemeLight); self:_SetVisibility(Core.Title3, not isThemeLight)
-
     self:_AnimateAndApplyColor(Core.Sidebar.Drawing, theme.Colors.SidebarBackground)
     self:_AnimateAndApplyColor(Core.RightPanel.Drawing, theme.Colors.MainBackground)
     self:_AnimateAndApplyColor(Core.VerticalSeparator, theme.Colors.Separator)
@@ -2577,13 +2578,10 @@ function Library:_RenderLoop()
     self:_AnimateAndApplyColor(Core.TillLabel, theme.Colors.TextSecondary)
     self:_AnimateAndApplyColor(Core.ForeverLabel, theme.Colors.Accent)
     if Core.SidebarAvatar then self:_AnimateAndApplyColor(Core.SidebarAvatar, {255, 255, 255, 255}) end
-
     if Core.Sidebar.Drawing then Core.Sidebar.Drawing.Position = {windowX, windowY}; Core.Sidebar.Drawing.Size = {sidebarWidth, self.Window.Height}; end
     if Core.RightPanel.Drawing then Core.RightPanel.Drawing.Position = {rightPanelX, windowY}; Core.RightPanel.Drawing.Size = {self.Window.Width - sidebarWidth + self.Window.PanelOverlap, self.Window.Height}; end
-
     self:_RenderGlowEffect(Core.Sidebar.Glow, windowX, windowY, sidebarWidth, self.Window.Height, Core.Sidebar.Drawing.Rounding, theme.Colors.GlowColor, {top=true, bottom=true, left=true, right=true})
     self:_RenderGlowEffect(Core.RightPanel.Glow, rightPanelX, windowY, self.Window.Width - sidebarWidth + self.Window.PanelOverlap, self.Window.Height, Core.RightPanel.Drawing.Rounding, theme.Colors.GlowColor, {top=true, bottom=true, left=false, right=true})
-
     if Core.VerticalSeparator then Core.VerticalSeparator.Position = {rightPanelX, windowY}; Core.VerticalSeparator.Size = {4, self.Window.Height}; end
     if Core.SidebarHeaderSeparator then Core.SidebarHeaderSeparator.Position = {windowX, windowY + self.Window.Height - 100 + 14}; Core.SidebarHeaderSeparator.Size = {sidebarWidth, 4}; end
     if Core.RightPanelHeaderSeparator then Core.RightPanelHeaderSeparator.Position = {rightPanelX, windowY + headerHeight}; Core.RightPanelHeaderSeparator.Size = {self.Window.Width - sidebarWidth + self.Window.PanelOverlap, 4}; end
@@ -2596,6 +2594,7 @@ function Library:_RenderLoop()
     if Core.TillLabel then local textX = windowX + 15 + Core.SidebarBottomCircle.Radius * 2 + 5; local textY = windowY + self.Window.Height - 40; Core.TillLabel.Position = {textX, textY}; end
     if Core.ForeverLabel then local textX = windowX + 8 + Core.SidebarBottomCircle.Radius * 2 + 30; local textY = windowY + self.Window.Height - 40; Core.ForeverLabel.Position = {textX, textY}; end
 
+    -- Рендер кнопок в хэдере (без изменений)
     do
         local startX, startY = rightPanelX + 35, windowY + (headerHeight / 2)
         local function renderHeaderButton(button, x, y, width, height, has_icon, is_accent)
@@ -2606,22 +2605,19 @@ function Library:_RenderLoop()
              button.IsHovered = isHovered
              local targetBgColor, targetTextColor
             if button == Core.HeaderButtons.CreateNew then
-                -- Логика для кнопки "Create New" остается без изменений
                 local baseColor = theme.Colors.Accent
                 local opacity = isHovered and 255 or (255 * 0.6)
                 targetBgColor = {baseColor[1], baseColor[2], baseColor[3], opacity}
                 targetTextColor = self:_GetTextColorForBackground(baseColor)
             else
-                -- Новая логика для кнопок "Save" и "View ESP"
                 if isHovered then
                     if isThemeLight then
-                        targetBgColor = theme.Colors.Accent -- Обычный акцентный цвет для светлой темы
+                        targetBgColor = theme.Colors.Accent
                     else
-                        targetBgColor = self:_DarkenColor(theme.Colors.Accent, 0.5) -- Затемненный для темной
+                        targetBgColor = self:_DarkenColor(theme.Colors.Accent, 0.5)
                     end
-                    targetTextColor = self:_GetTextColorForBackground(targetBgColor) -- Авто-подбор цвета текста
+                    targetTextColor = self:_GetTextColorForBackground(targetBgColor)
                 else
-                    -- Цвет по умолчанию (когда нет наведения)
                     targetBgColor = is_accent and theme.Colors.Accent or theme.Colors.MainBackground
                     targetTextColor = is_accent and self:_GetTextColorForBackground(theme.Colors.Accent) or theme.Colors.TextPrimary
                 end
@@ -2668,12 +2664,10 @@ function Library:_RenderLoop()
         self:_AnimateAndApplyColor(burger.Line1, burgerColor); self:_AnimateAndApplyColor(burger.Line2, burgerColor); self:_AnimateAndApplyColor(burger.Line3, burgerColor)
     end
 
-    -- ЗАМЕНИ БЛОК ESP В _RenderLoop() НА ЭТОТ КОД
+    -- Рендер ESP панели (без изменений)
     do
         local espButton = Core.HeaderButtons.ViewESP
         local anim = espButton.Animation
-
-        -- Управляем запуском анимации на основе флага IsOpen
         if espButton.IsOpen and anim.CurrentOpacity < 1 and not anim.IsOpening then
             anim.IsOpening = true
             anim.IsClosing = false
@@ -2681,34 +2675,21 @@ function Library:_RenderLoop()
             anim.IsOpening = false
             anim.IsClosing = true
         end
-
         local masterOpacity = anim.CurrentOpacity
         local isVisible = masterOpacity > 0
-
-        -- Устанавливаем видимость для всех элементов
         self:_SetVisibility(Core.ViewESPPanel, isVisible)
         self:_SetVisibility(Core.ViewESPPanelBorder, isVisible)
-        if Core.ViewESPImage then
-            self:_SetVisibility(Core.ViewESPImage, isVisible)
-        end
-
-        -- Если панель хоть немного видна, отрисовываем и позиционируем её
+        if Core.ViewESPImage then self:_SetVisibility(Core.ViewESPImage, isVisible) end
         if isVisible then
             local panelX = windowX + self.Window.Width + 11
-
             self:_AnimateAndApplyColor(Core.ViewESPPanel, theme.Colors.SectionBackground, masterOpacity)
             self:_AnimateAndApplyColor(Core.ViewESPPanelBorder, theme.Colors.Separator, masterOpacity)
-
-            Core.ViewESPPanel.Position = {panelX, windowY}
-            Core.ViewESPPanel.Size = {200, 310}
-            Core.ViewESPPanelBorder.Position = {panelX, windowY}
-            Core.ViewESPPanelBorder.Size = {200, 310}
-
+            Core.ViewESPPanel.Position = {panelX, windowY}; Core.ViewESPPanel.Size = {200, 310}
+            Core.ViewESPPanelBorder.Position = {panelX, windowY}; Core.ViewESPPanelBorder.Size = {200, 310}
             if Core.ViewESPImage then
-                self:_AnimateAndApplyColor(Core.ViewESPImage, {255, 255, 255}, masterOpacity) -- Убрал альфа-канал, т.к. он управляется masterOpacity
+                self:_AnimateAndApplyColor(Core.ViewESPImage, {255, 255, 255}, masterOpacity)
                 local imageX, imageY = panelX + 3, windowY + 3
-                Core.ViewESPImage.Position = {imageX, imageY}
-                Core.ViewESPImage.Size = {194, 304}
+                Core.ViewESPImage.Position = {imageX, imageY}; Core.ViewESPImage.Size = {194, 304}
             end
         end
     end
@@ -2716,6 +2697,7 @@ function Library:_RenderLoop()
     self:_RenderTabs(windowX, windowY + headerHeight, sidebarWidth)
 
     if self.Window.ActiveTab == "Configs" then
+        -- Если активна вкладка конфигов, ПРИНУДИТЕЛЬНО скрываем все обычные секции
         for _, section in ipairs(self.UI.Sections) do
             local anim_state = self.AnimationState[section.Drawing.Background]
             if anim_state and anim_state.IsVisible then
@@ -2723,19 +2705,22 @@ function Library:_RenderLoop()
                 anim_state.IsVisible = false
             end
         end
+        -- И только потом отрисовываем саму вкладку конфигов
         self:_RenderConfigsTab(rightPanelX, windowY, headerHeight)
     else
+        -- Если активна любая другая вкладка, ПРИНУДИТЕЛЬНО скрываем все элементы вкладки конфигов
         local configsTab = self.UI.Core.ConfigsTab
-        if configsTab.MyItemsLabel.Visible then
-            self:_SetVisibility(configsTab.MyItemsLabel, false)
-            self:_SetVisibility(configsTab.Scrollbar.Background, false)
-            self:_SetVisibility(configsTab.Scrollbar.Nub, false)
-            for _, item in ipairs(configsTab.Items) do
-                self:_SetDrawingTableVisibility(item.Drawing, false)
-            end
+        self:_SetVisibility(configsTab.MyItemsLabel, false)
+        self:_SetVisibility(configsTab.Scrollbar.Background, false)
+        self:_SetVisibility(configsTab.Scrollbar.Nub, false)
+        for _, item in ipairs(configsTab.Items) do
+            self:_SetDrawingTableVisibility(item.Drawing, false)
         end
+        -- И после этого отрисовываем обычные секции
         self:_RenderSections(rightPanelX, windowY, headerHeight)
     end
+    
+    -- [[ ИЗМЕНЕНИЕ КОНЕЦ ]]
 
     self:_RenderSaveTooltip()
     self:_RenderConfigOptionsPopup()
@@ -3053,6 +3038,10 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
     local totalContentHeight = (#configs.Items * totalItemHeight) - itemSpacing
     local needsScrollbar = totalContentHeight > fullRenderAreaHeight
 
+    -- [[ ИЗМЕНЕНИЕ НАЧАЛО: Делаем MyItemsLabel всегда видимым, если активна вкладка ]]
+    self:_SetVisibility(configs.MyItemsLabel, true) 
+    -- [[ ИЗМЕНЕНИЕ КОНЕЦ ]]
+    
     self:_SetVisibility(configs.Scrollbar.Background, needsScrollbar)
     self:_SetVisibility(configs.Scrollbar.Nub, needsScrollbar)
     self:_AnimateAndApplyColor(configs.MyItemsLabel, theme.Colors.TextPrimary)
@@ -3079,7 +3068,6 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
 
     local loopStartY = fullRenderAreaY
     for i, item in ipairs(configs.Items) do
-        -- Рассчитываем "идеальную" позицию на основе скролла
         local itemY = (loopStartY + (i - 1) * totalItemHeight) - configs.Scrollbar.ScrollOffset
         
         local isVisible = (itemY + itemHeight > clippingAreaY) and (itemY < clippingAreaY + clippingAreaHeight)
@@ -3090,17 +3078,17 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
             item.Animation.CurrentOpacity = targetOpacity
         end
 
-        -- [[ ГЛАВНОЕ ИЗМЕНЕНИЕ ЗДЕСЬ ]]
-        -- 1. Определяем, какую Y-координату использовать для отрисовки.
+        -- [[ ИЗМЕНЕНИЕ НАЧАЛО: Исправлена логика позиционирования для устранения мерцания ]]
         local renderY
         if isVisible then
-            -- Если элемент видим, используем его текущую позицию и сохраняем её.
+            -- Если элемент должен быть виден, всегда используем его актуальную позицию
             renderY = itemY
-            item.Animation.LastVisibleY = itemY
+            item.Animation.LastVisibleY = itemY -- и обновляем последнюю известную позицию
         else
-            -- Если элемент не видим (исчезает), используем последнюю сохраненную позицию.
+            -- Если элемент не виден, используем последнюю позицию, чтобы он плавно исчез на своем месте
             renderY = item.Animation.LastVisibleY
         end
+        -- [[ ИЗМЕНЕНИЕ КОНЕЦ ]]
 
         if item.Animation.CurrentOpacity > 0 then
             local d = item.Drawing
@@ -3109,7 +3097,6 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
 
             self:_SetDrawingTableVisibility(d, true)
 
-            -- 2. Используем `renderY` для позиционирования ВСЕХ объектов конфига.
             self:_AnimateAndApplyColor(d.Background, theme.Colors.SectionBackground, masterOpacity)
             self:_AnimateAndApplyColor(d.Border, theme.Colors.Separator, masterOpacity)
             self:_AnimateAndApplyColor(d.Name, theme.Colors.TextPrimary, masterOpacity)
