@@ -3629,8 +3629,19 @@ function Library:_InputLoop()
 
     if is_press_started then
         is_dragging_something = false
-
         local started_drag = false
+
+        -- [[ НАЧАЛО НОВОГО КОДА ]]
+        local scrollbar = configsTab.Scrollbar
+        -- Проверяем, нажали ли мы на ползунок скроллбара
+        if self.Window.ActiveTab == "Configs" and needsScrollbar and self:_IsPointInRegion(mouse_x, mouse_y, scrollbar.NubClickRegion) then
+            scrollbar.IsDraggingNub = true
+            scrollbar.DragStartMouseY = mouse_y
+            scrollbar.DragStartOffset = scrollbar.ScrollOffset
+            started_drag = true -- Помечаем, что мы начали перетаскивание, чтобы не двигать окно
+        end
+        -- [[ КОНЕЦ НОВОГО КОДА ]]
+
         local wmDragRegion = {x1=wm.DragArea.Position.x, y1=wm.DragArea.Position.y, x2=wm.DragArea.Position.x+wm.DragArea.Size.x, y2=wm.DragArea.Position.y+wm.DragArea.Size.y}
         if self.UI.Values["BurgerWatermark"] and self:_IsPointInRegion(mouse_x, mouse_y, wmDragRegion) then
             wm.IsDragging = true; started_drag = true; wm.DragOffset = {x = mouse_x - wm.Position.x, y = mouse_y - wm.Position.y};
@@ -3677,6 +3688,31 @@ function Library:_InputLoop()
     end
 
     if is_left_pressed_now then
+        -- [[ НАЧАЛО НОВОГО КОДА ]]
+        local scrollbar = configsTab.Scrollbar
+        if scrollbar.IsDraggingNub then
+            -- Вычисляем необходимые высоты (дублируем из функции рендера для точности)
+            local itemHeight = 60
+            local itemSpacing = 10
+            local totalItemHeight = itemHeight + itemSpacing
+            local MAX_VISIBLE_ITEMS = 7
+            local visibleAreaHeight = (MAX_VISIBLE_ITEMS * totalItemHeight) - itemSpacing
+            local totalContentHeight = (#configsTab.Items * totalItemHeight) - itemSpacing
+
+            -- Рассчитываем смещение мыши
+            local mouseDeltaY = mouse_y - scrollbar.DragStartMouseY
+            
+            -- Рассчитываем "коэффициент прокрутки", чтобы движение было пропорциональным
+            local scrollRatio = totalContentHeight / visibleAreaHeight
+            
+            -- Вычисляем новое смещение контента
+            local newOffset = scrollbar.DragStartOffset + (mouseDeltaY * scrollRatio)
+            
+            -- Ограничиваем смещение, чтобы не уйти за пределы
+            local maxScrollOffset = totalContentHeight - visibleAreaHeight
+            configsTab.Scrollbar.ScrollOffset = math.clamp(newOffset, 0, maxScrollOffset)
+        end
+        -- [[ КОНЕЦ НОВОГО КОДА ]]
         if wm.IsDragging then wm.Position.x = mouse_x - wm.DragOffset.x; wm.Position.y = mouse_y - wm.DragOffset.y; end
         if hk.IsDragging then hk.Position.x = mouse_x - hk.DragOffset.x; hk.Position.y = mouse_y - hk.DragOffset.y; end
         if self.Window.IsDragging then self.Window.X = mouse_x - drag_offset.x; self.Window.Y = mouse_y - drag_offset.y; end
@@ -4026,6 +4062,7 @@ function Library:_InputLoop()
         for _, section in ipairs(self.UI.Sections) do for _, el in ipairs(section.Elements) do if el.IsDragging then el.IsDragging = false end end end
         is_dragging_something = false
         self.Window.IsFastDragging = false;
+        configsTab.Scrollbar.IsDraggingNub = false
     end
 
     do
