@@ -1621,9 +1621,40 @@ end
 function Library:_RefreshConfigList()
     local configs = self.UI.Core.ConfigsTab
     
+    -- [[ ИЗМЕНЕНИЕ НАЧАЛО: Более надёжная и прямая очистка старых объектов ]]
+    -- Вместо рекурсивного поиска, мы явно добавляем каждый элемент в очередь на удаление.
+    -- Это гарантирует, что ни один "призрак" не останется.
     for _, item in ipairs(configs.Items) do
-        self:_CleanupDrawingObjects(item.Drawing)
+        local d = item.Drawing
+        if d then
+            if d.Background then table.insert(self.ObjectsToRemove, d.Background) end
+            if d.Border then table.insert(self.ObjectsToRemove, d.Border) end
+            if d.Name then table.insert(self.ObjectsToRemove, d.Name) end
+            if d.Modified then table.insert(self.ObjectsToRemove, d.Modified) end
+            if d.Author then table.insert(self.ObjectsToRemove, d.Author) end
+
+            if d.OptionsButton then
+                if d.OptionsButton.Dot1 then table.insert(self.ObjectsToRemove, d.OptionsButton.Dot1) end
+                if d.OptionsButton.Dot2 then table.insert(self.ObjectsToRemove, d.OptionsButton.Dot2) end
+                if d.OptionsButton.Dot3 then table.insert(self.ObjectsToRemove, d.OptionsButton.Dot3) end
+            end
+
+            if d.LoadButton then
+                if d.LoadButton.Background then table.insert(self.ObjectsToRemove, d.LoadButton.Background) end
+                if d.LoadButton.Icon then table.insert(self.ObjectsToRemove, d.LoadButton.Icon) end
+                if d.LoadButton.Label then table.insert(self.ObjectsToRemove, d.LoadButton.Label) end
+            end
+
+            if d.SaveButton then
+                if d.SaveButton.Background then table.insert(self.ObjectsToRemove, d.SaveButton.Background) end
+                if d.SaveButton.Border then table.insert(self.ObjectsToRemove, d.SaveButton.Border) end
+                if d.SaveButton.Icon then table.insert(self.ObjectsToRemove, d.SaveButton.Icon) end
+                if d.SaveButton.Label then table.insert(self.ObjectsToRemove, d.SaveButton.Label) end
+            end
+        end
     end
+    -- [[ ИЗМЕНЕНИЕ КОНЕЦ ]]
+
     configs.Items = {}
 
     local files = listfiles(self.ConfigFolderPath)
@@ -1642,7 +1673,6 @@ function Library:_RefreshConfigList()
                 Name = configName,
                 Modified = "N/A",
                 Author = localPlayerName,
-                -- [[ НОВОЕ: Добавляем LastVisibleY для хранения последней позиции ]]
                 Animation = { CurrentOpacity = 0.0, LastVisibleY = 0 },
                 Drawing = {
                     Background = self:_CreateDrawingObject("Square"),
@@ -1680,7 +1710,7 @@ function Library:_RefreshConfigList()
             if d.LoadButton.Background then d.LoadButton.Background.Filled = true; d.LoadButton.Background.zIndex = z + 2; d.LoadButton.Background.Rounding = self.ActiveTheme.Rounding.Button; end
             if d.LoadButton.Icon then d.LoadButton.Icon.Size = {14, 14}; d.LoadButton.Icon.zIndex = z + 3; d.LoadButton.Icon.Url = "https://i.postimg.cc/W3YTY7Hf/image.png"; end
             if d.LoadButton.Label then d.LoadButton.Label.Font = self.ActiveTheme.Fonts.Main; d.LoadButton.Label.Size = self.ActiveTheme.Fonts.Size; d.LoadButton.Label.Text = "Load"; d.LoadButton.Label.Center = false; d.LoadButton.Label.zIndex = z + 3; end
-            if d.SaveButton.Background then d.SaveButton.Filled = true; d.SaveButton.zIndex = z + 2; d.SaveButton.Rounding = self.ActiveTheme.Rounding.Button; end
+            if d.SaveButton.Background then d.SaveButton.Background.Filled = true; d.SaveButton.Background.zIndex = z + 2; d.SaveButton.Background.Rounding = self.ActiveTheme.Rounding.Button; end
             if d.SaveButton.Border then d.SaveButton.Border.Filled = false; d.SaveButton.Border.Thickness = 1; d.SaveButton.Border.zIndex = z + 3; d.SaveButton.Border.Rounding = self.ActiveTheme.Rounding.Button; end
             if d.SaveButton.Icon then d.SaveButton.Icon.Size = {13.33, 13.33}; d.SaveButton.Icon.zIndex = z + 3; d.SaveButton.Icon.Url = "https://i.postimg.cc/0QgnsgKT/vaseinko.png"; end 
             if d.SaveButton.Label then d.SaveButton.Label.Font = self.ActiveTheme.Fonts.Main; d.SaveButton.Label.Size = self.ActiveTheme.Fonts.Size; d.SaveButton.Label.Text = "Save"; d.SaveButton.Label.Center = false; d.SaveButton.Label.zIndex = z + 3; end
@@ -4243,7 +4273,7 @@ function Library:_AddPresetsTab()
 end
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. x242")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. x2425")
     local is_first_frame = true
     while true do
         -- Обрабатываем очередь на удаление в начале каждого кадра
