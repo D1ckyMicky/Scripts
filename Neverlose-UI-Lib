@@ -558,7 +558,6 @@ function Library:_UpdatePopupAnimation(popup)
     if not popup.Animation then return end
     local anim = popup.Animation
 
-    -- [[ БЛОК ИЗМЕНЕНИЙ НАЧАЛО ]]
     local speed_value = (self.UI.Values["AboutAnimationSpeed"] or 2.4)
     if self.UI.Values["BurgerLow-EndMode"] or speed_value == 0 then
         if anim.IsOpening then
@@ -568,27 +567,32 @@ function Library:_UpdatePopupAnimation(popup)
         elseif anim.IsClosing then
             anim.CurrentOpacity = 0
             anim.IsClosing = false
-            if popup.IsOpen ~= nil then popup.IsOpen = false end -- Закрываем состояние здесь
+            if popup.IsOpen ~= nil then 
+                popup.IsOpen = false 
+                if popup.ActiveToggle then popup.ActiveToggle = nil end -- [[ ИЗМЕНЕНИЕ: Сбрасываем здесь ]]
+            end
         end
         return
     end
-    -- [[ БЛОК ИЗМЕНЕНИЙ КОНЕЦ ]]
-    
+
     local animationSpeed = (speed_value > 0) and (speed_value / 25.0) or 1
-    
+
     if anim.IsOpening then
         anim.CurrentOpacity = anim.CurrentOpacity + animationSpeed
         if anim.CurrentOpacity >= 1 then
             anim.CurrentOpacity = 1
             anim.IsOpening = false
-            if popup.IsOpen ~= nil then popup.IsOpen = true end -- Явно устанавливаем состояние
+            if popup.IsOpen ~= nil then popup.IsOpen = true end
         end
     elseif anim.IsClosing then
         anim.CurrentOpacity = anim.CurrentOpacity - animationSpeed
         if anim.CurrentOpacity <= 0 then
             anim.CurrentOpacity = 0
             anim.IsClosing = false
-            if popup.IsOpen ~= nil then popup.IsOpen = false end -- И здесь тоже
+            if popup.IsOpen ~= nil then 
+                popup.IsOpen = false 
+                if popup.ActiveToggle then popup.ActiveToggle = nil end -- [[ ИЗМЕНЕНИЕ: И здесь ]]
+            end
         end
     end
 end
@@ -2120,21 +2124,21 @@ function Library:_RenderSettingsPopup()
     local masterOpacity = popup.Animation.CurrentOpacity
     local z = popup.Background and popup.Background.zIndex or 20
 
-    if not popup.IsOpen and masterOpacity <= 0 then
-        -- Не рендерим вообще ничего, если попап не должен быть открыт и уже исчез
-        return
-    end
-
-    -- Если IsOpen=true, но анимация открытия еще не началась, запускаем её
-    if popup.IsOpen and not popup.Animation.IsOpening and not popup.Animation.IsClosing and masterOpacity < 1 then
-        popup.Animation.IsOpening = true
-    end
-
+    -- Если прозрачность 0, просто ничего не делаем. Аниматор сам разберется с состоянием.
     if masterOpacity <= 0 then
-        self:_HideSettingsPopupElements(popup)
-        self:_SetVisibility(popup.Background, false); self:_SetVisibility(popup.Border, false); self:_SetVisibility(popup.Title, false); self:_SetVisibility(popup.Separator, false)
-        self:_HideGlowEffect(popup.Glow)
+        if popup.Background.Visible then -- Скрываем объекты один раз, когда анимация закончилась
+            self:_HideSettingsPopupElements(popup)
+            self:_SetVisibility(popup.Background, false); self:_SetVisibility(popup.Border, false);
+            self:_SetVisibility(popup.Title, false); self:_SetVisibility(popup.Separator, false);
+            self:_HideGlowEffect(popup.Glow)
+        end
         return
+    end
+
+    -- Если мы здесь, значит попап видим. Показываем его основные элементы.
+    if not popup.Background.Visible then
+         self:_SetVisibility(popup.Background, true); self:_SetVisibility(popup.Border, true);
+         self:_SetVisibility(popup.Title, true); self:_SetVisibility(popup.Separator, true);
     end
 
     self:_SetVisibility(popup.Background, true); self:_SetVisibility(popup.Border, true); self:_SetVisibility(popup.Title, true); self:_SetVisibility(popup.Separator, true);
@@ -4235,11 +4239,16 @@ function Library:_InputLoop()
                                 elseif el.type == "Toggle" and el.HasColor and el.ColorClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, el.ColorClickRegion) then
                                     picker.IsOpen = true; picker.Animation.IsOpening = true; picker.Animation.IsClosing = false; picker.EditingValueID = el.HasColor.id; picker.EditingColorName = nil; picker.Pos = {x = mouse_x, y = mouse_y}; local color_to_edit = self.UI.Values[el.HasColor.id]; picker.h, picker.s, picker.v, picker.a = self:_RGBtoHSV(color_to_edit[1], color_to_edit[2], color_to_edit[3], color_to_edit[4]); clicked_on_main_ui = true; break;
                                 elseif el.HasSettings and el.SettingsClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, el.SettingsClickRegion) then
-                                    settings_popup.IsOpen = true
+                                -- [[ ИЗМЕНЕНИЕ: Не выставляем IsOpen вручную, только запускаем анимацию ]]
+                                if not settings_popup.IsOpen and not settings_popup.Animation.IsClosing then
+                                    settings_popup.Animation.IsOpening = true
+                                    settings_popup.Animation.IsClosing = false
+                                    settings_popup.Animation.CurrentOpacity = 0 -- Сбрасываем для чистого старта
                                     settings_popup.ActiveToggle = el;
                                     settings_popup.Pos = {x = mouse_x, y = mouse_y};
-                                    clicked_on_main_ui = true;
-                                    break;
+                                end
+                                clicked_on_main_ui = true;
+                                break;
                                 elseif el.type == "Slider" and el.ValueInputClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, el.ValueInputClickRegion) then
                                     el.IsEditing = true; el.InputText = tostring(math.floor(self.UI.Values[el.id])); clicked_on_main_ui = true; break;
                                 end
