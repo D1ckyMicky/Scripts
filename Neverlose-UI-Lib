@@ -2989,18 +2989,17 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
     local leftColumnX, rightColumnX = panelX + columnSpacing, panelX + columnSpacing + columnWidth + columnSpacing
     
     for _, section in ipairs(self.UI.Sections) do
-        -- [[ ИЗМЕНЕНИЕ: Используем значения из новой системы анимации ]]
         local anim_state = section.Animation
         
-        -- Если секция невидима (прозрачность 0), пропускаем её отрисовку
+        -- [[ ИЗМЕНЕНИЕ: Улучшенная логика скрытия ]]
+        -- Если секция полностью невидима, принудительно скрываем её и переходим к следующей
         if anim_state.CurrentOpacity <= 0 then
-            -- Если она раньше была видима, принудительно скрываем все её элементы
             if anim_state.IsVisible then
                 self:_SetSectionAndElementsVisibility(section, false)
                 anim_state.IsVisible = false
             end
         else
-            -- Если секция становится видимой, убеждаемся, что её элементы тоже видимы
+            -- Если секция становится видимой, убеждаемся, что её элементы тоже готовы к отрисовке
             if not anim_state.IsVisible then
                 self:_SetSectionAndElementsVisibility(section, true)
                 anim_state.IsVisible = true
@@ -3013,7 +3012,6 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
                 sectionX, sectionY = rightColumnX, rightColumnY
             end
             
-            -- Отрисовываем секцию, передавая ей текущее смещение и прозрачность
             local sectionHeight = self:_RenderSingleSection(section, sectionX, sectionY, columnWidth, anim_state.CurrentYOffset, anim_state.CurrentOpacity)
             
             if section.Side == "Left" then
@@ -3028,10 +3026,10 @@ end
 
 function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
     local configs = self.UI.Core.ConfigsTab
-    -- [[ ИЗМЕНЕНИЕ: Получаем состояние анимации для всей вкладки ]]
     local anim = configs.Animation
 
-    -- Если вся вкладка невидима, ничего не делаем
+    -- [[ ИЗМЕНЕНИЕ: Улучшенная логика скрытия ]]
+    -- Если вся вкладка конфигов невидима, скрываем все её элементы и выходим из функции
     if anim.CurrentOpacity <= 0 then
         if anim.IsVisible then
             self:_SetVisibility(configs.MyItemsLabel, false)
@@ -3045,15 +3043,13 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
         return
     end
 
-    -- Если становится видимой, включаем все элементы
     if not anim.IsVisible then
         self:_SetVisibility(configs.MyItemsLabel, true)
-        -- Скроллбар будет показан ниже по логике, если он нужен
         anim.IsVisible = true
     end
 
     local masterOpacity = anim.CurrentOpacity
-    local startY = panelY + headerHeight + 20 + anim.CurrentYOffset -- Применяем смещение Y
+    local startY = panelY + headerHeight + 20 + anim.CurrentYOffset
     
     local startX = panelX + 20
     local contentWidth = (self.Window.Width - self.Window.SidebarWidth + self.Window.PanelOverlap) - 40
@@ -3105,7 +3101,7 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
         if item.Animation.CurrentOpacity > 0 then
             local d = item.Drawing
             local isLoaded = (configs.LoadedConfigName == item.Name)
-            local itemMasterOpacity = item.Animation.CurrentOpacity * masterOpacity -- Умножаем на общую прозрачность вкладки
+            local itemMasterOpacity = item.Animation.CurrentOpacity * masterOpacity
 
             self:_SetDrawingTableVisibility(d, true)
             self:_AnimateAndApplyColor(d.Background, self:_GetTransitionColor("SectionBackground"), itemMasterOpacity)
@@ -3167,6 +3163,7 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
         end
     end
 end
+
 
 function Library:_RenderConfigOptionsPopup()
     local configs = self.UI.Core.ConfigsTab
