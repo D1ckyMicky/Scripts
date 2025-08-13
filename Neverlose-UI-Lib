@@ -366,26 +366,23 @@ function Library:_UpdateMainPanelAnimations()
     local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.5
     local animationSpeed = (speed_value * 1.5) / 15.0
 
-    -- Вспомогательная функция для обработки анимации одного объекта (секции или вкладки)
     local function process_animation(obj, is_target_for_show, is_target_for_hide)
-        local anim_state = obj.Animation
+        -- [[ ИЗМЕНЕНИЕ: Добавляем проверку на существование таблицы Animation ]]
+        if not obj or not obj.Animation then return end
         
+        local anim_state = obj.Animation
         local targetOpacity, targetYOffset
 
         if is_target_for_hide then
-            -- Цель: исчезнуть, сместившись вниз
             targetOpacity, targetYOffset = 0, ANIMATION_SLIDE_DISTANCE
             if anim_state.CurrentOpacity > 0.01 then still_fading_out = true end
         elseif is_target_for_show then
-            -- Цель: появиться, вернувшись в исходное положение
             targetOpacity, targetYOffset = 1, 0
             if anim_state.CurrentOpacity < 0.99 then still_fading_in = true end
         else
-            -- Цель: оставаться невидимым
             targetOpacity, targetYOffset = 0, anim_state.CurrentYOffset
         end
         
-        -- Плавный переход к целевым значениям
         if self.UI.Values["BurgerLow-EndMode"] then
             anim_state.CurrentOpacity = targetOpacity
             anim_state.CurrentYOffset = targetYOffset
@@ -394,25 +391,21 @@ function Library:_UpdateMainPanelAnimations()
             anim_state.CurrentYOffset = anim_state.CurrentYOffset + (targetYOffset - anim_state.CurrentYOffset) * animationSpeed
         end
         
-        -- "Примагничивание" к конечным значениям, чтобы избежать дрожания
         if math.abs(anim_state.CurrentOpacity - targetOpacity) < 0.01 then anim_state.CurrentOpacity = targetOpacity end
         if math.abs(anim_state.CurrentYOffset - targetYOffset) < 0.01 then anim_state.CurrentYOffset = targetYOffset end
     end
 
-    -- 1. Обрабатываем анимацию для всех обычных секций
     for _, section in ipairs(self.UI.Sections) do
         local is_on_active_tab = (section.ParentTab == self.Window.ActiveTab)
         local is_on_old_tab = (self.Window.Animation.State == "FADING_OUT" and section.ParentTab == self.Window.Animation.OldTab)
         process_animation(section, is_on_active_tab and self.Window.Animation.State ~= "FADING_OUT", is_on_old_tab)
     end
 
-    -- 2. Обрабатываем анимацию для всей вкладки Конфигов как единого целого
     local configsTab = self.UI.Core.ConfigsTab
     local is_configs_active = (self.Window.ActiveTab == "Configs")
     local is_configs_old = (self.Window.Animation.State == "FADING_OUT" and self.Window.Animation.OldTab == "Configs")
     process_animation(configsTab, is_configs_active and self.Window.Animation.State ~= "FADING_OUT", is_configs_old)
 
-    -- 3. Отдельно обрабатываем кнопку "Create New" (у неё только анимация прозрачности)
     local createNewBtn = self.UI.Core.HeaderButtons.CreateNew
     local is_createnew_target_for_show = is_configs_active and self.Window.Animation.State ~= "FADING_OUT"
     
@@ -427,27 +420,26 @@ function Library:_UpdateMainPanelAnimations()
     end
     if math.abs(createNewBtn.Animation.CurrentOpacity - targetOpacity) < 0.01 then createNewBtn.Animation.CurrentOpacity = targetOpacity end
 
-    -- Управляем глобальным состоянием перехода между вкладками
     if self.Window.Animation.State == "FADING_OUT" and not still_fading_out then
         self.Window.Animation.State = "FADING_IN"
         self.Window.Animation.OldTab = nil
         
-        -- Сбрасываем начальные позиции для элементов, которые сейчас будут появляться
         for _, section in ipairs(self.UI.Sections) do
             if section.ParentTab == self.Window.ActiveTab then
                 section.Animation.CurrentOpacity = 0
-                section.Animation.CurrentYOffset = ANIMATION_SLIDE_DISTANCE -- Начинаем снизу
+                section.Animation.CurrentYOffset = ANIMATION_SLIDE_DISTANCE
             end
         end
         if self.Window.ActiveTab == "Configs" then
             configsTab.Animation.CurrentOpacity = 0
-            configsTab.Animation.CurrentYOffset = ANIMATION_SLIDE_DISTANCE -- Начинаем снизу
+            configsTab.Animation.CurrentYOffset = ANIMATION_SLIDE_DISTANCE
         end
 
     elseif self.Window.Animation.State == "FADING_IN" and not still_fading_in then
         self.Window.Animation.State = "IDLE"
     end
 end
+
 
 function Library:_SetSectionAndElementsVisibility(section, visible)
     -- Сначала обрабатываем собственные объекты секции (фон, заголовок и т.д.)
@@ -4626,6 +4618,8 @@ end
 function Library:Section(options)
     local section = {
         Title = options.Name, ParentTab = options.ParentTab, Side = options.Side or "Left", Elements = {},
+        -- [[ ИЗМЕНЕНИЕ: Добавляем таблицу Animation при создании секции ]]
+        Animation = { CurrentOpacity = 0, CurrentYOffset = 0, IsVisible = false },
         Drawing = { Background = self:_CreateDrawingObject("Square"), Border = self:_CreateDrawingObject("Square"), Title = self:_CreateDrawingObject("Text"), Separator = self:_CreateDrawingObject("Line") }
     }
     if section.Drawing.Background then section.Drawing.Background.Filled = true; section.Drawing.Background.zIndex = 2; section.Drawing.Background.Rounding = self.ActiveTheme.Rounding.Section; end
@@ -4637,14 +4631,12 @@ function Library:Section(options)
 
     local self_lib = self
     local SectionObject = {}
-    local last_element = nil -- Ссылка на последний добавленный элемент для цепочки
-
-    -- Определяем все методы для SectionObject, чтобы их можно было вызывать в цепочке.
+    local last_element = nil
 
     function SectionObject:Toggle(toggleOptions)
         last_element = self_lib:_Internal_CreateToggle(toggleOptions)
         table.insert(section.Elements, last_element)
-        return SectionObject -- Всегда возвращаем SectionObject для продолжения цепочки
+        return SectionObject
     end
 
     function SectionObject:Slider(sliderOptions) 
@@ -4665,27 +4657,24 @@ function Library:Section(options)
         return SectionObject 
     end
 
-    -- Метод Keybind теперь является частью SectionObject.
-    -- Он будет работать корректно, только если вызван сразу после Toggle.
     function SectionObject:Keybind(keybindOptions)
         if last_element and last_element.type == "Toggle" then
-            -- Привязываем информацию о родительском Toggle к самому кейбинду
             keybindOptions.ParentToggleID = last_element.id
             keybindOptions.ParentToggleName = last_element.Name
             
             local keybind_element = self_lib:_Internal_CreateKeybind(keybindOptions)
             
-            -- Добавляем кейбинд в список настроек родительского Toggle
             if not last_element.SettingsElements then last_element.SettingsElements = {} end
             table.insert(last_element.SettingsElements, keybind_element)
         else
             warn(SCRIPT_PREFIX .. "Keybind() can only be chained after a Toggle() element.")
         end
-        return SectionObject -- Всегда возвращаем SectionObject для продолжения цепочки
+        return SectionObject
     end
 
     return SectionObject
 end
+
 
 
 function Library:Unload()
