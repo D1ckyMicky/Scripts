@@ -928,7 +928,8 @@ function Library:_InitializeCoreUI()
     UI.Core.HeaderButtons = {
         Save = { Background = self:_CreateDrawingObject("Square"), Border = self:_CreateDrawingObject("Square"), Label = self:_CreateDrawingObject("Text"), Icon = self:_CreateDrawingObject("Image"), ClickRegion = {}, ClickTime = 0, IsHovered = false, CurrentColor = {0,0,0,0} },
         ViewESP = { Background = self:_CreateDrawingObject("Square"), Border = self:_CreateDrawingObject("Square"), Label = self:_CreateDrawingObject("Text"), ClickRegion = {}, ClickTime = 0, IsOpen = false, Animation = { IsOpening = false, IsClosing = false, CurrentOpacity = 0 } },
-        CreateNew = { Background = self:_CreateDrawingObject("Square"), Border = self:_CreateDrawingObject("Square"), Label = self:_CreateDrawingObject("Text"), Icon = self:_CreateDrawingObject("Image"), ClickRegion = {}, ClickTime = 0 },
+        -- [[ ИЗМЕНЕНИЕ: Добавляем таблицу Animation для кнопки CreateNew ]]
+        CreateNew = { Background = self:_CreateDrawingObject("Square"), Border = self:_CreateDrawingObject("Square"), Label = self:_CreateDrawingObject("Text"), Icon = self:_CreateDrawingObject("Image"), ClickRegion = {}, ClickTime = 0, Animation = { CurrentOpacity = 0 } },
         Settings = { Icon = self:_CreateDrawingObject("Image"), ClickRegion = {} }
     }
     
@@ -938,11 +939,9 @@ function Library:_InitializeCoreUI()
         Glow = self:_Internal_CreateGlowSet(49),
         ConfigName = self:_CreateDrawingObject("Text"),
         Author = self:_CreateDrawingObject("Text"),
-        Animation = { IsOpening = false, IsClosing = false, CurrentOpacity = 0 } -- << ДОБАВЛЕНО
+        Animation = { IsOpening = false, IsClosing = false, CurrentOpacity = 0 }
     }
     
-    --[[ ИЗМЕНЕНИЕ: Убираем self.UI.Popups.About отсюда, так как состояние будет храниться в self.UI.Core.AboutWindow ]]
-
     local function setupHeaderButton(button, text, has_icon)
         if button.Background then button.Background.Filled = true; button.Background.zIndex = 2; button.Background.Rounding = self.ActiveTheme.Rounding.Button; end
         if button.Border then button.Border.Filled = false; button.Border.Thickness = 1; button.Border.zIndex = 3; button.Border.Rounding = self.ActiveTheme.Rounding.Button; end
@@ -955,7 +954,7 @@ function Library:_InitializeCoreUI()
     setupHeaderButton(UI.Core.HeaderButtons.CreateNew, " Create new", true)
     
     if UI.Core.HeaderButtons.Save.Icon then UI.Core.HeaderButtons.Save.Icon.Url = "https://i.postimg.cc/0QgnsgKT/vaseinko.png"; end
-    if UI.Core.HeaderButtons.CreateNew.Icon then UI.Core.HeaderButtons.CreateNew.Icon.Url = "https://i.imgur.com/plus-sign-icon.png"; end -- иконка у create new в header
+    if UI.Core.HeaderButtons.CreateNew.Icon then UI.Core.HeaderButtons.CreateNew.Icon.Url = "https://i.imgur.com/plus-sign-icon.png"; end
     if UI.Core.HeaderButtons.Settings.Icon then UI.Core.HeaderButtons.Settings.Icon.Url = "https://i.postimg.cc/QMZSLGTR/image.png"; UI.Core.HeaderButtons.Settings.Icon.Size = {20, 20}; UI.Core.HeaderButtons.Settings.Icon.zIndex = 5; end
     UI.Core.ViewESPImage = self:_CreateDrawingObject("Image")
 
@@ -1578,47 +1577,40 @@ function Library:_LoadConfig(name)
 end
 
 
-
 function Library:_InitializeConfigsTab()
     local configs = {}; self.UI.Core.ConfigsTab = configs; local z = 4
 
     configs.LoadedConfigName = ""
     configs.Items = {}
     configs.NeedsRefresh = false
+    -- [[ ИЗМЕНЕНИЕ: Добавляем таблицу Animation для всей вкладки ]]
+    configs.Animation = { CurrentOpacity = 0, CurrentYOffset = 0, IsVisible = false }
 
     configs.MyItemsLabel = self:_CreateDrawingObject("Text")
     if configs.MyItemsLabel then
         configs.MyItemsLabel.Font = self.ActiveTheme.Fonts.Main; configs.MyItemsLabel.Size = self.ActiveTheme.Fonts.Size + 2; configs.MyItemsLabel.Text = "- My items"; configs.MyItemsLabel.Center = false; configs.MyItemsLabel.zIndex = z;
     end
 
-    -- [[ ИЗМЕНЕНИЕ: Дополняем объект скроллбара новыми полями состояния ]]
     configs.Scrollbar = {
         Background = self:_CreateDrawingObject("Square"),
         Nub = self:_CreateDrawingObject("Square"),
-        -- Новые поля для управления логикой
-        IsDraggingNub = false,      -- Флаг, показывающий, тащим ли мы ползунок
-        ScrollOffset = 0,           -- Текущее смещение контента в пикселях
-        DragStartMouseY = 0,        -- Позиция Y мыши в начале перетаскивания
-        DragStartOffset = 0,        -- Смещение контента в начале перетаскивания
-        NubClickRegion = {}         -- Область нажатия для самого ползунка
+        IsDraggingNub = false,
+        ScrollOffset = 0,
+        DragStartMouseY = 0,
+        DragStartOffset = 0,
+        NubClickRegion = {}
     }
-    -- [[ КОНЕЦ ИЗМЕНЕНИЙ ]]
 
     if configs.Scrollbar.Background then configs.Scrollbar.Background.Filled = true; configs.Scrollbar.Background.zIndex = z + 2; configs.Scrollbar.Background.Rounding = 2; end
     if configs.Scrollbar.Nub then configs.Scrollbar.Nub.Filled = true; configs.Scrollbar.Nub.zIndex = z + 3; configs.Scrollbar.Nub.Rounding = 2; end
 
-    -- [[ НАЧАЛО ИЗМЕНЕНИЙ ]]
     configs.OptionsPopup = {
         IsOpen = false, ItemIndex = nil, Pos = {x=0, y=0}, ClickRegion = {},
-        -- Добавляем таблицу для анимации
         Animation = { IsOpening = false, IsClosing = false, CurrentOpacity = 0 },
-
         Background = self:_CreateDrawingObject("Square"),
         Border = self:_CreateDrawingObject("Square"),
         Glow = self:_Internal_CreateGlowSet(z + 10),
         IncludeStyleToggle = self:_Internal_CreateToggle({ id = "ConfigIncludeStyle", Name = "Include Style", Default = true, zIndex = z + 12 }),
-
-        -- Добавляем новые элементы
         Separator = self:_CreateDrawingObject("Line"),
         DeleteButton = {
             Background = self:_CreateDrawingObject("Square"),
@@ -1629,13 +1621,10 @@ function Library:_InitializeConfigsTab()
             IsHovered = false
         }
     }
-    -- [[ КОНЕЦ ИЗМЕНЕНИЙ ]]
 
     local popup = configs.OptionsPopup
     if popup.Background then popup.Background.Filled = true; popup.Background.zIndex = z + 11; popup.Background.Rounding = self.ActiveTheme.Rounding.Section; end
     if popup.Border then popup.Border.Filled = false; popup.Border.Thickness = 1; popup.Border.zIndex = z + 12; popup.Border.Rounding = self.ActiveTheme.Rounding.Section; end
-    
-    -- [[ НОВОЕ: Настройка новых элементов ]]
     if popup.Separator then popup.Separator.Thickness = 2; popup.Separator.zIndex = z + 12; end
     
     local delBtn = popup.DeleteButton
@@ -1644,7 +1633,6 @@ function Library:_InitializeConfigsTab()
     if delBtn.Icon then delBtn.Icon.Size = {18, 18}; delBtn.Icon.zIndex = z + 13; delBtn.Icon.Url = "https://i.postimg.cc/Bb6VL5RD/udalitkonfig.png"; end
     if delBtn.Label then delBtn.Label.Font = self.ActiveTheme.Fonts.Main; delBtn.Label.Size = self.ActiveTheme.Fonts.Size + 1; delBtn.Label.Text = " Delete config"; delBtn.Label.Center = false; delBtn.Label.zIndex = z + 13; end
 end
-
 
 -- Вставьте эту новую функцию в раздел PRIVATE: CONFIG SYSTEM
 function Library:_CreateNewConfig()
@@ -4312,7 +4300,7 @@ function Library:_AddPresetsTab()
 end
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. x242")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. x25452")
     local is_first_frame = true
     while true do
         -- Обрабатываем очередь на удаление в начале каждого кадра
