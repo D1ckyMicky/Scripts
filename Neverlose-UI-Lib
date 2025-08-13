@@ -467,6 +467,13 @@ function Library:_SetSectionAndElementsVisibility(section, visible)
                  end
             end
         end
+
+        -- << [ИСПРАВЛЕНИЕ] Явно скрываем Glow-эффект у слайдеров.
+        -- Это гарантирует его исчезновение даже в low-end режиме без анимаций.
+        if not visible and el.type == "Slider" and el.Glow then
+            self:_HideGlowEffect(el.Glow)
+        end
+
         -- Если мы скрываем секцию, также нужно закрыть все открытые в ней выпадающие списки
         if not visible and el.IsOpen then
             el.IsOpen = false
