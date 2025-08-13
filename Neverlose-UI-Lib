@@ -2558,7 +2558,6 @@ function Library:_RenderLoop()
         local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4
         local animationSpeed = (speed_value > 0) and (speed_value / 40.0) or 1
         self.ThemeTransitionAlpha = self.ThemeTransitionAlpha + animationSpeed
-
         if self.ThemeTransitionAlpha >= 1.0 then
             self.ThemeTransitionAlpha = 1.0
             self.ActiveTheme = self.TargetTheme
@@ -2571,16 +2570,10 @@ function Library:_RenderLoop()
     
     if self.GlobalAnimation.IsHiding then
         self.GlobalAnimation.Opacity = self.GlobalAnimation.Opacity - animationSpeed
-        if self.GlobalAnimation.Opacity <= 0 then
-            self.GlobalAnimation.Opacity = 0
-            self.GlobalAnimation.IsHiding = false
-        end
+        if self.GlobalAnimation.Opacity <= 0 then self.GlobalAnimation.Opacity = 0; self.GlobalAnimation.IsHiding = false; end
     elseif self.GlobalAnimation.IsShowing then
         self.GlobalAnimation.Opacity = self.GlobalAnimation.Opacity + animationSpeed
-        if self.GlobalAnimation.Opacity >= 1 then
-            self.GlobalAnimation.Opacity = 1
-            self.GlobalAnimation.IsShowing = false
-        end
+        if self.GlobalAnimation.Opacity >= 1 then self.GlobalAnimation.Opacity = 1; self.GlobalAnimation.IsShowing = false; end
     end
 
     self:_UpdatePopupAnimation(self.UI.Core.AboutWindow)
@@ -2601,13 +2594,9 @@ function Library:_RenderLoop()
     end
 
     if self.UI.Values["AboutAutoSave"] and self.UI.Core.ConfigsTab.LoadedConfigName ~= "" then
-        if tick() - lastAutoSaveTime > autoSaveInterval then
-            self:_SaveConfig(self.UI.Core.ConfigsTab.LoadedConfigName)
-            lastAutoSaveTime = tick()
-        end
+        if tick() - lastAutoSaveTime > autoSaveInterval then self:_SaveConfig(self.UI.Core.ConfigsTab.LoadedConfigName); lastAutoSaveTime = tick() end
     end
 
-    -- [[ ИЗМЕНЕНИЕ: Вызываем новую функцию управления анимацией ]]
     self:_UpdateMainPanelAnimations()
 
     local mouse_pos = getmouseposition()
@@ -2622,7 +2611,6 @@ function Library:_RenderLoop()
 
     self:_SetVisibility(Core.Sidebar.Drawing, true); self:_SetVisibility(Core.RightPanel.Drawing, true); self:_SetVisibility(Core.VerticalSeparator, true); self:_SetVisibility(Core.SidebarHeaderSeparator, true); self:_SetVisibility(Core.RightPanelHeaderSeparator, true); self:_SetVisibility(Core.Title, true); self:_SetVisibility(Core.SidebarBottomCircle, true); if Core.SidebarAvatar then self:_SetVisibility(Core.SidebarAvatar, true) end; self:_SetVisibility(Core.PlayerDisplayName, true); self:_SetVisibility(Core.TillLabel, true); self:_SetVisibility(Core.ForeverLabel, true)
     self:_SetVisibility(Core.Title2, not isThemeLight); self:_SetVisibility(Core.Title3, not isThemeLight)
-    
     self:_AnimateAndApplyColor(Core.Sidebar.Drawing, self:_GetTransitionColor("SidebarBackground"))
     self:_AnimateAndApplyColor(Core.RightPanel.Drawing, self:_GetTransitionColor("MainBackground"))
     self:_AnimateAndApplyColor(Core.VerticalSeparator, self:_GetTransitionColor("Separator"))
@@ -2635,14 +2623,11 @@ function Library:_RenderLoop()
     self:_AnimateAndApplyColor(Core.PlayerDisplayName, self:_GetTransitionColor("TextPrimary"))
     self:_AnimateAndApplyColor(Core.TillLabel, self:_GetTransitionColor("TextSecondary"))
     self:_AnimateAndApplyColor(Core.ForeverLabel, self:_GetTransitionColor("Accent"))
-
     if Core.SidebarAvatar then self:_AnimateAndApplyColor(Core.SidebarAvatar, {255, 255, 255, 255}) end
     if Core.Sidebar.Drawing then Core.Sidebar.Drawing.Position = {windowX, windowY}; Core.Sidebar.Drawing.Size = {sidebarWidth, self.Window.Height}; end
     if Core.RightPanel.Drawing then Core.RightPanel.Drawing.Position = {rightPanelX, windowY}; Core.RightPanel.Drawing.Size = {self.Window.Width - sidebarWidth + self.Window.PanelOverlap, self.Window.Height}; end
-    
     self:_RenderGlowEffect(Core.Sidebar.Glow, windowX, windowY, sidebarWidth, self.Window.Height, Core.Sidebar.Drawing.Rounding, self:_GetTransitionColor("GlowColor"), {top=true, bottom=true, left=true, right=true})
     self:_RenderGlowEffect(Core.RightPanel.Glow, rightPanelX, windowY, self.Window.Width - sidebarWidth + self.Window.PanelOverlap, self.Window.Height, Core.RightPanel.Drawing.Rounding, self:_GetTransitionColor("GlowColor"), {top=true, bottom=true, left=false, right=true})
-    
     if Core.VerticalSeparator then Core.VerticalSeparator.Position = {rightPanelX, windowY}; Core.VerticalSeparator.Size = {4, self.Window.Height}; end
     if Core.SidebarHeaderSeparator then Core.SidebarHeaderSeparator.Position = {windowX, windowY + self.Window.Height - 100 + 14}; Core.SidebarHeaderSeparator.Size = {sidebarWidth, 4}; end
     if Core.RightPanelHeaderSeparator then Core.RightPanelHeaderSeparator.Position = {rightPanelX, windowY + headerHeight}; Core.RightPanelHeaderSeparator.Size = {self.Window.Width - sidebarWidth + self.Window.PanelOverlap, 4}; end
@@ -2658,36 +2643,28 @@ function Library:_RenderLoop()
     do
         local startX, startY = rightPanelX + 35, windowY + (headerHeight / 2)
         local function renderHeaderButton(button, x, y, width, height, has_icon, is_accent)
-             self:_SetVisibility(button.Background, true); self:_SetVisibility(button.Border, true); self:_SetVisibility(button.Label, true); if button.Icon then self:_SetVisibility(button.Icon, button.Icon.Visible) end
+             local masterOpacity = (button == Core.HeaderButtons.CreateNew) and button.Animation.CurrentOpacity or 1
+             self:_SetDrawingTableVisibility(button, masterOpacity > 0)
+             if masterOpacity <= 0 then return end
              button.Background.Position = {x, y}; button.Background.Size = {width, height};
              button.Border.Position = {x, y}; button.Border.Size = {width, height};
              local isHovered = self:_IsPointInRegion(mouse_pos.x, mouse_pos.y, button.ClickRegion)
              button.IsHovered = isHovered
              local targetBgColor, targetTextColor
-
-             -- [[ ИЗМЕНЕНИЕ: Анимация прозрачности для кнопки CreateNew ]]
-             local masterOpacity = (button == Core.HeaderButtons.CreateNew) and button.Animation.CurrentOpacity or 1
-
              if button == Core.HeaderButtons.CreateNew then
                 local baseColor = self:_GetTransitionColor("Accent")
                 local baseOpacity = isHovered and 255 or (255 * 0.6)
                 targetBgColor = {baseColor[1], baseColor[2], baseColor[3], baseOpacity}
                 targetTextColor = self:_GetTextColorForBackground(baseColor)
-                self:_SetDrawingTableVisibility(button, masterOpacity > 0)
              else
                 if isHovered then
-                    if isThemeLight then
-                        targetBgColor = self:_GetTransitionColor("Accent")
-                    else
-                        targetBgColor = self:_DarkenColor(self:_GetTransitionColor("Accent"), 0.5)
-                    end
+                    if isThemeLight then targetBgColor = self:_GetTransitionColor("Accent") else targetBgColor = self:_DarkenColor(self:_GetTransitionColor("Accent"), 0.5) end
                     targetTextColor = self:_GetTextColorForBackground(targetBgColor)
                 else
                     targetBgColor = is_accent and self:_GetTransitionColor("Accent") or self:_GetTransitionColor("MainBackground")
                     targetTextColor = is_accent and self:_GetTextColorForBackground(self:_GetTransitionColor("Accent")) or self:_GetTransitionColor("TextPrimary")
                 end
              end
-
              local targetBorderColor = (tick() - (button.ClickTime or 0) < 0.1 or (button.IsOpen)) and self:_GetTransitionColor("Accent") or self:_GetTransitionColor("Separator")
              self:_AnimateAndApplyColor(button.Background, targetBgColor, masterOpacity)
              self:_AnimateAndApplyColor(button.Border, targetBorderColor, masterOpacity)
@@ -2696,7 +2673,6 @@ function Library:_RenderLoop()
              if has_icon and button.Icon then local iconX, iconY = x + 12, y + (height / 2) - (button.Icon.Size.y / 2); button.Icon.Position = {iconX, iconY}; local labelX, labelY = iconX + button.Icon.Size.x + 5, y + (height / 2) - (button.Label.Size / 2); button.Label.Position = {labelX, labelY}; button.Label.Center = false else button.Label.Position = {x + width / 2, y + (height / 2) - (button.Label.Size / 2)}; button.Label.Center = true end
              button.ClickRegion = {x1 = x, y1 = y, x2 = x + width, y2 = y + height}
         end
-
         local btnWidth, btnHeight, spacing = 75, 30, 15
         local createNewBtnWidth = 120
         local btnY = startY - (btnHeight / 2)
@@ -2705,25 +2681,20 @@ function Library:_RenderLoop()
         currentX = currentX + btnWidth + spacing
         renderHeaderButton(Core.HeaderButtons.ViewESP, currentX, btnY, btnWidth, btnHeight, false, false)
         currentX = currentX + btnWidth + spacing
-        
-        -- Кнопка CreateNew теперь всегда рендерится, но её видимость контролируется анимацией
         renderHeaderButton(Core.HeaderButtons.CreateNew, currentX, btnY, createNewBtnWidth, btnHeight, true, true)
-
         local settingsIcon = Core.HeaderButtons.Settings.Icon
         local settingsX = rightPanelX + (self.Window.Width - sidebarWidth + self.Window.PanelOverlap) - settingsIcon.Size.x - 20
         local settingsY = startY - (settingsIcon.Size.y / 2)
         self:_SetVisibility(settingsIcon, true); settingsIcon.Position = {settingsX, settingsY}; Core.HeaderButtons.Settings.ClickRegion = {x1 = settingsX, y1 = settingsY, x2 = settingsX + settingsIcon.Size.x, y2 = settingsY + settingsIcon.Size.y}
         self:_AnimateAndApplyColor(settingsIcon, self:_GetTransitionColor("TextSecondary"))
-
         local burger = Core.HeaderButtons.BurgerMenu
         local burgerX = settingsX - 25
         local burgerY = startY
         self:_SetVisibility(burger.Line1, true); self:_SetVisibility(burger.Line2, true); self:_SetVisibility(burger.Line3, true)
         burger.Line1.From = {burgerX - 8, burgerY - 5}; burger.Line1.To = {burgerX + 8, burgerY - 5}
-        burger.Line2.From = {burgerX - 8, burgerY};     burger.Line2.To = {burgerX + 8, burgerY}
+        burger.Line2.From = {burgerX - 8, burgerY}; burger.Line2.To = {burgerX + 8, burgerY}
         burger.Line3.From = {burgerX - 8, burgerY + 5}; burger.Line3.To = {burgerX + 8, burgerY + 5}
         burger.ClickRegion = {x1 = burgerX - 10, y1 = burgerY - 10, x2 = burgerX + 10, y2 = burgerY + 10}
-        
         local burgerColor = self.UI.Popups.BurgerMenu.IsOpen and self:_GetTransitionColor("Accent") or self:_GetTransitionColor("TextSecondary")
         self:_AnimateAndApplyColor(burger.Line1, burgerColor); self:_AnimateAndApplyColor(burger.Line2, burgerColor); self:_AnimateAndApplyColor(burger.Line3, burgerColor)
     end
@@ -2731,17 +2702,11 @@ function Library:_RenderLoop()
     do
         local espButton = Core.HeaderButtons.ViewESP
         local anim = espButton.Animation
-        if espButton.IsOpen and anim.CurrentOpacity < 1 and not anim.IsOpening then
-            anim.IsOpening = true
-            anim.IsClosing = false
-        elseif not espButton.IsOpen and anim.CurrentOpacity > 0 and not anim.IsClosing then
-            anim.IsOpening = false
-            anim.IsClosing = true
-        end
+        if espButton.IsOpen and anim.CurrentOpacity < 1 and not anim.IsOpening then anim.IsOpening = true; anim.IsClosing = false
+        elseif not espButton.IsOpen and anim.CurrentOpacity > 0 and not anim.IsClosing then anim.IsOpening = false; anim.IsClosing = true end
         local masterOpacity = anim.CurrentOpacity
         local isVisible = masterOpacity > 0
-        self:_SetVisibility(Core.ViewESPPanel, isVisible)
-        self:_SetVisibility(Core.ViewESPPanelBorder, isVisible)
+        self:_SetVisibility(Core.ViewESPPanel, isVisible); self:_SetVisibility(Core.ViewESPPanelBorder, isVisible)
         if Core.ViewESPImage then self:_SetVisibility(Core.ViewESPImage, isVisible) end
         if isVisible then
             local panelX = windowX + self.Window.Width + 11
@@ -2758,11 +2723,13 @@ function Library:_RenderLoop()
     end
 
     self:_RenderTabs(windowX, windowY + headerHeight, sidebarWidth)
-
-    -- [[ ИЗМЕНЕНИЕ: Упрощенная логика рендера ]]
-    -- Теперь мы просто вызываем обе функции. Новая анимационная логика сама решит, что показывать, а что скрывать.
-    self:_RenderSections(rightPanelX, windowY, headerHeight)
-    self:_RenderConfigsTab(rightPanelX, windowY, headerHeight)
+    
+    -- [[ ИЗМЕНЕНИЕ: Восстанавливаем правильную логику рендера ]]
+    if self.Window.ActiveTab == "Configs" then
+        self:_RenderConfigsTab(rightPanelX, windowY, headerHeight)
+    else
+        self:_RenderSections(rightPanelX, windowY, headerHeight)
+    end
     
     self:_RenderSaveTooltip()
     self:_RenderConfigOptionsPopup()
@@ -3021,161 +2988,152 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
     local columnWidth = ((self.Window.Width - self.Window.SidebarWidth + self.Window.PanelOverlap) - (columnSpacing * 3)) / 2
     local leftColumnX, rightColumnX = panelX + columnSpacing, panelX + columnSpacing + columnWidth + columnSpacing
     
-    -- === Главный цикл рендера секций ===
     for _, section in ipairs(self.UI.Sections) do
-        -- Получаем заранее рассчитанное состояние анимации 
-        local anim_state = self.AnimationState[section.Drawing.Background]
-        if not anim_state then
-            anim_state = { Opacity = 0, YOffset = 0, IsVisible = false }
-            self.AnimationState[section.Drawing.Background] = anim_state
-        end
-
-        local is_on_active_tab = (section.ParentTab == self.Window.ActiveTab)
-        local is_on_old_tab = (self.Window.Animation.State == "FADING_OUT" and section.ParentTab == self.Window.Animation.OldTab)
-
-        -- Если секция должна быть видимой (на текущей или исчезающей вкладке) 
-        if (is_on_active_tab and self.Window.Animation.State ~= "FADING_OUT") or is_on_old_tab then
-             if not anim_state.IsVisible then self:_SetSectionAndElementsVisibility(section, true); anim_state.IsVisible = true; end
+        -- [[ ИЗМЕНЕНИЕ: Используем значения из новой системы анимации ]]
+        local anim_state = section.Animation
+        
+        -- Если секция невидима (прозрачность 0), пропускаем её отрисовку
+        if anim_state.CurrentOpacity <= 0 then
+            -- Если она раньше была видима, принудительно скрываем все её элементы
+            if anim_state.IsVisible then
+                self:_SetSectionAndElementsVisibility(section, false)
+                anim_state.IsVisible = false
+            end
+        else
+            -- Если секция становится видимой, убеждаемся, что её элементы тоже видимы
+            if not anim_state.IsVisible then
+                self:_SetSectionAndElementsVisibility(section, true)
+                anim_state.IsVisible = true
+            end
 
             local sectionX, sectionY
-            if section.Side == "Left" then sectionX, sectionY = leftColumnX, leftColumnY
-            else sectionX, sectionY = rightColumnX, rightColumnY end
+            if section.Side == "Left" then
+                sectionX, sectionY = leftColumnX, leftColumnY
+            else
+                sectionX, sectionY = rightColumnX, rightColumnY
+            end
             
-            -- Отрисовываем секцию с текущими параметрами анимации 
-            local sectionHeight = self:_RenderSingleSection(section, sectionX, sectionY, columnWidth, anim_state.YOffset, anim_state.Opacity)
+            -- Отрисовываем секцию, передавая ей текущее смещение и прозрачность
+            local sectionHeight = self:_RenderSingleSection(section, sectionX, sectionY, columnWidth, anim_state.CurrentYOffset, anim_state.CurrentOpacity)
             
-            -- Запоминаем последнюю позицию для плавного исчезновения 
-            section.LastPos = { X = sectionX, Y = sectionY } 
-
-            if section.Side == "Left" then leftColumnY = leftColumnY + sectionHeight + columnSpacing
-            else rightColumnY = rightColumnY + sectionHeight + columnSpacing end
-        
-        -- Если секция не должна быть видна, скрываем её 
-        elseif anim_state.IsVisible then
-            self:_SetSectionAndElementsVisibility(section, false)
-            anim_state.IsVisible = false
+            if section.Side == "Left" then
+                leftColumnY = leftColumnY + sectionHeight + columnSpacing
+            else
+                rightColumnY = rightColumnY + sectionHeight + columnSpacing
+            end
         end
     end
 end
 
+
 function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
     local configs = self.UI.Core.ConfigsTab
+    -- [[ ИЗМЕНЕНИЕ: Получаем состояние анимации для всей вкладки ]]
+    local anim = configs.Animation
+
+    -- Если вся вкладка невидима, ничего не делаем
+    if anim.CurrentOpacity <= 0 then
+        if anim.IsVisible then
+            self:_SetVisibility(configs.MyItemsLabel, false)
+            self:_SetVisibility(configs.Scrollbar.Background, false)
+            self:_SetVisibility(configs.Scrollbar.Nub, false)
+            for _, item in ipairs(configs.Items) do
+                self:_SetDrawingTableVisibility(item.Drawing, false)
+            end
+            anim.IsVisible = false
+        end
+        return
+    end
+
+    -- Если становится видимой, включаем все элементы
+    if not anim.IsVisible then
+        self:_SetVisibility(configs.MyItemsLabel, true)
+        -- Скроллбар будет показан ниже по логике, если он нужен
+        anim.IsVisible = true
+    end
+
+    local masterOpacity = anim.CurrentOpacity
+    local startY = panelY + headerHeight + 20 + anim.CurrentYOffset -- Применяем смещение Y
     
     local startX = panelX + 20
-    local startY = panelY + headerHeight + 20
     local contentWidth = (self.Window.Width - self.Window.SidebarWidth + self.Window.PanelOverlap) - 40
     local scrollbarWidth = 6
     local contentAreaWidth = contentWidth - scrollbarWidth - 10
     
-    local itemHeight = 60
-    local itemSpacing = 10
-    local totalItemHeight = itemHeight + itemSpacing
-    local MAX_VISIBLE_ITEMS = 7
-
-    local verticalPadding = 35 
-    local fullRenderAreaY = startY + 25
-    local fullRenderAreaHeight = (MAX_VISIBLE_ITEMS * totalItemHeight) - itemSpacing
-    local clippingAreaY = fullRenderAreaY + verticalPadding
-    local clippingAreaHeight = fullRenderAreaHeight - (verticalPadding * 2)
+    local itemHeight = 60; local itemSpacing = 10; local totalItemHeight = itemHeight + itemSpacing; local MAX_VISIBLE_ITEMS = 7
+    local verticalPadding = 35; local fullRenderAreaY = startY + 25; local fullRenderAreaHeight = (MAX_VISIBLE_ITEMS * totalItemHeight) - itemSpacing
+    local clippingAreaY = fullRenderAreaY + verticalPadding; local clippingAreaHeight = fullRenderAreaHeight - (verticalPadding * 2)
     local totalContentHeight = (#configs.Items * totalItemHeight) - itemSpacing
     local needsScrollbar = totalContentHeight > fullRenderAreaHeight
 
-    self:_SetVisibility(configs.MyItemsLabel, true) 
-    self:_SetVisibility(configs.Scrollbar.Background, needsScrollbar)
-    self:_SetVisibility(configs.Scrollbar.Nub, needsScrollbar)
-    self:_AnimateAndApplyColor(configs.MyItemsLabel, self:_GetTransitionColor("TextPrimary"))
+    self:_AnimateAndApplyColor(configs.MyItemsLabel, self:_GetTransitionColor("TextPrimary"), masterOpacity)
     configs.MyItemsLabel.Position = {startX, startY}
+
+    self:_SetVisibility(configs.Scrollbar.Background, needsScrollbar and masterOpacity > 0)
+    self:_SetVisibility(configs.Scrollbar.Nub, needsScrollbar and masterOpacity > 0)
 
     if needsScrollbar then
         local scrollbarX = startX + contentAreaWidth + 5
         local minNubHeight = 30 
         configs.Scrollbar.Background.Position = {scrollbarX, fullRenderAreaY}
         configs.Scrollbar.Background.Size = {scrollbarWidth, fullRenderAreaHeight}
-        self:_AnimateAndApplyColor(configs.Scrollbar.Background, self:_GetTransitionColor("DarkBlue"))
+        self:_AnimateAndApplyColor(configs.Scrollbar.Background, self:_GetTransitionColor("DarkBlue"), masterOpacity)
         local nubHeight = (totalContentHeight > 0) and math.max(minNubHeight, fullRenderAreaHeight * (fullRenderAreaHeight / totalContentHeight)) or minNubHeight
         local maxScrollOffset = totalContentHeight - fullRenderAreaHeight
         local scrollPercentage = (maxScrollOffset > 0) and (configs.Scrollbar.ScrollOffset / maxScrollOffset) or 0
         local nubY = fullRenderAreaY + ((fullRenderAreaHeight - nubHeight) * scrollPercentage)
         configs.Scrollbar.Nub.Position = {scrollbarX, nubY}
         configs.Scrollbar.Nub.Size = {scrollbarWidth, nubHeight}
-        self:_AnimateAndApplyColor(configs.Scrollbar.Nub, self:_GetTransitionColor("Accent"))
+        self:_AnimateAndApplyColor(configs.Scrollbar.Nub, self:_GetTransitionColor("Accent"), masterOpacity)
         configs.Scrollbar.NubClickRegion = { x1 = scrollbarX, y1 = nubY, x2 = scrollbarX + scrollbarWidth, y2 = nubY + nubHeight }
     end
 
     local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4
     local animationSpeed = (speed_value > 0) and (speed_value / 15.0) or 1
-
     local loopStartY = fullRenderAreaY
+
     for i, item in ipairs(configs.Items) do
         local itemY = (loopStartY + (i - 1) * totalItemHeight) - configs.Scrollbar.ScrollOffset
-        
         local isVisible = (itemY + itemHeight > clippingAreaY) and (itemY < clippingAreaY + clippingAreaHeight)
         local targetOpacity = isVisible and 1.0 or 0.0
-
         item.Animation.CurrentOpacity = item.Animation.CurrentOpacity + (targetOpacity - item.Animation.CurrentOpacity) * animationSpeed
-        if math.abs(item.Animation.CurrentOpacity - targetOpacity) < 0.01 then
-            item.Animation.CurrentOpacity = targetOpacity
-        end
-
+        if math.abs(item.Animation.CurrentOpacity - targetOpacity) < 0.01 then item.Animation.CurrentOpacity = targetOpacity end
         local renderY = itemY
-        if not isVisible and item.Animation.CurrentOpacity > 0 then
-            renderY = item.Animation.LastVisibleY
-        end
-        if isVisible then
-            item.Animation.LastVisibleY = itemY
-        end
+        if not isVisible and item.Animation.CurrentOpacity > 0 then renderY = item.Animation.LastVisibleY end
+        if isVisible then item.Animation.LastVisibleY = itemY end
 
         if item.Animation.CurrentOpacity > 0 then
             local d = item.Drawing
             local isLoaded = (configs.LoadedConfigName == item.Name)
-            local itemMasterOpacity = item.Animation.CurrentOpacity
+            local itemMasterOpacity = item.Animation.CurrentOpacity * masterOpacity -- Умножаем на общую прозрачность вкладки
 
             self:_SetDrawingTableVisibility(d, true)
-
             self:_AnimateAndApplyColor(d.Background, self:_GetTransitionColor("SectionBackground"), itemMasterOpacity)
             self:_AnimateAndApplyColor(d.Border, self:_GetTransitionColor("Separator"), itemMasterOpacity)
-            
-            -- [[ ИЗМЕНЕНИЕ: Оптимизация обновления текста ]]
-            if item._lastRendered.Name ~= item.Name then
-                d.Name.Text = item.Name
-                item._lastRendered.Name = item.Name
-            end
+            if item._lastRendered.Name ~= item.Name then d.Name.Text = item.Name; item._lastRendered.Name = item.Name end
             local modifiedText = "Modified: " .. item.Modified
-            if item._lastRendered.Modified ~= modifiedText then
-                d.Modified.Text = modifiedText
-                item._lastRendered.Modified = modifiedText
-            end
+            if item._lastRendered.Modified ~= modifiedText then d.Modified.Text = modifiedText; item._lastRendered.Modified = modifiedText end
             local authorText = "Author: " .. item.Author
-            if item._lastRendered.Author ~= authorText then
-                d.Author.Text = authorText
-                item._lastRendered.Author = authorText
-            end
-
+            if item._lastRendered.Author ~= authorText then d.Author.Text = authorText; item._lastRendered.Author = authorText end
             self:_AnimateAndApplyColor(d.Name, self:_GetTransitionColor("TextPrimary"), itemMasterOpacity)
             self:_AnimateAndApplyColor(d.Modified, self:_GetTransitionColor("TextSecondary"), itemMasterOpacity)
             self:_AnimateAndApplyColor(d.Author, self:_GetTransitionColor("TextSecondary"), itemMasterOpacity)
             self:_AnimateAndApplyColor(d.OptionsButton.Dot1, self:_GetTransitionColor("TextSecondary"), itemMasterOpacity)
             self:_AnimateAndApplyColor(d.OptionsButton.Dot2, self:_GetTransitionColor("TextSecondary"), itemMasterOpacity)
             self:_AnimateAndApplyColor(d.OptionsButton.Dot3, self:_GetTransitionColor("TextSecondary"), itemMasterOpacity)
-            
             d.Background.Position = {startX, renderY}; d.Background.Size = {contentAreaWidth, itemHeight}
             d.Border.Position = {startX, renderY}; d.Border.Size = {contentAreaWidth, itemHeight}
             d.Name.Position = {startX + 15, renderY + 12}
             d.Modified.Position = {startX + 15, renderY + 35}
-            if d.Modified.TextBounds and d.Modified.TextBounds.x then
-                d.Author.Position = {startX + 15 + d.Modified.TextBounds.x + 10, renderY + 35}
-            end
-            
+            if d.Modified.TextBounds and d.Modified.TextBounds.x then d.Author.Position = {startX + 15 + d.Modified.TextBounds.x + 10, renderY + 35} end
             local btnWidth, btnHeight = 85, 28
             local btnX = startX + contentAreaWidth - btnWidth - 15
             local btnY = renderY + (itemHeight / 2) - (btnHeight / 2)
             local optionsBtnX = btnX - 25; local optionsBtnY = renderY + (itemHeight / 2)
             d.OptionsButton.Dot1.Position = {optionsBtnX - 6, optionsBtnY}; d.OptionsButton.Dot2.Position = {optionsBtnX, optionsBtnY}; d.OptionsButton.Dot3.Position = {optionsBtnX + 6, optionsBtnY}
             d.OptionsButton.ClickRegion = {x1 = optionsBtnX - 10, y1 = optionsBtnY - 10, x2 = optionsBtnX + 10, y2 = optionsBtnY + 10}
-            
             local saveButtonOpacity = isLoaded and itemMasterOpacity or 0
             local loadButtonOpacity = not isLoaded and itemMasterOpacity or 0
-
             do
                 local saveBtn = d.SaveButton
                 self:_SetDrawingTableVisibility(saveBtn, saveButtonOpacity > 0)
@@ -3190,7 +3148,6 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
                 saveBtn.Label.Position = {iconX + saveBtn.Icon.Size.x + 8, btnY + (btnHeight / 2) - (saveBtn.Label.Size / 2)}
                 saveBtn.ClickRegion = {x1 = btnX, y1 = btnY, x2 = btnX + btnWidth, y2 = btnY + btnHeight}
             end
-
             do
                 local loadBtn = d.LoadButton
                 self:_SetDrawingTableVisibility(loadBtn, loadButtonOpacity > 0)
@@ -3210,7 +3167,6 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
         end
     end
 end
-
 
 function Library:_RenderConfigOptionsPopup()
     local configs = self.UI.Core.ConfigsTab
