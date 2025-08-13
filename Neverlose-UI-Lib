@@ -558,32 +558,37 @@ function Library:_UpdatePopupAnimation(popup)
     if not popup.Animation then return end
     local anim = popup.Animation
 
-    if self.UI.Values["BurgerLow-EndMode"] then
+    -- [[ БЛОК ИЗМЕНЕНИЙ НАЧАЛО ]]
+    local speed_value = (self.UI.Values["AboutAnimationSpeed"] or 2.4)
+    if self.UI.Values["BurgerLow-EndMode"] or speed_value == 0 then
         if anim.IsOpening then
             anim.CurrentOpacity = 1
             anim.IsOpening = false
+            if popup.IsOpen ~= nil then popup.IsOpen = true end
         elseif anim.IsClosing then
             anim.CurrentOpacity = 0
             anim.IsClosing = false
-            if popup.IsOpen ~= nil then popup.IsOpen = false end
+            if popup.IsOpen ~= nil then popup.IsOpen = false end -- Закрываем состояние здесь
         end
-    else
-        local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4
-        local animationSpeed = (speed_value > 0) and (speed_value / 25.0) or 1 --150 lf
-        
-        if anim.IsOpening then
-            anim.CurrentOpacity = anim.CurrentOpacity + animationSpeed
-            if anim.CurrentOpacity >= 1 then
-                anim.CurrentOpacity = 1
-                anim.IsOpening = false
-            end
-        elseif anim.IsClosing then
-            anim.CurrentOpacity = anim.CurrentOpacity - animationSpeed
-            if anim.CurrentOpacity <= 0 then
-                anim.CurrentOpacity = 0
-                anim.IsClosing = false
-                if popup.IsOpen ~= nil then popup.IsOpen = false end
-            end
+        return
+    end
+    -- [[ БЛОК ИЗМЕНЕНИЙ КОНЕЦ ]]
+    
+    local animationSpeed = (speed_value > 0) and (speed_value / 25.0) or 1
+    
+    if anim.IsOpening then
+        anim.CurrentOpacity = anim.CurrentOpacity + animationSpeed
+        if anim.CurrentOpacity >= 1 then
+            anim.CurrentOpacity = 1
+            anim.IsOpening = false
+            if popup.IsOpen ~= nil then popup.IsOpen = true end -- Явно устанавливаем состояние
+        end
+    elseif anim.IsClosing then
+        anim.CurrentOpacity = anim.CurrentOpacity - animationSpeed
+        if anim.CurrentOpacity <= 0 then
+            anim.CurrentOpacity = 0
+            anim.IsClosing = false
+            if popup.IsOpen ~= nil then popup.IsOpen = false end -- И здесь тоже
         end
     end
 end
@@ -1230,6 +1235,8 @@ function Library:_InitializeSettingsPopup()
     popup.IsOpen = false; popup.Pos = {x=0, y=0}
     popup.Animation = { IsOpening = false, IsClosing = false, CurrentOpacity = 0 }
     popup.ActiveToggle = nil -- Ссылка на Toggle, чьи настройки открыты 
+    popup.ActiveDropdown = nil -- Ссылка на активный выпадающий список
+    popup.HoveredDropdownOptionIndex = 0 -- Индекс подсвеченной опции в нём
 
     -- Создаем базовые элементы окна: фон, границу и свечение [cite: 46, 47]
     popup.Background = self:_CreateDrawingObject("Square"); if popup.Background then popup.Background.Filled = true; popup.Background.zIndex = z; popup.Background.Rounding = self.ActiveTheme.Rounding.Section; end
@@ -2113,16 +2120,19 @@ function Library:_RenderSettingsPopup()
     local masterOpacity = popup.Animation.CurrentOpacity
     local z = popup.Background and popup.Background.zIndex or 20
 
+    if not popup.IsOpen and masterOpacity <= 0 then
+        -- Не рендерим вообще ничего, если попап не должен быть открыт и уже исчез
+        return
+    end
+
+    -- Если IsOpen=true, но анимация открытия еще не началась, запускаем её
+    if popup.IsOpen and not popup.Animation.IsOpening and not popup.Animation.IsClosing and masterOpacity < 1 then
+        popup.Animation.IsOpening = true
+    end
+
     if masterOpacity <= 0 then
-        if popup.IsOpen then -- Управляем состоянием только здесь
-            self:_HideSettingsPopupElements(popup)
-            popup.IsOpen = false
-            popup.ActiveToggle = nil
-        end
-        self:_SetVisibility(popup.Background, false)
-        self:_SetVisibility(popup.Border, false)
-        self:_SetVisibility(popup.Title, false)
-        self:_SetVisibility(popup.Separator, false)
+        self:_HideSettingsPopupElements(popup)
+        self:_SetVisibility(popup.Background, false); self:_SetVisibility(popup.Border, false); self:_SetVisibility(popup.Title, false); self:_SetVisibility(popup.Separator, false)
         self:_HideGlowEffect(popup.Glow)
         return
     end
@@ -2133,14 +2143,12 @@ function Library:_RenderSettingsPopup()
     self:_AnimateAndApplyColor(popup.Border, theme.Colors.Separator, masterOpacity)
     self:_AnimateAndApplyColor(popup.Separator, theme.Colors.Separator, masterOpacity)
 
-    if popup.ActiveToggle then
-        popup.Title.Text = popup.ActiveToggle.Name .. " Settings"
-    end
+    if popup.ActiveToggle then popup.Title.Text = popup.ActiveToggle.Name .. " Settings" end
     self:_AnimateAndApplyColor(popup.Title, theme.Colors.TextPrimary, masterOpacity)
     popup.Title.zIndex = z + 2
 
     local pX, pY = popup.Pos.x, popup.Pos.y
-    local pW = 250 -- Ширина попапа
+    local pW = 250
     local currentY = pY + 8
 
     if popup.Title then popup.Title.Position = {pX + 10, currentY}; end
@@ -2263,8 +2271,62 @@ function Library:_RenderSettingsPopup()
     popup.ClickRegion = {x1 = pX, y1 = pY, x2 = pX + pW, y2 = pY + totalHeight}
     if popup.Background then popup.Background.Position = {pX, pY}; popup.Background.Size = {pW, totalHeight}; end
     if popup.Border then popup.Border.Position = {pX, pY}; popup.Border.Size = {pW, totalHeight}; end
-
     if popup.Glow then self:_RenderGlowEffect(popup.Glow, pX, pY, pW, totalHeight, popup.Background.Rounding, theme.Colors.GlowColor, nil, masterOpacity) end
+
+    -- [[ НОВЫЙ БЛОК: РЕНДЕРИНГ ВЛОЖЕННОГО ВЫПАДАЮЩЕГО СПИСКА ]]
+    if popup.ActiveDropdown then
+        local el = popup.ActiveDropdown
+        local dropdown_z = z + 20 -- Убедимся, что он поверх всего
+
+        -- Анимация появления списка
+        if el.IsOpen and not el.IsClosing then el.FadeOpacity = math.min(1, el.FadeOpacity + 0.1) 
+        elseif el.IsClosing then el.FadeOpacity = math.max(0, el.FadeOpacity - 0.1); if el.FadeOpacity == 0 then el.IsClosing = false; el.IsOpen = false; popup.ActiveDropdown = nil; end end
+
+        if el.FadeOpacity > 0 then
+            local finalOpacity = masterOpacity * el.FadeOpacity
+            local popupWidth = el.Size.width + 30
+            local optionHeight = 25
+            local popupHeight = (#el.Options * optionHeight) + 10
+            local btnPos = el.Button.Position
+            local popupX = btnPos.x + (el.Size.width / 2) - (popupWidth / 2)
+            local popupY = btnPos.y + (el.Size.height / 2) - (popupHeight / 2)
+
+            el.PopupClickRegion = {x1 = popupX, y1 = popupY, x2 = popupX + popupWidth, y2 = popupY + popupHeight}
+            self:_SetVisibility(el.OptionBackground, true); self:_SetVisibility(el.Border, true)
+            el.OptionBackground.zIndex = dropdown_z; el.Border.zIndex = dropdown_z + 1;
+
+            self:_AnimateAndApplyColor(el.OptionBackground, theme.Colors.SectionBackground, finalOpacity)
+            self:_AnimateAndApplyColor(el.Border, theme.Colors.Separator, finalOpacity)
+            el.OptionBackground.Position = {popupX, popupY}; el.OptionBackground.Size = {popupWidth, popupHeight}
+            el.Border.Position = {popupX, popupY}; el.Border.Size = {popupWidth, popupHeight}
+
+            local currentOptionY = popupY + 5
+            local hasSelection = el.type == "Multidropdown" and #self.UI.Values[el.id] > 0
+            local textX = popupX + (hasSelection and 25 or 10)
+
+            for i, option_item in ipairs(el.OptionList) do
+                self:_SetVisibility(option_item.Text, true); self:_SetVisibility(option_item.Highlight, true)
+                option_item.Text.zIndex = dropdown_z + 2; option_item.Highlight.zIndex = dropdown_z + 1;
+                option_item.ClickRegion = {x1 = popupX, y1 = currentOptionY, x2 = popupX + popupWidth, y2 = currentOptionY + optionHeight}
+                option_item.Text.Position = {textX, currentOptionY + (optionHeight / 2) - (option_item.Text.Size / 2)}
+                option_item.Highlight.Position = {popupX + 5, currentOptionY}; option_item.Highlight.Size = {popupWidth - 10, optionHeight}
+
+                local isSelected = (el.type == "Dropdown" and self.UI.Values[el.id] == el.Options[i]) or (el.type == "Multidropdown" and table.find(self.UI.Values[el.id], el.Options[i]))
+                local isHovered = (popup.HoveredDropdownOptionIndex == i)
+
+                local targetTextColor = isSelected and theme.Colors.Accent or theme.Colors.TextPrimary
+                self:_AnimateAndApplyColor(option_item.Text, targetTextColor, finalOpacity)
+                if isHovered then self:_AnimateAndApplyColor(option_item.Highlight, theme.Colors.Separator, finalOpacity * 0.4) else option_item.Highlight.Opacity = 0 end
+
+                if el.type == "Multidropdown" then
+                    self:_SetVisibility(option_item.CheckmarkLine1, isSelected); self:_SetVisibility(option_item.CheckmarkLine2, isSelected)
+                    option_item.CheckmarkLine1.zIndex = dropdown_z + 2; option_item.CheckmarkLine2.zIndex = dropdown_z + 2;
+                    if isSelected then local checkY = currentOptionY + (optionHeight / 2); option_item.CheckmarkLine1.From = {popupX + 8, checkY}; option_item.CheckmarkLine1.To = {popupX + 11, checkY + 3}; option_item.CheckmarkLine2.From = {popupX + 11, checkY + 3}; option_item.CheckmarkLine2.To = {popupX + 15, checkY - 4}; self:_AnimateAndApplyColor(option_item.CheckmarkLine1, theme.Colors.Accent, finalOpacity); self:_AnimateAndApplyColor(option_item.CheckmarkLine2, theme.Colors.Accent, finalOpacity) end
+                end
+                currentOptionY = currentOptionY + optionHeight
+            end
+        end
+    end
 end
 
 function Library:_RenderEditStyleWindow()
@@ -4037,39 +4099,65 @@ function Library:_InputLoop()
 
                 elseif settings_popup.Animation.CurrentOpacity > 0 then
                     click_was_handled = true
-                    if not (settings_popup.ClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, settings_popup.ClickRegion)) then
-                        settings_popup.Animation.IsClosing = true
-                        settings_popup.Animation.IsOpening = false
-                    else
+                    local settings_popup_clicked_inside = settings_popup.ClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, settings_popup.ClickRegion)
+
+                    -- [[ НОВЫЙ БЛОК: ОБРАБОТКА ВЛОЖЕННОГО ДРОПДАУНА ]]
+                    if settings_popup.ActiveDropdown then
+                        local active_dd = settings_popup.ActiveDropdown
+                        local clicked_inside_dd_options = active_dd.PopupClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, active_dd.PopupClickRegion)
+
+                        if clicked_inside_dd_options then
+                            if popup.HoveredDropdownOptionIndex > 0 then
+                                local i = popup.HoveredDropdownOptionIndex
+                                if active_dd.type == "Dropdown" then
+                                    self.UI.Values[active_dd.id] = active_dd.Options[i]
+                                    if active_dd.Callback then pcall(active_dd.Callback, self.UI.Values[active_dd.id]) end
+                                    active_dd.IsClosing = true
+                                else -- Multidropdown
+                                    local opt = active_dd.Options[i]
+                                    local found_idx = table.find(self.UI.Values[active_dd.id], opt)
+                                    if found_idx then table.remove(self.UI.Values[active_dd.id], found_idx) else table.insert(self.UI.Values[active_dd.id], opt) end
+                                    if active_dd.Callback then pcall(active_dd.Callback, self.UI.Values[active_dd.id]) end
+                                end
+                            end
+                        else
+                            active_dd.IsClosing = true
+                        end
+
+                    -- [[ ОСНОВНАЯ ЛОГИКА POPUP ]]
+                    elseif settings_popup_clicked_inside then
                         if settings_popup.ActiveToggle and settings_popup.ActiveToggle.SettingsElements then
                             for _, element in ipairs(settings_popup.ActiveToggle.SettingsElements) do
                                 if self:_IsPointInRegion(mouse_x, mouse_y, element.ClickRegion) then
                                     if element.type == "Toggle" then
                                         self.UI.Values[element.id] = not self.UI.Values[element.id]
                                         if element.Callback then element.Callback(self.UI.Values[element.id]) end
-
                                     elseif element.type == "Keybind" then
                                         element.IsListening = not element.IsListening
-
                                     elseif element.type == "Slider" then
-                                         -- Простое обновление по клику, перетаскивание пока не реализуем для простоты
-                                        local slider = element
-                                        local sliderBackX, sliderBackWidth = self:_SafeNumber(slider.Back.Position.x, 0), self:_SafeNumber(slider.Back.Size.x, 1)
-                                        local mouse_relative_x = math.clamp(mouse_x - sliderBackX, 0, sliderBackWidth)
-                                        local percentage = sliderBackWidth > 0 and (mouse_relative_x / sliderBackWidth) or 0
-                                        local raw_value = slider.Min + (slider.Max - slider.Min) * percentage
-                                        local stepped_value = math.floor(raw_value / slider.Increment + 0.5) * slider.Increment
-                                        local clamped_value = math.clamp(stepped_value, slider.Min, slider.Max)
-                                        self.UI.Values[slider.id] = clamped_value
-                                        if slider.Callback then slider.Callback(clamped_value) end
-                                    
+                                        local slider = element; local sliderBackX, sliderBackWidth = self:_SafeNumber(slider.Back.Position.x, 0), self:_SafeNumber(slider.Back.Size.x, 1); local mouse_relative_x = math.clamp(mouse_x - sliderBackX, 0, sliderBackWidth); local percentage = sliderBackWidth > 0 and (mouse_relative_x / sliderBackWidth) or 0; local raw_value = slider.Min + (slider.Max - slider.Min) * percentage; local stepped_value = math.floor(raw_value / slider.Increment + 0.5) * slider.Increment; local clamped_value = math.clamp(stepped_value, slider.Min, slider.Max); self.UI.Values[slider.id] = clamped_value; if slider.Callback then slider.Callback(clamped_value) end
                                     elseif element.type == "Dropdown" or element.type == "Multidropdown" then
-                                        warn(SCRIPT_PREFIX .. "Dropdowns inside popups are not fully interactive yet.")
-                                        -- Здесь должна быть сложная логика открытия второго попапа,
-                                        -- пока что просто выведем предупреждение.
+                                        element.IsOpen = true; element.IsClosing = false; element.FadeOpacity = 0.0
+                                        settings_popup.ActiveDropdown = element
                                     end
-                                    break -- Выходим из цикла, так как клик обработан
+                                    break
                                 end
+                            end
+                        end
+                    else
+                        -- Клик был вне попапа, начинаем закрытие
+                        settings_popup.Animation.IsClosing = true
+                        settings_popup.Animation.IsOpening = false
+                        if settings_popup.ActiveDropdown then settings_popup.ActiveDropdown.IsClosing = true end
+                    end
+
+                    -- [[ ОБНОВЛЕНИЕ HOVER-СОСТОЯНИЯ ДЛЯ ВЛОЖЕННОГО ДРОПДАУНА ]]
+                    popup.HoveredDropdownOptionIndex = 0
+                    if settings_popup.ActiveDropdown and settings_popup.ActiveDropdown.PopupClickRegion then
+                        for i, option in ipairs(settings_popup.ActiveDropdown.OptionList) do
+                            if self:_IsPointInRegion(mouse_x, mouse_y, option.ClickRegion) then
+                                popup.HoveredDropdownOptionIndex = i;
+                                break
                             end
                         end
                     end
