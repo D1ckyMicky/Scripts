@@ -2966,7 +2966,6 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
             
             local targetOffset = is_on and (el.Size.width - el.Size.height / 2) or (el.Size.height / 2)
             
-            -- [[ ИСПРАВЛЕНИЕ: Используем правильный ID "BurgerLow-EndMode" ]]
             if self.UI.Values["BurgerLow-EndMode"] then
                 el.AnimatedNubOffset = targetOffset
             else
@@ -3001,7 +3000,6 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
             local sliderBackWidth = (valueBoxX - 10) - sliderBackX
             el.Back.Position = {sliderBackX, currentElementY + 8}; el.Back.Size = {sliderBackWidth, 2}; el.ClickRegion = { x1 = sliderBackX, y1 = currentElementY - 2, x2 = sliderBackX + sliderBackWidth, y2 = currentElementY + 18 };
             
-            -- [[ ИСПРАВЛЕНИЕ: Используем правильный ID "BurgerLow-EndMode" ]]
             if self.UI.Values["BurgerLow-EndMode"] then
                 el.AnimatedValue = self.UI.Values[el.id]
             else
@@ -3031,8 +3029,10 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
             end
 
             local glowWidth = nubX - sliderBackX; local glowHeight = 6
-            if glowWidth > 0 and el.Glow then
-                self:_RenderGlowEffect(el.Glow, sliderBackX, currentElementY + 9 - (glowHeight / 2), glowWidth, glowHeight, el.LeftFill.Rounding, theme.Colors.GlowAccent, {top=true, bottom=true, left=true, right=false}, masterOpacity)
+            -- << [ИСПРАВЛЕНИЕ] Добавляем проверку на masterOpacity для надежного скрытия и выставляем правильный z-index >>
+            if glowWidth > 0 and el.Glow and masterOpacity > 0.01 then
+                -- el.Back.zIndex (4) + 1 = 5. Glow будет иметь z-index 4, 3, 2..., что выше фона секции (2)
+                self:_RenderGlowEffect(el.Glow, sliderBackX, currentElementY + 9 - (glowHeight / 2), glowWidth, glowHeight, el.LeftFill.Rounding, theme.Colors.GlowAccent, {top=true, bottom=true, left=true, right=false}, masterOpacity, el.Back.zIndex + 1)
             elseif el.Glow then 
                 self:_HideGlowEffect(el.Glow) 
             end
@@ -3052,7 +3052,6 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
             if el.IsOpen or el.IsClosing then
                 local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4; local animationSpeed = (speed_value / 1.5) / 10.0
                 
-                -- [[ ИСПРАВЛЕНИЕ: Используем правильный ID "BurgerLow-EndMode" ]]
                 if self.UI.Values["BurgerLow-EndMode"] then
                     el.FadeOpacity = (el.IsOpen and not el.IsClosing) and 1 or 0
                     if el.FadeOpacity == 0 then el.IsClosing = false end
@@ -3071,7 +3070,7 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
                     if not self.UI.Values["BurgerLow-EndMode"] then
                         local glowFinalOpacity = 0
                         if el.IsOpen and not el.IsClosing then local threshold = 0.5; if el.FadeOpacity > threshold then local glowProgress = (el.FadeOpacity - threshold) / (1.0 - threshold); glowFinalOpacity = masterOpacity * glowProgress end elseif el.IsClosing then glowFinalOpacity = masterOpacity * (el.FadeOpacity * el.FadeOpacity) end
-                        self:_RenderGlowEffect(el.Glow, popupX, popupY, popupWidth, popupHeight, el.OptionBackground.Rounding, theme.Colors.GlowColor, nil, glowFinalOpacity)
+                        self:_RenderGlowEffect(el.Glow, popupX, popupY, popupWidth, popupHeight, el.OptionBackground.Rounding, theme.Colors.GlowColor, nil, glowFinalOpacity, el.OptionBackground.zIndex - 1)
                     else
                         self:_HideGlowEffect(el.Glow)
                     end
