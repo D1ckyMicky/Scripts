@@ -2277,20 +2277,19 @@ function Library:_RenderSettingsPopup()
     if popup.Border then popup.Border.Position = {pX, pY}; popup.Border.Size = {pW, totalHeight}; end
     if popup.Glow then self:_RenderGlowEffect(popup.Glow, pX, pY, pW, totalHeight, popup.Background.Rounding, theme.Colors.GlowColor, nil, masterOpacity) end
 
-    -- [[ НОВЫЙ БЛОК: РЕНДЕРИНГ ВЛОЖЕННОГО ВЫПАДАЮЩЕГО СПИСКА ]]
+    
+   -- [[ НОВЫЙ БЛОК: РЕНДЕРИНГ ВЛОЖЕННОГО ВЫПАДАЮЩЕГО СПИСКА ]]
     if popup.ActiveDropdown then
         local el = popup.ActiveDropdown
-        local dropdown_z = z + 20 -- Убедимся, что он поверх всего
+        local dropdown_z = z + 20
 
-        -- Анимация появления списка
-        if el.IsOpen and not el.IsClosing then el.FadeOpacity = math.min(1, el.FadeOpacity + 0.1) 
-        elseif el.IsClosing then el.FadeOpacity = math.max(0, el.FadeOpacity - 0.1); if el.FadeOpacity == 0 then el.IsClosing = false; el.IsOpen = false; popup.ActiveDropdown = nil; end end
+        local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4; local animationSpeed = (speed_value > 0) and (speed_value / 15.0) or 1
+        if el.IsOpen and not el.IsClosing then el.FadeOpacity = math.min(1, el.FadeOpacity + animationSpeed) 
+        elseif el.IsClosing then el.FadeOpacity = math.max(0, el.FadeOpacity - animationSpeed); if el.FadeOpacity == 0 then el.IsClosing = false; el.IsOpen = false; popup.ActiveDropdown = nil; end end
 
         if el.FadeOpacity > 0 then
             local finalOpacity = masterOpacity * el.FadeOpacity
-            local popupWidth = el.Size.width + 30
-            local optionHeight = 25
-            local popupHeight = (#el.Options * optionHeight) + 10
+            local popupWidth = el.Size.width + 30; local optionHeight = 25; local popupHeight = (#el.Options * optionHeight) + 10
             local btnPos = el.Button.Position
             local popupX = btnPos.x + (el.Size.width / 2) - (popupWidth / 2)
             local popupY = btnPos.y + (el.Size.height / 2) - (popupHeight / 2)
@@ -2303,6 +2302,9 @@ function Library:_RenderSettingsPopup()
             self:_AnimateAndApplyColor(el.Border, theme.Colors.Separator, finalOpacity)
             el.OptionBackground.Position = {popupX, popupY}; el.OptionBackground.Size = {popupWidth, popupHeight}
             el.Border.Position = {popupX, popupY}; el.Border.Size = {popupWidth, popupHeight}
+
+            -- [[ ДОБАВЛЕНО: Рендеринг Glow ]]
+            if el.Glow then self:_RenderGlowEffect(el.Glow, popupX, popupY, popupWidth, popupHeight, el.OptionBackground.Rounding, theme.Colors.GlowColor, nil, finalOpacity) end
 
             local currentOptionY = popupY + 5
             local hasSelection = el.type == "Multidropdown" and #self.UI.Values[el.id] > 0
@@ -2322,6 +2324,7 @@ function Library:_RenderSettingsPopup()
                 self:_AnimateAndApplyColor(option_item.Text, targetTextColor, finalOpacity)
                 if isHovered then self:_AnimateAndApplyColor(option_item.Highlight, theme.Colors.Separator, finalOpacity * 0.4) else option_item.Highlight.Opacity = 0 end
 
+                -- [[ ИЗМЕНЕНИЕ: Добавлена логика для Multidropdown ]]
                 if el.type == "Multidropdown" then
                     self:_SetVisibility(option_item.CheckmarkLine1, isSelected); self:_SetVisibility(option_item.CheckmarkLine2, isSelected)
                     option_item.CheckmarkLine1.zIndex = dropdown_z + 2; option_item.CheckmarkLine2.zIndex = dropdown_z + 2;
@@ -2329,6 +2332,8 @@ function Library:_RenderSettingsPopup()
                 end
                 currentOptionY = currentOptionY + optionHeight
             end
+        else
+             if el.Glow then self:_HideGlowEffect(el.Glow) end
         end
     end
 end
@@ -4108,7 +4113,7 @@ function Library:_InputLoop()
                         if settings_popup.ActiveDropdown then
                             local active_dd = settings_popup.ActiveDropdown
                             local clicked_inside_dd_options = active_dd.PopupClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, active_dd.PopupClickRegion)
-                            
+
                             if clicked_inside_dd_options then
                                 if settings_popup.HoveredDropdownOptionIndex > 0 then
                                     local i = settings_popup.HoveredDropdownOptionIndex
@@ -4116,7 +4121,8 @@ function Library:_InputLoop()
                                         self.UI.Values[active_dd.id] = active_dd.Options[i]
                                         if active_dd.Callback then pcall(active_dd.Callback, self.UI.Values[active_dd.id]) end
                                         active_dd.IsClosing = true
-                                    else
+                                    -- [[ ИЗМЕНЕНИЕ: Логика для Multidropdown ]]
+                                    else 
                                         local opt = active_dd.Options[i]
                                         local found_idx = table.find(self.UI.Values[active_dd.id], opt)
                                         if found_idx then table.remove(self.UI.Values[active_dd.id], found_idx) else table.insert(self.UI.Values[active_dd.id], opt) end
@@ -4146,9 +4152,11 @@ function Library:_InputLoop()
                                 end
                             end
                         else
-                            settings_popup.Animation.IsClosing = true
-                            settings_popup.Animation.IsOpening = false
-                            if settings_popup.ActiveDropdown then settings_popup.ActiveDropdown.IsClosing = true end
+                            if settings_popup.IsOpen then
+                                settings_popup.Animation.IsClosing = true
+                                settings_popup.Animation.IsOpening = false
+                                if settings_popup.ActiveDropdown then settings_popup.ActiveDropdown.IsClosing = true end
+                            end
                         end
 
                     elseif burger_popup.IsOpen then
