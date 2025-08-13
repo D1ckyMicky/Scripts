@@ -2991,39 +2991,46 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
     for _, section in ipairs(self.UI.Sections) do
         local anim_state = section.Animation
         
-        -- [[ ИЗМЕНЕНИЕ: Улучшенная логика скрытия ]]
-        -- Если секция полностью невидима, принудительно скрываем её и переходим к следующей
         if anim_state.CurrentOpacity <= 0 then
             if anim_state.IsVisible then
                 self:_SetSectionAndElementsVisibility(section, false)
                 anim_state.IsVisible = false
             end
         else
-            -- Если секция становится видимой, убеждаемся, что её элементы тоже готовы к отрисовке
             if not anim_state.IsVisible then
                 self:_SetSectionAndElementsVisibility(section, true)
                 anim_state.IsVisible = true
             end
 
             local sectionX, sectionY
-            if section.Side == "Left" then
-                sectionX, sectionY = leftColumnX, leftColumnY
+
+            -- [[ ИЗМЕНЕНИЕ: Разделяем логику расчёта позиций ]]
+            if section.ParentTab == self.Window.ActiveTab then
+                -- Если это НОВАЯ вкладка, рассчитываем её позицию в потоке и ЗАПОМИНАЕМ её
+                if section.Side == "Left" then
+                    sectionX, sectionY = leftColumnX, leftColumnY
+                else
+                    sectionX, sectionY = rightColumnX, rightColumnY
+                end
+                section.LastPos = { X = sectionX, Y = sectionY }
             else
-                sectionX, sectionY = rightColumnX, rightColumnY
+                -- Если это СТАРАЯ вкладка, которая исчезает, используем её последнюю ЗАПОМНЕННУЮ позицию
+                sectionX, sectionY = section.LastPos.X, section.LastPos.Y
             end
             
-            -- Отрисовываем секцию, передавая ей текущее смещение и прозрачность
             local sectionHeight = self:_RenderSingleSection(section, sectionX, sectionY, columnWidth, anim_state.CurrentYOffset, anim_state.CurrentOpacity)
             
-            if section.Side == "Left" then
-                leftColumnY = leftColumnY + sectionHeight + columnSpacing
-            else
-                rightColumnY = rightColumnY + sectionHeight + columnSpacing
+            -- Важно: увеличиваем высоту колонки только для НОВОЙ активной вкладки
+            if section.ParentTab == self.Window.ActiveTab then
+                if section.Side == "Left" then
+                    leftColumnY = leftColumnY + sectionHeight + columnSpacing
+                else
+                    rightColumnY = rightColumnY + sectionHeight + columnSpacing
+                end
             end
         end
     end
 end
-
 
 
 function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
@@ -4257,7 +4264,7 @@ function Library:_AddPresetsTab()
 end
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. x242")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 5x242")
     local is_first_frame = true
     while true do
         -- Обрабатываем очередь на удаление в начале каждого кадра
@@ -4573,7 +4580,8 @@ end
 function Library:Section(options)
     local section = {
         Title = options.Name, ParentTab = options.ParentTab, Side = options.Side or "Left", Elements = {},
-        -- [[ ИЗМЕНЕНИЕ: Добавляем таблицу Animation при создании секции ]]
+        -- [[ ИЗМЕНЕНИЕ: Добавляем "память" о последней позиции ]]
+        LastPos = { X = 0, Y = 0 },
         Animation = { CurrentOpacity = 0, CurrentYOffset = 0, IsVisible = false },
         Drawing = { Background = self:_CreateDrawingObject("Square"), Border = self:_CreateDrawingObject("Square"), Title = self:_CreateDrawingObject("Text"), Separator = self:_CreateDrawingObject("Line") }
     }
@@ -4629,6 +4637,7 @@ function Library:Section(options)
 
     return SectionObject
 end
+
 
 
 
