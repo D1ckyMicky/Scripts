@@ -3075,9 +3075,7 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
             end
 
             local glowWidth = nubX - sliderBackX; local glowHeight = 6
-            -- << [ИСПРАВЛЕНИЕ] Добавляем проверку на masterOpacity для надежного скрытия и выставляем правильный z-index >>
             if glowWidth > 0 and el.Glow and masterOpacity > 0.01 then
-                -- el.Back.zIndex (4) + 1 = 5. Glow будет иметь z-index 4, 3, 2..., что выше фона секции (2)
                 self:_RenderGlowEffect(el.Glow, sliderBackX, currentElementY + 9 - (glowHeight / 2), glowWidth, glowHeight, el.LeftFill.Rounding, theme.Colors.GlowAccent, {top=true, bottom=true, left=true, right=false}, masterOpacity, el.Back.zIndex + 1)
             elseif el.Glow then 
                 self:_HideGlowEffect(el.Glow) 
@@ -3086,6 +3084,33 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
             self:_AnimateAndApplyColor(el.Back, theme.Colors.DarkBlue, masterOpacity); self:_AnimateAndApplyColor(el.LeftFill, theme.Colors.Accent, masterOpacity); self:_AnimateAndApplyColor(el.Nub, theme.Colors.Accent, masterOpacity)
             elementY_offset = elementY_offset + 35
         elseif el.type == "Dropdown" or el.type == "Multidropdown" then
+            -- [[ НОВЫЙ БЛОК: Постоянная анимация для Multidropdown ]]
+            if el.type == "Multidropdown" then
+                local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4
+                local animationSpeed = (speed_value / 1.5) / 10.0
+
+                -- Анимация отступа текста
+                local hasSelection = #self.UI.Values[el.id] > 0
+                local targetTextXOffset = hasSelection and 25 or 10
+                if self.UI.Values["BurgerLow-EndMode"] then
+                    el.AnimatedTextXOffset = targetTextXOffset
+                else
+                    el.AnimatedTextXOffset = el.AnimatedTextXOffset + (targetTextXOffset - el.AnimatedTextXOffset) * animationSpeed
+                end
+
+                -- Анимация прозрачности галочек (даже если они невидимы)
+                for i, option_item in ipairs(el.OptionList) do
+                    local isSelected = table.find(self.UI.Values[el.id], el.Options[i])
+                    local targetOpacity = isSelected and 1.0 or 0.0
+                    if self.UI.Values["BurgerLow-EndMode"] then
+                        option_item.CheckmarkOpacity = targetOpacity
+                    else
+                        option_item.CheckmarkOpacity = option_item.CheckmarkOpacity + (targetOpacity - option_item.CheckmarkOpacity) * animationSpeed
+                    end
+                end
+            end
+            -- [[ КОНЕЦ НОВОГО БЛОКА ]]
+            
             self:_SetVisibility(el.Button, true); self:_SetVisibility(el.ButtonText, true); self:_SetVisibility(el.ArrowLine1, true); self:_SetVisibility(el.ArrowLine2, true)
             local currentElementY = animatedY + elementY_offset; self:_AnimateAndApplyColor(el.Label, theme.Colors.TextSecondary, masterOpacity); el.Label.Position = {sectionX + 10, currentElementY + 5}
             local dropdownButtonX, dropdownButtonY = sectionX + columnWidth - el.Size.width - 15, currentElementY; el.Button.Position = {dropdownButtonX, dropdownButtonY}; el.Button.Size = {el.Size.width, el.Size.height}
@@ -3095,6 +3120,7 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
             el.ClickRegion = { x1 = dropdownButtonX, y1 = dropdownButtonY, x2 = dropdownButtonX + el.Size.width, y2 = dropdownButtonY + el.Size.height }
             self:_AnimateAndApplyColor(el.Button, theme.Colors.DarkBlue, masterOpacity); self:_AnimateAndApplyColor(el.ButtonText, theme.Colors.TextPrimary, masterOpacity); self:_AnimateAndApplyColor(el.ArrowLine1, theme.Colors.TextPrimary, masterOpacity); self:_AnimateAndApplyColor(el.ArrowLine2, theme.Colors.TextPrimary, masterOpacity)
             elementY_offset = elementY_offset + 35
+            
             if el.IsOpen or el.IsClosing then
                 local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4; local animationSpeed = (speed_value / 1.5) / 10.0
                 
@@ -3121,16 +3147,31 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
                         self:_HideGlowEffect(el.Glow)
                     end
 
-                    local currentOptionY = popupY + 5; local hasSelection = el.type == "Multidropdown" and #self.UI.Values[el.id] > 0; local textX = popupX + (hasSelection and 25 or 10)
-                    for i, option in ipairs(el.OptionList) do
-                        self:_SetVisibility(option.Text, true); self:_SetVisibility(option.Highlight, true)
-                        option.ClickRegion = {x1 = popupX, y1 = currentOptionY, x2 = popupX + popupWidth, y2 = currentOptionY + optionHeight}; option.Text.Position = {textX, currentOptionY + (optionHeight / 2) - (option.Text.Size / 2)}; option.Highlight.Position = {popupX + 5, currentOptionY}; option.Highlight.Size = {popupWidth - 10, optionHeight}
-                        local isSelected = (el.type == "Dropdown" and self.UI.Values[el.id] == el.Options[i]) or (el.type == "Multidropdown" and table.find(self.UI.Values[el.id], el.Options[i])); local isHovered = (el.HoveredOptionIndex == i)
-                        local targetTextColor = isSelected and theme.Colors.Accent or theme.Colors.TextPrimary; self:_AnimateAndApplyColor(option.Text, targetTextColor, finalOpacity)
-                        if isHovered then local highlightColor = theme.Colors.Separator; self:_AnimateAndApplyColor(option.Highlight, highlightColor, finalOpacity * 0.4) else option.Highlight.Opacity = 0 end
+                    local currentOptionY = popupY + 5
+                    for i, option_item in ipairs(el.OptionList) do
+                        local textX
                         if el.type == "Multidropdown" then
-                            self:_SetVisibility(option.CheckmarkLine1, isSelected); self:_SetVisibility(option.CheckmarkLine2, isSelected)
-                            if isSelected then local checkY = currentOptionY + (optionHeight / 2); option.CheckmarkLine1.From = {popupX + 8, checkY}; option.CheckmarkLine1.To = {popupX + 11, checkY + 3}; option.CheckmarkLine2.From = {popupX + 11, checkY + 3}; option.CheckmarkLine2.To = {popupX + 15, checkY - 4}; self:_AnimateAndApplyColor(option.CheckmarkLine1, theme.Colors.Accent, finalOpacity); self:_AnimateAndApplyColor(option.CheckmarkLine2, theme.Colors.Accent, finalOpacity) end
+                            textX = popupX + el.AnimatedTextXOffset
+                        else 
+                            textX = popupX + 10
+                        end
+                        
+                        self:_SetVisibility(option_item.Text, true); self:_SetVisibility(option_item.Highlight, true)
+                        option_item.ClickRegion = {x1 = popupX, y1 = currentOptionY, x2 = popupX + popupWidth, y2 = currentOptionY + optionHeight}; option_item.Text.Position = {textX, currentOptionY + (optionHeight / 2) - (option_item.Text.Size / 2)}; option_item.Highlight.Position = {popupX + 5, currentOptionY}; option_item.Highlight.Size = {popupWidth - 10, optionHeight}
+                        local isSelected = (el.type == "Dropdown" and self.UI.Values[el.id] == el.Options[i]) or (el.type == "Multidropdown" and table.find(self.UI.Values[el.id], el.Options[i])); local isHovered = (el.HoveredOptionIndex == i)
+                        local targetTextColor = isSelected and theme.Colors.Accent or theme.Colors.TextPrimary; self:_AnimateAndApplyColor(option_item.Text, targetTextColor, finalOpacity)
+                        if isHovered then local highlightColor = theme.Colors.Separator; self:_AnimateAndApplyColor(option_item.Highlight, highlightColor, finalOpacity * 0.4) else option_item.Highlight.Opacity = 0 end
+                        
+                        if el.type == "Multidropdown" then
+                            if option_item.CheckmarkOpacity > 0.01 then
+                                self:_SetVisibility(option_item.CheckmarkLine1, true); self:_SetVisibility(option_item.CheckmarkLine2, true)
+                                local checkY = currentOptionY + (optionHeight / 2); option_item.CheckmarkLine1.From = {popupX + 8, checkY}; option_item.CheckmarkLine1.To = {popupX + 11, checkY + 3}; option_item.CheckmarkLine2.From = {popupX + 11, checkY + 3}; option_item.CheckmarkLine2.To = {popupX + 15, checkY - 4};
+                                local checkmarkMasterOpacity = finalOpacity * option_item.CheckmarkOpacity
+                                self:_AnimateAndApplyColor(option_item.CheckmarkLine1, theme.Colors.Accent, checkmarkMasterOpacity); 
+                                self:_AnimateAndApplyColor(option_item.CheckmarkLine2, theme.Colors.Accent, checkmarkMasterOpacity)
+                            else
+                                self:_SetVisibility(option_item.CheckmarkLine1, false); self:_SetVisibility(option_item.CheckmarkLine2, false)
+                            end
                         end
                         currentOptionY = currentOptionY + optionHeight
                     end
