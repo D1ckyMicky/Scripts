@@ -359,69 +359,91 @@ function Library:_GetTextColorForBackground(backgroundColor)
     return brightness > 140 and theme.Colors.TextDark or theme.Colors.TextLight
 end
 
-function Library:_UpdateAnimationStates()
+function Library:_UpdateMainPanelAnimations()
     local still_fading_out = false
     local still_fading_in = false
     local ANIMATION_SLIDE_DISTANCE = 20
     local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.5
     local animationSpeed = (speed_value * 1.5) / 15.0
 
-    for _, section in ipairs(self.UI.Sections) do
-        local anim_state = self.AnimationState[section.Drawing.Background]
-        if not anim_state then
-            anim_state = { Opacity = 0, YOffset = 0 }
-            self.AnimationState[section.Drawing.Background] = anim_state
-        end
-
-        local is_on_active_tab = (section.ParentTab == self.Window.ActiveTab)
-        local is_on_old_tab = (self.Window.Animation.State == "FADING_OUT" and section.ParentTab == self.Window.Animation.OldTab)
+    -- Вспомогательная функция для обработки анимации одного объекта (секции или вкладки)
+    local function process_animation(obj, is_target_for_show, is_target_for_hide)
+        local anim_state = obj.Animation
         
         local targetOpacity, targetYOffset
-        
-        if is_on_old_tab then
+
+        if is_target_for_hide then
+            -- Цель: исчезнуть, сместившись вниз
             targetOpacity, targetYOffset = 0, ANIMATION_SLIDE_DISTANCE
-            if anim_state.Opacity > 0.01 then still_fading_out = true end
-        elseif is_on_active_tab and self.Window.Animation.State ~= "FADING_OUT" then
+            if anim_state.CurrentOpacity > 0.01 then still_fading_out = true end
+        elseif is_target_for_show then
+            -- Цель: появиться, вернувшись в исходное положение
             targetOpacity, targetYOffset = 1, 0
-            if anim_state.Opacity < 0.99 then still_fading_in = true end
+            if anim_state.CurrentOpacity < 0.99 then still_fading_in = true end
         else
-            targetOpacity, targetYOffset = 0, anim_state.YOffset
+            -- Цель: оставаться невидимым
+            targetOpacity, targetYOffset = 0, anim_state.CurrentYOffset
         end
         
-        -- [[ ИСПРАВЛЕНИЕ: Используем правильный ID "BurgerLow-EndMode" ]]
+        -- Плавный переход к целевым значениям
         if self.UI.Values["BurgerLow-EndMode"] then
-            anim_state.Opacity = targetOpacity
-            anim_state.YOffset = targetYOffset
+            anim_state.CurrentOpacity = targetOpacity
+            anim_state.CurrentYOffset = targetYOffset
         else
-            anim_state.Opacity = anim_state.Opacity + (targetOpacity - anim_state.Opacity) * animationSpeed
-            anim_state.YOffset = anim_state.YOffset + (targetYOffset - anim_state.YOffset) * animationSpeed
+            anim_state.CurrentOpacity = anim_state.CurrentOpacity + (targetOpacity - anim_state.CurrentOpacity) * animationSpeed
+            anim_state.CurrentYOffset = anim_state.CurrentYOffset + (targetYOffset - anim_state.CurrentYOffset) * animationSpeed
         end
         
-        if math.abs(anim_state.Opacity - targetOpacity) < 0.01 then anim_state.Opacity = targetOpacity end
-        if math.abs(anim_state.YOffset - targetYOffset) < 0.01 then anim_state.YOffset = targetYOffset end
+        -- "Примагничивание" к конечным значениям, чтобы избежать дрожания
+        if math.abs(anim_state.CurrentOpacity - targetOpacity) < 0.01 then anim_state.CurrentOpacity = targetOpacity end
+        if math.abs(anim_state.CurrentYOffset - targetYOffset) < 0.01 then anim_state.CurrentYOffset = targetYOffset end
     end
 
+    -- 1. Обрабатываем анимацию для всех обычных секций
+    for _, section in ipairs(self.UI.Sections) do
+        local is_on_active_tab = (section.ParentTab == self.Window.ActiveTab)
+        local is_on_old_tab = (self.Window.Animation.State == "FADING_OUT" and section.ParentTab == self.Window.Animation.OldTab)
+        process_animation(section, is_on_active_tab and self.Window.Animation.State ~= "FADING_OUT", is_on_old_tab)
+    end
+
+    -- 2. Обрабатываем анимацию для всей вкладки Конфигов как единого целого
+    local configsTab = self.UI.Core.ConfigsTab
+    local is_configs_active = (self.Window.ActiveTab == "Configs")
+    local is_configs_old = (self.Window.Animation.State == "FADING_OUT" and self.Window.Animation.OldTab == "Configs")
+    process_animation(configsTab, is_configs_active and self.Window.Animation.State ~= "FADING_OUT", is_configs_old)
+
+    -- 3. Отдельно обрабатываем кнопку "Create New" (у неё только анимация прозрачности)
+    local createNewBtn = self.UI.Core.HeaderButtons.CreateNew
+    local is_createnew_target_for_show = is_configs_active and self.Window.Animation.State ~= "FADING_OUT"
+    
+    local targetOpacity = is_createnew_target_for_show and 1 or 0
+    if not is_createnew_target_for_show and createNewBtn.Animation.CurrentOpacity > 0.01 then still_fading_out = true end
+    if is_createnew_target_for_show and createNewBtn.Animation.CurrentOpacity < 0.99 then still_fading_in = true end
+
+    if self.UI.Values["BurgerLow-EndMode"] then
+        createNewBtn.Animation.CurrentOpacity = targetOpacity
+    else
+        createNewBtn.Animation.CurrentOpacity = createNewBtn.Animation.CurrentOpacity + (targetOpacity - createNewBtn.Animation.CurrentOpacity) * animationSpeed
+    end
+    if math.abs(createNewBtn.Animation.CurrentOpacity - targetOpacity) < 0.01 then createNewBtn.Animation.CurrentOpacity = targetOpacity end
+
+    -- Управляем глобальным состоянием перехода между вкладками
     if self.Window.Animation.State == "FADING_OUT" and not still_fading_out then
         self.Window.Animation.State = "FADING_IN"
         self.Window.Animation.OldTab = nil
         
+        -- Сбрасываем начальные позиции для элементов, которые сейчас будут появляться
         for _, section in ipairs(self.UI.Sections) do
             if section.ParentTab == self.Window.ActiveTab then
-                local anim_state = self.AnimationState[section.Drawing.Background]
-                if anim_state then
-                    anim_state.Opacity = 0
-                    anim_state.YOffset = ANIMATION_SLIDE_DISTANCE
-                end
-                
-                for _, el in ipairs(section.Elements) do
-                    if el.type == "Toggle" and self.UI.Values[el.id] then
-                        el.AnimatedNubOffset = el.Size.height / 2
-                    elseif el.type == "Slider" then
-                        el.AnimatedValue = el.Min
-                    end
-                end
+                section.Animation.CurrentOpacity = 0
+                section.Animation.CurrentYOffset = ANIMATION_SLIDE_DISTANCE -- Начинаем снизу
             end
         end
+        if self.Window.ActiveTab == "Configs" then
+            configsTab.Animation.CurrentOpacity = 0
+            configsTab.Animation.CurrentYOffset = ANIMATION_SLIDE_DISTANCE -- Начинаем снизу
+        end
+
     elseif self.Window.Animation.State == "FADING_IN" and not still_fading_in then
         self.Window.Animation.State = "IDLE"
     end
@@ -701,7 +723,7 @@ function Library:_UpdateAllAnimations()
 
 
     -- Обновляем и проверяем анимацию смены вкладок
-    self:_UpdateAnimationStates()
+    self:_UpdateMainPanelAnimations()
     if self.Window.Animation.State ~= "IDLE" then
         anyAnimationActive = true
     end
@@ -2540,15 +2562,14 @@ end
 
 
 function Library:_RenderLoop()
-    -- [[ ИЗМЕНЕНИЕ: Логика обновления анимации темы ]]
     if self.ThemeTransitionAlpha < 1.0 and self.TargetTheme then
         local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4
-        local animationSpeed = (speed_value > 0) and (speed_value / 40.0) or 1 -- Делаем смену темы чуть медленнее
+        local animationSpeed = (speed_value > 0) and (speed_value / 40.0) or 1
         self.ThemeTransitionAlpha = self.ThemeTransitionAlpha + animationSpeed
 
         if self.ThemeTransitionAlpha >= 1.0 then
             self.ThemeTransitionAlpha = 1.0
-            self.ActiveTheme = self.TargetTheme -- Завершаем переход
+            self.ActiveTheme = self.TargetTheme
             self.TargetTheme = nil
         end
     end
@@ -2594,14 +2615,14 @@ function Library:_RenderLoop()
         end
     end
 
-    self:_UpdateAnimationStates()
+    -- [[ ИЗМЕНЕНИЕ: Вызываем новую функцию управления анимацией ]]
+    self:_UpdateMainPanelAnimations()
 
     local mouse_pos = getmouseposition()
     if not mouse_pos then return end
 
     local Core = self.UI.Core
-    -- [[ ИЗМЕНЕНИЕ: Используем новую функцию для получения цвета ]]
-    local theme = self.ActiveTheme -- Оставляем для доступа к не-цветовым свойствам
+    local theme = self.ActiveTheme
     local isThemeLight = self:_IsThemeLight(theme)
     local windowX, windowY = self:_SafeNumber(self.Window.X, 0), self:_SafeNumber(self.Window.Y, 0)
     local sidebarWidth, headerHeight = self:_SafeNumber(self.Window.SidebarWidth, 0), self:_SafeNumber(self.Window.HeaderHeight, 0)
@@ -2651,12 +2672,17 @@ function Library:_RenderLoop()
              local isHovered = self:_IsPointInRegion(mouse_pos.x, mouse_pos.y, button.ClickRegion)
              button.IsHovered = isHovered
              local targetBgColor, targetTextColor
-            if button == Core.HeaderButtons.CreateNew then
+
+             -- [[ ИЗМЕНЕНИЕ: Анимация прозрачности для кнопки CreateNew ]]
+             local masterOpacity = (button == Core.HeaderButtons.CreateNew) and button.Animation.CurrentOpacity or 1
+
+             if button == Core.HeaderButtons.CreateNew then
                 local baseColor = self:_GetTransitionColor("Accent")
-                local opacity = isHovered and 255 or (255 * 0.6)
-                targetBgColor = {baseColor[1], baseColor[2], baseColor[3], opacity}
+                local baseOpacity = isHovered and 255 or (255 * 0.6)
+                targetBgColor = {baseColor[1], baseColor[2], baseColor[3], baseOpacity}
                 targetTextColor = self:_GetTextColorForBackground(baseColor)
-            else
+                self:_SetDrawingTableVisibility(button, masterOpacity > 0)
+             else
                 if isHovered then
                     if isThemeLight then
                         targetBgColor = self:_GetTransitionColor("Accent")
@@ -2668,12 +2694,13 @@ function Library:_RenderLoop()
                     targetBgColor = is_accent and self:_GetTransitionColor("Accent") or self:_GetTransitionColor("MainBackground")
                     targetTextColor = is_accent and self:_GetTextColorForBackground(self:_GetTransitionColor("Accent")) or self:_GetTransitionColor("TextPrimary")
                 end
-            end
+             end
+
              local targetBorderColor = (tick() - (button.ClickTime or 0) < 0.1 or (button.IsOpen)) and self:_GetTransitionColor("Accent") or self:_GetTransitionColor("Separator")
-             self:_AnimateAndApplyColor(button.Background, targetBgColor)
-             self:_AnimateAndApplyColor(button.Border, targetBorderColor)
-             self:_AnimateAndApplyColor(button.Label, targetTextColor)
-             if button.Icon then self:_AnimateAndApplyColor(button.Icon, targetTextColor) end
+             self:_AnimateAndApplyColor(button.Background, targetBgColor, masterOpacity)
+             self:_AnimateAndApplyColor(button.Border, targetBorderColor, masterOpacity)
+             self:_AnimateAndApplyColor(button.Label, targetTextColor, masterOpacity)
+             if button.Icon then self:_AnimateAndApplyColor(button.Icon, targetTextColor, masterOpacity) end
              if has_icon and button.Icon then local iconX, iconY = x + 12, y + (height / 2) - (button.Icon.Size.y / 2); button.Icon.Position = {iconX, iconY}; local labelX, labelY = iconX + button.Icon.Size.x + 5, y + (height / 2) - (button.Label.Size / 2); button.Label.Position = {labelX, labelY}; button.Label.Center = false else button.Label.Position = {x + width / 2, y + (height / 2) - (button.Label.Size / 2)}; button.Label.Center = true end
              button.ClickRegion = {x1 = x, y1 = y, x2 = x + width, y2 = y + height}
         end
@@ -2686,11 +2713,9 @@ function Library:_RenderLoop()
         currentX = currentX + btnWidth + spacing
         renderHeaderButton(Core.HeaderButtons.ViewESP, currentX, btnY, btnWidth, btnHeight, false, false)
         currentX = currentX + btnWidth + spacing
-        if self.Window.ActiveTab == "Configs" then
-            renderHeaderButton(Core.HeaderButtons.CreateNew, currentX, btnY, createNewBtnWidth, btnHeight, true, true)
-        else
-            self:_SetVisibility(Core.HeaderButtons.CreateNew.Background, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Border, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Label, false); self:_SetVisibility(Core.HeaderButtons.CreateNew.Icon, false);
-        end
+        
+        -- Кнопка CreateNew теперь всегда рендерится, но её видимость контролируется анимацией
+        renderHeaderButton(Core.HeaderButtons.CreateNew, currentX, btnY, createNewBtnWidth, btnHeight, true, true)
 
         local settingsIcon = Core.HeaderButtons.Settings.Icon
         local settingsX = rightPanelX + (self.Window.Width - sidebarWidth + self.Window.PanelOverlap) - settingsIcon.Size.x - 20
@@ -2742,25 +2767,10 @@ function Library:_RenderLoop()
 
     self:_RenderTabs(windowX, windowY + headerHeight, sidebarWidth)
 
-    if self.Window.ActiveTab == "Configs" then
-        for _, section in ipairs(self.UI.Sections) do
-            local anim_state = self.AnimationState[section.Drawing.Background]
-            if anim_state and anim_state.IsVisible then
-                self:_SetSectionAndElementsVisibility(section, false)
-                anim_state.IsVisible = false
-            end
-        end
-        self:_RenderConfigsTab(rightPanelX, windowY, headerHeight)
-    else
-        local configsTab = self.UI.Core.ConfigsTab
-        self:_SetVisibility(configsTab.MyItemsLabel, false)
-        self:_SetVisibility(configsTab.Scrollbar.Background, false)
-        self:_SetVisibility(configsTab.Scrollbar.Nub, false)
-        for _, item in ipairs(configsTab.Items) do
-            self:_SetDrawingTableVisibility(item.Drawing, false)
-        end
-        self:_RenderSections(rightPanelX, windowY, headerHeight)
-    end
+    -- [[ ИЗМЕНЕНИЕ: Упрощенная логика рендера ]]
+    -- Теперь мы просто вызываем обе функции. Новая анимационная логика сама решит, что показывать, а что скрывать.
+    self:_RenderSections(rightPanelX, windowY, headerHeight)
+    self:_RenderConfigsTab(rightPanelX, windowY, headerHeight)
     
     self:_RenderSaveTooltip()
     self:_RenderConfigOptionsPopup()
@@ -4300,7 +4310,7 @@ function Library:_AddPresetsTab()
 end
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. x25452")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. x242")
     local is_first_frame = true
     while true do
         -- Обрабатываем очередь на удаление в начале каждого кадра
