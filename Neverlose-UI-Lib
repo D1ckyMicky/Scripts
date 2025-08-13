@@ -3545,7 +3545,6 @@ function Library:_InputLoop()
     local is_right_clicked = was_right_pressed and not is_right_pressed_now
     local key_pressed = (getpressedkey() ~= "None")
 
-    -- Оптимизация: запускаем основную логику только если есть действие или активна анимация
     if mouse_moved or is_left_pressed_now or is_left_clicked or is_right_pressed_now or is_right_clicked or key_pressed or self:_UpdateAllAnimations() then
 
     lastMousePos = mouse_pos 
@@ -3670,10 +3669,7 @@ function Library:_InputLoop()
         is_dragging_something = false
         local started_drag = false
 
-        -- [[ ИЗМЕНЕНИЕ ЗДЕСЬ ]]
-        -- Проверяем, не тащим ли мы скроллбар во вкладке конфигов
         local scrollbar = configsTab.Scrollbar
-        -- Проверяем, нужна ли вообще полоса прокрутки
         local itemHeight = 60; local itemSpacing = 10; local totalItemHeight = itemHeight + itemSpacing; local MAX_VISIBLE_ITEMS = 7
         local visibleAreaHeight = (MAX_VISIBLE_ITEMS * totalItemHeight) - itemSpacing
         local totalContentHeight = (#configsTab.Items * totalItemHeight) - itemSpacing
@@ -3685,7 +3681,6 @@ function Library:_InputLoop()
             scrollbar.DragStartOffset = scrollbar.ScrollOffset
             started_drag = true
         end
-        -- [[ КОНЕЦ ИЗМЕНЕНИЯ ]]
 
         local wmDragRegion = {x1=wm.DragArea.Position.x, y1=wm.DragArea.Position.y, x2=wm.DragArea.Position.x+wm.DragArea.Size.x, y2=wm.DragArea.Position.y+wm.DragArea.Size.y}
         if self.UI.Values["BurgerWatermark"] and self:_IsPointInRegion(mouse_x, mouse_y, wmDragRegion) then
@@ -3733,35 +3728,25 @@ function Library:_InputLoop()
     end
 
     if is_left_pressed_now then
-        -- [[ ИЗМЕНЕНИЕ ЗДЕСЬ ]]
-        -- Добавлена новая, более точная логика перетаскивания скроллбара
         local scrollbar = configsTab.Scrollbar
         if scrollbar.IsDraggingNub then
-            -- Вычисляем все необходимые размеры, чтобы быть уверенными в точности
             local itemHeight = 60; local itemSpacing = 10; local totalItemHeight = itemHeight + itemSpacing; local MAX_VISIBLE_ITEMS = 7;
             local visibleAreaHeight = (MAX_VISIBLE_ITEMS * totalItemHeight) - itemSpacing
             local totalContentHeight = (#configsTab.Items * totalItemHeight) - itemSpacing
             local minNubHeight = 30
             local nubHeight = math.max(minNubHeight, visibleAreaHeight * (visibleAreaHeight / totalContentHeight))
             
-            -- Диапазон, который может прокрутить контент
             local contentScrollRange = totalContentHeight - visibleAreaHeight
-            -- Диапазон, в котором может двигаться сам ползунок
             local nubScrollRange = visibleAreaHeight - nubHeight
             
-            -- Вычисляем смещение мыши с момента нажатия
             local mouseDeltaY = mouse_y - scrollbar.DragStartMouseY
             
-            -- Вычисляем пропорцию. Если nubScrollRange равен 0, то и пропорция 0
             local scrollRatio = (nubScrollRange > 0) and (contentScrollRange / nubScrollRange) or 0
             
-            -- Вычисляем новое смещение контента
             local newOffset = scrollbar.DragStartOffset + (mouseDeltaY * scrollRatio)
             
-            -- Ограничиваем смещение, чтобы не выйти за пределы
             configsTab.Scrollbar.ScrollOffset = math.clamp(newOffset, 0, contentScrollRange)
         end
-        -- [[ КОНЕЦ ИЗМЕНЕНИЯ ]]
 
         if wm.IsDragging then wm.Position.x = mouse_x - wm.DragOffset.x; wm.Position.y = mouse_y - wm.DragOffset.y; end
         if hk.IsDragging then hk.Position.x = mouse_x - hk.DragOffset.x; hk.Position.y = mouse_y - hk.DragOffset.y; end
@@ -4024,6 +4009,19 @@ function Library:_InputLoop()
                             if itemIndex and configsTab.Items[itemIndex] then
                                 local configNameToDelete = configsTab.Items[itemIndex].Name
                                 deletefile(self:_GetConfigPath(configNameToDelete))
+                                
+                                -- [[ ИЗМЕНЕНИЕ НАЧАЛО: Коррекция скроллбара ]]
+                                local itemHeight = 60; local itemSpacing = 10; local totalItemHeight = itemHeight + itemSpacing; local MAX_VISIBLE_ITEMS = 7
+                                local visibleAreaHeight = (MAX_VISIBLE_ITEMS * totalItemHeight) - itemSpacing
+                                
+                                -- Рассчитываем новую максимальную высоту контента
+                                local newTotalContentHeight = ((#configsTab.Items - 1) * totalItemHeight) - itemSpacing
+                                local newMaxScrollOffset = math.max(0, newTotalContentHeight - visibleAreaHeight)
+                                
+                                -- "Прижимаем" текущий скролл к новому максимуму, если он выходит за пределы
+                                configsTab.Scrollbar.ScrollOffset = math.min(configsTab.Scrollbar.ScrollOffset, newMaxScrollOffset)
+                                -- [[ ИЗМЕНЕНИЕ КОНЕЦ ]]
+
                                 configsTab.OptionsPopup.Animation.IsClosing = true
                                 configsTab.OptionsPopup.Animation.IsOpening = false
                                 configsTab.NeedsRefresh = true
@@ -4257,7 +4255,6 @@ function Library:_InputLoop()
     was_left_pressed = is_left_pressed_now
     was_right_pressed = is_right_pressed_now
 end
-
 
 function Library:_AddPresetsTab()
     local tabGroupName = "PRESETS"
