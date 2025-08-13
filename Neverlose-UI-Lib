@@ -366,22 +366,8 @@ function Library:_UpdateMainPanelAnimations()
     local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.5
     local animationSpeed = (speed_value * 1.5) / 15.0
 
-    local function process_animation(obj, is_target_for_show, is_target_for_hide)
-        if not obj or not obj.Animation then return end
-        
-        local anim_state = obj.Animation
-        local targetOpacity, targetYOffset
-
-        if is_target_for_hide then
-            targetOpacity, targetYOffset = 0, ANIMATION_SLIDE_DISTANCE
-            if anim_state.CurrentOpacity > 0.01 then still_fading_out = true end
-        elseif is_target_for_show then
-            targetOpacity, targetYOffset = 1, 0
-            if anim_state.CurrentOpacity < 0.99 then still_fading_in = true end
-        else
-            targetOpacity, targetYOffset = 0, anim_state.CurrentYOffset
-        end
-        
+    -- Вспомогательная функция для плавной интерполяции значений
+    local function lerp_values(anim_state, targetOpacity, targetYOffset)
         if self.UI.Values["BurgerLow-EndMode"] then
             anim_state.CurrentOpacity = targetOpacity
             anim_state.CurrentYOffset = targetYOffset
@@ -389,48 +375,58 @@ function Library:_UpdateMainPanelAnimations()
             anim_state.CurrentOpacity = anim_state.CurrentOpacity + (targetOpacity - anim_state.CurrentOpacity) * animationSpeed
             anim_state.CurrentYOffset = anim_state.CurrentYOffset + (targetYOffset - anim_state.CurrentYOffset) * animationSpeed
         end
-        
         if math.abs(anim_state.CurrentOpacity - targetOpacity) < 0.01 then anim_state.CurrentOpacity = targetOpacity end
         if math.abs(anim_state.CurrentYOffset - targetYOffset) < 0.01 then anim_state.CurrentYOffset = targetYOffset end
     end
 
-    -- 1. Обрабатываем анимацию для всех обычных секций
-    for _, section in ipairs(self.UI.Sections) do
-        local is_on_active_tab = (section.ParentTab == self.Window.ActiveTab)
-        local is_on_old_tab = (self.Window.Animation.State == "FADING_OUT" and section.ParentTab == self.Window.Animation.OldTab)
-        process_animation(section, is_on_active_tab and self.Window.Animation.State ~= "FADING_OUT", is_on_old_tab)
-    end
-
-    -- 2. Обрабатываем анимацию для вкладки Конфигов
     local configsTab = self.UI.Core.ConfigsTab
-    local is_configs_active = (self.Window.ActiveTab == "Configs")
-    local is_configs_old = (self.Window.Animation.State == "FADING_OUT" and self.Window.Animation.OldTab == "Configs")
-
-    -- [[ ИЗМЕНЕНИЕ: Запускаем анимацию конфигов, ТОЛЬКО если она участвует в переходе ]]
-    if is_configs_active or is_configs_old then
-        process_animation(configsTab, is_configs_active and self.Window.Animation.State ~= "FADING_OUT", is_configs_old)
-    end
-
-    -- 3. Обрабатываем анимацию для кнопки "Create New"
     local createNewBtn = self.UI.Core.HeaderButtons.CreateNew
-    local is_createnew_target_for_show = is_configs_active and self.Window.Animation.State ~= "FADING_OUT"
-    
-    local targetOpacity = is_createnew_target_for_show and 1 or 0
-    if not is_createnew_target_for_show and createNewBtn.Animation.CurrentOpacity > 0.01 then still_fading_out = true end
-    if is_createnew_target_for_show and createNewBtn.Animation.CurrentOpacity < 0.99 then still_fading_in = true end
 
-    if self.UI.Values["BurgerLow-EndMode"] then
-        createNewBtn.Animation.CurrentOpacity = targetOpacity
-    else
-        createNewBtn.Animation.CurrentOpacity = createNewBtn.Animation.CurrentOpacity + (targetOpacity - createNewBtn.Animation.CurrentOpacity) * animationSpeed
+    if self.Window.Animation.State == "FADING_OUT" then
+        -- Фаза исчезновения: анимируем ТОЛЬКО старую вкладку
+        for _, section in ipairs(self.UI.Sections) do
+            if section.ParentTab == self.Window.Animation.OldTab then
+                lerp_values(section.Animation, 0, ANIMATION_SLIDE_DISTANCE)
+                if section.Animation.CurrentOpacity > 0.01 then still_fading_out = true end
+            end
+        end
+        if self.Window.Animation.OldTab == "Configs" then
+            lerp_values(configsTab.Animation, 0, ANIMATION_SLIDE_DISTANCE)
+            if configsTab.Animation.CurrentOpacity > 0.01 then still_fading_out = true end
+        end
+        -- Кнопка "Create New" также исчезает, если старая вкладка была "Configs"
+        if self.Window.Animation.OldTab == "Configs" then
+            local targetOpacity = 0
+            createNewBtn.Animation.CurrentOpacity = createNewBtn.Animation.CurrentOpacity + (targetOpacity - createNewBtn.Animation.CurrentOpacity) * animationSpeed
+            if createNewBtn.Animation.CurrentOpacity > 0.01 then still_fading_out = true end
+        end
+
+    elseif self.Window.Animation.State == "FADING_IN" then
+        -- Фаза появления: анимируем ТОЛЬКО новую вкладку
+        for _, section in ipairs(self.UI.Sections) do
+            if section.ParentTab == self.Window.ActiveTab then
+                lerp_values(section.Animation, 1, 0)
+                if section.Animation.CurrentOpacity < 0.99 then still_fading_in = true end
+            end
+        end
+        if self.Window.ActiveTab == "Configs" then
+            lerp_values(configsTab.Animation, 1, 0)
+            if configsTab.Animation.CurrentOpacity < 0.99 then still_fading_in = true end
+        end
+        -- Кнопка "Create New" также появляется, если новая вкладка - "Configs"
+        if self.Window.ActiveTab == "Configs" then
+            local targetOpacity = 1
+            createNewBtn.Animation.CurrentOpacity = createNewBtn.Animation.CurrentOpacity + (targetOpacity - createNewBtn.Animation.CurrentOpacity) * animationSpeed
+            if createNewBtn.Animation.CurrentOpacity < 0.99 then still_fading_in = true end
+        end
     end
-    if math.abs(createNewBtn.Animation.CurrentOpacity - targetOpacity) < 0.01 then createNewBtn.Animation.CurrentOpacity = targetOpacity end
 
-    -- Управляем глобальным состоянием перехода между вкладками
+    -- Управляем переключением состояний
     if self.Window.Animation.State == "FADING_OUT" and not still_fading_out then
         self.Window.Animation.State = "FADING_IN"
         self.Window.Animation.OldTab = nil
         
+        -- Сбрасываем начальные позиции для элементов, которые сейчас будут появляться
         for _, section in ipairs(self.UI.Sections) do
             if section.ParentTab == self.Window.ActiveTab then
                 section.Animation.CurrentOpacity = 0
@@ -441,12 +437,15 @@ function Library:_UpdateMainPanelAnimations()
             configsTab.Animation.CurrentOpacity = 0
             configsTab.Animation.CurrentYOffset = ANIMATION_SLIDE_DISTANCE
         end
+        -- Сбрасываем кнопку, если нужно
+        if self.Window.ActiveTab == "Configs" then
+            createNewBtn.Animation.CurrentOpacity = 0
+        end
 
     elseif self.Window.Animation.State == "FADING_IN" and not still_fading_in then
         self.Window.Animation.State = "IDLE"
     end
 end
-
 
 
 function Library:_SetSectionAndElementsVisibility(section, visible)
