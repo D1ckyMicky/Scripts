@@ -3847,6 +3847,15 @@ function Library:_InputLoop()
             is_dragging_something = false
             local started_drag = false
 
+            -- [[ НАЧАЛО ИСПРАВЛЕНИЯ: Проверяем клик по самому верхнему элементу ]]
+            local press_on_top_element = false
+            if settings_popup.IsOpen and settings_popup.ActiveDropdown then
+                if settings_popup.ActiveDropdown.PopupClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, settings_popup.ActiveDropdown.PopupClickRegion) then
+                    press_on_top_element = true
+                end
+            end
+            -- [[ КОНЕЦ ИСПРАВЛЕНИЯ ]]
+
             local scrollbar = configsTab.Scrollbar
             local itemHeight = 60; local itemSpacing = 10; local totalItemHeight = itemHeight + itemSpacing; local MAX_VISIBLE_ITEMS = 7
             local visibleAreaHeight = (MAX_VISIBLE_ITEMS * totalItemHeight) - itemSpacing
@@ -3870,7 +3879,9 @@ function Library:_InputLoop()
                 hk.IsDragging = true; started_drag = true; hk.DragOffset = {x = mouse_x - hk.Position.x, y = mouse_y - hk.Position.y};
             end
             
-            if not started_drag then
+            -- [[ ИЗМЕНЕНИЕ: Добавляем 'and not press_on_top_element' ]]
+            -- Теперь перетаскивание начнется, только если мы не кликнули на открытый дропдаун
+            if not started_drag and not press_on_top_element then
                 if about_window.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, about_window.AnimationSpeedSlider.ClickRegion) then
                     about_window.AnimationSpeedSlider.IsDragging = true; started_drag = true;
                 elseif picker.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, picker.HueSliderRegion) then
@@ -3888,7 +3899,6 @@ function Library:_InputLoop()
                         end
                         if started_drag then break end
                     end
-                    -- << [ИСПРАВЛЕНИЕ] Добавляем проверку для слайдера в попапе
                     if not started_drag and settings_popup.IsOpen and settings_popup.ActiveToggle then
                         for _, el in ipairs(settings_popup.ActiveToggle.SettingsElements) do
                             if el.type == "Slider" and self:_IsPointInRegion(mouse_x, mouse_y, el.ClickRegion) then
@@ -3962,7 +3972,6 @@ function Library:_InputLoop()
                 update_slider_value(about_window.AnimationSpeedSlider);
             end
             for _, section in ipairs(self.UI.Sections) do for _, el in ipairs(section.Elements) do if el.type == "Slider" and el.IsDragging then update_slider_value(el); break; end end end
-            -- << [ИСПРАВЛЕНИЕ] Добавляем обработку перетаскивания для слайдера в попапе
             if settings_popup.IsOpen and settings_popup.ActiveToggle then
                 for _, el in ipairs(settings_popup.ActiveToggle.SettingsElements) do
                     if el.type == "Slider" and el.IsDragging then
@@ -4014,7 +4023,6 @@ function Library:_InputLoop()
                 if not active_slider_editing then
                     for _, section in ipairs(self.UI.Sections) do for _, el in ipairs(section.Elements) do if el.type == "Slider" and el.IsEditing then active_slider_editing = el; break; end end if active_slider_editing then break end end
                 end
-                -- << [ИСПРАВЛЕНИЕ] Проверяем слайдеры в попапе
                 if not active_slider_editing and settings_popup.IsOpen and settings_popup.ActiveToggle then
                     for _, el in ipairs(settings_popup.ActiveToggle.SettingsElements) do if el.type == "Slider" and el.IsEditing then active_slider_editing = el; break; end end
                 end
@@ -4209,7 +4217,6 @@ function Library:_InputLoop()
                                             settings_popup.ActiveDropdown = element
                                         end
                                         break
-                                    -- << [ИСПРАВЛЕНИЕ] Добавляем обработку клика по текстовому полю слайдера
                                     elseif element.type == "Slider" and element.ValueInputClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, element.ValueInputClickRegion) then
                                         element.IsEditing = true; element.InputText = tostring(math.floor(self.UI.Values[element.id]));
                                         break;
@@ -4339,7 +4346,6 @@ function Library:_InputLoop()
             if about_window.IsOpen then about_window.AnimationSpeedSlider.IsDragging = false end
             picker.isDraggingHue, picker.isDraggingOpacity, picker.isDraggingSaturationValue = false, false, false;
             for _, section in ipairs(self.UI.Sections) do for _, el in ipairs(section.Elements) do if el.type == "Slider" and el.IsDragging then el.IsDragging = false end end end
-            -- << [ИСПРАВЛЕНИЕ] Сбрасываем флаг перетаскивания для слайдера в попапе
             if settings_popup.IsOpen and settings_popup.ActiveToggle then
                 for _, el in ipairs(settings_popup.ActiveToggle.SettingsElements) do if el.type == "Slider" then el.IsDragging = false end end
             end
@@ -4447,7 +4453,6 @@ function Library:_InputLoop()
                         if active_target then break end
                     end
                 end
-                 -- << [ИСПРАВЛЕНИЕ] Проверяем слайдеры в попапе
                 if not active_target and settings_popup.IsOpen and settings_popup.ActiveToggle then
                     for _, el in ipairs(settings_popup.ActiveToggle.SettingsElements) do if el.type == "Slider" and el.IsEditing then active_target = el; break; end end
                 end
