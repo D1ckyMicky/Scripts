@@ -1664,7 +1664,6 @@ end
 function Library:_RefreshConfigList()
     local configs = self.UI.Core.ConfigsTab
     
-    -- Явно добавляем каждый старый объект в очередь на удаление
     for _, item in ipairs(configs.Items) do
         self:_CleanupDrawingObjects(item.Drawing)
     end
@@ -1686,6 +1685,8 @@ function Library:_RefreshConfigList()
                 Name = configName,
                 Modified = "N/A",
                 Author = localPlayerName,
+                -- [[ ИЗМЕНЕНИЕ: Добавляем поля для отслеживания состояния текста ]]
+                _lastRendered = { Name = "", Modified = "", Author = "" },
                 Animation = { CurrentOpacity = 0.0, LastVisibleY = 0 },
                 Drawing = {
                     Background = self:_CreateDrawingObject("Square"),
@@ -1731,6 +1732,7 @@ function Library:_RefreshConfigList()
         end
     end
 end
+
 
 
 --================================================================
@@ -3142,6 +3144,23 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
 
             self:_AnimateAndApplyColor(d.Background, self:_GetTransitionColor("SectionBackground"), itemMasterOpacity)
             self:_AnimateAndApplyColor(d.Border, self:_GetTransitionColor("Separator"), itemMasterOpacity)
+            
+            -- [[ ИЗМЕНЕНИЕ: Оптимизация обновления текста ]]
+            if item._lastRendered.Name ~= item.Name then
+                d.Name.Text = item.Name
+                item._lastRendered.Name = item.Name
+            end
+            local modifiedText = "Modified: " .. item.Modified
+            if item._lastRendered.Modified ~= modifiedText then
+                d.Modified.Text = modifiedText
+                item._lastRendered.Modified = modifiedText
+            end
+            local authorText = "Author: " .. item.Author
+            if item._lastRendered.Author ~= authorText then
+                d.Author.Text = authorText
+                item._lastRendered.Author = authorText
+            end
+
             self:_AnimateAndApplyColor(d.Name, self:_GetTransitionColor("TextPrimary"), itemMasterOpacity)
             self:_AnimateAndApplyColor(d.Modified, self:_GetTransitionColor("TextSecondary"), itemMasterOpacity)
             self:_AnimateAndApplyColor(d.Author, self:_GetTransitionColor("TextSecondary"), itemMasterOpacity)
@@ -3151,10 +3170,9 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
             
             d.Background.Position = {startX, renderY}; d.Background.Size = {contentAreaWidth, itemHeight}
             d.Border.Position = {startX, renderY}; d.Border.Size = {contentAreaWidth, itemHeight}
-            d.Name.Text = item.Name; d.Name.Position = {startX + 15, renderY + 12}
-            d.Modified.Text = "Modified: " .. "N/A"; d.Modified.Position = {startX + 15, renderY + 35}
+            d.Name.Position = {startX + 15, renderY + 12}
+            d.Modified.Position = {startX + 15, renderY + 35}
             if d.Modified.TextBounds and d.Modified.TextBounds.x then
-                d.Author.Text = "Author: " .. item.Author
                 d.Author.Position = {startX + 15 + d.Modified.TextBounds.x + 10, renderY + 35}
             end
             
@@ -3168,7 +3186,6 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
             local saveButtonOpacity = isLoaded and itemMasterOpacity or 0
             local loadButtonOpacity = not isLoaded and itemMasterOpacity or 0
 
-            -- Рендерим кнопку SAVE (даже если она невидима, её цвет будет анимироваться)
             do
                 local saveBtn = d.SaveButton
                 self:_SetDrawingTableVisibility(saveBtn, saveButtonOpacity > 0)
@@ -3184,7 +3201,6 @@ function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
                 saveBtn.ClickRegion = {x1 = btnX, y1 = btnY, x2 = btnX + btnWidth, y2 = btnY + btnHeight}
             end
 
-            -- Рендерим кнопку LOAD (аналогично)
             do
                 local loadBtn = d.LoadButton
                 self:_SetDrawingTableVisibility(loadBtn, loadButtonOpacity > 0)
