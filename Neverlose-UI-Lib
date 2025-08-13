@@ -2157,8 +2157,6 @@ function Library:_RenderSettingsPopup()
             self:_SetVisibility(popup.Background, false); self:_SetVisibility(popup.Border, false);
             self:_SetVisibility(popup.Title, false); self:_SetVisibility(popup.Separator, false);
             self:_HideGlowEffect(popup.Glow)
-
-            -- << [ИСПРАВЛЕНИЕ] Сбрасываем активный Toggle здесь, ПОСЛЕ скрытия его элементов
             if popup.ActiveToggle then
                 popup.ActiveToggle = nil
             end
@@ -2202,8 +2200,58 @@ function Library:_RenderSettingsPopup()
 
             if element.type == "Toggle" then
                 local toggle = element; self:_SetVisibility(toggle.Back, true); self:_SetVisibility(toggle.Nub, true); toggle.Back.zIndex = el_z; toggle.Nub.zIndex = el_z + 1; local toggleBackX = controlRightEdge - toggle.Size.width; toggle.Back.Position = {toggleBackX, currentY - 3}; toggle.Back.Size = {toggle.Size.width, toggle.Size.height}; toggle.ClickRegion = {x1 = toggleBackX, y1 = currentY - 3, x2 = toggleBackX + toggle.Size.width, y2 = currentY - 3 + toggle.Size.height}; local is_on = self.UI.Values[toggle.id]; local nubY = currentY - 3 + toggle.Size.height / 2; local targetBackColor, targetNubColor; if is_on then if isThemeLight then targetBackColor = theme.Colors.Accent; targetNubColor = theme.Colors.SectionBackground else targetBackColor = self:_DarkenColor(theme.Colors.Accent, 0.3); targetNubColor = theme.Colors.Accent end else targetBackColor = theme.Colors.DarkGray; targetNubColor = theme.Colors.LightGray end; local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.5; local animationSpeed = speed_value / 10.0; local targetOffset = is_on and (toggle.Size.width - toggle.Size.height / 2) or (toggle.Size.height / 2); toggle.AnimatedNubOffset = toggle.AnimatedNubOffset + (targetOffset - toggle.AnimatedNubOffset) * animationSpeed; toggle.Nub.Position = {toggleBackX + toggle.AnimatedNubOffset, nubY}; self:_AnimateAndApplyColor(toggle.Back, targetBackColor, masterOpacity); self:_AnimateAndApplyColor(toggle.Nub, targetNubColor, masterOpacity); currentY = currentY + 30
+           
+            -- << [РЕВОРК] Полностью переписанная логика отрисовки слайдера >>
             elseif element.type == "Slider" then
-                local slider = element; self:_SetVisibility(slider.Back, true); self:_SetVisibility(slider.LeftFill, true); self:_SetVisibility(slider.Nub, true); slider.Back.zIndex = el_z; slider.LeftFill.zIndex = el_z + 1; slider.Nub.zIndex = el_z + 2; local sliderBackWidth = 100; local sliderBackX = controlRightEdge - sliderBackWidth; slider.Back.Position = {sliderBackX, currentY + 8}; slider.Back.Size = {sliderBackWidth, 2}; slider.ClickRegion = { x1 = sliderBackX, y1 = currentY, x2 = sliderBackX + sliderBackWidth, y2 = currentY + 16 }; local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.5; local animationSpeed = speed_value / 15.0; slider.AnimatedValue = slider.AnimatedValue + (self.UI.Values[slider.id] - slider.AnimatedValue) * animationSpeed; local value_percentage = math.clamp((slider.AnimatedValue - slider.Min) / (slider.Max - slider.Min), 0, 1); local nubX = sliderBackX + sliderBackWidth * value_percentage; slider.LeftFill.Position = {sliderBackX, currentY + 8}; slider.LeftFill.Size = {nubX - sliderBackX, 2}; slider.Nub.Position = {nubX, currentY + 9}; self:_AnimateAndApplyColor(slider.Back, theme.Colors.DarkBlue, masterOpacity); self:_AnimateAndApplyColor(slider.LeftFill, theme.Colors.Accent, masterOpacity); self:_AnimateAndApplyColor(slider.Nub, theme.Colors.Accent, masterOpacity); currentY = currentY + 30
+                local slider = element
+                self:_SetVisibility(slider.Back, true); self:_SetVisibility(slider.LeftFill, true); self:_SetVisibility(slider.Nub, true); self:_SetVisibility(slider.ValueText, true); self:_SetVisibility(slider.ValueInputBg, true); self:_SetVisibility(slider.ValueInputBorder, true)
+                self:_SetVisibility(slider.ValueInputCursor, slider.IsEditing and math.sin(tick() * 5) > 0)
+                
+                local currentElementY = currentY
+                slider.Label.Position = {pX + 15, currentElementY}
+                
+                local valueBoxW, valueBoxH = 45, 22
+                local valueBoxX = controlRightEdge - valueBoxW
+                slider.ValueInputBg.Position = {valueBoxX, currentElementY - 4}; slider.ValueInputBg.Size = {valueBoxW, valueBoxH}
+                slider.ValueInputBorder.Position = {valueBoxX, currentElementY - 4}; slider.ValueInputBorder.Size = {valueBoxW, valueBoxH}
+                slider.ValueInputClickRegion = {x1 = valueBoxX, y1 = currentElementY - 4, x2 = valueBoxX + valueBoxW, y2 = currentElementY - 4 + valueBoxH}
+                
+                local sliderBackX = pX + 100
+                local sliderBackWidth = (valueBoxX - 10) - sliderBackX
+                slider.Back.Position = {sliderBackX, currentElementY + 8}; slider.Back.Size = {sliderBackWidth, 2}; slider.ClickRegion = { x1 = sliderBackX, y1 = currentElementY - 2, x2 = sliderBackX + sliderBackWidth, y2 = currentElementY + 18 };
+                
+                if self.UI.Values["BurgerLow-EndMode"] then
+                    slider.AnimatedValue = self.UI.Values[slider.id]
+                else
+                    local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.5
+                    local animationSpeed = speed_value / 15.0
+                    slider.AnimatedValue = slider.AnimatedValue + (self.UI.Values[slider.id] - slider.AnimatedValue) * animationSpeed
+                end
+                
+                local value_percentage = math.clamp((slider.AnimatedValue - slider.Min) / (slider.Max - slider.Min), 0, 1)
+                local nubX = sliderBackX + sliderBackWidth * value_percentage
+                slider.LeftFill.Position = {sliderBackX, currentElementY + 8}; slider.LeftFill.Size = {nubX - sliderBackX, 2}; slider.Nub.Position = {nubX, currentElementY + 9}
+                
+                local borderColor = slider.IsEditing and theme.Colors.Accent or theme.Colors.Separator
+                self:_AnimateAndApplyColor(slider.ValueInputBg, theme.Colors.DarkBlue, masterOpacity)
+                self:_AnimateAndApplyColor(slider.ValueInputBorder, borderColor, masterOpacity)
+                self:_AnimateAndApplyColor(slider.ValueInputCursor, theme.Colors.Accent, masterOpacity)
+
+                slider.ValueText.Text = slider.IsEditing and slider.InputText or tostring(math.floor(self.UI.Values[slider.id] or slider.Min))
+                slider.ValueText.Position = {valueBoxX + valueBoxW / 2, currentElementY - 4 + (valueBoxH / 2) - (slider.ValueText.Size / 2)}
+                self:_AnimateAndApplyColor(slider.ValueText, theme.Colors.TextPrimary, masterOpacity)
+
+                if slider.ValueText.TextBounds and slider.IsEditing then
+                    local cursorX = slider.ValueText.Position.x + slider.ValueText.TextBounds.x / 2 + 1
+                    local cursorY = slider.ValueText.Position.y - 2
+                    slider.ValueInputCursor.From = {cursorX, cursorY}
+                    slider.ValueInputCursor.To = {cursorX, cursorY + slider.ValueText.Size + 4}
+                end
+
+                if slider.Glow then self:_RenderGlowEffect(slider.Glow, slider.LeftFill.Position.x, slider.LeftFill.Position.y, slider.LeftFill.Size.x, 2, slider.LeftFill.Rounding, theme.Colors.GlowAccent, nil, masterOpacity) end
+                self:_AnimateAndApplyColor(slider.Back, theme.Colors.DarkBlue, masterOpacity); self:_AnimateAndApplyColor(slider.LeftFill, theme.Colors.Accent, masterOpacity); self:_AnimateAndApplyColor(slider.Nub, theme.Colors.Accent, masterOpacity)
+                currentY = currentY + 35
+            
             elseif element.type == "Dropdown" or element.type == "Multidropdown" then
                 local dd = element; self:_SetVisibility(dd.Button, true); self:_SetVisibility(dd.ButtonText, true); self:_SetVisibility(dd.ArrowLine1, true); self:_SetVisibility(dd.ArrowLine2, true); dd.Button.zIndex = el_z; dd.ButtonText.zIndex = el_z+1; dd.ArrowLine1.zIndex = el_z+1; dd.ArrowLine2.zIndex = el_z+1; local dropdownButtonX = controlRightEdge - dd.Size.width; dd.Button.Position = {dropdownButtonX, currentY-3}; dd.Button.Size = {dd.Size.width, dd.Size.height}; local textToShow = (dd.type == "Dropdown") and self.UI.Values[dd.id] or (#self.UI.Values[dd.id] == 0 and "..." or table.concat(self.UI.Values[dd.id], ", ")); if #textToShow > 11 then textToShow = string.sub(textToShow, 1, 10) .. "..." end; dd.ButtonText.Position = { dropdownButtonX + 5, currentY - 3 + dd.Size.height / 2 - dd.ButtonText.Size / 2 }; dd.ButtonText.Text = textToShow; local arrowX, arrowY = dropdownButtonX + dd.Size.width - 15, currentY - 3 + dd.Size.height / 2; dd.ArrowLine1.From = {arrowX, arrowY - 2}; dd.ArrowLine1.To = {arrowX + 5, arrowY + 3}; dd.ArrowLine2.From = {arrowX + 5, arrowY + 3}; dd.ArrowLine2.To = {arrowX + 10, arrowY - 2}; dd.ClickRegion = { x1 = dropdownButtonX, y1 = currentY-3, x2 = dropdownButtonX + dd.Size.width, y2 = currentY - 3 + dd.Size.height }; self:_AnimateAndApplyColor(dd.Button, theme.Colors.DarkBlue, masterOpacity); self:_AnimateAndApplyColor(dd.ButtonText, theme.Colors.TextPrimary, masterOpacity); self:_AnimateAndApplyColor(dd.ArrowLine1, theme.Colors.TextPrimary, masterOpacity); self:_AnimateAndApplyColor(dd.ArrowLine2, theme.Colors.TextPrimary, masterOpacity); currentY = currentY + 35
             elseif element.type == "Keybind" then
@@ -2216,19 +2264,15 @@ function Library:_RenderSettingsPopup()
 
     if popup.ActiveDropdown then
         local el = popup.ActiveDropdown; local dropdown_z = z + 20; local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4; local animationSpeed = (speed_value > 0) and (speed_value / 15.0) or 1
-        
-        -- << [ИСПРАВЛЕНИЕ] Логика анимации затухания для дропдауна
         if el.IsOpen and not el.IsClosing then 
             el.FadeOpacity = math.min(1, el.FadeOpacity + animationSpeed) 
         elseif el.IsClosing then 
             el.FadeOpacity = math.max(0, el.FadeOpacity - animationSpeed)
-            if el.FadeOpacity == 0 then -- Ждем, пока прозрачность не станет ровно 0
+            if el.FadeOpacity == 0 then
                 el.IsClosing = false
                 el.IsOpen = false
-                -- Не сбрасываем ActiveDropdown здесь
             end 
         end
-
         if el.FadeOpacity > 0 then
             local finalOpacity = masterOpacity * el.FadeOpacity; local popupWidth = el.Size.width + 30; local optionHeight = 25; local popupHeight = (#el.Options * optionHeight) + 10; local btnPos = el.Button.Position; local popupX = btnPos.x + (el.Size.width / 2) - (popupWidth / 2); local popupY = btnPos.y + (el.Size.height / 2) - (popupHeight / 2); el.PopupClickRegion = {x1 = popupX, y1 = popupY, x2 = popupX + popupWidth, y2 = popupY + popupHeight}; self:_SetVisibility(el.OptionBackground, true); self:_SetVisibility(el.Border, true); el.OptionBackground.zIndex = dropdown_z; el.Border.zIndex = dropdown_z + 1; self:_AnimateAndApplyColor(el.OptionBackground, theme.Colors.SectionBackground, finalOpacity); self:_AnimateAndApplyColor(el.Border, theme.Colors.Separator, finalOpacity); el.OptionBackground.Position = {popupX, popupY}; el.OptionBackground.Size = {popupWidth, popupHeight}; el.Border.Position = {popupX, popupY}; el.Border.Size = {popupWidth, popupHeight}; if el.Glow then self:_RenderGlowEffect(el.Glow, popupX, popupY, popupWidth, popupHeight, el.OptionBackground.Rounding, theme.Colors.GlowColor, nil, finalOpacity, dropdown_z - 1) end; local currentOptionY = popupY + 5; local hasSelection = el.type == "Multidropdown" and #self.UI.Values[el.id] > 0; local textX = popupX + (hasSelection and 25 or 10)
             for i, option_item in ipairs(el.OptionList) do
@@ -2238,9 +2282,8 @@ function Library:_RenderSettingsPopup()
                 end; currentOptionY = currentOptionY + optionHeight
             end
         else 
-            -- << [ИСПРАВЛЕНИЕ] Блок очистки для дропдауна
             if el.Glow then self:_HideGlowEffect(el.Glow) end 
-            popup.ActiveDropdown = nil -- Сбрасываем состояние здесь
+            popup.ActiveDropdown = nil
         end
     end
 end
@@ -3620,7 +3663,6 @@ function Library:_InputLoop()
             slider.IsEditing = false
         end
 
-
         local function applyColorInput(picker)
             if not picker.IsEditing then return end
             picker.IsEditing = false
@@ -3753,6 +3795,14 @@ function Library:_InputLoop()
                         end
                         if started_drag then break end
                     end
+                    -- << [ИСПРАВЛЕНИЕ] Добавляем проверку для слайдера в попапе
+                    if not started_drag and settings_popup.IsOpen and settings_popup.ActiveToggle then
+                        for _, el in ipairs(settings_popup.ActiveToggle.SettingsElements) do
+                            if el.type == "Slider" and self:_IsPointInRegion(mouse_x, mouse_y, el.ClickRegion) then
+                                el.IsDragging = true; started_drag = true; break;
+                            end
+                        end
+                    end
                 end
             end
 
@@ -3819,6 +3869,15 @@ function Library:_InputLoop()
                 update_slider_value(about_window.AnimationSpeedSlider);
             end
             for _, section in ipairs(self.UI.Sections) do for _, el in ipairs(section.Elements) do if el.type == "Slider" and el.IsDragging then update_slider_value(el); break; end end end
+            -- << [ИСПРАВЛЕНИЕ] Добавляем обработку перетаскивания для слайдера в попапе
+            if settings_popup.IsOpen and settings_popup.ActiveToggle then
+                for _, el in ipairs(settings_popup.ActiveToggle.SettingsElements) do
+                    if el.type == "Slider" and el.IsDragging then
+                        update_slider_value(el)
+                        break
+                    end
+                end
+            end
 
             if picker.isDraggingHue or picker.isDraggingOpacity or picker.isDraggingSaturationValue then
                 local function update_color_picker()
@@ -3862,6 +3921,11 @@ function Library:_InputLoop()
                 if not active_slider_editing then
                     for _, section in ipairs(self.UI.Sections) do for _, el in ipairs(section.Elements) do if el.type == "Slider" and el.IsEditing then active_slider_editing = el; break; end end if active_slider_editing then break end end
                 end
+                -- << [ИСПРАВЛЕНИЕ] Проверяем слайдеры в попапе
+                if not active_slider_editing and settings_popup.IsOpen and settings_popup.ActiveToggle then
+                    for _, el in ipairs(settings_popup.ActiveToggle.SettingsElements) do if el.type == "Slider" and el.IsEditing then active_slider_editing = el; break; end end
+                end
+
                 if active_slider_editing and not self:_IsPointInRegion(mouse_x, mouse_y, active_slider_editing.ValueInputClickRegion) then
                     applySliderInput(active_slider_editing); click_was_handled = true
                 elseif picker.IsEditing and not self:_IsPointInRegion(mouse_x, mouse_y, picker.Input.ClickRegion) then
@@ -4028,7 +4092,6 @@ function Library:_InputLoop()
                                         self.UI.Values[active_dd.id] = active_dd.Options[i]
                                         if active_dd.Callback then pcall(active_dd.Callback, self.UI.Values[active_dd.id]) end
                                         active_dd.IsClosing = true
-                                    -- [[ ИЗМЕНЕНИЕ: Логика для Multidropdown ]]
                                     else 
                                         local opt = active_dd.Options[i]
                                         local found_idx = table.find(self.UI.Values[active_dd.id], opt)
@@ -4042,19 +4105,21 @@ function Library:_InputLoop()
                         elseif settings_popup_clicked_inside then
                             if settings_popup.ActiveToggle and settings_popup.ActiveToggle.SettingsElements then
                                 for _, element in ipairs(settings_popup.ActiveToggle.SettingsElements) do
-                                    if self:_IsPointInRegion(mouse_x, mouse_y, element.ClickRegion) then
+                                    if element.ClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, element.ClickRegion) then
                                         if element.type == "Toggle" then
                                             self.UI.Values[element.id] = not self.UI.Values[element.id]
                                             if element.Callback then element.Callback(self.UI.Values[element.id]) end
                                         elseif element.type == "Keybind" then
                                             element.IsListening = not element.IsListening
-                                        elseif element.type == "Slider" then
-                                            local slider = element; local sliderBackX, sliderBackWidth = self:_SafeNumber(slider.Back.Position.x, 0), self:_SafeNumber(slider.Back.Size.x, 1); local mouse_relative_x = math.clamp(mouse_x - sliderBackX, 0, sliderBackWidth); local percentage = sliderBackWidth > 0 and (mouse_relative_x / sliderBackWidth) or 0; local raw_value = slider.Min + (slider.Max - slider.Min) * percentage; local stepped_value = math.floor(raw_value / slider.Increment + 0.5) * slider.Increment; local clamped_value = math.clamp(stepped_value, slider.Min, slider.Max); self.UI.Values[slider.id] = clamped_value; if slider.Callback then slider.Callback(clamped_value) end
                                         elseif element.type == "Dropdown" or element.type == "Multidropdown" then
                                             element.IsOpen = true; element.IsClosing = false; element.FadeOpacity = 0.0
                                             settings_popup.ActiveDropdown = element
                                         end
                                         break
+                                    -- << [ИСПРАВЛЕНИЕ] Добавляем обработку клика по текстовому полю слайдера
+                                    elseif element.type == "Slider" and element.ValueInputClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, element.ValueInputClickRegion) then
+                                        element.IsEditing = true; element.InputText = tostring(math.floor(self.UI.Values[element.id]));
+                                        break;
                                     end
                                 end
                             end
@@ -4149,16 +4214,14 @@ function Library:_InputLoop()
                                     elseif el.type == "Dropdown" or el.type == "Multidropdown" then
                                         local openingThisOne = not el.IsOpen; for _, s_inner in ipairs(self.UI.Sections) do for _, el_inner in ipairs(s_inner.Elements) do if (el_inner.type == "Dropdown" or el_inner.type == "Multidropdown") and el_inner.IsOpen then el_inner.IsOpen = false; el_inner.IsClosing = true; end end end
                                         if openingThisOne then el.IsOpen = true; el.IsClosing = false; el.FadeOpacity = 0.0; end
-                                    elseif el.type == "Slider" then update_slider_value(el)
                                     end; clicked_on_main_ui = true; break;
                                 elseif el.type == "Toggle" and el.HasColor and el.ColorClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, el.ColorClickRegion) then
                                     picker.IsOpen = true; picker.Animation.IsOpening = true; picker.Animation.IsClosing = false; picker.EditingValueID = el.HasColor.id; picker.EditingColorName = nil; picker.Pos = {x = mouse_x, y = mouse_y}; local color_to_edit = self.UI.Values[el.HasColor.id]; picker.h, picker.s, picker.v, picker.a = self:_RGBtoHSV(color_to_edit[1], color_to_edit[2], color_to_edit[3], color_to_edit[4]); clicked_on_main_ui = true; break;
                                 elseif el.HasSettings and el.SettingsClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, el.SettingsClickRegion) then
-                                -- [[ ИЗМЕНЕНИЕ: Не выставляем IsOpen вручную, только запускаем анимацию ]]
                                 if not settings_popup.IsOpen and not settings_popup.Animation.IsClosing then
                                     settings_popup.Animation.IsOpening = true
                                     settings_popup.Animation.IsClosing = false
-                                    settings_popup.Animation.CurrentOpacity = 0 -- Сбрасываем для чистого старта
+                                    settings_popup.Animation.CurrentOpacity = 0 
                                     settings_popup.ActiveToggle = el;
                                     settings_popup.Pos = {x = mouse_x, y = mouse_y};
                                 end
@@ -4183,6 +4246,10 @@ function Library:_InputLoop()
             if about_window.IsOpen then about_window.AnimationSpeedSlider.IsDragging = false end
             picker.isDraggingHue, picker.isDraggingOpacity, picker.isDraggingSaturationValue = false, false, false;
             for _, section in ipairs(self.UI.Sections) do for _, el in ipairs(section.Elements) do if el.type == "Slider" and el.IsDragging then el.IsDragging = false end end end
+            -- << [ИСПРАВЛЕНИЕ] Сбрасываем флаг перетаскивания для слайдера в попапе
+            if settings_popup.IsOpen and settings_popup.ActiveToggle then
+                for _, el in ipairs(settings_popup.ActiveToggle.SettingsElements) do if el.type == "Slider" then el.IsDragging = false end end
+            end
             is_dragging_something = false
             self.Window.IsFastDragging = false;
             configsTab.Scrollbar.IsDraggingNub = false
@@ -4287,6 +4354,10 @@ function Library:_InputLoop()
                         if active_target then break end
                     end
                 end
+                 -- << [ИСПРАВЛЕНИЕ] Проверяем слайдеры в попапе
+                if not active_target and settings_popup.IsOpen and settings_popup.ActiveToggle then
+                    for _, el in ipairs(settings_popup.ActiveToggle.SettingsElements) do if el.type == "Slider" and el.IsEditing then active_target = el; break; end end
+                end
             end
 
             if key and key ~= "None" then
@@ -4329,7 +4400,6 @@ function Library:_InputLoop()
             end
         end
         
-        -- [[ ИСПРАВЛЕНИЕ: Обновляем Hover-состояние здесь, в конце InputLoop ]]
         settings_popup.HoveredDropdownOptionIndex = 0
         if settings_popup.ActiveDropdown and settings_popup.ActiveDropdown.PopupClickRegion then
                 for i, option in ipairs(settings_popup.ActiveDropdown.OptionList) do
