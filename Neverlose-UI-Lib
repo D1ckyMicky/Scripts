@@ -2609,6 +2609,7 @@ function Library:_RenderLoop()
     local sidebarWidth, headerHeight = self:_SafeNumber(self.Window.SidebarWidth, 0), self:_SafeNumber(self.Window.HeaderHeight, 0)
     local rightPanelX = windowX + sidebarWidth - self.Window.PanelOverlap
 
+    -- ... (весь код отрисовки сайдбара, хэдера и т.д. остается без изменений) ...
     self:_SetVisibility(Core.Sidebar.Drawing, true); self:_SetVisibility(Core.RightPanel.Drawing, true); self:_SetVisibility(Core.VerticalSeparator, true); self:_SetVisibility(Core.SidebarHeaderSeparator, true); self:_SetVisibility(Core.RightPanelHeaderSeparator, true); self:_SetVisibility(Core.Title, true); self:_SetVisibility(Core.SidebarBottomCircle, true); if Core.SidebarAvatar then self:_SetVisibility(Core.SidebarAvatar, true) end; self:_SetVisibility(Core.PlayerDisplayName, true); self:_SetVisibility(Core.TillLabel, true); self:_SetVisibility(Core.ForeverLabel, true)
     self:_SetVisibility(Core.Title2, not isThemeLight); self:_SetVisibility(Core.Title3, not isThemeLight)
     self:_AnimateAndApplyColor(Core.Sidebar.Drawing, self:_GetTransitionColor("SidebarBackground"))
@@ -2724,12 +2725,10 @@ function Library:_RenderLoop()
 
     self:_RenderTabs(windowX, windowY + headerHeight, sidebarWidth)
     
-    -- [[ ИЗМЕНЕНИЕ: Восстанавливаем правильную логику рендера ]]
-    if self.Window.ActiveTab == "Configs" then
-        self:_RenderConfigsTab(rightPanelX, windowY, headerHeight)
-    else
-        self:_RenderSections(rightPanelX, windowY, headerHeight)
-    end
+    -- [[ ИЗМЕНЕНИЕ: Теперь мы вызываем обе функции отрисовки всегда. ]]
+    -- Они сами решат, нужно ли им что-то рисовать, на основе своей анимации.
+    self:_RenderSections(rightPanelX, windowY, headerHeight)
+    self:_RenderConfigsTab(rightPanelX, windowY, headerHeight)
     
     self:_RenderSaveTooltip()
     self:_RenderConfigOptionsPopup()
@@ -2745,6 +2744,7 @@ function Library:_RenderLoop()
         self.Window.Visible = false
     end
 end
+
 
 
 function Library:_RenderTabs(x, y, width)
@@ -3012,6 +3012,7 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
                 sectionX, sectionY = rightColumnX, rightColumnY
             end
             
+            -- Отрисовываем секцию, передавая ей текущее смещение и прозрачность
             local sectionHeight = self:_RenderSingleSection(section, sectionX, sectionY, columnWidth, anim_state.CurrentYOffset, anim_state.CurrentOpacity)
             
             if section.Side == "Left" then
@@ -3022,6 +3023,7 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
         end
     end
 end
+
 
 
 function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
@@ -4255,7 +4257,7 @@ function Library:_AddPresetsTab()
 end
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. x2142")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. x242")
     local is_first_frame = true
     while true do
         -- Обрабатываем очередь на удаление в начале каждого кадра
