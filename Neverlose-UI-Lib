@@ -888,7 +888,7 @@ function Library:_Internal_CreateGlowSet(zIndex, count)
     return glowSet
 end
 
-function Library:_RenderGlowEffect(glowSet, x, y, width, height, rounding, targetColor, sides, masterOpacity)
+function Library:_RenderGlowEffect(glowSet, x, y, width, height, rounding, targetColor, sides, masterOpacity, baseZIndex)
     -- [[ ИЗМЕНЕНИЕ: Добавляем проверку на Low-End Mode и опцию Glow ]]
     if self.UI.Values["BurgerLowEndMode"] or not self.UI.Values["BurgerGlow"] then
         self:_HideGlowEffect(glowSet)
@@ -911,6 +911,11 @@ function Library:_RenderGlowEffect(glowSet, x, y, width, height, rounding, targe
         if i > maxGlowLayers then
             self:_SetVisibility(glowSquare, false)
         else
+             -- << [ИСПРАВЛЕНИЕ] Динамически устанавливаем Z-индекс, если он был передан
+            if baseZIndex then
+                glowSquare.zIndex = baseZIndex - i
+            end
+            
             local spread = i * 0.6
             local glowX, glowY, glowW, glowH = x, y, width, height
 
@@ -2211,7 +2216,14 @@ function Library:_RenderSettingsPopup()
         local el = popup.ActiveDropdown; local dropdown_z = z + 20; local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4; local animationSpeed = (speed_value > 0) and (speed_value / 15.0) or 1
         if el.IsOpen and not el.IsClosing then el.FadeOpacity = math.min(1, el.FadeOpacity + animationSpeed) elseif el.IsClosing then el.FadeOpacity = math.max(0, el.FadeOpacity - animationSpeed); if el.FadeOpacity <= 0.01 then el.IsClosing = false; el.IsOpen = false; popup.ActiveDropdown = nil; end end
         if el.FadeOpacity > 0 then
-            local finalOpacity = masterOpacity * el.FadeOpacity; local popupWidth = el.Size.width + 30; local optionHeight = 25; local popupHeight = (#el.Options * optionHeight) + 10; local btnPos = el.Button.Position; local popupX = btnPos.x + (el.Size.width / 2) - (popupWidth / 2); local popupY = btnPos.y + (el.Size.height / 2) - (popupHeight / 2); el.PopupClickRegion = {x1 = popupX, y1 = popupY, x2 = popupX + popupWidth, y2 = popupY + popupHeight}; self:_SetVisibility(el.OptionBackground, true); self:_SetVisibility(el.Border, true); el.OptionBackground.zIndex = dropdown_z; el.Border.zIndex = dropdown_z + 1; self:_AnimateAndApplyColor(el.OptionBackground, theme.Colors.SectionBackground, finalOpacity); self:_AnimateAndApplyColor(el.Border, theme.Colors.Separator, finalOpacity); el.OptionBackground.Position = {popupX, popupY}; el.OptionBackground.Size = {popupWidth, popupHeight}; el.Border.Position = {popupX, popupY}; el.Border.Size = {popupWidth, popupHeight}; if el.Glow then self:_RenderGlowEffect(el.Glow, popupX, popupY, popupWidth, popupHeight, el.OptionBackground.Rounding, theme.Colors.GlowColor, nil, finalOpacity) end; local currentOptionY = popupY + 5; local hasSelection = el.type == "Multidropdown" and #self.UI.Values[el.id] > 0; local textX = popupX + (hasSelection and 25 or 10)
+            local finalOpacity = masterOpacity * el.FadeOpacity; local popupWidth = el.Size.width + 30; local optionHeight = 25; local popupHeight = (#el.Options * optionHeight) + 10; local btnPos = el.Button.Position; local popupX = btnPos.x + (el.Size.width / 2) - (popupWidth / 2); local popupY = btnPos.y + (el.Size.height / 2) - (popupHeight / 2); el.PopupClickRegion = {x1 = popupX, y1 = popupY, x2 = popupX + popupWidth, y2 = popupY + popupHeight}; self:_SetVisibility(el.OptionBackground, true); self:_SetVisibility(el.Border, true); el.OptionBackground.zIndex = dropdown_z; el.Border.zIndex = dropdown_z + 1; self:_AnimateAndApplyColor(el.OptionBackground, theme.Colors.SectionBackground, finalOpacity); self:_AnimateAndApplyColor(el.Border, theme.Colors.Separator, finalOpacity); el.OptionBackground.Position = {popupX, popupY}; el.OptionBackground.Size = {popupWidth, popupHeight}; el.Border.Position = {popupX, popupY}; el.Border.Size = {popupWidth, popupHeight};
+            
+            -- << [ИСПРАВЛЕНИЕ] Передаем Z-индекс в функцию отрисовки свечения
+            if el.Glow then
+                self:_RenderGlowEffect(el.Glow, popupX, popupY, popupWidth, popupHeight, el.OptionBackground.Rounding, theme.Colors.GlowColor, nil, finalOpacity, dropdown_z - 1)
+            end
+
+            local currentOptionY = popupY + 5; local hasSelection = el.type == "Multidropdown" and #self.UI.Values[el.id] > 0; local textX = popupX + (hasSelection and 25 or 10)
             for i, option_item in ipairs(el.OptionList) do
                 self:_SetVisibility(option_item.Text, true); self:_SetVisibility(option_item.Highlight, true); option_item.Text.zIndex = dropdown_z + 2; option_item.Highlight.zIndex = dropdown_z + 1; option_item.ClickRegion = {x1 = popupX, y1 = currentOptionY, x2 = popupX + popupWidth, y2 = currentOptionY + optionHeight}; option_item.Text.Position = {textX, currentOptionY + (optionHeight / 2) - (option_item.Text.Size / 2)}; option_item.Highlight.Position = {popupX + 5, currentOptionY}; option_item.Highlight.Size = {popupWidth - 10, optionHeight}; local isSelected = (el.type == "Dropdown" and self.UI.Values[el.id] == el.Options[i]) or (el.type == "Multidropdown" and table.find(self.UI.Values[el.id], el.Options[i])); local isHovered = (popup.HoveredDropdownOptionIndex == i); local targetTextColor = isSelected and theme.Colors.Accent or theme.Colors.TextPrimary; self:_AnimateAndApplyColor(option_item.Text, targetTextColor, finalOpacity); if isHovered then self:_AnimateAndApplyColor(option_item.Highlight, theme.Colors.Separator, finalOpacity * 0.4) else option_item.Highlight.Opacity = 0 end
                 if el.type == "Multidropdown" then
