@@ -497,12 +497,21 @@ function Library:_HideSettingsPopupElements(popup)
         return
     end
     for _, element in ipairs(popup.ActiveToggle.SettingsElements) do
-        if element.type == "Keybind" then
-            if element.Label then self:_SetVisibility(element.Label, false) end -- << ИСПРАВЛЕНИЕ
-            if element.Button then self:_SetVisibility(element.Button, false) end
-            if element.Border then self:_SetVisibility(element.Border, false) end
-            if element.ButtonText then self:_SetVisibility(element.ButtonText, false) end
+        -- Универсальный способ скрыть любой элемент, у которого есть стандартные объекты отрисовки
+        for key, obj in pairs(element) do
+            if type(obj) == 'table' and obj.Visible ~= nil and type(obj.Remove) == 'function' then
+                 self:_SetVisibility(obj, false)
+            end
         end
+        -- Дополнительная очистка для сложных элементов
+         if element.type == "Dropdown" or element.type == "Multidropdown" then
+            for _, option_obj in ipairs(element.OptionList or {}) do
+                self:_SetVisibility(option_obj.Text, false)
+                self:_SetVisibility(option_obj.Highlight, false)
+                if option_obj.CheckmarkLine1 then self:_SetVisibility(option_obj.CheckmarkLine1, false) end
+                if option_obj.CheckmarkLine2 then self:_SetVisibility(option_obj.CheckmarkLine2, false) end
+            end
+         end
     end
 end
 
@@ -2100,77 +2109,152 @@ end
 function Library:_RenderSettingsPopup()
     local popup = self.UI.Popups.Settings
     local theme = self.ActiveTheme
+    local isThemeLight = self:_IsThemeLight(theme)
     local masterOpacity = popup.Animation.CurrentOpacity
-    local z = 20
+    local z = popup.Background and popup.Background.zIndex or 20
 
-    -- [[ ГЛАВНЫЙ ФИКС: Логика полного скрытия, как в других попапах ]]
     if masterOpacity <= 0 then
-        -- Прячем основные элементы самого попапа
+        if popup.IsOpen then -- Управляем состоянием только здесь
+            self:_HideSettingsPopupElements(popup)
+            popup.IsOpen = false
+            popup.ActiveToggle = nil
+        end
         self:_SetVisibility(popup.Background, false)
         self:_SetVisibility(popup.Border, false)
         self:_SetVisibility(popup.Title, false)
         self:_SetVisibility(popup.Separator, false)
         self:_HideGlowEffect(popup.Glow)
-        
-        -- Прячем вложенные элементы (кейбинды), если они ещё не спрятаны
-        self:_HideSettingsPopupElements(popup) 
-        
-        -- Сбрасываем состояние только после того, как всё гарантированно скрыто
-        if popup.IsOpen then popup.IsOpen = false end
-        if popup.ActiveToggle then popup.ActiveToggle = nil end
-        
-        return -- Прекращаем отрисовку
+        return
     end
 
-    -- Если попап видим, делаем видимыми его базовые элементы
     self:_SetVisibility(popup.Background, true); self:_SetVisibility(popup.Border, true); self:_SetVisibility(popup.Title, true); self:_SetVisibility(popup.Separator, true);
 
     self:_AnimateAndApplyColor(popup.Background, theme.Colors.SectionBackground, masterOpacity)
     self:_AnimateAndApplyColor(popup.Border, theme.Colors.Separator, masterOpacity)
     self:_AnimateAndApplyColor(popup.Separator, theme.Colors.Separator, masterOpacity)
 
-    popup.Title.Text = popup.ActiveToggle.Name .. " Settings"
+    if popup.ActiveToggle then
+        popup.Title.Text = popup.ActiveToggle.Name .. " Settings"
+    end
     self:_AnimateAndApplyColor(popup.Title, theme.Colors.TextPrimary, masterOpacity)
-    -- [[ ФИКС #2: Устанавливаем zIndex для заголовка, чтобы он был НАД фоном ]]
     popup.Title.zIndex = z + 2
 
     local pX, pY = popup.Pos.x, popup.Pos.y
-    local pW = 250
+    local pW = 250 -- Ширина попапа
     local currentY = pY + 8
+
     if popup.Title then popup.Title.Position = {pX + 10, currentY}; end
-    currentY = currentY + popup.Title.Size + 8
+    currentY = currentY + (popup.Title.Size or 16) + 8
     if popup.Separator then popup.Separator.From = {pX + 10, currentY}; popup.Separator.To = {pX + pW - 10, currentY}; end
     currentY = currentY + 15
 
     if popup.ActiveToggle and popup.ActiveToggle.SettingsElements then
         for _, element in ipairs(popup.ActiveToggle.SettingsElements) do
-            if element.type == "Keybind" then
-                local keybind = element
-                self:_SetVisibility(keybind.Label, true); self:_SetVisibility(keybind.Button, true); self:_SetVisibility(keybind.Border, true); self:_SetVisibility(keybind.ButtonText, true)
+            local el_z = z + 2
 
-                -- [[ ФИКС #2: Устанавливаем zIndex для всех элементов кейбинда ]]
-                keybind.Label.zIndex = z + 2
-                keybind.Button.zIndex = z + 2
-                keybind.Border.zIndex = z + 3
-                keybind.ButtonText.zIndex = z + 3
+            -- [[ ОБЩАЯ ЛОГИКА ДЛЯ ВСЕХ ЭЛЕМЕНТОВ ]]
+            local wasVisible = element.Label and element.Label.Visible
+            self:_SetVisibility(element.Label, true)
+            element.Label.zIndex = el_z
+            element.Label.Position = { pX + 15, currentY }
+            self:_AnimateAndApplyColor(element.Label, theme.Colors.TextSecondary, masterOpacity)
+
+            local controlRightEdge = pX + pW - 15
+
+            -- [[ ЛОГИКА РЕНДЕРИНГА ДЛЯ КАЖДОГО ТИПА ЭЛЕМЕНТА ]]
+            if element.type == "Toggle" then
+                local toggle = element
+                self:_SetVisibility(toggle.Back, true); self:_SetVisibility(toggle.Nub, true)
+                toggle.Back.zIndex = el_z; toggle.Nub.zIndex = el_z + 1;
+
+                local toggleBackX = controlRightEdge - toggle.Size.width
+                toggle.Back.Position = {toggleBackX, currentY - 3}; toggle.Back.Size = {toggle.Size.width, toggle.Size.height}
+                toggle.ClickRegion = {x1 = toggleBackX, y1 = currentY - 3, x2 = toggleBackX + toggle.Size.width, y2 = currentY - 3 + toggle.Size.height}
+
+                local is_on = self.UI.Values[toggle.id]
+                local nubY = currentY - 3 + toggle.Size.height / 2
+                local targetBackColor, targetNubColor
+                if is_on then
+                    if isThemeLight then targetBackColor = theme.Colors.Accent; targetNubColor = theme.Colors.SectionBackground else targetBackColor = self:_DarkenColor(theme.Colors.Accent, 0.3); targetNubColor = theme.Colors.Accent end
+                else targetBackColor = theme.Colors.DarkGray; targetNubColor = theme.Colors.LightGray end
+
+                local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.5; local animationSpeed = speed_value / 10.0
+                local targetOffset = is_on and (toggle.Size.width - toggle.Size.height / 2) or (toggle.Size.height / 2)
+                toggle.AnimatedNubOffset = toggle.AnimatedNubOffset + (targetOffset - toggle.AnimatedNubOffset) * animationSpeed
+                toggle.Nub.Position = {toggleBackX + toggle.AnimatedNubOffset, nubY}
+
+                self:_AnimateAndApplyColor(toggle.Back, targetBackColor, masterOpacity); self:_AnimateAndApplyColor(toggle.Nub, targetNubColor, masterOpacity)
+                currentY = currentY + 30
+
+            elseif element.type == "Slider" then
+                -- Рендеринг слайдера (упрощенная версия без инпута текста)
+                local slider = element
+                self:_SetVisibility(slider.Back, true); self:_SetVisibility(slider.LeftFill, true); self:_SetVisibility(slider.Nub, true)
+                slider.Back.zIndex = el_z; slider.LeftFill.zIndex = el_z + 1; slider.Nub.zIndex = el_z + 2
+
+                local sliderBackWidth = 100
+                local sliderBackX = controlRightEdge - sliderBackWidth
+
+                slider.Back.Position = {sliderBackX, currentY + 8}; slider.Back.Size = {sliderBackWidth, 2};
+                slider.ClickRegion = { x1 = sliderBackX, y1 = currentY, x2 = sliderBackX + sliderBackWidth, y2 = currentY + 16 }
+
+                local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.5; local animationSpeed = speed_value / 15.0
+                slider.AnimatedValue = slider.AnimatedValue + (self.UI.Values[slider.id] - slider.AnimatedValue) * animationSpeed
+
+                local value_percentage = math.clamp((slider.AnimatedValue - slider.Min) / (slider.Max - slider.Min), 0, 1)
+                local nubX = sliderBackX + sliderBackWidth * value_percentage
+                slider.LeftFill.Position = {sliderBackX, currentY + 8}; slider.LeftFill.Size = {nubX - sliderBackX, 2}
+                slider.Nub.Position = {nubX, currentY + 9}
+
+                self:_AnimateAndApplyColor(slider.Back, theme.Colors.DarkBlue, masterOpacity); self:_AnimateAndApplyColor(slider.LeftFill, theme.Colors.Accent, masterOpacity); self:_AnimateAndApplyColor(slider.Nub, theme.Colors.Accent, masterOpacity)
+                currentY = currentY + 30
+
+            elseif element.type == "Dropdown" or element.type == "Multidropdown" then
+                 -- Рендеринг дропдауна (только кнопка, без самого списка)
+                local dd = element
+                self:_SetVisibility(dd.Button, true); self:_SetVisibility(dd.ButtonText, true); self:_SetVisibility(dd.ArrowLine1, true); self:_SetVisibility(dd.ArrowLine2, true);
+                dd.Button.zIndex = el_z; dd.ButtonText.zIndex = el_z+1; dd.ArrowLine1.zIndex = el_z+1; dd.ArrowLine2.zIndex = el_z+1;
+
+                local dropdownButtonX = controlRightEdge - dd.Size.width
+                dd.Button.Position = {dropdownButtonX, currentY-3}; dd.Button.Size = {dd.Size.width, dd.Size.height}
+                local textToShow = (dd.type == "Dropdown") and self.UI.Values[dd.id] or (#self.UI.Values[dd.id] == 0 and "..." or table.concat(self.UI.Values[dd.id], ", ")); if #textToShow > 11 then textToShow = string.sub(textToShow, 1, 10) .. "..." end
+                dd.ButtonText.Position = { dropdownButtonX + 5, currentY - 3 + dd.Size.height / 2 - dd.ButtonText.Size / 2 }; dd.ButtonText.Text = textToShow
+                local arrowX, arrowY = dropdownButtonX + dd.Size.width - 15, currentY - 3 + dd.Size.height / 2; dd.ArrowLine1.From = {arrowX, arrowY - 2}; dd.ArrowLine1.To = {arrowX + 5, arrowY + 3}; dd.ArrowLine2.From = {arrowX + 5, arrowY + 3}; dd.ArrowLine2.To = {arrowX + 10, arrowY - 2}
+                dd.ClickRegion = { x1 = dropdownButtonX, y1 = currentY-3, x2 = dropdownButtonX + dd.Size.width, y2 = currentY - 3 + dd.Size.height }
+                self:_AnimateAndApplyColor(dd.Button, theme.Colors.DarkBlue, masterOpacity); self:_AnimateAndApplyColor(dd.ButtonText, theme.Colors.TextPrimary, masterOpacity); self:_AnimateAndApplyColor(dd.ArrowLine1, theme.Colors.TextPrimary, masterOpacity); self:_AnimateAndApplyColor(dd.ArrowLine2, theme.Colors.TextPrimary, masterOpacity)
+
+                -- Тут мы не будем рендерить сам список опций, чтобы не усложнять. Для этого нужна отдельная система попапов внутри попапов.
+                currentY = currentY + 35
+
+            elseif element.type == "Keybind" then
+                local keybind = element
+                self:_SetVisibility(keybind.Button, true); self:_SetVisibility(keybind.Border, true); self:_SetVisibility(keybind.ButtonText, true)
+                keybind.Button.zIndex = el_z; keybind.Border.zIndex = el_z + 1; keybind.ButtonText.zIndex = el_z + 1;
 
                 local buttonBackgroundColor = keybind.IsListening and theme.Colors.Accent or theme.Colors.DarkBlue
                 local buttonTextColor = keybind.IsListening and self:_GetTextColorForBackground(buttonBackgroundColor) or theme.Colors.TextPrimary
                 local buttonBorderColor = keybind.IsListening and theme.Colors.Accent or theme.Colors.Separator
 
-                self:_AnimateAndApplyColor(keybind.Label, theme.Colors.TextSecondary, masterOpacity)
                 self:_AnimateAndApplyColor(keybind.Button, buttonBackgroundColor, masterOpacity)
                 self:_AnimateAndApplyColor(keybind.Border, buttonBorderColor, masterOpacity)
                 self:_AnimateAndApplyColor(keybind.ButtonText, buttonTextColor, masterOpacity)
 
-                keybind.Label.Position = { pX + 15, currentY }
-                local bindButtonX = pX + pW - keybind.Size.width - 15
+                local bindButtonX = controlRightEdge - keybind.Size.width
                 keybind.Button.Position = {bindButtonX, currentY - 5}; keybind.Button.Size = {keybind.Size.width, keybind.Size.height};
                 keybind.Border.Position = {bindButtonX, currentY - 5}; keybind.Border.Size = {keybind.Size.width, keybind.Size.height};
                 keybind.ButtonText.Text = keybind.IsListening and "..." or string.upper(self.UI.Values[keybind.id] or "none")
                 keybind.ButtonText.Position = { bindButtonX + (keybind.Size.width / 2), currentY - 5 + (keybind.Size.height / 2) - (keybind.ButtonText.Size / 2) }
                 keybind.ClickRegion = {x1 = bindButtonX, y1 = currentY - 5, x2 = bindButtonX + keybind.Size.width, y2 = currentY - 5 + keybind.Size.height}
                 currentY = currentY + 35
+            end
+
+            if not wasVisible and element.Label.Visible then -- Сброс анимации при появлении
+                 if element.type == "Toggle" then
+                    local is_on = self.UI.Values[element.id]
+                    element.AnimatedNubOffset = is_on and (element.Size.width - element.Size.height / 2) or (element.Size.height / 2)
+                 elseif element.type == "Slider" then
+                    element.AnimatedValue = self.UI.Values[element.id]
+                 end
             end
         end
     end
@@ -2179,7 +2263,7 @@ function Library:_RenderSettingsPopup()
     popup.ClickRegion = {x1 = pX, y1 = pY, x2 = pX + pW, y2 = pY + totalHeight}
     if popup.Background then popup.Background.Position = {pX, pY}; popup.Background.Size = {pW, totalHeight}; end
     if popup.Border then popup.Border.Position = {pX, pY}; popup.Border.Size = {pW, totalHeight}; end
-    
+
     if popup.Glow then self:_RenderGlowEffect(popup.Glow, pX, pY, pW, totalHeight, popup.Background.Rounding, theme.Colors.GlowColor, nil, masterOpacity) end
 end
 
@@ -3957,13 +4041,36 @@ function Library:_InputLoop()
                         settings_popup.Animation.IsClosing = true
                         settings_popup.Animation.IsOpening = false
                     else
-                        if settings_popup.ActiveToggle then
-                            for _, element in ipairs(settings_popup.ActiveToggle.SettingsElements or {}) do
-                                if element.type == "Keybind" and self:_IsPointInRegion(mouse_x, mouse_y, element.ClickRegion) then
-                                    element.IsListening = not element.IsListening;
-                                    break;
+                        if settings_popup.ActiveToggle and settings_popup.ActiveToggle.SettingsElements then
+                            for _, element in ipairs(settings_popup.ActiveToggle.SettingsElements) do
+                                if self:_IsPointInRegion(mouse_x, mouse_y, element.ClickRegion) then
+                                    if element.type == "Toggle" then
+                                        self.UI.Values[element.id] = not self.UI.Values[element.id]
+                                        if element.Callback then element.Callback(self.UI.Values[element.id]) end
+
+                                    elseif element.type == "Keybind" then
+                                        element.IsListening = not element.IsListening
+
+                                    elseif element.type == "Slider" then
+                                         -- Простое обновление по клику, перетаскивание пока не реализуем для простоты
+                                        local slider = element
+                                        local sliderBackX, sliderBackWidth = self:_SafeNumber(slider.Back.Position.x, 0), self:_SafeNumber(slider.Back.Size.x, 1)
+                                        local mouse_relative_x = math.clamp(mouse_x - sliderBackX, 0, sliderBackWidth)
+                                        local percentage = sliderBackWidth > 0 and (mouse_relative_x / sliderBackWidth) or 0
+                                        local raw_value = slider.Min + (slider.Max - slider.Min) * percentage
+                                        local stepped_value = math.floor(raw_value / slider.Increment + 0.5) * slider.Increment
+                                        local clamped_value = math.clamp(stepped_value, slider.Min, slider.Max)
+                                        self.UI.Values[slider.id] = clamped_value
+                                        if slider.Callback then slider.Callback(clamped_value) end
+                                    
+                                    elseif element.type == "Dropdown" or element.type == "Multidropdown" then
+                                        warn(SCRIPT_PREFIX .. "Dropdowns inside popups are not fully interactive yet.")
+                                        -- Здесь должна быть сложная логика открытия второго попапа,
+                                        -- пока что просто выведем предупреждение.
+                                    end
+                                    break -- Выходим из цикла, так как клик обработан
                                 end
-                            end;
+                            end
                         end
                     end
 
@@ -4633,19 +4740,75 @@ function Library:Section(options)
         return SectionObject 
     end
 
-    function SectionObject:Keybind(keybindOptions)
-        if last_element and last_element.type == "Toggle" then
-            keybindOptions.ParentToggleID = last_element.id
-            keybindOptions.ParentToggleName = last_element.Name
+    -- ЗАМЕНИТЬ СТАРУЮ ФУНКЦИЮ :Keybind() НА ЭТУ
+    function SectionObject:Settings(callback)
+        if last_element and last_element.type == "Toggle" and last_element.HasSettings then
+            if not last_element.SettingsElements then
+                last_element.SettingsElements = {}
+            end
+
+            local self_lib_settings = self_lib
+
+            -- Создаем "строитель" для настроек
+            local SettingsBuilder = {}
+
+            -- Определяем функции, которые можно будет вызывать внутри :Settings()
+            function SettingsBuilder:Toggle(toggleOptions)
+                -- Удостоверимся, что у дочернего элемента уникальный ID
+                if self_lib_settings.UI.Values[toggleOptions.id] ~= nil then
+                    warn(SCRIPT_PREFIX .. "Duplicate element ID detected inside Settings: " .. toggleOptions.id)
+                end
+                local element = self_lib_settings:_Internal_CreateToggle(toggleOptions)
+                table.insert(last_element.SettingsElements, element)
+                return self -- Возвращаем себя, чтобы можно было продолжать цепочку (хотя в данном случае это не нужно)
+            end
+
+            function SettingsBuilder:Slider(sliderOptions)
+                if self_lib_settings.UI.Values[sliderOptions.id] ~= nil then
+                    warn(SCRIPT_PREFIX .. "Duplicate element ID detected inside Settings: " .. sliderOptions.id)
+                end
+                local element = self_lib_settings:_Internal_CreateSlider(sliderOptions)
+                table.insert(last_element.SettingsElements, element)
+                return self
+            end
+
+            function SettingsBuilder:Dropdown(dropdownOptions)
+                if self_lib_settings.UI.Values[dropdownOptions.id] ~= nil then
+                    warn(SCRIPT_PREFIX .. "Duplicate element ID detected inside Settings: " .. dropdownOptions.id)
+                end
+                local element = self_lib_settings:_Internal_CreateDropdown(dropdownOptions)
+                table.insert(last_element.SettingsElements, element)
+                return self
+            end
             
-            local keybind_element = self_lib:_Internal_CreateKeybind(keybindOptions)
-            
-            if not last_element.SettingsElements then last_element.SettingsElements = {} end
-            table.insert(last_element.SettingsElements, keybind_element)
+            function SettingsBuilder:Multidropdown(multidropdownOptions)
+                if self_lib_settings.UI.Values[multidropdownOptions.id] ~= nil then
+                    warn(SCRIPT_PREFIX .. "Duplicate element ID detected inside Settings: " .. multidropdownOptions.id)
+                end
+                local element = self_lib_settings:_Internal_CreateMultidropdown(multidropdownOptions)
+                table.insert(last_element.SettingsElements, element)
+                return self
+            end
+
+            function SettingsBuilder:Keybind(keybindOptions)
+                 if self_lib_settings.UI.Values[keybindOptions.id] ~= nil then
+                    warn(SCRIPT_PREFIX .. "Duplicate element ID detected inside Settings: " .. keybindOptions.id)
+                end
+                -- Добавляем информацию о родительском элементе для глобального обработчика биндов
+                keybindOptions.ParentToggleID = last_element.id
+                keybindOptions.ParentToggleName = last_element.Name
+                local element = self_lib_settings:_Internal_CreateKeybind(keybindOptions)
+                table.insert(last_element.SettingsElements, element)
+                return self
+            end
+
+            -- Вызываем функцию, переданную пользователем, и передаем ей наш "строитель"
+            pcall(callback, SettingsBuilder)
+
         else
-            warn(SCRIPT_PREFIX .. "Keybind() can only be chained after a Toggle() element.")
+            warn(SCRIPT_PREFIX .. "Settings() can only be chained after a Toggle() element with HasSettings = true.")
         end
-        return SectionObject
+        return SectionObject -- Возвращаем основной объект секции для продолжения цепочки
     end
 
     return SectionObject
