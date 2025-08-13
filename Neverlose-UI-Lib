@@ -2201,58 +2201,21 @@ function Library:_RenderSettingsPopup()
            
             elseif element.type == "Slider" then
                 local slider = element
-                
-                slider.Label.zIndex = el_z
-                slider.Back.zIndex = el_z
-                slider.LeftFill.zIndex = el_z + 1
-                slider.Nub.zIndex = el_z + 2
-                slider.ValueInputBg.zIndex = el_z
-                slider.ValueText.zIndex = el_z + 2
-                slider.ValueInputBorder.zIndex = el_z + 3
-                slider.ValueInputCursor.zIndex = el_z + 3
-
-                self:_SetVisibility(slider.Back, true); self:_SetVisibility(slider.LeftFill, true); self:_SetVisibility(slider.Nub, true); self:_SetVisibility(slider.ValueText, true); self:_SetVisibility(slider.ValueInputBg, true); self:_SetVisibility(slider.ValueInputBorder, true)
-                self:_SetVisibility(slider.ValueInputCursor, slider.IsEditing and math.sin(tick() * 5) > 0)
-                
+                slider.Label.zIndex = el_z; slider.Back.zIndex = el_z; slider.LeftFill.zIndex = el_z + 1; slider.Nub.zIndex = el_z + 2; slider.ValueInputBg.zIndex = el_z; slider.ValueText.zIndex = el_z + 2; slider.ValueInputBorder.zIndex = el_z + 3; slider.ValueInputCursor.zIndex = el_z + 3
+                self:_SetVisibility(slider.Back, true); self:_SetVisibility(slider.LeftFill, true); self:_SetVisibility(slider.Nub, true); self:_SetVisibility(slider.ValueText, true); self:_SetVisibility(slider.ValueInputBg, true); self:_SetVisibility(slider.ValueInputBorder, true); self:_SetVisibility(slider.ValueInputCursor, slider.IsEditing and math.sin(tick() * 5) > 0)
                 local currentElementY = currentY
                 slider.Label.Position = {pX + 15, currentElementY}
-                
-                local valueBoxW, valueBoxH = 45, 22
-                local valueBoxX = controlRightEdge - valueBoxW
-                slider.ValueInputBg.Position = {valueBoxX, currentElementY - 4}; slider.ValueInputBg.Size = {valueBoxW, valueBoxH}
-                slider.ValueInputBorder.Position = {valueBoxX, currentElementY - 4}; slider.ValueInputBorder.Size = {valueBoxW, valueBoxH}
-                slider.ValueInputClickRegion = {x1 = valueBoxX, y1 = currentElementY - 4, x2 = valueBoxX + valueBoxW, y2 = currentElementY - 4 + valueBoxH}
-                
-                local labelWidth = (slider.Label.TextBounds and slider.Label.TextBounds.x) or 75
-                local startOffset = slider.Label.Position.x - pX + labelWidth + 15 
-                local sliderBackX = pX + math.max(100, startOffset) 
-                local sliderBackWidth = (valueBoxX - 10) - sliderBackX
-
+                local valueBoxW, valueBoxH = 45, 22; local valueBoxX = controlRightEdge - valueBoxW
+                slider.ValueInputBg.Position = {valueBoxX, currentElementY - 4}; slider.ValueInputBg.Size = {valueBoxW, valueBoxH}; slider.ValueInputBorder.Position = {valueBoxX, currentElementY - 4}; slider.ValueInputBorder.Size = {valueBoxW, valueBoxH}; slider.ValueInputClickRegion = {x1 = valueBoxX, y1 = currentElementY - 4, x2 = valueBoxX + valueBoxW, y2 = currentElementY - 4 + valueBoxH}
+                local labelWidth = (slider.Label.TextBounds and slider.Label.TextBounds.x) or 75; local startOffset = slider.Label.Position.x - pX + labelWidth + 15; local sliderBackX = pX + math.max(100, startOffset); local sliderBackWidth = (valueBoxX - 10) - sliderBackX
                 slider.Back.Position = {sliderBackX, currentElementY + 8}; slider.Back.Size = {sliderBackWidth, 2}; slider.ClickRegion = { x1 = sliderBackX, y1 = currentElementY - 2, x2 = sliderBackX + sliderBackWidth, y2 = currentElementY + 18 };
-                
-                if self.UI.Values["BurgerLow-EndMode"] then
-                    slider.AnimatedValue = self.UI.Values[slider.id]
-                else
-                    local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.5; local animationSpeed = speed_value / 15.0
-                    slider.AnimatedValue = slider.AnimatedValue + (self.UI.Values[slider.id] - slider.AnimatedValue) * animationSpeed
-                end
-                
-                local value_percentage = math.clamp((slider.AnimatedValue - slider.Min) / (slider.Max - slider.Min), 0, 1)
-                local nubX = sliderBackX + sliderBackWidth * value_percentage
+                if self.UI.Values["BurgerLow-EndMode"] then slider.AnimatedValue = self.UI.Values[slider.id] else local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.5; local animationSpeed = speed_value / 15.0; slider.AnimatedValue = slider.AnimatedValue + (self.UI.Values[slider.id] - slider.AnimatedValue) * animationSpeed end
+                local value_percentage = math.clamp((slider.AnimatedValue - slider.Min) / (slider.Max - slider.Min), 0, 1); local nubX = sliderBackX + sliderBackWidth * value_percentage
                 slider.LeftFill.Position = {sliderBackX, currentElementY + 8}; slider.LeftFill.Size = {nubX - sliderBackX, 2}; slider.Nub.Position = {nubX, currentElementY + 9}
-                
                 local borderColor = slider.IsEditing and theme.Colors.Accent or theme.Colors.Separator
                 self:_AnimateAndApplyColor(slider.ValueInputBg, theme.Colors.DarkBlue, masterOpacity); self:_AnimateAndApplyColor(slider.ValueInputBorder, borderColor, masterOpacity); self:_AnimateAndApplyColor(slider.ValueInputCursor, theme.Colors.Accent, masterOpacity)
-
-                slider.ValueText.Text = slider.IsEditing and slider.InputText or tostring(math.floor(self.UI.Values[slider.id] or slider.Min))
-                slider.ValueText.Position = {valueBoxX + valueBoxW / 2, currentElementY - 4 + (valueBoxH / 2) - (slider.ValueText.Size / 2)}; self:_AnimateAndApplyColor(slider.ValueText, theme.Colors.TextPrimary, masterOpacity)
-
-                if slider.ValueText.TextBounds and slider.IsEditing then
-                    local cursorX = slider.ValueText.Position.x + slider.ValueText.TextBounds.x / 2 + 1; local cursorY = slider.ValueText.Position.y - 2
-                    slider.ValueInputCursor.From = {cursorX, cursorY}; slider.ValueInputCursor.To = {cursorX, cursorY + slider.ValueText.Size + 4}
-                end
-
-                -- << [ИСПРАВЛЕНИЕ Z-INDEX] Поднимаем базовый z-index для glow-эффекта с `el_z - 1` до `el_z + 1` >>
+                slider.ValueText.Text = slider.IsEditing and slider.InputText or tostring(math.floor(self.UI.Values[slider.id] or slider.Min)); slider.ValueText.Position = {valueBoxX + valueBoxW / 2, currentElementY - 4 + (valueBoxH / 2) - (slider.ValueText.Size / 2)}; self:_AnimateAndApplyColor(slider.ValueText, theme.Colors.TextPrimary, masterOpacity)
+                if slider.ValueText.TextBounds and slider.IsEditing then local cursorX = slider.ValueText.Position.x + slider.ValueText.TextBounds.x / 2 + 1; local cursorY = slider.ValueText.Position.y - 2; slider.ValueInputCursor.From = {cursorX, cursorY}; slider.ValueInputCursor.To = {cursorX, cursorY + slider.ValueText.Size + 4} end
                 if slider.Glow then self:_RenderGlowEffect(slider.Glow, slider.LeftFill.Position.x, slider.LeftFill.Position.y, slider.LeftFill.Size.x, 2, slider.LeftFill.Rounding, theme.Colors.GlowAccent, nil, masterOpacity, el_z + 1) end
                 self:_AnimateAndApplyColor(slider.Back, theme.Colors.DarkBlue, masterOpacity); self:_AnimateAndApplyColor(slider.LeftFill, theme.Colors.Accent, masterOpacity); self:_AnimateAndApplyColor(slider.Nub, theme.Colors.Accent, masterOpacity)
                 currentY = currentY + 35
@@ -2268,16 +2231,29 @@ function Library:_RenderSettingsPopup()
     local totalHeight = currentY - pY; popup.ClickRegion = {x1 = pX, y1 = pY, x2 = pX + pW, y2 = pY + totalHeight}; if popup.Background then popup.Background.Position = {pX, pY}; popup.Background.Size = {pW, totalHeight}; end; if popup.Border then popup.Border.Position = {pX, pY}; popup.Border.Size = {pW, totalHeight}; end; if popup.Glow then self:_RenderGlowEffect(popup.Glow, pX, pY, pW, totalHeight, popup.Background.Rounding, theme.Colors.GlowColor, nil, masterOpacity) end
 
     if popup.ActiveDropdown then
-        local el = popup.ActiveDropdown; local dropdown_z = z + 20; local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4; local animationSpeed = (speed_value > 0) and (speed_value / 15.0) or 1
-        if el.IsOpen and not el.IsClosing then 
-            el.FadeOpacity = math.min(1, el.FadeOpacity + animationSpeed) 
-        elseif el.IsClosing then 
-            el.FadeOpacity = math.max(0, el.FadeOpacity - animationSpeed)
-            if el.FadeOpacity == 0 then
+        local el = popup.ActiveDropdown; local dropdown_z = z + 20
+        
+        -- << [ИСПРАВЛЕНИЕ] Добавлена проверка на low-end режим для анимации дропдауна >>
+        if self.UI.Values["BurgerLow-EndMode"] then
+            if el.IsClosing then
+                el.FadeOpacity = 0
                 el.IsClosing = false
                 el.IsOpen = false
-            end 
+            else
+                el.FadeOpacity = 1
+            end
+        else
+            local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4; local animationSpeed = (speed_value > 0) and (speed_value / 15.0) or 1
+            if el.IsOpen and not el.IsClosing then el.FadeOpacity = math.min(1, el.FadeOpacity + animationSpeed) 
+            elseif el.IsClosing then 
+                el.FadeOpacity = math.max(0, el.FadeOpacity - animationSpeed)
+                if el.FadeOpacity == 0 then
+                    el.IsClosing = false
+                    el.IsOpen = false
+                end 
+            end
         end
+
         if el.FadeOpacity > 0 then
             local finalOpacity = masterOpacity * el.FadeOpacity; local popupWidth = el.Size.width + 30; local optionHeight = 25; local popupHeight = (#el.Options * optionHeight) + 10; local btnPos = el.Button.Position; local popupX = btnPos.x + (el.Size.width / 2) - (popupWidth / 2); local popupY = btnPos.y + (el.Size.height / 2) - (popupHeight / 2); el.PopupClickRegion = {x1 = popupX, y1 = popupY, x2 = popupX + popupWidth, y2 = popupY + popupHeight}; self:_SetVisibility(el.OptionBackground, true); self:_SetVisibility(el.Border, true); el.OptionBackground.zIndex = dropdown_z; el.Border.zIndex = dropdown_z + 1; self:_AnimateAndApplyColor(el.OptionBackground, theme.Colors.SectionBackground, finalOpacity); self:_AnimateAndApplyColor(el.Border, theme.Colors.Separator, finalOpacity); el.OptionBackground.Position = {popupX, popupY}; el.OptionBackground.Size = {popupWidth, popupHeight}; el.Border.Position = {popupX, popupY}; el.Border.Size = {popupWidth, popupHeight}; if el.Glow then self:_RenderGlowEffect(el.Glow, popupX, popupY, popupWidth, popupHeight, el.OptionBackground.Rounding, theme.Colors.GlowColor, nil, finalOpacity, dropdown_z - 1) end; local currentOptionY = popupY + 5; local hasSelection = el.type == "Multidropdown" and #self.UI.Values[el.id] > 0; local textX = popupX + (hasSelection and 25 or 10)
             for i, option_item in ipairs(el.OptionList) do
@@ -2287,7 +2263,16 @@ function Library:_RenderSettingsPopup()
                 end; currentOptionY = currentOptionY + optionHeight
             end
         else 
+            -- << [ИСПРАВЛЕНИЕ] Добавлен надёжный блок очистки для дропдауна >>
             if el.Glow then self:_HideGlowEffect(el.Glow) end 
+            if el.OptionBackground then self:_SetVisibility(el.OptionBackground, false) end
+            if el.Border then self:_SetVisibility(el.Border, false) end
+            for _, option_item in ipairs(el.OptionList or {}) do
+                self:_SetVisibility(option_item.Text, false)
+                self:_SetVisibility(option_item.Highlight, false)
+                if option_item.CheckmarkLine1 then self:_SetVisibility(option_item.CheckmarkLine1, false) end
+                if option_item.CheckmarkLine2 then self:_SetVisibility(option_item.CheckmarkLine2, false) end
+            end
             popup.ActiveDropdown = nil
         end
     end
