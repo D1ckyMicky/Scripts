@@ -388,6 +388,12 @@ function Library:_UpdateMainPanelAnimations()
             if section.ParentTab == self.Window.Animation.OldTab then
                 lerp_values(section.Animation, 0, ANIMATION_SLIDE_DISTANCE)
                 if section.Animation.CurrentOpacity > 0.01 then still_fading_out = true end
+
+                -- << [ИСПРАВЛЕНИЕ] Если включен low-end режим, принудительно скрываем все элементы секции сразу.
+                -- Это гарантирует, что glow-эффект слайдера и другие элементы точно исчезнут.
+                if self.UI.Values["BurgerLow-EndMode"] then
+                    self:_SetSectionAndElementsVisibility(section, false)
+                end
             end
         end
         if self.Window.Animation.OldTab == "Configs" then
@@ -497,33 +503,6 @@ function Library:_EnsureDefaults(data_table, default_table)
         end
     end
     return result
-end
-
-function Library:_HideSettingsPopupElements(popup)
-    if not popup or not popup.ActiveToggle or not popup.ActiveToggle.SettingsElements then
-        return
-    end
-    for _, element in ipairs(popup.ActiveToggle.SettingsElements) do
-        -- Универсальный способ скрыть любой элемент, у которого есть стандартные объекты отрисовки
-        for key, obj in pairs(element) do
-            if type(obj) == 'table' and obj.Visible ~= nil and type(obj.Remove) == 'function' then
-                 self:_SetVisibility(obj, false)
-            end
-        end
-        -- Дополнительная очистка для сложных элементов
-         if element.type == "Dropdown" or element.type == "Multidropdown" then
-            for _, option_obj in ipairs(element.OptionList or {}) do
-                self:_SetVisibility(option_obj.Text, false)
-                self:_SetVisibility(option_obj.Highlight, false)
-                if option_obj.CheckmarkLine1 then self:_SetVisibility(option_obj.CheckmarkLine1, false) end
-                if option_obj.CheckmarkLine2 then self:_SetVisibility(option_obj.CheckmarkLine2, false) end
-            end
-         end
-         -- << [ИСПРАВЛЕНИЕ] Явно скрываем Glow-эффект у слайдеров при закрытии >>
-         if element.type == "Slider" and element.Glow then
-            self:_HideGlowEffect(element.Glow)
-         end
-    end
 end
 
 -- Вставьте эту новую функцию в раздел PRIVATE: HELPER FUNCTIONS
@@ -867,15 +846,23 @@ function Library:_HideSettingsPopupElements(popup)
                  self:_SetVisibility(obj, false)
             end
         end
-        -- Дополнительная очистка для сложных элементов
-         if element.type == "Dropdown" or element.type == "Multidropdown" then
+        
+        -- << [ИСПРАВЛЕНИЕ] Добавляем полное скрытие всех частей дропдауна (включая фон и рамку) >>
+        if element.type == "Dropdown" or element.type == "Multidropdown" then
+            if element.OptionBackground then self:_SetVisibility(element.OptionBackground, false) end
+            if element.Border then self:_SetVisibility(element.Border, false) end
+            if element.Glow then self:_HideGlowEffect(element.Glow) end
             for _, option_obj in ipairs(element.OptionList or {}) do
                 self:_SetVisibility(option_obj.Text, false)
                 self:_SetVisibility(option_obj.Highlight, false)
                 if option_obj.CheckmarkLine1 then self:_SetVisibility(option_obj.CheckmarkLine1, false) end
                 if option_obj.CheckmarkLine2 then self:_SetVisibility(option_obj.CheckmarkLine2, false) end
             end
-         end
+        end
+
+        if element.type == "Slider" and element.Glow then
+           self:_HideGlowEffect(element.Glow)
+        end
     end
 end
 
