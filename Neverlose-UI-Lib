@@ -2988,49 +2988,55 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
     local columnWidth = ((self.Window.Width - self.Window.SidebarWidth + self.Window.PanelOverlap) - (columnSpacing * 3)) / 2
     local leftColumnX, rightColumnX = panelX + columnSpacing, panelX + columnSpacing + columnWidth + columnSpacing
     
+    -- [[ ИЗМЕНЕНИЕ: Разделяем отрисовку на два прохода ]]
+
+    -- Сначала отрисовываем новую, появляющуюся вкладку и рассчитываем её раскладку
     for _, section in ipairs(self.UI.Sections) do
-        local anim_state = section.Animation
-        
-        if anim_state.CurrentOpacity <= 0 then
-            if anim_state.IsVisible then
-                self:_SetSectionAndElementsVisibility(section, false)
-                anim_state.IsVisible = false
-            end
-        else
-            if not anim_state.IsVisible then
-                self:_SetSectionAndElementsVisibility(section, true)
-                anim_state.IsVisible = true
-            end
+        if section.ParentTab == self.Window.ActiveTab then
+            local anim_state = section.Animation
+            if anim_state.CurrentOpacity > 0 then
+                if not anim_state.IsVisible then self:_SetSectionAndElementsVisibility(section, true); anim_state.IsVisible = true; end
 
-            local sectionX, sectionY
-
-            -- [[ ИЗМЕНЕНИЕ: Разделяем логику расчёта позиций ]]
-            if section.ParentTab == self.Window.ActiveTab then
-                -- Если это НОВАЯ вкладка, рассчитываем её позицию в потоке и ЗАПОМИНАЕМ её
-                if section.Side == "Left" then
-                    sectionX, sectionY = leftColumnX, leftColumnY
-                else
-                    sectionX, sectionY = rightColumnX, rightColumnY
-                end
+                local sectionX, sectionY
+                if section.Side == "Left" then sectionX, sectionY = leftColumnX, leftColumnY else sectionX, sectionY = rightColumnX, rightColumnY end
+                
+                -- Рассчитываем и запоминаем позицию
                 section.LastPos = { X = sectionX, Y = sectionY }
-            else
-                -- Если это СТАРАЯ вкладка, которая исчезает, используем её последнюю ЗАПОМНЕННУЮ позицию
-                sectionX, sectionY = section.LastPos.X, section.LastPos.Y
+                
+                local sectionHeight = self:_RenderSingleSection(section, sectionX, sectionY, columnWidth, anim_state.CurrentYOffset, anim_state.CurrentOpacity)
+                
+                -- Сдвигаем счётчик высоты колонки
+                if section.Side == "Left" then leftColumnY = leftColumnY + sectionHeight + columnSpacing else rightColumnY = rightColumnY + sectionHeight + columnSpacing end
             end
-            
-            local sectionHeight = self:_RenderSingleSection(section, sectionX, sectionY, columnWidth, anim_state.CurrentYOffset, anim_state.CurrentOpacity)
-            
-            -- Важно: увеличиваем высоту колонки только для НОВОЙ активной вкладки
-            if section.ParentTab == self.Window.ActiveTab then
-                if section.Side == "Left" then
-                    leftColumnY = leftColumnY + sectionHeight + columnSpacing
-                else
-                    rightColumnY = rightColumnY + sectionHeight + columnSpacing
+        end
+    end
+
+    -- Затем отрисовываем старую, исчезающую вкладку, используя её запомненные позиции
+    if self.Window.Animation.State == "FADING_OUT" and self.Window.Animation.OldTab then
+        for _, section in ipairs(self.UI.Sections) do
+            if section.ParentTab == self.Window.Animation.OldTab then
+                local anim_state = section.Animation
+                if anim_state.CurrentOpacity > 0 then
+                    if not anim_state.IsVisible then self:_SetSectionAndElementsVisibility(section, true); anim_state.IsVisible = true; end
+                    
+                    -- Используем последнюю известную позицию, НЕ рассчитываем заново
+                    local sectionX, sectionY = section.LastPos.X, section.LastPos.Y
+                    self:_RenderSingleSection(section, sectionX, sectionY, columnWidth, anim_state.CurrentYOffset, anim_state.CurrentOpacity)
                 end
             end
         end
     end
+
+    -- В конце скрываем все секции, которые должны быть невидимы
+    for _, section in ipairs(self.UI.Sections) do
+        local anim_state = section.Animation
+        if anim_state.CurrentOpacity <= 0 and anim_state.IsVisible then
+            self:_SetSectionAndElementsVisibility(section, false)
+            anim_state.IsVisible = false
+        end
+    end
 end
+
 
 
 function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
@@ -4264,7 +4270,7 @@ function Library:_AddPresetsTab()
 end
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. 5x242")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. x242")
     local is_first_frame = true
     while true do
         -- Обрабатываем очередь на удаление в начале каждого кадра
@@ -4637,9 +4643,6 @@ function Library:Section(options)
 
     return SectionObject
 end
-
-
-
 
 function Library:Unload()
     self.Window.Visible = false
