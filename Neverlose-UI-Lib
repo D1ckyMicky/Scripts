@@ -4678,6 +4678,32 @@ function Library:Create()
         self:_LoadConfig(self.UI.Core.ConfigsTab.Items[1].Name)
     end
 
+    -- [[ ИЗМЕНЕНИЕ: Запускаем анимацию появления для начальной вкладки ]]
+    -- Это исправит баг, когда UI пустой при первом запуске.
+    do
+        local initialTabName = self.Window.ActiveTab
+        local ANIMATION_SLIDE_DISTANCE = 20
+
+        -- Устанавливаем глобальное состояние анимации на "появление"
+        self.Window.Animation.State = "FADING_IN"
+
+        if initialTabName == "Configs" then
+            local configsTab = self.UI.Core.ConfigsTab
+            -- Устанавливаем начальные значения для анимации (невидима и смещена вниз)
+            configsTab.Animation.CurrentOpacity = 0
+            configsTab.Animation.CurrentYOffset = ANIMATION_SLIDE_DISTANCE
+            self.UI.Core.HeaderButtons.CreateNew.Animation.CurrentOpacity = 0
+        else
+            for _, section in ipairs(self.UI.Sections) do
+                if section.ParentTab == initialTabName then
+                    -- Устанавливаем начальные значения для анимации
+                    section.Animation.CurrentOpacity = 0
+                    section.Animation.CurrentYOffset = ANIMATION_SLIDE_DISTANCE
+                end
+            end
+        end
+    end
+
     spawn(function() self:_MainLoop() end)
     return self
 end
