@@ -888,7 +888,7 @@ end
 
 function Library:_RenderGlowEffect(glowSet, x, y, width, height, rounding, targetColor, sides, masterOpacity, baseZIndex)
     -- [[ ИЗМЕНЕНИЕ: Добавляем проверку на Low-End Mode и опцию Glow ]]
-    if self.UI.Values["BurgerLowEndMode"] or not self.UI.Values["BurgerGlow"] then
+    if not self.UI.Values["BurgerGlow"] then
         self:_HideGlowEffect(glowSet)
         return
     end
@@ -3084,12 +3084,10 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
             self:_AnimateAndApplyColor(el.Back, theme.Colors.DarkBlue, masterOpacity); self:_AnimateAndApplyColor(el.LeftFill, theme.Colors.Accent, masterOpacity); self:_AnimateAndApplyColor(el.Nub, theme.Colors.Accent, masterOpacity)
             elementY_offset = elementY_offset + 35
         elseif el.type == "Dropdown" or el.type == "Multidropdown" then
-            -- [[ НОВЫЙ БЛОК: Постоянная анимация для Multidropdown ]]
             if el.type == "Multidropdown" then
                 local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4
                 local animationSpeed = (speed_value / 1.5) / 10.0
 
-                -- Анимация отступа текста
                 local hasSelection = #self.UI.Values[el.id] > 0
                 local targetTextXOffset = hasSelection and 25 or 10
                 if self.UI.Values["BurgerLow-EndMode"] then
@@ -3098,7 +3096,6 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
                     el.AnimatedTextXOffset = el.AnimatedTextXOffset + (targetTextXOffset - el.AnimatedTextXOffset) * animationSpeed
                 end
 
-                -- Анимация прозрачности галочек (даже если они невидимы)
                 for i, option_item in ipairs(el.OptionList) do
                     local isSelected = table.find(self.UI.Values[el.id], el.Options[i])
                     local targetOpacity = isSelected and 1.0 or 0.0
@@ -3109,7 +3106,6 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
                     end
                 end
             end
-            -- [[ КОНЕЦ НОВОГО БЛОКА ]]
             
             self:_SetVisibility(el.Button, true); self:_SetVisibility(el.ButtonText, true); self:_SetVisibility(el.ArrowLine1, true); self:_SetVisibility(el.ArrowLine2, true)
             local currentElementY = animatedY + elementY_offset; self:_AnimateAndApplyColor(el.Label, theme.Colors.TextSecondary, masterOpacity); el.Label.Position = {sectionX + 10, currentElementY + 5}
@@ -3139,13 +3135,13 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
                     self:_AnimateAndApplyColor(el.OptionBackground, theme.Colors.SectionBackground, finalOpacity); self:_AnimateAndApplyColor(el.Border, theme.Colors.Separator, finalOpacity)
                     el.OptionBackground.Position = {popupX, popupY}; el.OptionBackground.Size = {popupWidth, popupHeight}; el.Border.Position = {popupX, popupY}; el.Border.Size = {popupWidth, popupHeight}
                     
+                    -- [[ ИЗМЕНЕНИЕ: Убран if/else для Low-End Mode ]]
+                    local glowFinalOpacity = masterOpacity * el.FadeOpacity
                     if not self.UI.Values["BurgerLow-EndMode"] then
-                        local glowFinalOpacity = 0
-                        if el.IsOpen and not el.IsClosing then local threshold = 0.5; if el.FadeOpacity > threshold then local glowProgress = (el.FadeOpacity - threshold) / (1.0 - threshold); glowFinalOpacity = masterOpacity * glowProgress end elseif el.IsClosing then glowFinalOpacity = masterOpacity * (el.FadeOpacity * el.FadeOpacity) end
-                        self:_RenderGlowEffect(el.Glow, popupX, popupY, popupWidth, popupHeight, el.OptionBackground.Rounding, theme.Colors.GlowColor, nil, glowFinalOpacity, el.OptionBackground.zIndex - 1)
-                    else
-                        self:_HideGlowEffect(el.Glow)
+                        -- Для плавного режима оставим анимацию появления свечения
+                         if el.IsOpen and not el.IsClosing then local threshold = 0.5; if el.FadeOpacity > threshold then local glowProgress = (el.FadeOpacity - threshold) / (1.0 - threshold); glowFinalOpacity = masterOpacity * glowProgress else glowFinalOpacity = 0 end elseif el.IsClosing then glowFinalOpacity = masterOpacity * (el.FadeOpacity * el.FadeOpacity) end
                     end
+                    self:_RenderGlowEffect(el.Glow, popupX, popupY, popupWidth, popupHeight, el.OptionBackground.Rounding, theme.Colors.GlowColor, nil, glowFinalOpacity, el.OptionBackground.zIndex - 1)
 
                     local currentOptionY = popupY + 5
                     for i, option_item in ipairs(el.OptionList) do
