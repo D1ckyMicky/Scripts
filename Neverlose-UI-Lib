@@ -867,6 +867,36 @@ function Library:_HideSettingsPopupElements(popup)
     end
 end
 
+function Library:_OpenEditStyleForTheme(themeName)
+    local style_window = self.UI.Popups.EditStyle
+    local themeToEdit
+
+    if self.Themes[themeName] then
+        -- Если тема с таким именем уже существует (редактирование), берем её
+        themeToEdit = self.Themes[themeName]
+    else
+        -- Если нет (создание новой), создаем её на основе текущей активной темы
+        themeToEdit = self:_DeepCopy(self.ActiveTheme)
+        themeToEdit.Name = themeName
+        themeToEdit.IsPreset = false
+    end
+
+    -- Заполняем окно редактирования данными
+    style_window.EditingTheme = self:_DeepCopy(themeToEdit)
+    style_window.EditingThemeName = themeName
+    style_window.StyleNameInputText.Text = themeName
+
+    -- Сбрасываем предыдущие состояния
+    self.UI.Values.EditStyleRealTime = false
+    self.TempTheme = nil
+    self.PreEditThemeName = nil
+    
+    -- Открываем окно
+    style_window.IsOpen = true
+    style_window.Animation.IsOpening = true
+    style_window.Animation.IsClosing = false
+end
+
 
 
 --================================================================
@@ -4042,18 +4072,37 @@ function Library:_InputLoop()
         end
 
         local right_click_handled = false
-        if is_right_clicked then
-            if picker.IsOpen and (picker.ClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, picker.ClickRegion)) then
-                for i = #picker.Swatches, 1, -1 do
-                    local swatch = picker.Swatches[i]
-                    if not swatch.IsAddButton and self:_IsPointInRegion(mouse_x, mouse_y, swatch.ClickRegion) then
-                        self:_RemoveColorSwatch(i)
-                        right_click_handled = true
-                        break
-                    end
-                end
-            end
-        end
+		if is_right_clicked then
+			-- Сначала проверяем, не пытаемся ли мы удалить пресет цвета в открытом Color Picker
+			if picker.IsOpen and (picker.ClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, picker.ClickRegion)) then
+				for i = #picker.Swatches, 1, -1 do
+					local swatch = picker.Swatches[i]
+					if not swatch.IsAddButton and self:_IsPointInRegion(mouse_x, mouse_y, swatch.ClickRegion) then
+						self:_RemoveColorSwatch(i)
+						right_click_handled = true
+						break
+					end
+				end
+			end
+
+			-- --- [[ НОВАЯ ЧАСТЬ ]] ---
+			-- Если клик еще не был обработан, проверяем, не кликнули ли мы ПКМ по теме в окне "About"
+			if not right_click_handled and about_window.IsOpen then
+				if about_window.ClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, about_window.ClickRegion) then
+					for _, circle in ipairs(about_window.StyleCircles) do
+						if self:_IsPointInRegion(mouse_x, mouse_y, circle.ClickRegion) then
+							-- Проверяем, что это не кнопка "Add" и не предустановленная (стандартная) тема
+							if not circle.IsAddButton and self.Themes[circle.Name] and not self.Themes[circle.Name].IsPreset then
+								-- Открываем окно редактирования для этой кастомной темы
+								self:_OpenEditStyleForTheme(circle.Name)
+								right_click_handled = true -- Помечаем, что клик обработан
+							end
+							break -- Выходим из цикла, так как нашли нужный кружок
+						end
+					end
+				end
+			end
+		end
 
         if is_left_clicked and not right_click_handled then
             if not is_dragging_something then
@@ -4165,30 +4214,36 @@ function Library:_InputLoop()
                         if style_window.ClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, style_window.ClickRegion) then
                             if self:_IsPointInRegion(mouse_x, mouse_y, style_window.CloseButton.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, style_window.CancelButton.ClickRegion) then self:_revert_realtime_changes(); style_window.Animation.IsClosing = true; style_window.Animation.IsOpening = false; style_window.IsEditingName = false;
                             elseif self:_IsPointInRegion(mouse_x, mouse_y, style_window.SaveButton.ClickRegion) then
+                                -- --- [[ ИЗМЕНЕНИЕ: Улучшенная логика сохранения/обновления темы ]]
                                 local originalName = style_window.EditingThemeName
                                 local newName = style_window.StyleNameInputText.Text or "Custom"
                                 if newName == "" then newName = "Custom" end
 
+                                -- Если имя было изменено и старая тема была кастомной, удаляем старую запись
                                 if newName ~= originalName and self.Themes[originalName] and not self.Themes[originalName].IsPreset then
                                     self.Themes[originalName] = nil
                                 end
 
                                 local finalName = newName
+                                -- Если тема с таким новым именем уже существует (и это не та же самая тема), добавляем суффикс
                                 if self.Themes[finalName] and finalName ~= originalName then
                                     local i = 1
                                     while self.Themes[finalName .. " (" .. i .. ")"] do i = i + 1 end
                                     finalName = finalName .. " (" .. i .. ")"
                                 end
 
+                                -- Сохраняем тему под финальным именем
                                 local newTheme = self:_DeepCopy(style_window.EditingTheme)
                                 newTheme.Name = finalName
                                 newTheme.IsPreset = false
                                 self.Themes[finalName] = newTheme
 
+                                -- Обновляем UI
                                 self:_RebuildStyleCircles()
                                 self.UI.Values.AboutSelectedStyle = finalName
                                 self.ActiveTheme = self.Themes[finalName]
-
+                                
+                                -- Сбрасываем состояния и закрываем окно
                                 self.TempTheme = nil; self.PreEditThemeName = nil; self.UI.Values.EditStyleRealTime = false;
                                 style_window.Animation.IsClosing = true; style_window.Animation.IsOpening = false; style_window.IsEditingName = false;
                             elseif self:_IsPointInRegion(mouse_x, mouse_y, style_window.RealTimeToggle.ClickRegion) then
@@ -4222,11 +4277,17 @@ function Library:_InputLoop()
                                             local newName = "Custom 1"
                                             local i = 1
                                             while self.Themes[newName] do i = i + 1; newName = "Custom " .. i; end
-                                            style_window.EditingTheme = self:_DeepCopy(self.ActiveTheme)
-                                            style_window.EditingThemeName = newName
-                                            style_window.StyleNameInputText.Text = newName
-                                            style_window.IsOpen = true; style_window.Animation.IsOpening = true; style_window.Animation.IsClosing = false;
-                                        else self.UI.Values.AboutSelectedStyle = circle.Name; self.ActiveTheme = self.Themes[circle.Name]; end; break;
+                                            -- --- [[ ИЗМЕНЕНИЕ: Используем новую вспомогательную функцию ]]
+                                            self:_OpenEditStyleForTheme(newName)
+
+                                        else
+                                            -- ... остальная логика для выбора темы остается без изменений ...
+                                            self.UI.Values.AboutSelectedStyle = circle.Name
+                                            -- --- [[ ИЗМЕНЕНИЕ: Запускаем анимацию смены темы ]]
+                                            self.TargetTheme = self.Themes[circle.Name]
+                                            self.ThemeTransitionAlpha = 0.0 -- Сбрасываем прогресс, чтобы анимация началась
+                                        end
+                                        break;
                                     end
                                 end
                             end
