@@ -5364,4 +5364,8 @@ function Library:_CheckGlobalBinds()
     end
 end
 
+function Library:GetValue(id)
+    return self.UI.Values[id]
+end
+
 return Library
