@@ -3825,6 +3825,7 @@ function Library:_InputLoop()
             end
 
             for _, section in ipairs(self.UI.Sections) do
+                -- [[!!!]] ИСПРАВЛЕНИЕ: Проверяем, что секция принадлежит активной вкладке
                 if section.ParentTab == self.Window.ActiveTab then
                     for _, el in ipairs(section.Elements) do
                         if (el.type == "Dropdown" or el.type == "Multidropdown") and el.IsOpen then
@@ -3915,9 +3916,12 @@ function Library:_InputLoop()
                     picker.isDraggingSaturationValue = true; started_drag = true;
                 else
                     for _, section in ipairs(self.UI.Sections) do
-                        for _, el in ipairs(section.Elements) do
-                            if el.type == "Slider" and self:_IsPointInRegion(mouse_x, mouse_y, el.ClickRegion) then
-                                el.IsDragging = true; started_drag = true; break;
+                        -- [[!!!]] ИСПРАВЛЕНИЕ: Проверяем, что секция принадлежит активной вкладке
+                        if section.ParentTab == self.Window.ActiveTab then
+                            for _, el in ipairs(section.Elements) do
+                                if el.type == "Slider" and self:_IsPointInRegion(mouse_x, mouse_y, el.ClickRegion) then
+                                    el.IsDragging = true; started_drag = true; break;
+                                end
                             end
                         end
                         if started_drag then break end
@@ -4001,7 +4005,12 @@ function Library:_InputLoop()
             if about_window.IsOpen and about_window.AnimationSpeedSlider.IsDragging then
                 update_slider_value(about_window.AnimationSpeedSlider);
             end
-            for _, section in ipairs(self.UI.Sections) do for _, el in ipairs(section.Elements) do if el.type == "Slider" and el.IsDragging then update_slider_value(el); break; end end end
+            for _, section in ipairs(self.UI.Sections) do
+                -- [[!!!]] ИСПРАВЛЕНИЕ: Проверяем, что секция принадлежит активной вкладке
+                if section.ParentTab == self.Window.ActiveTab then
+                    for _, el in ipairs(section.Elements) do if el.type == "Slider" and el.IsDragging then update_slider_value(el); break; end end
+                end
+            end
             if settings_popup.IsOpen and (not settings_popup_nested or not settings_popup_nested.IsOpen) and settings_popup.ActiveToggle then
                 for _, el in ipairs(settings_popup.ActiveToggle.SettingsElements) do
                     if el.type == "Slider" and el.IsDragging then update_slider_value(el); break; end
@@ -4053,7 +4062,13 @@ function Library:_InputLoop()
                 local active_slider_editing = nil
                 if about_window.AnimationSpeedSlider.IsEditing then active_slider_editing = about_window.AnimationSpeedSlider end
                 if not active_slider_editing then
-                    for _, section in ipairs(self.UI.Sections) do for _, el in ipairs(section.Elements) do if el.type == "Slider" and el.IsEditing then active_slider_editing = el; break; end end if active_slider_editing then break end end
+                    for _, section in ipairs(self.UI.Sections) do
+                        -- [[!!!]] ИСПРАВЛЕНИЕ: Проверяем, что секция принадлежит активной вкладке
+                        if section.ParentTab == self.Window.ActiveTab then
+                            for _, el in ipairs(section.Elements) do if el.type == "Slider" and el.IsEditing then active_slider_editing = el; break; end end
+                        end
+                        if active_slider_editing then break end
+                    end
                 end
                 if not active_slider_editing and settings_popup.IsOpen and settings_popup.ActiveToggle then
                     for _, el in ipairs(settings_popup.ActiveToggle.SettingsElements) do if el.type == "Slider" and el.IsEditing then active_slider_editing = el; break; end end
@@ -4078,28 +4093,33 @@ function Library:_InputLoop()
                             end
                             picker.Dropdown.IsOpen, picker.Dropdown.IsClosing = false, true
                         else
-                            for _, section in ipairs(self.UI.Sections) do for _, el in ipairs(section.Elements) do
-                                if (el.type == "Dropdown" or el.type == "Multidropdown") and el.IsOpen then
-                                    if el.PopupClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, el.PopupClickRegion) then
-                                        if el.HoveredOptionIndex > 0 then
-                                            local i = el.HoveredOptionIndex
-                                            if el.type == "Dropdown" then
-                                                self.UI.Values[el.id] = el.Options[i]
-                                                if el.Callback then pcall(el.Callback, self.UI.Values[el.id]) end
-                                                el.IsOpen, el.IsClosing = false, true
+                            for _, section in ipairs(self.UI.Sections) do
+                                -- [[!!!]] ИСПРАВЛЕНИЕ: Проверяем, что секция принадлежит активной вкладке
+                                if section.ParentTab == self.Window.ActiveTab then
+                                    for _, el in ipairs(section.Elements) do
+                                        if (el.type == "Dropdown" or el.type == "Multidropdown") and el.IsOpen then
+                                            if el.PopupClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, el.PopupClickRegion) then
+                                                if el.HoveredOptionIndex > 0 then
+                                                    local i = el.HoveredOptionIndex
+                                                    if el.type == "Dropdown" then
+                                                        self.UI.Values[el.id] = el.Options[i]
+                                                        if el.Callback then pcall(el.Callback, self.UI.Values[el.id]) end
+                                                        el.IsOpen, el.IsClosing = false, true
+                                                    else
+                                                        local opt = el.Options[i]
+                                                        local found_idx = table.find(self.UI.Values[el.id], opt)
+                                                        if found_idx then table.remove(self.UI.Values[el.id], found_idx) else table.insert(self.UI.Values[el.id], opt) end
+                                                        if el.Callback then pcall(el.Callback, self.UI.Values[el.id]) end
+                                                    end
+                                                end
                                             else
-                                                local opt = el.Options[i]
-                                                local found_idx = table.find(self.UI.Values[el.id], opt)
-                                                if found_idx then table.remove(self.UI.Values[el.id], found_idx) else table.insert(self.UI.Values[el.id], opt) end
-                                                if el.Callback then pcall(el.Callback, self.UI.Values[el.id]) end
+                                                el.IsOpen, el.IsClosing = false, true
                                             end
+                                            break
                                         end
-                                    else
-                                        el.IsOpen, el.IsClosing = false, true
                                     end
-                                    break
                                 end
-                            end end
+                            end
                         end
                     end
                 end
@@ -4214,12 +4234,10 @@ function Library:_InputLoop()
                             about_window.Animation.IsClosing = true; about_window.Animation.IsOpening = false;
                         end
 
-                    -- [[ НАЧАЛО БЛОКА ИЗМЕНЕНИЙ: Полностью переписанная логика для попапов настроек ]]
                     elseif settings_popup_nested and settings_popup_nested.IsOpen then
                         click_was_handled = true
                         local clicked_inside_nested = settings_popup_nested.ClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, settings_popup_nested.ClickRegion)
                         
-                        -- [[ ИСПРАВЛЕНИЕ: Добавлена полная логика обработки кликов ]]
                         if settings_popup_nested.ActiveDropdown then
                             local active_dd = settings_popup_nested.ActiveDropdown
                             local clicked_inside_dd_options = active_dd.PopupClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, active_dd.PopupClickRegion)
@@ -4264,7 +4282,6 @@ function Library:_InputLoop()
                         click_was_handled = true
                         local clicked_inside_main = settings_popup.ClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, settings_popup.ClickRegion)
                         
-                        -- [[ ИСПРАВЛЕНИЕ: Добавлена полная логика обработки кликов ]]
                         if settings_popup.ActiveDropdown then
                             local active_dd = settings_popup.ActiveDropdown
                             local clicked_inside_dd_options = active_dd.PopupClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, active_dd.PopupClickRegion)
@@ -4306,7 +4323,6 @@ function Library:_InputLoop()
                             settings_popup.Animation.IsClosing = true; settings_popup.Animation.IsOpening = false
                             if settings_popup.ActiveDropdown then settings_popup.ActiveDropdown.IsClosing = true end
                         end
-                    -- [[ КОНЕЦ БЛОКА ИЗМЕНЕНИЙ ]]
 
                     elseif burger_popup.IsOpen then
                         click_was_handled = true
@@ -4385,29 +4401,35 @@ function Library:_InputLoop()
                                 end
                             end
                         else
-                            for _, section in ipairs(self.UI.Sections) do if section.ParentTab == self.Window.ActiveTab then for _, el in ipairs(section.Elements) do
-                                if self:_IsPointInRegion(mouse_x, mouse_y, el.ClickRegion) then
-                                    if el.type == "Toggle" then self.UI.Values[el.id] = not self.UI.Values[el.id]; if el.Callback then el.Callback(self.UI.Values[el.id]) end
-                                    elseif el.type == "Dropdown" or el.type == "Multidropdown" then
-                                        local openingThisOne = not el.IsOpen; for _, s_inner in ipairs(self.UI.Sections) do for _, el_inner in ipairs(s_inner.Elements) do if (el_inner.type == "Dropdown" or el_inner.type == "Multidropdown") and el_inner.IsOpen then el_inner.IsOpen = false; el_inner.IsClosing = true; end end end
-                                        if openingThisOne then el.IsOpen = true; el.IsClosing = false; el.FadeOpacity = 0.0; end
-                                    end; clicked_on_main_ui = true; break;
-                                elseif el.type == "Toggle" and el.HasColor and el.ColorClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, el.ColorClickRegion) then
-                                    picker.IsOpen = true; picker.Animation.IsOpening = true; picker.Animation.IsClosing = false; picker.EditingValueID = el.HasColor.id; picker.EditingColorName = nil; picker.Pos = {x = mouse_x, y = mouse_y}; local color_to_edit = self.UI.Values[el.HasColor.id]; picker.h, picker.s, picker.v, picker.a = self:_RGBtoHSV(color_to_edit[1], color_to_edit[2], color_to_edit[3], color_to_edit[4]); clicked_on_main_ui = true; break;
-                                elseif el.HasSettings and el.SettingsClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, el.SettingsClickRegion) then
-                                if not settings_popup.IsOpen and not settings_popup.Animation.IsClosing then
-                                    settings_popup.Animation.IsOpening = true
-                                    settings_popup.Animation.IsClosing = false
-                                    settings_popup.Animation.CurrentOpacity = 0 
-                                    settings_popup.ActiveToggle = el;
-                                    settings_popup.Pos = {x = mouse_x, y = mouse_y};
+                            for _, section in ipairs(self.UI.Sections) do
+                                -- [[!!!]] ИСПРАВЛЕНИЕ: Проверяем, что секция принадлежит активной вкладке
+                                if section.ParentTab == self.Window.ActiveTab then
+                                    for _, el in ipairs(section.Elements) do
+                                        if self:_IsPointInRegion(mouse_x, mouse_y, el.ClickRegion) then
+                                            if el.type == "Toggle" then self.UI.Values[el.id] = not self.UI.Values[el.id]; if el.Callback then el.Callback(self.UI.Values[el.id]) end
+                                            elseif el.type == "Dropdown" or el.type == "Multidropdown" then
+                                                local openingThisOne = not el.IsOpen; for _, s_inner in ipairs(self.UI.Sections) do for _, el_inner in ipairs(s_inner.Elements) do if (el_inner.type == "Dropdown" or el_inner.type == "Multidropdown") and el_inner.IsOpen then el_inner.IsOpen = false; el_inner.IsClosing = true; end end end
+                                                if openingThisOne then el.IsOpen = true; el.IsClosing = false; el.FadeOpacity = 0.0; end
+                                            end; clicked_on_main_ui = true; break;
+                                        elseif el.type == "Toggle" and el.HasColor and el.ColorClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, el.ColorClickRegion) then
+                                            picker.IsOpen = true; picker.Animation.IsOpening = true; picker.Animation.IsClosing = false; picker.EditingValueID = el.HasColor.id; picker.EditingColorName = nil; picker.Pos = {x = mouse_x, y = mouse_y}; local color_to_edit = self.UI.Values[el.HasColor.id]; picker.h, picker.s, picker.v, picker.a = self:_RGBtoHSV(color_to_edit[1], color_to_edit[2], color_to_edit[3], color_to_edit[4]); clicked_on_main_ui = true; break;
+                                        elseif el.HasSettings and el.SettingsClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, el.SettingsClickRegion) then
+                                        if not settings_popup.IsOpen and not settings_popup.Animation.IsClosing then
+                                            settings_popup.Animation.IsOpening = true
+                                            settings_popup.Animation.IsClosing = false
+                                            settings_popup.Animation.CurrentOpacity = 0 
+                                            settings_popup.ActiveToggle = el;
+                                            settings_popup.Pos = {x = mouse_x, y = mouse_y};
+                                        end
+                                        clicked_on_main_ui = true;
+                                        break;
+                                        elseif el.type == "Slider" and el.ValueInputClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, el.ValueInputClickRegion) then
+                                            el.IsEditing = true; el.InputText = tostring(math.floor(self.UI.Values[el.id])); clicked_on_main_ui = true; break;
+                                        end
+                                    end
                                 end
-                                clicked_on_main_ui = true;
-                                break;
-                                elseif el.type == "Slider" and el.ValueInputClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, el.ValueInputClickRegion) then
-                                    el.IsEditing = true; el.InputText = tostring(math.floor(self.UI.Values[el.id])); clicked_on_main_ui = true; break;
-                                end
-                            end end if clicked_on_main_ui then break end end
+                                if clicked_on_main_ui then break end
+                            end
                         end
 
                         if not clicked_on_main_ui then
@@ -4525,9 +4547,11 @@ function Library:_InputLoop()
 
                 if not active_target then
                     for _, section in ipairs(self.UI.Sections) do
-                        for _, el in ipairs(section.Elements) do
-                            if el.type == "Slider" and el.IsEditing then
-                                active_target = el; break
+                        if section.ParentTab == self.Window.ActiveTab then
+                            for _, el in ipairs(section.Elements) do
+                                if el.type == "Slider" and el.IsEditing then
+                                    active_target = el; break
+                                end
                             end
                         end
                         if active_target then break end
@@ -4574,8 +4598,10 @@ function Library:_InputLoop()
                 if picker.last_key_pressed ~= "None" then picker.last_key_pressed = "None"; picker.is_in_repeat = false end
                 if about_window.AnimationSpeedSlider.last_key_pressed ~= "None" then about_window.AnimationSpeedSlider.last_key_pressed = "None"; about_window.AnimationSpeedSlider.is_in_repeat = false; end
                 for _, section in ipairs(self.UI.Sections) do
-                    for _, el in ipairs(section.Elements) do
-                        if el.type == "Slider" and el.last_key_pressed ~= "None" then el.last_key_pressed = "None"; el.is_in_repeat = false; break end
+                    if section.ParentTab == self.Window.ActiveTab then
+                        for _, el in ipairs(section.Elements) do
+                            if el.type == "Slider" and el.last_key_pressed ~= "None" then el.last_key_pressed = "None"; el.is_in_repeat = false; break end
+                        end
                     end
                 end
             end
@@ -4584,7 +4610,6 @@ function Library:_InputLoop()
         settings_popup.HoveredDropdownOptionIndex = 0
         if settings_popup_nested then settings_popup_nested.HoveredDropdownOptionIndex = 0 end
 
-        -- Сначала проверяем самый верхний, вложенный попап
         if settings_popup_nested and settings_popup_nested.ActiveDropdown and settings_popup_nested.ActiveDropdown.PopupClickRegion then
             for i, option in ipairs(settings_popup_nested.ActiveDropdown.OptionList) do
                 if self:_IsPointInRegion(mouse_x, mouse_y, option.ClickRegion) then
@@ -4592,7 +4617,6 @@ function Library:_InputLoop()
                     break
                 end
             end
-        -- Если наведения нет, проверяем основной попап
         elseif settings_popup.ActiveDropdown and settings_popup.ActiveDropdown.PopupClickRegion then
             for i, option in ipairs(settings_popup.ActiveDropdown.OptionList) do
                 if self:_IsPointInRegion(mouse_x, mouse_y, option.ClickRegion) then
@@ -4601,7 +4625,6 @@ function Library:_InputLoop()
                 end
             end
         end
-        -- [[ КОНЕЦ ИСПРАВЛЕНИЯ ]]
 
     end
 
