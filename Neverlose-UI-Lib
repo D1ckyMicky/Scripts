@@ -919,7 +919,16 @@ function Library:_ResetElementsAnimation(elements)
     end
 end
 
-
+function Library:_FormatSliderValue(value, increment)
+    if increment >= 1 then
+        return tostring(math.floor(value + 0.5)) -- Округляем до ближайшего целого
+    else
+        -- Считаем кол-во знаков после запятой в шаге (Increment)
+        local decimal_places = #string.match(tostring(increment), "%.(.*)")
+        -- Форматируем значение с таким же кол-вом знаков
+        return string.format("%." .. decimal_places .. "f", value)
+    end
+end
 
 --================================================================
 --[[ PRIVATE: GLOW EFFECT HELPERS ]]
@@ -2266,7 +2275,7 @@ function Library:_RenderSettingsPopup(popup) -- [[ ИЗМЕНЕНИЕ: Прин�
     end
 
     local z = popup.Background.zIndex or 20
-    
+
     self:_AnimateAndApplyColor(popup.Background, self:_GetTransitionColor("SectionBackground"), masterOpacity)
     self:_AnimateAndApplyColor(popup.Border, self:_GetTransitionColor("Separator"), masterOpacity)
     self:_AnimateAndApplyColor(popup.Separator, self:_GetTransitionColor("Separator"), masterOpacity)
@@ -2307,7 +2316,7 @@ function Library:_RenderSettingsPopup(popup) -- [[ ИЗМЕНЕНИЕ: Прин�
                 if toggle.HasSettings and toggle.SettingsIcon then self:_SetVisibility(toggle.SettingsIcon, true); self:_AnimateAndApplyColor(toggle.SettingsIcon, self:_GetTransitionColor("TextSecondary"), masterOpacity); local iconX = iconAreaX - toggle.SettingsIcon.Size.x; toggle.SettingsIcon.Position = {iconX, currentY - 1}; toggle.SettingsClickRegion = {x1 = iconX, y1 = currentY - 1, x2 = iconX + toggle.SettingsIcon.Size.x, y2 = currentY - 1 + toggle.SettingsIcon.Size.y}
                 else if toggle.SettingsIcon then self:_SetVisibility(toggle.SettingsIcon, false) end end
                 currentY = currentY + 30
-           
+
             elseif element.type == "Slider" then
                 local slider = element
                 slider.Label.zIndex = el_z; slider.Back.zIndex = el_z; slider.LeftFill.zIndex = el_z + 1; slider.Nub.zIndex = el_z + 2; slider.ValueInputBg.zIndex = el_z; slider.ValueText.zIndex = el_z + 2; slider.ValueInputBorder.zIndex = el_z + 3; slider.ValueInputCursor.zIndex = el_z + 3
@@ -2323,7 +2332,11 @@ function Library:_RenderSettingsPopup(popup) -- [[ ИЗМЕНЕНИЕ: Прин�
                 slider.LeftFill.Position = {sliderBackX, currentElementY + 8}; slider.LeftFill.Size = {nubX - sliderBackX, 2}; slider.Nub.Position = {nubX, currentElementY + 9}
                 local borderColor = slider.IsEditing and self:_GetTransitionColor("Accent") or self:_GetTransitionColor("Separator")
                 self:_AnimateAndApplyColor(slider.ValueInputBg, self:_GetTransitionColor("DarkBlue"), masterOpacity); self:_AnimateAndApplyColor(slider.ValueInputBorder, borderColor, masterOpacity); self:_AnimateAndApplyColor(slider.ValueInputCursor, self:_GetTransitionColor("Accent"), masterOpacity)
-                slider.ValueText.Text = slider.IsEditing and slider.InputText or tostring(math.floor(self.UI.Values[slider.id] or slider.Min)); slider.ValueText.Position = {valueBoxX + valueBoxW / 2, currentElementY - 4 + (valueBoxH / 2) - (slider.ValueText.Size / 2)}; self:_AnimateAndApplyColor(slider.ValueText, self:_GetTransitionColor("TextPrimary"), masterOpacity)
+
+                -- [[ ИСПРАВЛЕНИЕ ]] Используем новую функцию форматирования
+                slider.ValueText.Text = slider.IsEditing and slider.InputText or self:_FormatSliderValue(self.UI.Values[slider.id], slider.Increment)
+
+                slider.ValueText.Position = {valueBoxX + valueBoxW / 2, currentElementY - 4 + (valueBoxH / 2) - (slider.ValueText.Size / 2)}; self:_AnimateAndApplyColor(slider.ValueText, self:_GetTransitionColor("TextPrimary"), masterOpacity)
                 if slider.ValueText.TextBounds and slider.IsEditing then local cursorX = slider.ValueText.Position.x + slider.ValueText.TextBounds.x / 2 + 1; local cursorY = slider.ValueText.Position.y - 2; slider.ValueInputCursor.From = {cursorX, cursorY}; slider.ValueInputCursor.To = {cursorX, cursorY + slider.ValueText.Size + 4} end
                 local glowWidth = nubX - sliderBackX; local glowHeight = 4 -- << Новая высота
                 if glowWidth > 0 and slider.Glow then
@@ -2333,7 +2346,7 @@ function Library:_RenderSettingsPopup(popup) -- [[ ИЗМЕНЕНИЕ: Прин�
                 end
                 self:_AnimateAndApplyColor(slider.Back, self:_GetTransitionColor("DarkBlue"), masterOpacity); self:_AnimateAndApplyColor(slider.LeftFill, self:_GetTransitionColor("Accent"), masterOpacity); self:_AnimateAndApplyColor(slider.Nub, self:_GetTransitionColor("Accent"), masterOpacity)
                 currentY = currentY + 35
-            
+
             elseif element.type == "Dropdown" or element.type == "Multidropdown" then
                 local dd = element; self:_SetVisibility(dd.Button, true); self:_SetVisibility(dd.ButtonText, true); self:_SetVisibility(dd.ArrowLine1, true); self:_SetVisibility(dd.ArrowLine2, true); dd.Button.zIndex = el_z; dd.ButtonText.zIndex = el_z+1; dd.ArrowLine1.zIndex = el_z+1; dd.ArrowLine2.zIndex = el_z+1; local dropdownButtonX = controlRightEdge - dd.Size.width; dd.Button.Position = {dropdownButtonX, currentY-3}; dd.Button.Size = {dd.Size.width, dd.Size.height}; local textToShow = (dd.type == "Dropdown") and self.UI.Values[dd.id] or (#self.UI.Values[dd.id] == 0 and "..." or table.concat(self.UI.Values[dd.id], ", ")); if #textToShow > 11 then textToShow = string.sub(textToShow, 1, 10) .. "..." end; dd.ButtonText.Position = { dropdownButtonX + 5, currentY - 3 + dd.Size.height / 2 - dd.ButtonText.Size / 2 }; dd.ButtonText.Text = textToShow; local arrowX, arrowY = dropdownButtonX + dd.Size.width - 15, currentY - 3 + dd.Size.height / 2; dd.ArrowLine1.From = {arrowX, arrowY - 2}; dd.ArrowLine1.To = {arrowX + 5, arrowY + 3}; dd.ArrowLine2.From = {arrowX + 5, arrowY + 3}; dd.ArrowLine2.To = {arrowX + 10, arrowY - 2}; dd.ClickRegion = { x1 = dropdownButtonX, y1 = currentY-3, x2 = dropdownButtonX + dd.Size.width, y2 = currentY - 3 + dd.Size.height }; self:_AnimateAndApplyColor(dd.Button, self:_GetTransitionColor("DarkBlue"), masterOpacity); self:_AnimateAndApplyColor(dd.ButtonText, self:_GetTransitionColor("TextPrimary"), masterOpacity); self:_AnimateAndApplyColor(dd.ArrowLine1, self:_GetTransitionColor("TextPrimary"), masterOpacity); self:_AnimateAndApplyColor(dd.ArrowLine2, self:_GetTransitionColor("TextPrimary"), masterOpacity); currentY = currentY + 35
             elseif element.type == "Keybind" then
@@ -2347,7 +2360,7 @@ function Library:_RenderSettingsPopup(popup) -- [[ ИЗМЕНЕНИЕ: Прин�
     if popup.ActiveDropdown then
         local el = popup.ActiveDropdown; local dropdown_z = z + 20
         local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4; local animationSpeed = (speed_value > 0) and (speed_value / 15.0) or 1
-        
+
         if self.UI.Values["BurgerLow-EndMode"] then
             if el.IsClosing then el.FadeOpacity = 0; el.IsClosing = false; el.IsOpen = false; else el.FadeOpacity = 1; end
         else
@@ -2360,7 +2373,7 @@ function Library:_RenderSettingsPopup(popup) -- [[ ИЗМЕНЕНИЕ: Прин�
 
         if el.FadeOpacity > 0 then
             local finalOpacity = masterOpacity * el.FadeOpacity; local popupWidth = el.Size.width + 30; local optionHeight = 25; local popupHeight = (#el.Options * optionHeight) + 10; local btnPos = el.Button.Position; local popupX = btnPos.x + (el.Size.width / 2) - (popupWidth / 2); local popupY = btnPos.y + (el.Size.height / 2) - (popupHeight / 2); el.PopupClickRegion = {x1 = popupX, y1 = popupY, x2 = popupX + popupWidth, y2 = popupY + popupHeight}; self:_SetVisibility(el.OptionBackground, true); self:_SetVisibility(el.Border, true); el.OptionBackground.zIndex = dropdown_z; el.Border.zIndex = dropdown_z + 1; self:_AnimateAndApplyColor(el.OptionBackground, self:_GetTransitionColor("SectionBackground"), finalOpacity); self:_AnimateAndApplyColor(el.Border, self:_GetTransitionColor("Separator"), finalOpacity); el.OptionBackground.Position = {popupX, popupY}; el.OptionBackground.Size = {popupWidth, popupHeight}; el.Border.Position = {popupX, popupY}; el.Border.Size = {popupWidth, popupHeight}; if el.Glow then self:_RenderGlowEffect(el.Glow, popupX, popupY, popupWidth, popupHeight, el.OptionBackground.Rounding, self:_GetTransitionColor("GlowColor"), nil, finalOpacity, dropdown_z - 1) end; local currentOptionY = popupY + 5
-            
+
             if el.type == "Multidropdown" then
                 local hasSelection = #self.UI.Values[el.id] > 0
                 local targetTextXOffset = hasSelection and 25 or 10
@@ -2378,9 +2391,9 @@ function Library:_RenderSettingsPopup(popup) -- [[ ИЗМЕНЕНИЕ: Прин�
                 else 
                     textX = popupX + 10
                 end
-                
+
                 self:_SetVisibility(option_item.Text, true); self:_SetVisibility(option_item.Highlight, true); option_item.Text.zIndex = dropdown_z + 2; option_item.Highlight.zIndex = dropdown_z + 1; option_item.ClickRegion = {x1 = popupX, y1 = currentOptionY, x2 = popupX + popupWidth, y2 = currentOptionY + optionHeight}; option_item.Text.Position = {textX, currentOptionY + (optionHeight / 2) - (option_item.Text.Size / 2)}; option_item.Highlight.Position = {popupX + 5, currentOptionY}; option_item.Highlight.Size = {popupWidth - 10, optionHeight}; local isSelected = (el.type == "Dropdown" and self.UI.Values[el.id] == el.Options[i]) or (el.type == "Multidropdown" and table.find(self.UI.Values[el.id], el.Options[i])); local isHovered = (popup.HoveredDropdownOptionIndex == i); local targetTextColor = isSelected and self:_GetTransitionColor("Accent") or self:_GetTransitionColor("TextPrimary"); self:_AnimateAndApplyColor(option_item.Text, targetTextColor, finalOpacity); if isHovered then self:_AnimateAndApplyColor(option_item.Highlight, self:_GetTransitionColor("Separator"), finalOpacity * 0.4) else option_item.Highlight.Opacity = 0 end
-                
+
                 if el.type == "Multidropdown" then
                     local targetOpacity = isSelected and 1.0 or 0.0
                     if self.UI.Values["BurgerLow-EndMode"] then
@@ -3082,9 +3095,9 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
             el.Back.Position = {toggleBackX, toggleBackY}; el.Back.Size = {el.Size.width, el.Size.height}; el.ClickRegion = {x1 = toggleBackX, y1 = toggleBackY, x2 = toggleBackX + el.Size.width, y2 = toggleBackY + el.Size.height}
             local is_on = self.UI.Values[el.id]; local nubY = toggleBackY + el.Size.height / 2; local targetBackColor, targetNubColor
             if is_on then if isThemeLight then targetBackColor = self:_GetTransitionColor("Accent"); targetNubColor = self:_GetTransitionColor("SectionBackground") else targetBackColor = self:_DarkenColor(self:_GetTransitionColor("Accent"), 0.3); targetNubColor = self:_GetTransitionColor("Accent") end else targetBackColor = self:_GetTransitionColor("DarkGray"); targetNubColor = self:_GetTransitionColor("LightGray") end
-            
+
             local targetOffset = is_on and (el.Size.width - el.Size.height / 2) or (el.Size.height / 2)
-            
+
             if self.UI.Values["BurgerLow-EndMode"] then
                 el.AnimatedNubOffset = targetOffset
             else
@@ -3092,7 +3105,7 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
                 local animationSpeed = speed_value / 10.0
                 el.AnimatedNubOffset = el.AnimatedNubOffset + (targetOffset - el.AnimatedNubOffset) * animationSpeed
             end
-            
+
             el.Nub.Position = {toggleBackX + el.AnimatedNubOffset, nubY}
 
             self:_AnimateAndApplyColor(el.Back, targetBackColor, masterOpacity); self:_AnimateAndApplyColor(el.Nub, targetNubColor, masterOpacity)
@@ -3108,17 +3121,17 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
 
             local currentElementY = animatedY + elementY_offset
             self:_AnimateAndApplyColor(el.Label, self:_GetTransitionColor("TextSecondary"), masterOpacity); el.Label.Position = {sectionX + 10, currentElementY}
-            
+
             local valueBoxW, valueBoxH = 45, 22
             local valueBoxX = sectionX + columnWidth - valueBoxW - 10
             el.ValueInputBg.Position = {valueBoxX, currentElementY - 4}; el.ValueInputBg.Size = {valueBoxW, valueBoxH}
             el.ValueInputBorder.Position = {valueBoxX, currentElementY - 4}; el.ValueInputBorder.Size = {valueBoxW, valueBoxH}
             el.ValueInputClickRegion = {x1 = valueBoxX, y1 = currentElementY - 4, x2 = valueBoxX + valueBoxW, y2 = currentElementY - 4 + valueBoxH}
-            
+
             local sliderBackX = sectionX + 100
             local sliderBackWidth = (valueBoxX - 10) - sliderBackX
             el.Back.Position = {sliderBackX, currentElementY + 8}; el.Back.Size = {sliderBackWidth, 2}; el.ClickRegion = { x1 = sliderBackX, y1 = currentElementY - 2, x2 = sliderBackX + sliderBackWidth, y2 = currentElementY + 18 };
-            
+
             if self.UI.Values["BurgerLow-EndMode"] then
                 el.AnimatedValue = self.UI.Values[el.id]
             else
@@ -3126,17 +3139,19 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
                 local animationSpeed = speed_value / 15.0
                 el.AnimatedValue = el.AnimatedValue + (self.UI.Values[el.id] - el.AnimatedValue) * animationSpeed
             end
-            
+
             local value_percentage = math.clamp((el.AnimatedValue - el.Min) / (el.Max - el.Min), 0, 1)
             local nubX = sliderBackX + sliderBackWidth * value_percentage
             el.LeftFill.Position = {sliderBackX, currentElementY + 8}; el.LeftFill.Size = {nubX - sliderBackX, 2}; el.Nub.Position = {nubX, currentElementY + 9}
-            
+
             local borderColor = el.IsEditing and self:_GetTransitionColor("Accent") or self:_GetTransitionColor("Separator")
             self:_AnimateAndApplyColor(el.ValueInputBg, self:_GetTransitionColor("DarkBlue"), masterOpacity)
             self:_AnimateAndApplyColor(el.ValueInputBorder, borderColor, masterOpacity)
             self:_AnimateAndApplyColor(el.ValueInputCursor, self:_GetTransitionColor("Accent"), masterOpacity)
 
-            el.ValueText.Text = el.IsEditing and el.InputText or tostring(math.floor(self.UI.Values[el.id] or el.Min))
+            -- [[ ИСПРАВЛЕНИЕ ]] Используем новую функцию форматирования
+            el.ValueText.Text = el.IsEditing and el.InputText or self:_FormatSliderValue(self.UI.Values[el.id], el.Increment)
+
             el.ValueText.Position = {valueBoxX + valueBoxW / 2, currentElementY - 4 + (valueBoxH / 2) - (el.ValueText.Size / 2)}
             self:_AnimateAndApplyColor(el.ValueText, self:_GetTransitionColor("TextPrimary"), masterOpacity)
 
@@ -3179,7 +3194,7 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
                     end
                 end
             end
-            
+
             self:_SetVisibility(el.Button, true); self:_SetVisibility(el.ButtonText, true); self:_SetVisibility(el.ArrowLine1, true); self:_SetVisibility(el.ArrowLine2, true)
             local currentElementY = animatedY + elementY_offset; self:_AnimateAndApplyColor(el.Label, self:_GetTransitionColor("TextSecondary"), masterOpacity); el.Label.Position = {sectionX + 10, currentElementY + 5}
             local dropdownButtonX, dropdownButtonY = sectionX + columnWidth - el.Size.width - 15, currentElementY; el.Button.Position = {dropdownButtonX, dropdownButtonY}; el.Button.Size = {el.Size.width, el.Size.height}
@@ -3189,10 +3204,10 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
             el.ClickRegion = { x1 = dropdownButtonX, y1 = dropdownButtonY, x2 = dropdownButtonX + el.Size.width, y2 = dropdownButtonY + el.Size.height }
             self:_AnimateAndApplyColor(el.Button, self:_GetTransitionColor("DarkBlue"), masterOpacity); self:_AnimateAndApplyColor(el.ButtonText, self:_GetTransitionColor("TextPrimary"), masterOpacity); self:_AnimateAndApplyColor(el.ArrowLine1, self:_GetTransitionColor("TextPrimary"), masterOpacity); self:_AnimateAndApplyColor(el.ArrowLine2, self:_GetTransitionColor("TextPrimary"), masterOpacity)
             elementY_offset = elementY_offset + 35
-            
+
             if el.IsOpen or el.IsClosing then
                 local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4; local animationSpeed = (speed_value / 1.5) / 10.0
-                
+
                 if self.UI.Values["BurgerLow-EndMode"] then
                     el.FadeOpacity = (el.IsOpen and not el.IsClosing) and 1 or 0
                     if el.FadeOpacity == 0 then el.IsClosing = false end
@@ -3207,7 +3222,7 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
                     self:_SetVisibility(el.OptionBackground, true); self:_SetVisibility(el.Border, true)
                     self:_AnimateAndApplyColor(el.OptionBackground, self:_GetTransitionColor("SectionBackground"), finalOpacity); self:_AnimateAndApplyColor(el.Border, self:_GetTransitionColor("Separator"), finalOpacity)
                     el.OptionBackground.Position = {popupX, popupY}; el.OptionBackground.Size = {popupWidth, popupHeight}; el.Border.Position = {popupX, popupY}; el.Border.Size = {popupWidth, popupHeight}
-                    
+
                     local glowFinalOpacity = masterOpacity * el.FadeOpacity
                     if not self.UI.Values["BurgerLow-EndMode"] then
                          if el.IsOpen and not el.IsClosing then local threshold = 0.5; if el.FadeOpacity > threshold then local glowProgress = (el.FadeOpacity - threshold) / (1.0 - threshold); glowFinalOpacity = masterOpacity * glowProgress else glowFinalOpacity = 0 end elseif el.IsClosing then glowFinalOpacity = masterOpacity * (el.FadeOpacity * el.FadeOpacity) end
@@ -3222,13 +3237,13 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
                         else 
                             textX = popupX + 10
                         end
-                        
+
                         self:_SetVisibility(option_item.Text, true); self:_SetVisibility(option_item.Highlight, true)
                         option_item.ClickRegion = {x1 = popupX, y1 = currentOptionY, x2 = popupX + popupWidth, y2 = currentOptionY + optionHeight}; option_item.Text.Position = {textX, currentOptionY + (optionHeight / 2) - (option_item.Text.Size / 2)}; option_item.Highlight.Position = {popupX + 5, currentOptionY}; option_item.Highlight.Size = {popupWidth - 10, optionHeight}
                         local isSelected = (el.type == "Dropdown" and self.UI.Values[el.id] == el.Options[i]) or (el.type == "Multidropdown" and table.find(self.UI.Values[el.id], el.Options[i])); local isHovered = (el.HoveredOptionIndex == i)
                         local targetTextColor = isSelected and self:_GetTransitionColor("Accent") or self:_GetTransitionColor("TextPrimary"); self:_AnimateAndApplyColor(option_item.Text, targetTextColor, finalOpacity)
                         if isHovered then local highlightColor = self:_GetTransitionColor("Separator"); self:_AnimateAndApplyColor(option_item.Highlight, highlightColor, finalOpacity * 0.4) else option_item.Highlight.Opacity = 0 end
-                        
+
                         if el.type == "Multidropdown" then
                             if option_item.CheckmarkOpacity > 0.01 then
                                 self:_SetVisibility(option_item.CheckmarkLine1, true); self:_SetVisibility(option_item.CheckmarkLine2, true)
@@ -3819,17 +3834,15 @@ function Library:_InputLoop()
         local burger_button = self.UI.Core.HeaderButtons.BurgerMenu
         local wm = self.UI.Watermark
         local hk = self.UI.Hotkeys
-        
+
         local function applySliderInput(slider)
             if not slider.IsEditing then return end
             local num = tonumber(slider.InputText)
             if num then
                 num = math.clamp(num, slider.Min, slider.Max)
-                if slider.Increment >= 1 then
-                    self.UI.Values[slider.id] = math.floor(num)
-                else
-                    self.UI.Values[slider.id] = num
-                end
+                -- [[ ИСПРАВЛЕНИЕ ]] Используем новую функцию форматирования для сохранения значения
+                self.UI.Values[slider.id] = tonumber(self:_FormatSliderValue(num, slider.Increment))
+
                 if slider.Callback then slider.Callback(self.UI.Values[slider.id]) end
             end
             slider.IsEditing = false
@@ -3958,7 +3971,7 @@ function Library:_InputLoop()
             if not started_drag and self.UI.Values["BurgerHotkeys"] and self:_IsPointInRegion(mouse_x, mouse_y, hkDragRegion) then
                 hk.IsDragging = true; started_drag = true; hk.DragOffset = {x = mouse_x - hk.Position.x, y = mouse_y - hk.Position.y};
             end
-            
+
             if not started_drag and not press_on_top_element then
                 if about_window.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, about_window.AnimationSpeedSlider.ClickRegion) then
                     about_window.AnimationSpeedSlider.IsDragging = true; started_drag = true;
@@ -3980,7 +3993,7 @@ function Library:_InputLoop()
                         end
                         if started_drag then break end
                     end
-                    if not started_drag and settings_popup.IsOpen and settings_popup.ActiveToggle and (not settings_popup_nested or not settings_popup_nested.IsOpen) then
+                    if not started_drag and settings_popup.IsOpen and (not settings_popup_nested or not settings_popup_nested.IsOpen) then
                         for _, el in ipairs(settings_popup.ActiveToggle.SettingsElements) do
                             if el.type == "Slider" and self:_IsPointInRegion(mouse_x, mouse_y, el.ClickRegion) then
                                 el.IsDragging = true; started_drag = true; break;
@@ -4019,16 +4032,16 @@ function Library:_InputLoop()
                 local totalContentHeight = (#configsTab.Items * totalItemHeight) - itemSpacing
                 local minNubHeight = 30
                 local nubHeight = math.max(minNubHeight, visibleAreaHeight * (visibleAreaHeight / totalContentHeight))
-                
+
                 local contentScrollRange = totalContentHeight - visibleAreaHeight
                 local nubScrollRange = visibleAreaHeight - nubHeight
-                
+
                 local mouseDeltaY = mouse_y - scrollbar.DragStartMouseY
-                
+
                 local scrollRatio = (nubScrollRange > 0) and (contentScrollRange / nubScrollRange) or 0
-                
+
                 local newOffset = scrollbar.DragStartOffset + (mouseDeltaY * scrollRatio)
-                
+
                 configsTab.Scrollbar.ScrollOffset = math.clamp(newOffset, 0, contentScrollRange)
             end
 
@@ -4041,14 +4054,14 @@ function Library:_InputLoop()
                 local mouse_relative_x = math.clamp(mouse_x - sliderBackX, 0, sliderBackWidth)
                 local percentage = sliderBackWidth > 0 and (mouse_relative_x / sliderBackWidth) or 0
                 local raw_value = slider.Min + (slider.Max - slider.Min) * percentage
-                
+
                 local stepped_value
                 if slider.Increment >= 1 then
                     stepped_value = math.floor(raw_value / slider.Increment + 0.5) * slider.Increment
                 else
                     stepped_value = tonumber(string.format("%." .. string.len(tostring(slider.Increment):match("%.(.*)") or "") .. "f", (math.floor(raw_value / slider.Increment + 0.5) * slider.Increment)))
                 end
-                
+
                 local clamped_value = math.clamp(stepped_value, slider.Min, slider.Max)
                 if clamped_value ~= self.UI.Values[slider.id] then
                     self.UI.Values[slider.id] = clamped_value
@@ -4266,7 +4279,7 @@ function Library:_InputLoop()
                                 self:_RebuildStyleCircles()
                                 self.UI.Values.AboutSelectedStyle = finalName
                                 self.ActiveTheme = self.Themes[finalName]
-                                
+
                                 -- Сбрасываем состояния и закрываем окно
                                 self.TempTheme = nil; self.PreEditThemeName = nil; self.UI.Values.EditStyleRealTime = false;
                                 style_window.Animation.IsClosing = true; style_window.Animation.IsOpening = false; style_window.IsEditingName = false;
@@ -4292,8 +4305,11 @@ function Library:_InputLoop()
                             if self:_IsPointInRegion(mouse_x, mouse_y, about_window.CloseButton.ClickRegion) then about_window.Animation.IsClosing = true; about_window.Animation.IsOpening = false;
                             elseif self:_IsPointInRegion(mouse_x, mouse_y, about_window.AutoSaveToggle.ClickRegion) then self.UI.Values.AboutAutoSave = not self.UI.Values.AboutAutoSave
                             elseif self:_IsPointInRegion(mouse_x, mouse_y, about_window.ToggleUIKeybind.ClickRegion) then about_window.ToggleUIKeybind.IsListening = not about_window.ToggleUIKeybind.IsListening
+                            -- [[ ИСПРАВЛЕНИЕ ]] Используем новую функцию форматирования
                             elseif self:_IsPointInRegion(mouse_x, mouse_y, about_window.AnimationSpeedSlider.ValueInputClickRegion) then
-                                local slider = about_window.AnimationSpeedSlider; slider.IsEditing = true; slider.InputText = string.format("%.1f", self.UI.Values[slider.id])
+                                local slider = about_window.AnimationSpeedSlider
+                                slider.IsEditing = true
+                                slider.InputText = self:_FormatSliderValue(self.UI.Values[slider.id], slider.Increment)
                             else
                                 for _, circle in ipairs(about_window.StyleCircles) do
                                     if self:_IsPointInRegion(mouse_x, mouse_y, circle.ClickRegion) then
@@ -4322,11 +4338,11 @@ function Library:_InputLoop()
                     elseif settings_popup_nested and settings_popup_nested.IsOpen then
                         click_was_handled = true
                         local clicked_inside_nested = settings_popup_nested.ClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, settings_popup_nested.ClickRegion)
-                        
+
                         if settings_popup_nested.ActiveDropdown then
                             local active_dd = settings_popup_nested.ActiveDropdown
                             local clicked_inside_dd_options = active_dd.PopupClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, active_dd.PopupClickRegion)
-                            
+
                             if clicked_inside_dd_options then
                                 if settings_popup_nested.HoveredDropdownOptionIndex > 0 then
                                     local i = settings_popup_nested.HoveredDropdownOptionIndex
@@ -4353,8 +4369,9 @@ function Library:_InputLoop()
                                         picker.IsOpen, picker.Animation.IsOpening, picker.EditingValueID, picker.EditingColorName, picker.Pos = true, true, element.HasColor.id, nil, {x = mouse_x, y = mouse_y}
                                         local color_to_edit = self.UI.Values[element.HasColor.id]; picker.h, picker.s, picker.v, picker.a = self:_RGBtoHSV(color_to_edit[1], color_to_edit[2], color_to_edit[3], color_to_edit[4])
                                         break
+                                    -- [[ ИСПРАВЛЕНИЕ ]] Используем новую функцию форматирования
                                     elseif element.type == "Slider" and element.ValueInputClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, element.ValueInputClickRegion) then
-                                        element.IsEditing, element.InputText = true, tostring(math.floor(self.UI.Values[element.id])); break
+                                        element.IsEditing, element.InputText = true, self:_FormatSliderValue(self.UI.Values[element.id], element.Increment); break
                                     end
                                 end
                             end
@@ -4366,7 +4383,7 @@ function Library:_InputLoop()
                     elseif settings_popup.IsOpen then
                         click_was_handled = true
                         local clicked_inside_main = settings_popup.ClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, settings_popup.ClickRegion)
-                        
+
                         if settings_popup.ActiveDropdown then
                             local active_dd = settings_popup.ActiveDropdown
                             local clicked_inside_dd_options = active_dd.PopupClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, active_dd.PopupClickRegion)
@@ -4401,8 +4418,9 @@ function Library:_InputLoop()
                                         elseif element.type == "Keybind" then element.IsListening = not element.IsListening
                                         elseif element.type == "Dropdown" or element.type == "Multidropdown" then element.IsOpen, element.IsClosing, element.FadeOpacity, settings_popup.ActiveDropdown = true, false, 0.0, element end
                                         break
+                                    -- [[ ИСПРАВЛЕНИЕ ]] Используем новую функцию форматирования
                                     elseif element.type == "Slider" and element.ValueInputClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, element.ValueInputClickRegion) then
-                                        element.IsEditing, element.InputText = true, tostring(math.floor(self.UI.Values[element.id])); break
+                                        element.IsEditing, element.InputText = true, self:_FormatSliderValue(self.UI.Values[element.id], element.Increment); break
                                     end
                                 end
                             end
@@ -4434,13 +4452,13 @@ function Library:_InputLoop()
                                 if itemIndex and configsTab.Items[itemIndex] then
                                     local configNameToDelete = configsTab.Items[itemIndex].Name
                                     deletefile(self:_GetConfigPath(configNameToDelete))
-                                    
+
                                     local itemHeight = 60; local itemSpacing = 10; local totalItemHeight = itemHeight + itemSpacing; local MAX_VISIBLE_ITEMS = 7
                                     local visibleAreaHeight = (MAX_VISIBLE_ITEMS * totalItemHeight) - itemSpacing
-                                    
+
                                     local newTotalContentHeight = ((#configsTab.Items - 1) * totalItemHeight) - itemSpacing
                                     local newMaxScrollOffset = math.max(0, newTotalContentHeight - visibleAreaHeight)
-                                    
+
                                     configsTab.Scrollbar.ScrollOffset = math.min(configsTab.Scrollbar.ScrollOffset, newMaxScrollOffset)
 
                                     configsTab.OptionsPopup.Animation.IsClosing = true
@@ -4467,7 +4485,7 @@ function Library:_InputLoop()
                                 -- Устанавливаем анимированное значение в минимум при открытии
                                 slider.AnimatedValue = slider.Min
                             end
-                            
+
                         else 
                             about_window.Animation.IsClosing = true; 
                             about_window.Animation.IsOpening = false; 
@@ -4481,7 +4499,7 @@ function Library:_InputLoop()
                         local clicked_on_main_ui = false
                         if self.Window.ActiveTab == "Configs" then
                             for i, item in ipairs(configsTab.Items) do local d = item.Drawing
-                                if configsTab.LoadedConfigName == item.Name and self:_IsPointInRegion(mouse_x, mouse_y, d.SaveButton.ClickRegion) then self:_SaveConfig(item.Name); clicked_on_main_ui = true; break;
+                                if configsTab.LoadedConfigName == item.Name and self:_IsPointIninRegion(mouse_x, mouse_y, d.SaveButton.ClickRegion) then self:_SaveConfig(item.Name); clicked_on_main_ui = true; break;
                                 elseif configsTab.LoadedConfigName ~= item.Name and self:_IsPointInRegion(mouse_x, mouse_y, d.LoadButton.ClickRegion) then self:_LoadConfig(item.Name); clicked_on_main_ui = true; break;
                                 elseif self:_IsPointInRegion(mouse_x, mouse_y, d.OptionsButton.ClickRegion) then 
                                     local popup_options = configsTab.OptionsPopup
@@ -4524,8 +4542,9 @@ function Library:_InputLoop()
                                         end
                                         clicked_on_main_ui = true;
                                         break;
+                                        -- [[ ИСПРАВЛЕНИЕ ]] Используем новую функцию форматирования
                                         elseif el.type == "Slider" and el.ValueInputClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, el.ValueInputClickRegion) then
-                                            el.IsEditing = true; el.InputText = tostring(math.floor(self.UI.Values[el.id])); clicked_on_main_ui = true; break;
+                                            el.IsEditing = true; el.InputText = self:_FormatSliderValue(self.UI.Values[el.id], el.Increment); clicked_on_main_ui = true; break;
                                         end
                                     end
                                 end
@@ -4582,7 +4601,7 @@ function Library:_InputLoop()
 
                             -- 2. Разрешаем точку/запятую/пробел (и конвертируем в точку)
                             -- Добавлена проверка на OemPeriod и OemComma
-                            elseif (input_key == "." or input_key == "," or input_key == "Space" or input_key == "Oem_Period" or input_key == "Oem_Comma") then
+                            elseif (input_key == "." or input_key == "," or input_key == "Space" or input_key == "OemPeriod" or input_key == "OemComma") then
                                 -- Добавляем точку, только если её еще нет
                                 if not string.find(target.InputText, "%.") then
                                     target.InputText = target.InputText .. "."
@@ -4734,7 +4753,7 @@ function Library:_InputLoop()
                 end
             end
         end
-        
+
         settings_popup.HoveredDropdownOptionIndex = 0
         if settings_popup_nested then settings_popup_nested.HoveredDropdownOptionIndex = 0 end
 
