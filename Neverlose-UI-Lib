@@ -3863,7 +3863,6 @@ function Library:_InputLoop()
             local started_drag = false
 
             local press_on_top_element = false
-            -- [[ ИЗМЕНЕНИЕ: Добавлена проверка 'settings_popup_nested and ...' ]]
             if settings_popup_nested and settings_popup_nested.IsOpen and settings_popup_nested.ActiveDropdown then
                  if settings_popup_nested.ActiveDropdown.PopupClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, settings_popup_nested.ActiveDropdown.PopupClickRegion) then press_on_top_element = true end
             elseif settings_popup.IsOpen and settings_popup.ActiveDropdown then
@@ -4208,12 +4207,25 @@ function Library:_InputLoop()
                     -- [[ НАЧАЛО БЛОКА ИЗМЕНЕНИЙ: Полностью переписанная логика для попапов настроек ]]
                     elseif settings_popup_nested and settings_popup_nested.IsOpen then
                         click_was_handled = true
-                        -- Сначала проверяем самый верхний (вложенный) попап
                         local clicked_inside_nested = settings_popup_nested.ClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, settings_popup_nested.ClickRegion)
                         
+                        -- [[ ИСПРАВЛЕНИЕ: Добавлена полная логика обработки кликов ]]
                         if settings_popup_nested.ActiveDropdown then
                             local active_dd = settings_popup_nested.ActiveDropdown
-                            if not (active_dd.PopupClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, active_dd.PopupClickRegion)) then
+                            local clicked_inside_dd_options = active_dd.PopupClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, active_dd.PopupClickRegion)
+                            
+                            if clicked_inside_dd_options then
+                                if settings_popup_nested.HoveredDropdownOptionIndex > 0 then
+                                    local i = settings_popup_nested.HoveredDropdownOptionIndex
+                                    if active_dd.type == "Dropdown" then
+                                        self.UI.Values[active_dd.id] = active_dd.Options[i]; if active_dd.Callback then pcall(active_dd.Callback, self.UI.Values[active_dd.id]) end; active_dd.IsClosing = true
+                                    else 
+                                        local opt = active_dd.Options[i]; local found_idx = table.find(self.UI.Values[active_dd.id], opt)
+                                        if found_idx then table.remove(self.UI.Values[active_dd.id], found_idx) else table.insert(self.UI.Values[active_dd.id], opt) end
+                                        if active_dd.Callback then pcall(active_dd.Callback, self.UI.Values[active_dd.id]) end
+                                    end
+                                end
+                            else
                                 active_dd.IsClosing = true
                             end
                         elseif clicked_inside_nested then
@@ -4240,19 +4252,31 @@ function Library:_InputLoop()
 
                     elseif settings_popup.IsOpen then
                         click_was_handled = true
-                        -- Затем проверяем основной попап настроек
                         local clicked_inside_main = settings_popup.ClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, settings_popup.ClickRegion)
                         
+                        -- [[ ИСПРАВЛЕНИЕ: Добавлена полная логика обработки кликов ]]
                         if settings_popup.ActiveDropdown then
                             local active_dd = settings_popup.ActiveDropdown
-                            if not (active_dd.PopupClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, active_dd.PopupClickRegion)) then
+                            local clicked_inside_dd_options = active_dd.PopupClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, active_dd.PopupClickRegion)
+                            if clicked_inside_dd_options then
+                                if settings_popup.HoveredDropdownOptionIndex > 0 then
+                                    local i = settings_popup.HoveredDropdownOptionIndex
+                                    if active_dd.type == "Dropdown" then
+                                        self.UI.Values[active_dd.id] = active_dd.Options[i]; if active_dd.Callback then pcall(active_dd.Callback, self.UI.Values[active_dd.id]) end; active_dd.IsClosing = true
+                                    else 
+                                        local opt = active_dd.Options[i]; local found_idx = table.find(self.UI.Values[active_dd.id], opt)
+                                        if found_idx then table.remove(self.UI.Values[active_dd.id], found_idx) else table.insert(self.UI.Values[active_dd.id], opt) end
+                                        if active_dd.Callback then pcall(active_dd.Callback, self.UI.Values[active_dd.id]) end
+                                    end
+                                end
+                            else
                                 active_dd.IsClosing = true
                             end
                         elseif clicked_inside_main then
                             if settings_popup.ActiveToggle and settings_popup.ActiveToggle.SettingsElements then
                                 for _, element in ipairs(settings_popup.ActiveToggle.SettingsElements) do
                                     if element.HasSettings and element.SettingsClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, element.SettingsClickRegion) then
-                                        settings_popup_nested.Animation.IsOpening, settings_popup_nested.Animation.IsClosing, settings_popup_nested.ActiveToggle, settings_popup_nested.Pos = true, false, element, {x = mouse_x, y = mouse_y}
+                                        if settings_popup_nested then settings_popup_nested.Animation.IsOpening, settings_popup_nested.Animation.IsClosing, settings_popup_nested.ActiveToggle, settings_popup_nested.Pos = true, false, element, {x = mouse_x, y = mouse_y} end
                                         break
                                     elseif element.HasColor and element.ColorClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, element.ColorClickRegion) then
                                         picker.IsOpen, picker.Animation.IsOpening, picker.EditingValueID, picker.EditingColorName, picker.Pos = true, true, element.HasColor.id, nil, {x = mouse_x, y = mouse_y}
