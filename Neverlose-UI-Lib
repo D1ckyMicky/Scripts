@@ -2193,7 +2193,7 @@ function Library:_RenderAboutWindow(mouse_pos)
         slider.ValueInputCursor.To = {cursorX, cursorY + slider.ValueText.Size + 4}
     end
 
-    local glowWidth = nubX - sliderBackX; local glowHeight = 6
+    local glowWidth = nubX - sliderBackX; local glowHeight = 4
     if glowWidth > 0 and slider.Glow then
         self:_RenderGlowEffect(slider.Glow, sliderBackX, currentY + 9 - (glowHeight / 2), glowWidth, glowHeight, slider.LeftFill.Rounding, self:_GetTransitionColor("GlowAccent"), nil, masterOpacity) 
     elseif slider.Glow then 
@@ -2325,7 +2325,12 @@ function Library:_RenderSettingsPopup(popup) -- [[ ИЗМЕНЕНИЕ: Прин�
                 self:_AnimateAndApplyColor(slider.ValueInputBg, self:_GetTransitionColor("DarkBlue"), masterOpacity); self:_AnimateAndApplyColor(slider.ValueInputBorder, borderColor, masterOpacity); self:_AnimateAndApplyColor(slider.ValueInputCursor, self:_GetTransitionColor("Accent"), masterOpacity)
                 slider.ValueText.Text = slider.IsEditing and slider.InputText or tostring(math.floor(self.UI.Values[slider.id] or slider.Min)); slider.ValueText.Position = {valueBoxX + valueBoxW / 2, currentElementY - 4 + (valueBoxH / 2) - (slider.ValueText.Size / 2)}; self:_AnimateAndApplyColor(slider.ValueText, self:_GetTransitionColor("TextPrimary"), masterOpacity)
                 if slider.ValueText.TextBounds and slider.IsEditing then local cursorX = slider.ValueText.Position.x + slider.ValueText.TextBounds.x / 2 + 1; local cursorY = slider.ValueText.Position.y - 2; slider.ValueInputCursor.From = {cursorX, cursorY}; slider.ValueInputCursor.To = {cursorX, cursorY + slider.ValueText.Size + 4} end
-                if slider.Glow then self:_RenderGlowEffect(slider.Glow, slider.LeftFill.Position.x, slider.LeftFill.Position.y, slider.LeftFill.Size.x, 2, slider.LeftFill.Rounding, self:_GetTransitionColor("GlowAccent"), nil, masterOpacity, el_z + 1) end
+                local glowWidth = nubX - sliderBackX; local glowHeight = 4 -- << Новая высота
+                if glowWidth > 0 and slider.Glow then
+                    self:_RenderGlowEffect(slider.Glow, sliderBackX, currentElementY + 9 - (glowHeight / 2), glowWidth, glowHeight, slider.LeftFill.Rounding, self:_GetTransitionColor("GlowAccent"), nil, masterOpacity, el_z + 1)
+                elseif slider.Glow then
+                    self:_HideGlowEffect(slider.Glow)
+                end
                 self:_AnimateAndApplyColor(slider.Back, self:_GetTransitionColor("DarkBlue"), masterOpacity); self:_AnimateAndApplyColor(slider.LeftFill, self:_GetTransitionColor("Accent"), masterOpacity); self:_AnimateAndApplyColor(slider.Nub, self:_GetTransitionColor("Accent"), masterOpacity)
                 currentY = currentY + 35
             
@@ -2996,7 +3001,7 @@ function Library:_RenderTabs(x, y, width)
             self:_AnimateAndApplyColor(group.Header, theme.Colors.TabHeader)
             group.Header.Position = {x + 25, currentY}
         end
-        currentY = currentY + theme.Fonts.TabHeaderSize + 6
+        currentY = currentY + theme.Fonts.TabHeaderSize + 4
 
         for _, tab in ipairs(group.Tabs) do
             local tabHeight = theme.Fonts.TabSize + 10
@@ -3142,7 +3147,7 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
                 el.ValueInputCursor.To = {cursorX, cursorY + el.ValueText.Size + 4}
             end
 
-            local glowWidth = nubX - sliderBackX; local glowHeight = 6
+            local glowWidth = nubX - sliderBackX; local glowHeight = 4
             if glowWidth > 0 and el.Glow and masterOpacity > 0.01 then
                 self:_RenderGlowEffect(el.Glow, sliderBackX, currentElementY + 9 - (glowHeight / 2), glowWidth, glowHeight, el.LeftFill.Rounding, self:_GetTransitionColor("GlowAccent"), {top=true, bottom=true, left=true, right=false}, masterOpacity, el.Back.zIndex + 1)
             elseif el.Glow then 
