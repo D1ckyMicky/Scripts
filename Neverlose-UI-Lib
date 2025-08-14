@@ -1240,18 +1240,17 @@ function Library:_RebuildStyleCircles()
     local about = self.UI.Core.AboutWindow
     local about_z = 32
 
-    for _, circle in ipairs(about.StyleCircles) do
-        if circle.Circle then circle.Circle:Remove() end
-        if circle.Border then circle.Border:Remove() end
-        if circle.Inner then circle.Inner:Remove() end
-        if circle.PlusLine1 then circle.PlusLine1:Remove() end
-        if circle.PlusLine2 then circle.PlusLine2:Remove() end
+    -- --- [[ ИСПРАВЛЕНИЕ: Безопасное удаление старых объектов через очередь ]] ---
+    -- Вместо прямого вызова :Remove() в цикле, мы используем безопасную функцию,
+    -- которая добавляет все вложенные объекты в очередь на удаление.
+    if about.StyleCircles and #about.StyleCircles > 0 then
+        self:_CleanupDrawingObjects(about.StyleCircles)
     end
     about.StyleCircles = {}
 
     local function addCircle(theme, isAddButton)
         local circleObj = {
-            Name = theme.Name,
+            Name = theme and theme.Name or "Add", -- Добавлена проверка на nil
             IsAddButton = isAddButton or false,
             Circle = self:_CreateDrawingObject("Circle"),
             Border = self:_CreateDrawingObject("Circle"),
@@ -1262,7 +1261,7 @@ function Library:_RebuildStyleCircles()
             circleObj.Circle.Filled = true; 
             circleObj.Circle.zIndex = about_z; 
             circleObj.Circle.Radius = 9; 
-            local c = (theme.Colors and theme.Colors.MainBackground) or {40,40,40,255};
+            local c = (theme and theme.Colors and theme.Colors.MainBackground) or {40,40,40,255}; -- Добавлена проверка на nil
             circleObj.Circle.Color = {c[1], c[2], c[3]};
             circleObj.Circle.Opacity = (c[4] or 255) / 255;
         end
@@ -1272,7 +1271,7 @@ function Library:_RebuildStyleCircles()
             circleObj.PlusLine1 = self:_CreateDrawingObject("Line"); if circleObj.PlusLine1 then circleObj.PlusLine1.Thickness = 2; circleObj.PlusLine1.zIndex = about_z + 1; end
             circleObj.PlusLine2 = self:_CreateDrawingObject("Line"); if circleObj.PlusLine2 then circleObj.PlusLine2.Thickness = 2; circleObj.PlusLine2.zIndex = about_z + 1; end
         else
-            circleObj.Inner = self:_CreateDrawingObject("Circle"); if circleObj.Inner then 
+            circleObj.Inner = self:_CreateDrawingObject("Circle"); if circleObj.Inner and theme and theme.Colors then -- Добавлена проверка на nil
                 circleObj.Inner.Filled = true; 
                 circleObj.Inner.zIndex = about_z + 1; 
                 circleObj.Inner.Radius = 4;
