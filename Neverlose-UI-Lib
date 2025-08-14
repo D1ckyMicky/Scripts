@@ -4582,7 +4582,7 @@ function Library:_InputLoop()
 
                             -- 2. Разрешаем точку/запятую/пробел (и конвертируем в точку)
                             -- Добавлена проверка на OemPeriod и OemComma
-                            elseif (input_key == "." or input_key == "," or input_key == "Space" or input_key == "OemPeriod" or input_key == "OemComma") then
+                            elseif (input_key == "." or input_key == "," or input_key == "Space" or input_key == "Oem_Period" or input_key == "Oem_Comma") then
                                 -- Добавляем точку, только если её еще нет
                                 if not string.find(target.InputText, "%.") then
                                     target.InputText = target.InputText .. "."
