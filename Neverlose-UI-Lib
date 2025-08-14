@@ -1035,8 +1035,9 @@ function Library:_InitializeCoreUI()
     UI.Core.ViewESPPanelBorder = self:_CreateDrawingObject("Square"); if UI.Core.ViewESPPanelBorder then UI.Core.ViewESPPanelBorder.Filled = false; UI.Core.ViewESPPanelBorder.Thickness = 1; UI.Core.ViewESPPanelBorder.zIndex = 3; UI.Core.ViewESPPanelBorder.Rounding = self.ActiveTheme.Rounding.Window; end
 
     self:_InitializeAboutWindow()
-    self.UI.Popups.Settings = self:_Internal_CreateSettingsPopup() -- Создаст и вернет первый попап
-    self.UI.Popups.SettingsNested = self:_Internal_CreateSettingsPopup() -- Создаст и вернет второй, независимый попап
+    -- [[ ИЗМЕНЕНИЕ: Задаем разный zIndex для окон ]]
+    self.UI.Popups.Settings = self:_Internal_CreateSettingsPopup(20)
+    self.UI.Popups.SettingsNested = self:_Internal_CreateSettingsPopup(40) -- Делаем zIndex выше
     self:_InitializeEditStyleWindow()
     self:_InitializeColorPickerWindow()
     self:_InitializeConfigsTab()
@@ -1276,9 +1277,9 @@ function Library:_RebuildStyleCircles()
     end
 end
 
-function Library:_Internal_CreateSettingsPopup() 
-    -- [[ ИЗМЕНЕНИЕ: Убираем 'self.UI.Popups.Settings = popup' отсюда ]]
-    local popup = {}; local z = 20 
+function Library:_Internal_CreateSettingsPopup(baseZ) -- [[ НОВОЕ: Добавляем аргумент baseZ ]]
+    local popup = {}; 
+    local z = baseZ or 20 -- [[ ИЗМЕНЕНИЕ: Используем baseZ или 20 по умолчанию ]]
     popup.IsOpen = false; popup.Pos = {x=0, y=0}
     popup.Animation = { IsOpening = false, IsClosing = false, CurrentOpacity = 0 }
     popup.ActiveToggle = nil 
@@ -1294,7 +1295,6 @@ function Library:_Internal_CreateSettingsPopup()
 
     popup.ClickRegion = {}
     
-    -- [[ НОВОЕ: Возвращаем созданный объект ]]
     return popup
 end
 
@@ -4675,7 +4675,6 @@ function Library:_Internal_CreateToggle(options)
         ColorClickRegion = {},
         CurrentBackColor = {0,0,0,0},
         CurrentNubColor = {0,0,0,0},
-        -- ИЗМЕНЕНИЕ: Добавляем поле для хранения анимированной позиции
         AnimatedNubOffset = is_on and (35 - 20 / 2) or (20 / 2)
     }
     if toggle.HasColor and type(toggle.HasColor) == 'table' then
@@ -4685,10 +4684,12 @@ function Library:_Internal_CreateToggle(options)
         toggle.ColorCircle = self:_CreateDrawingObject("Circle")
         toggle.ColorBorder = self:_CreateDrawingObject("Circle")
         if toggle.ColorCircle then
-            toggle.ColorCircle.Filled = true; toggle.ColorCircle.zIndex = z + 1; toggle.ColorCircle.Radius = 6;
+            -- [[ ИЗМЕНЕНИЕ: Увеличиваем zIndex ]]
+            toggle.ColorCircle.Filled = true; toggle.ColorCircle.zIndex = z + 2; toggle.ColorCircle.Radius = 6;
         end
         if toggle.ColorBorder then
-            toggle.ColorBorder.Filled = false; toggle.ColorBorder.Thickness = 1; toggle.ColorBorder.zIndex = z + 2; toggle.ColorBorder.Radius = 7;
+            -- [[ ИЗМЕНЕНИЕ: Увеличиваем zIndex ]]
+            toggle.ColorBorder.Filled = false; toggle.ColorBorder.Thickness = 1; toggle.ColorBorder.zIndex = z + 3; toggle.ColorBorder.Radius = 7;
         end
     end
     if toggle.HasSettings then
@@ -4696,7 +4697,8 @@ function Library:_Internal_CreateToggle(options)
         if toggle.SettingsIcon then
             toggle.SettingsIcon.Url = "https://i.postimg.cc/3Rsbw44x/dsawdsaaaaaaaaa.png"
             toggle.SettingsIcon.Size = {16, 16}
-            toggle.SettingsIcon.zIndex = z + 1
+            -- [[ ИЗМЕНЕНИЕ: Увеличиваем zIndex ]]
+            toggle.SettingsIcon.zIndex = z + 2
         end
     end
     if toggle.Label then
