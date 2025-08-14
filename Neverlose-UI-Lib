@@ -4499,7 +4499,7 @@ function Library:_InputLoop()
                         local clicked_on_main_ui = false
                         if self.Window.ActiveTab == "Configs" then
                             for i, item in ipairs(configsTab.Items) do local d = item.Drawing
-                                if configsTab.LoadedConfigName == item.Name and self:_IsPointIninRegion(mouse_x, mouse_y, d.SaveButton.ClickRegion) then self:_SaveConfig(item.Name); clicked_on_main_ui = true; break;
+                                if configsTab.LoadedConfigName == item.Name and self:_IsPointInRegion(mouse_x, mouse_y, d.SaveButton.ClickRegion) then self:_SaveConfig(item.Name); clicked_on_main_ui = true; break;
                                 elseif configsTab.LoadedConfigName ~= item.Name and self:_IsPointInRegion(mouse_x, mouse_y, d.LoadButton.ClickRegion) then self:_LoadConfig(item.Name); clicked_on_main_ui = true; break;
                                 elseif self:_IsPointInRegion(mouse_x, mouse_y, d.OptionsButton.ClickRegion) then 
                                     local popup_options = configsTab.OptionsPopup
