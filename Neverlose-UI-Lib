@@ -3590,14 +3590,17 @@ function Library:_RenderWatermark()
         self:_SetDrawingTableVisibility(wm, false)
         return
     end
-    
+
     self:_SetDrawingTableVisibility(wm, true)
 
-    local theme = self.ActiveTheme
-    local isThemeLight = self:_IsThemeLight(theme)
-    local bgColor = theme.Colors.WatermarkBackground or theme.Colors.MainBackground
-    local accentColor = theme.Colors.Accent
-    local textColor = theme.Colors.TextPrimary
+    -- ИСПРАВЛЕНИЕ: Получаем переходные цвета вместо цветов из ActiveTheme
+    local mainBgColor = self:_GetTransitionColor("MainBackground")
+    local brightness = (mainBgColor[1] * 0.299 + mainBgColor[2] * 0.587 + mainBgColor[3] * 0.114)
+    local isThemeLight = brightness > 150
+
+    local bgColor = self:_GetTransitionColor("WatermarkBackground") or mainBgColor
+    local accentColor = self:_GetTransitionColor("Accent")
+    local textColor = self:_GetTransitionColor("TextPrimary")
 
     self:_SetVisibility(wm.LogoText2, not isThemeLight)
     self:_SetVisibility(wm.LogoText3, not isThemeLight)
@@ -3609,11 +3612,11 @@ function Library:_RenderWatermark()
 
     self:_AnimateAndApplyColor(wm.LogoBg, bgColor, masterOpacity, true)
     self:_AnimateAndApplyColor(wm.InfoBg, bgColor, masterOpacity, true)
-    
+
     self:_AnimateAndApplyColor(wm.LogoText1, textColor, masterOpacity, true)
     self:_AnimateAndApplyColor(wm.LogoText2, accentColor, masterOpacity, true)
     self:_AnimateAndApplyColor(wm.LogoText3, self:_DarkenColor(accentColor, 0.3), masterOpacity, true)
-    
+
     for _, item in pairs(wm.Items) do
         self:_AnimateAndApplyColor(item.Icon, accentColor, masterOpacity, true)
         self:_AnimateAndApplyColor(item.Text, textColor, masterOpacity, true)
@@ -3623,23 +3626,23 @@ function Library:_RenderWatermark()
     local logoWidth = 50
     local separatorWidth = 10
     local horizontalPadding = 17
-    
+
     local currentX = wm.Position.x
-    
+
     wm.LogoBg.Position = {currentX, wm.Position.y}; wm.LogoBg.Size = {logoWidth, height}
     local logoBaseX = currentX + logoWidth/2
     local logoBaseY = wm.Position.y + height/2 - wm.LogoText1.Size/2
-    
+
     wm.LogoText1.Position = {logoBaseX, logoBaseY}
     wm.LogoText2.Position = {logoBaseX - 2, logoBaseY + 1}
     wm.LogoText3.Position = {logoBaseX - 3, logoBaseY - 1}
-    
+
     currentX = currentX + logoWidth + separatorWidth
-    
+
     local infoBgX = currentX
     local contentStartX = infoBgX + horizontalPadding
     currentX = contentStartX
-    
+
     local order = {"Player", "Config", "Ping", "Fps"}
     for i, name in ipairs(order) do
         local item = wm.Items[name]
@@ -3652,10 +3655,10 @@ function Library:_RenderWatermark()
             currentX = currentX + item.Text.TextBounds.x + horizontalPadding
         end
     end
-    
+
     local contentWidth = currentX - contentStartX - horizontalPadding
     local totalInfoWidth = contentWidth + (2 * horizontalPadding)
-    
+
     wm.InfoBg.Position = {infoBgX, wm.Position.y}; wm.InfoBg.Size = {totalInfoWidth, height}
 
     local totalWidth = logoWidth + separatorWidth + totalInfoWidth
@@ -3673,7 +3676,7 @@ function Library:_RenderHotkeys()
         anim.IsOpening = false; anim.IsClosing = true
     end
     self:_UpdatePopupAnimation(hk)
-    
+
     local masterOpacity = anim.CurrentOpacity
     if masterOpacity <= 0 then
         self:_SetDrawingTableVisibility(hk.Title, false)
@@ -3685,26 +3688,28 @@ function Library:_RenderHotkeys()
 
     self:_SetDrawingTableVisibility(hk.Title, true)
 
-    local theme = self.ActiveTheme
-    local isThemeLight = self:_IsThemeLight(theme)
+    -- ИСПРАВЛЕНИЕ: Определяем светлость темы по переходному цвету
+    local mainBgColor = self:_GetTransitionColor("MainBackground")
+    local brightness = (mainBgColor[1] * 0.299 + mainBgColor[2] * 0.587 + mainBgColor[3] * 0.114)
+    local isThemeLight = brightness > 150
     local z = 110
 
     local titleHeight = 36
-    local titleWidth = 160 
+    local titleWidth = 160
     hk.Title.Background.Position = hk.Position
     hk.Title.Background.Size = {titleWidth, titleHeight}
-    self:_AnimateAndApplyColor(hk.Title.Background, theme.Colors.HotkeysBackground, masterOpacity, true)
+    self:_AnimateAndApplyColor(hk.Title.Background, self:_GetTransitionColor("HotkeysBackground"), masterOpacity, true)
 
     hk.Title.Icon.Position = {hk.Position.x + 10, hk.Position.y + titleHeight/2 - hk.Title.Icon.Size.y/2}
-    self:_AnimateAndApplyColor(hk.Title.Icon, theme.Colors.TextPrimary, masterOpacity, true)
+    self:_AnimateAndApplyColor(hk.Title.Icon, self:_GetTransitionColor("TextPrimary"), masterOpacity, true)
 
     local sepX = hk.Position.x + 42
     hk.Title.Separator.From = {sepX, hk.Position.y + 8}
     hk.Title.Separator.To = {sepX, hk.Position.y + titleHeight - 8}
-    self:_AnimateAndApplyColor(hk.Title.Separator, theme.Colors.Separator, masterOpacity, true)
+    self:_AnimateAndApplyColor(hk.Title.Separator, self:_GetTransitionColor("Separator"), masterOpacity, true)
 
     hk.Title.Text.Position = {sepX + 12, hk.Position.y + titleHeight/2 - hk.Title.Text.Size/2}
-    self:_AnimateAndApplyColor(hk.Title.Text, theme.Colors.TextPrimary, masterOpacity, true)
+    self:_AnimateAndApplyColor(hk.Title.Text, self:_GetTransitionColor("TextPrimary"), masterOpacity, true)
 
     local currentY = hk.Position.y + titleHeight + 8
     local bindsToRemove = {}
@@ -3725,7 +3730,7 @@ function Library:_RenderHotkeys()
             if d.NameBg then d.NameBg.Filled = true; d.NameBg.zIndex = z; d.NameBg.Rounding = 10; end
             if d.NameText then d.NameText.Font = self.ActiveTheme.Fonts.Main; d.NameText.Size = self.ActiveTheme.Fonts.Size; d.NameText.Text = bind.Name; d.NameText.zIndex = z + 1; end
         end
-        
+
         local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4
         local animationSpeed = (speed_value / 1.5) / 10.0
         if bind.IsClosing then
@@ -3737,15 +3742,17 @@ function Library:_RenderHotkeys()
 
         local finalOpacity = masterOpacity * bind.FadeOpacity
         self:_SetDrawingTableVisibility(bind.Drawing, finalOpacity > 0)
-        
-        local toggleIndicatorColor = isThemeLight and theme.Colors.TextDark or theme.Colors.TextLight
-        local semiTransparentBg = {theme.Colors.SectionBackground[1], theme.Colors.SectionBackground[2], theme.Colors.SectionBackground[3], 255 * 0.2}
+
+        -- ИСПРАВЛЕНИЕ: Используем переходные цвета
+        local toggleIndicatorColor = isThemeLight and self:_GetTransitionColor("TextDark") or self:_GetTransitionColor("TextLight")
+        local sectionBgColor = self:_GetTransitionColor("SectionBackground")
+        local semiTransparentBg = {sectionBgColor[1], sectionBgColor[2], sectionBgColor[3], 255 * 0.2}
 
         self:_AnimateAndApplyColor(bind.Drawing.ToggleContainerBg, semiTransparentBg, finalOpacity, true)
         self:_AnimateAndApplyColor(bind.Drawing.ToggleTrack, toggleIndicatorColor, finalOpacity, true)
         self:_AnimateAndApplyColor(bind.Drawing.ToggleNub, toggleIndicatorColor, finalOpacity, true)
         self:_AnimateAndApplyColor(bind.Drawing.NameBg, semiTransparentBg, finalOpacity, true)
-        self:_AnimateAndApplyColor(bind.Drawing.NameText, theme.Colors.TextPrimary, finalOpacity, true)
+        self:_AnimateAndApplyColor(bind.Drawing.NameText, self:_GetTransitionColor("TextPrimary"), finalOpacity, true)
 
         local itemHeight = 30
         local toggleContainerWidth = 45
@@ -3753,19 +3760,19 @@ function Library:_RenderHotkeys()
 
         local d = bind.Drawing
         d.ToggleContainerBg.Position = {hk.Position.x, currentY}; d.ToggleContainerBg.Size = {toggleContainerWidth, itemHeight}
-        
+
         local trackHeight = 14
         local trackWidth = 24
-        d.ToggleTrack.Rounding = (trackHeight / 2) + 9 
+        d.ToggleTrack.Rounding = (trackHeight / 2) + 9
         d.ToggleTrack.Position = {hk.Position.x + (toggleContainerWidth - trackWidth)/2, currentY + (itemHeight - trackHeight)/2}
         d.ToggleTrack.Size = {trackWidth, trackHeight}
-        
-        d.ToggleNub.Radius = 4 
+
+        d.ToggleNub.Radius = 4
         d.ToggleNub.Position = {d.ToggleTrack.Position.x + trackWidth - d.ToggleNub.Radius - 3, d.ToggleTrack.Position.y + trackHeight/2}
-        
+
         d.NameBg.Position = {hk.Position.x + toggleContainerWidth + 5, currentY}; d.NameBg.Size = {nameWidth, itemHeight}
         d.NameText.Position = {hk.Position.x + toggleContainerWidth + 5 + 10, currentY + itemHeight/2 - d.NameText.Size/2}
-        
+
         currentY = currentY + itemHeight + 5
     end
 
@@ -4569,12 +4576,13 @@ function Library:_InputLoop()
                     else
                         -- Ограничение на максимальную длину
                         if #target.InputText < 7 then
-                            -- 1. Разрешаем цифры
-                            if string.match(input_key, "%d") then
+                            -- 1. Разрешаем цифры (проверяем, что это только одна цифра)
+                            if string.match(input_key, "^%d$") then
                                 target.InputText = target.InputText .. input_key
 
                             -- 2. Разрешаем точку/запятую/пробел (и конвертируем в точку)
-                            elseif (input_key == "." or input_key == "," or input_key == "Space") then
+                            -- Добавлена проверка на OemPeriod и OemComma
+                            elseif (input_key == "." or input_key == "," or input_key == "Space" or input_key == "OemPeriod" or input_key == "OemComma") then
                                 -- Добавляем точку, только если её еще нет
                                 if not string.find(target.InputText, "%.") then
                                     target.InputText = target.InputText .. "."
