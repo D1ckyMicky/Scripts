@@ -5019,8 +5019,9 @@ function Library:_Internal_CreateKeybind(options)
         id = options.id,
         type = "Keybind",
         Name = options.Name,
-        ParentToggleID = options.ParentToggleID, -- << ДОБАВЛЕНО
-        ParentToggleName = options.ParentToggleName, -- << ДОБАВЛЕНО
+        Mode = options.Mode or "Toggle", -- [[ НОВОЕ: Запоминаем режим. По умолчанию "Toggle" для совместимости ]]
+        ParentToggleID = options.ParentToggleID,
+        ParentToggleName = options.ParentToggleName,
         Label = self:_CreateDrawingObject("Text"),
         Size = {width = 100, height = 25},
         Callback = options.Callback,
@@ -5030,7 +5031,7 @@ function Library:_Internal_CreateKeybind(options)
         IsListening = false,
         ClickRegion = {}
     }
-    if keybind.Label then -- << ДОБАВЛЕН БЛОК
+    if keybind.Label then
         keybind.Label.Font = self.ActiveTheme.Fonts.Main; keybind.Label.Size = self.ActiveTheme.Fonts.Size + 2; keybind.Label.Text = keybind.Name; keybind.Label.Center = false; keybind.Label.Outline = false; keybind.Label.zIndex = z;
     end
     if keybind.Button then
@@ -5303,7 +5304,7 @@ function Library:_CheckGlobalBinds()
     if self.UI.Popups.ColorPicker.IsOpen or self.UI.Popups.EditStyle.IsOpen then
         return
     end
-    
+
     local key = getpressedkey()
     if key and key ~= "None" then
         if key == self.UI.Values["ToggleUIBind"] then
@@ -5311,26 +5312,24 @@ function Library:_CheckGlobalBinds()
                 self:ToggleVisibility()
                 self.lastUIToggleTime = tick()
             end
-            return -- Выходим, чтобы не обрабатывать другие бинды одновременно
+            return 
         end
-        
-        -- Защита от многократного срабатывания
+
         if (tick() - (lastBindCheckTime or 0)) < 0.2 then return end
 
-        -- Ищем совпадение с биндами элементов
         for _, section in ipairs(self.UI.Sections) do
             for _, el in ipairs(section.Elements) do
                 if el.SettingsElements then
                     for _, setting_el in ipairs(el.SettingsElements) do
-                        if setting_el.type == "Keybind" and self.UI.Values[setting_el.id] == key then
+                        -- --- [[ ГЛАВНОЕ ИЗМЕНЕНИЕ: Проверяем режим бинда ]] ---
+                        -- Теперь этот блок сработает, только если у бинда нет режима "Action"
+                        if setting_el.type == "Keybind" and setting_el.Mode ~= "Action" and self.UI.Values[setting_el.id] == key then
                             lastBindCheckTime = tick()
 
-                            -- Переключаем значение родительского Toggle
                             local toggle_id = setting_el.ParentToggleID
                             local new_state = not self.UI.Values[toggle_id]
                             self.UI.Values[toggle_id] = new_state
 
-                            -- Обновляем список активных хоткеев
                             local hk = self.UI.Hotkeys
                             local existingBindIndex = nil
                             for i, bind in ipairs(hk.ActiveBinds) do
@@ -5341,21 +5340,13 @@ function Library:_CheckGlobalBinds()
                             end
 
                             if new_state and not existingBindIndex then
-                                -- Добавляем новый активный бинд
-                                table.insert(hk.ActiveBinds, {
-                                    id = toggle_id,
-                                    Name = setting_el.ParentToggleName,
-                                    FadeOpacity = 0.0,
-                                    IsClosing = false
-                                })
+                                table.insert(hk.ActiveBinds, { id = toggle_id, Name = setting_el.ParentToggleName, FadeOpacity = 0.0, IsClosing = false })
                             elseif not new_state and existingBindIndex then
-                                -- Помечаем существующий бинд на удаление (для анимации)
                                 hk.ActiveBinds[existingBindIndex].IsClosing = true
                             end
-                            
-                            -- Вызываем оригинальный Callback, если он есть
+
                             if el.Callback then pcall(el.Callback, new_state) end
-                            return -- Выходим после обработки первого найденного бинда
+                            return 
                         end
                     end
                 end
