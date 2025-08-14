@@ -904,6 +904,21 @@ function Library:_OpenEditStyleForTheme(themeName)
     style_window.Animation.IsClosing = false
 end
 
+function Library:_ResetElementsAnimation(elements)
+    -- Ничего не делаем, если нет элементов или включен режим низкой производительности
+    if not elements or self.UI.Values["BurgerLow-EndMode"] then return end
+
+    for _, element in ipairs(elements) do
+        if element.type == "Slider" then
+            -- Сбрасываем анимированное значение до минимума
+            element.AnimatedValue = element.Min
+        elseif element.type == "Toggle" then
+            -- Сбрасываем анимированное положение в позицию "выключено"
+            element.AnimatedNubOffset = element.Size.height / 2 
+        end
+    end
+end
+
 
 
 --================================================================
@@ -4367,7 +4382,9 @@ function Library:_InputLoop()
                             if settings_popup.ActiveToggle and settings_popup.ActiveToggle.SettingsElements then
                                 for _, element in ipairs(settings_popup.ActiveToggle.SettingsElements) do
                                     if element.HasSettings and element.SettingsClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, element.SettingsClickRegion) then
-                                        if settings_popup_nested then settings_popup_nested.Animation.IsOpening, settings_popup_nested.Animation.IsClosing, settings_popup_nested.ActiveToggle, settings_popup_nested.Pos = true, false, element, {x = mouse_x, y = mouse_y} end
+                                        if settings_popup_nested then settings_popup_nested.Animation.IsOpening, settings_popup_nested.Animation.IsClosing, settings_popup_nested.ActiveToggle, settings_popup_nested.Pos = true, false, element, {x = mouse_x, y = mouse_y}
+                                        self:_ResetElementsAnimation(element.SettingsElements)
+                                        end
                                         break
                                     elseif element.HasColor and element.ColorClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, element.ColorClickRegion) then
                                         picker.IsOpen, picker.Animation.IsOpening, picker.EditingValueID, picker.EditingColorName, picker.Pos = true, true, element.HasColor.id, nil, {x = mouse_x, y = mouse_y}
@@ -4484,6 +4501,7 @@ function Library:_InputLoop()
                                             settings_popup.Animation.CurrentOpacity = 0 
                                             settings_popup.ActiveToggle = el;
                                             settings_popup.Pos = {x = mouse_x, y = mouse_y};
+                                            self:_ResetElementsAnimation(el.SettingsElements)
                                         end
                                         clicked_on_main_ui = true;
                                         break;
