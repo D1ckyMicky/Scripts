@@ -4572,14 +4572,26 @@ function Library:_InputLoop()
         end
         
         settings_popup.HoveredDropdownOptionIndex = 0
-        if settings_popup.ActiveDropdown and settings_popup.ActiveDropdown.PopupClickRegion then
-                for i, option in ipairs(settings_popup.ActiveDropdown.OptionList) do
+        if settings_popup_nested then settings_popup_nested.HoveredDropdownOptionIndex = 0 end
+
+        -- Сначала проверяем самый верхний, вложенный попап
+        if settings_popup_nested and settings_popup_nested.ActiveDropdown and settings_popup_nested.ActiveDropdown.PopupClickRegion then
+            for i, option in ipairs(settings_popup_nested.ActiveDropdown.OptionList) do
+                if self:_IsPointInRegion(mouse_x, mouse_y, option.ClickRegion) then
+                    settings_popup_nested.HoveredDropdownOptionIndex = i;
+                    break
+                end
+            end
+        -- Если наведения нет, проверяем основной попап
+        elseif settings_popup.ActiveDropdown and settings_popup.ActiveDropdown.PopupClickRegion then
+            for i, option in ipairs(settings_popup.ActiveDropdown.OptionList) do
                 if self:_IsPointInRegion(mouse_x, mouse_y, option.ClickRegion) then
                     settings_popup.HoveredDropdownOptionIndex = i;
                     break
                 end
             end
         end
+        -- [[ КОНЕЦ ИСПРАВЛЕНИЯ ]]
 
     end
 
