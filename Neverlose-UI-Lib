@@ -1035,8 +1035,8 @@ function Library:_InitializeCoreUI()
     UI.Core.ViewESPPanelBorder = self:_CreateDrawingObject("Square"); if UI.Core.ViewESPPanelBorder then UI.Core.ViewESPPanelBorder.Filled = false; UI.Core.ViewESPPanelBorder.Thickness = 1; UI.Core.ViewESPPanelBorder.zIndex = 3; UI.Core.ViewESPPanelBorder.Rounding = self.ActiveTheme.Rounding.Window; end
 
     self:_InitializeAboutWindow()
-    self.UI.Popups.Settings = self:_Internal_CreateSettingsPopup()
-    self.UI.Popups.SettingsNested = self:_Internal_CreateSettingsPopup()
+    self.UI.Popups.Settings = self:_Internal_CreateSettingsPopup() -- Создаст и вернет первый попап
+    self.UI.Popups.SettingsNested = self:_Internal_CreateSettingsPopup() -- Создаст и вернет второй, независимый попап
     self:_InitializeEditStyleWindow()
     self:_InitializeColorPickerWindow()
     self:_InitializeConfigsTab()
@@ -1277,23 +1277,25 @@ function Library:_RebuildStyleCircles()
 end
 
 function Library:_Internal_CreateSettingsPopup() 
-    local popup = {}; self.UI.Popups.Settings = popup; local z = 20
+    -- [[ ИЗМЕНЕНИЕ: Убираем 'self.UI.Popups.Settings = popup' отсюда ]]
+    local popup = {}; local z = 20 
     popup.IsOpen = false; popup.Pos = {x=0, y=0}
     popup.Animation = { IsOpening = false, IsClosing = false, CurrentOpacity = 0 }
-    popup.ActiveToggle = nil -- Ссылка на Toggle, чьи настройки открыты 
-    popup.ActiveDropdown = nil -- Ссылка на активный выпадающий список
-    popup.HoveredDropdownOptionIndex = 0 -- Индекс подсвеченной опции в нём
+    popup.ActiveToggle = nil 
+    popup.ActiveDropdown = nil 
+    popup.HoveredDropdownOptionIndex = 0
 
-    -- Создаем базовые элементы окна: фон, границу и свечение [cite: 46, 47]
     popup.Background = self:_CreateDrawingObject("Square"); if popup.Background then popup.Background.Filled = true; popup.Background.zIndex = z; popup.Background.Rounding = self.ActiveTheme.Rounding.Section; end
     popup.Border = self:_CreateDrawingObject("Square"); if popup.Border then popup.Border.Filled = false; popup.Border.Thickness = 1; popup.Border.zIndex = z + 1; popup.Border.Rounding = self.ActiveTheme.Rounding.Section; end
     popup.Glow = self:_Internal_CreateGlowSet(z - 1)
     
-    -- Создаем заголовок и разделитель [cite: 46]
     popup.Title = self:_CreateDrawingObject("Text"); if popup.Title then popup.Title.Font = self.ActiveTheme.Fonts.Main; popup.Title.Size = self.ActiveTheme.Fonts.Size + 4; popup.Title.Text = "Settings"; popup.Title.Center = false; popup.Title.Outline = false; popup.Title.zIndex = z + 2; end
     popup.Separator = self:_CreateDrawingObject("Line"); if popup.Separator then popup.Separator.Thickness = 2; popup.Separator.zIndex = z + 1; end
 
     popup.ClickRegion = {}
+    
+    -- [[ НОВОЕ: Возвращаем созданный объект ]]
+    return popup
 end
 
 function Library:_InitializeEditStyleWindow()
