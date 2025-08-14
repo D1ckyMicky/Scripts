@@ -705,6 +705,7 @@ function Library:_UpdateAllAnimations()
     self:_UpdateSidePanelAnimation(self.UI.Core.HeaderButtons.ViewESP)
     -- << [НОВОЕ] Добавляем попап настроек в цикл обновления анимаций >>
     self:_UpdatePopupAnimation(self.UI.Popups.Settings) 
+    self:_UpdatePopupAnimation(self.UI.Popups.SettingsNested) 
     self:_UpdatePopupAnimation(self.UI.Watermark)
 
     -- Проверяем, активна ли анимация хоть одного попапа
@@ -1034,7 +1035,8 @@ function Library:_InitializeCoreUI()
     UI.Core.ViewESPPanelBorder = self:_CreateDrawingObject("Square"); if UI.Core.ViewESPPanelBorder then UI.Core.ViewESPPanelBorder.Filled = false; UI.Core.ViewESPPanelBorder.Thickness = 1; UI.Core.ViewESPPanelBorder.zIndex = 3; UI.Core.ViewESPPanelBorder.Rounding = self.ActiveTheme.Rounding.Window; end
 
     self:_InitializeAboutWindow()
-    self:_InitializeSettingsPopup()
+    self.UI.Popups.Settings = self:_Internal_CreateSettingsPopup()
+    self.UI.Popups.SettingsNested = self:_Internal_CreateSettingsPopup()
     self:_InitializeEditStyleWindow()
     self:_InitializeColorPickerWindow()
     self:_InitializeConfigsTab()
@@ -1274,7 +1276,7 @@ function Library:_RebuildStyleCircles()
     end
 end
 
-function Library:_InitializeSettingsPopup()
+function Library:_Internal_CreateSettingsPopup() 
     local popup = {}; self.UI.Popups.Settings = popup; local z = 20
     popup.IsOpen = false; popup.Pos = {x=0, y=0}
     popup.Animation = { IsOpening = false, IsClosing = false, CurrentOpacity = 0 }
@@ -2187,8 +2189,9 @@ function Library:_RenderAboutWindow(mouse_pos)
     about.CreditText.Position = {winX + winW / 2, winY + winH - 25}
 end
 
-function Library:_RenderSettingsPopup()
-    local popup = self.UI.Popups.Settings
+function Library:_RenderSettingsPopup(popup) -- [[ ИЗМЕНЕНИЕ: Принимаем 'popup' как аргумент ]]
+    if not popup then return end -- Добавим проверку на всякий случай
+
     local theme = self.ActiveTheme
     local isThemeLight = self:_IsThemeLight(theme)
     local masterOpacity = popup.Animation.CurrentOpacity
@@ -2241,7 +2244,14 @@ function Library:_RenderSettingsPopup()
             local controlRightEdge = pX + pW - 15
 
             if element.type == "Toggle" then
-                local toggle = element; self:_SetVisibility(toggle.Back, true); self:_SetVisibility(toggle.Nub, true); toggle.Back.zIndex = el_z; toggle.Nub.zIndex = el_z + 1; local toggleBackX = controlRightEdge - toggle.Size.width; toggle.Back.Position = {toggleBackX, currentY - 3}; toggle.Back.Size = {toggle.Size.width, toggle.Size.height}; toggle.ClickRegion = {x1 = toggleBackX, y1 = currentY - 3, x2 = toggleBackX + toggle.Size.width, y2 = currentY - 3 + toggle.Size.height}; local is_on = self.UI.Values[toggle.id]; local nubY = currentY - 3 + toggle.Size.height / 2; local targetBackColor, targetNubColor; if is_on then if isThemeLight then targetBackColor = theme.Colors.Accent; targetNubColor = theme.Colors.SectionBackground else targetBackColor = self:_DarkenColor(theme.Colors.Accent, 0.3); targetNubColor = theme.Colors.Accent end else targetBackColor = theme.Colors.DarkGray; targetNubColor = theme.Colors.LightGray end; local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.5; local animationSpeed = speed_value / 10.0; local targetOffset = is_on and (toggle.Size.width - toggle.Size.height / 2) or (toggle.Size.height / 2); toggle.AnimatedNubOffset = toggle.AnimatedNubOffset + (targetOffset - toggle.AnimatedNubOffset) * animationSpeed; toggle.Nub.Position = {toggleBackX + toggle.AnimatedNubOffset, nubY}; self:_AnimateAndApplyColor(toggle.Back, targetBackColor, masterOpacity); self:_AnimateAndApplyColor(toggle.Nub, targetNubColor, masterOpacity); currentY = currentY + 30
+                local toggle = element; self:_SetVisibility(toggle.Back, true); self:_SetVisibility(toggle.Nub, true); toggle.Back.zIndex = el_z; toggle.Nub.zIndex = el_z + 1; local toggleBackX = controlRightEdge - toggle.Size.width; toggle.Back.Position = {toggleBackX, currentY - 3}; toggle.Back.Size = {toggle.Size.width, toggle.Size.height}; toggle.ClickRegion = {x1 = toggleBackX, y1 = currentY - 3, x2 = toggleBackX + toggle.Size.width, y2 = currentY - 3 + toggle.Size.height}; local is_on = self.UI.Values[toggle.id]; local nubY = currentY - 3 + toggle.Size.height / 2; local targetBackColor, targetNubColor; if is_on then if isThemeLight then targetBackColor = theme.Colors.Accent; targetNubColor = theme.Colors.SectionBackground else targetBackColor = self:_DarkenColor(theme.Colors.Accent, 0.3); targetNubColor = theme.Colors.Accent end else targetBackColor = theme.Colors.DarkGray; targetNubColor = theme.Colors.LightGray end; local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.5; local animationSpeed = speed_value / 10.0; local targetOffset = is_on and (toggle.Size.width - toggle.Size.height / 2) or (toggle.Size.height / 2); toggle.AnimatedNubOffset = toggle.AnimatedNubOffset + (targetOffset - toggle.AnimatedNubOffset) * animationSpeed; toggle.Nub.Position = {toggleBackX + toggle.AnimatedNubOffset, nubY}; self:_AnimateAndApplyColor(toggle.Back, targetBackColor, masterOpacity); self:_AnimateAndApplyColor(toggle.Nub, targetNubColor, masterOpacity);
+                -- [[ ИЗМЕНЕНИЕ: Копируем логику отрисовки иконок из RenderSingleSection ]]
+                local iconAreaX = toggleBackX - 7
+                if toggle.HasColor and toggle.ColorCircle then self:_SetVisibility(toggle.ColorCircle, true); self:_SetVisibility(toggle.ColorBorder, true); local colorValue = self.UI.Values[toggle.HasColor.id]; self:_AnimateAndApplyColor(toggle.ColorCircle, colorValue, masterOpacity); self:_AnimateAndApplyColor(toggle.ColorBorder, theme.Colors.LightGray, masterOpacity); local radius = toggle.ColorCircle.Radius; local iconWidth = radius * 2; local iconX = iconAreaX - iconWidth; toggle.ColorCircle.Position = {iconX + radius, currentY + 6}; toggle.ColorBorder.Position = {iconX + radius, currentY + 6}; toggle.ColorClickRegion = {x1 = iconX, y1 = currentY - 3, x2 = iconX + iconWidth, y2 = currentY + 15}; iconAreaX = iconX - 7
+                else if toggle.ColorCircle then self:_SetVisibility(toggle.ColorCircle, false) end; if toggle.ColorBorder then self:_SetVisibility(toggle.ColorBorder, false) end end
+                if toggle.HasSettings and toggle.SettingsIcon then self:_SetVisibility(toggle.SettingsIcon, true); self:_AnimateAndApplyColor(toggle.SettingsIcon, theme.Colors.TextSecondary, masterOpacity); local iconX = iconAreaX - toggle.SettingsIcon.Size.x; toggle.SettingsIcon.Position = {iconX, currentY - 1}; toggle.SettingsClickRegion = {x1 = iconX, y1 = currentY - 1, x2 = iconX + toggle.SettingsIcon.Size.x, y2 = currentY - 1 + toggle.SettingsIcon.Size.y}
+                else if toggle.SettingsIcon then self:_SetVisibility(toggle.SettingsIcon, false) end end
+                currentY = currentY + 30
            
             elseif element.type == "Slider" then
                 local slider = element
@@ -2902,6 +2912,8 @@ function Library:_RenderLoop()
     self:_RenderSaveTooltip()
     self:_RenderConfigOptionsPopup()
     self:_RenderSettingsPopup()
+    self:_RenderSettingsPopup(self.UI.Popups.Settings)
+    self:_RenderSettingsPopup(self.UI.Popups.SettingsNested)
     self:_RenderAboutWindow(mouse_pos)
     self:_RenderEditStyleWindow()
     self:_RenderColorPickerWindow()
@@ -3736,6 +3748,7 @@ function Library:_InputLoop()
         local configsTab = self.UI.Core.ConfigsTab
         local about_window = self.UI.Core.AboutWindow
         local settings_popup = self.UI.Popups.Settings
+        local settings_popup_nested = self.UI.Popups.SettingsNested -- [[ НОВОЕ: Ссылка на вложенный попап ]]
         local burger_popup = self.UI.Popups.BurgerMenu
         local burger_button = self.UI.Core.HeaderButtons.BurgerMenu
         local wm = self.UI.Watermark
@@ -3847,14 +3860,14 @@ function Library:_InputLoop()
             is_dragging_something = false
             local started_drag = false
 
-            -- [[ НАЧАЛО ИСПРАВЛЕНИЯ: Проверяем клик по самому верхнему элементу ]]
             local press_on_top_element = false
-            if settings_popup.IsOpen and settings_popup.ActiveDropdown then
+            if settings_popup_nested.IsOpen and settings_popup_nested.ActiveDropdown then
+                 if settings_popup_nested.ActiveDropdown.PopupClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, settings_popup_nested.ActiveDropdown.PopupClickRegion) then press_on_top_element = true end
+            elseif settings_popup.IsOpen and settings_popup.ActiveDropdown then
                 if settings_popup.ActiveDropdown.PopupClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, settings_popup.ActiveDropdown.PopupClickRegion) then
                     press_on_top_element = true
                 end
             end
-            -- [[ КОНЕЦ ИСПРАВЛЕНИЯ ]]
 
             local scrollbar = configsTab.Scrollbar
             local itemHeight = 60; local itemSpacing = 10; local totalItemHeight = itemHeight + itemSpacing; local MAX_VISIBLE_ITEMS = 7
@@ -3879,8 +3892,6 @@ function Library:_InputLoop()
                 hk.IsDragging = true; started_drag = true; hk.DragOffset = {x = mouse_x - hk.Position.x, y = mouse_y - hk.Position.y};
             end
             
-            -- [[ ИЗМЕНЕНИЕ: Добавляем 'and not press_on_top_element' ]]
-            -- Теперь перетаскивание начнется, только если мы не кликнули на открытый дропдаун
             if not started_drag and not press_on_top_element then
                 if about_window.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, about_window.AnimationSpeedSlider.ClickRegion) then
                     about_window.AnimationSpeedSlider.IsDragging = true; started_drag = true;
@@ -3899,8 +3910,15 @@ function Library:_InputLoop()
                         end
                         if started_drag then break end
                     end
-                    if not started_drag and settings_popup.IsOpen and settings_popup.ActiveToggle then
+                    if not started_drag and settings_popup.IsOpen and settings_popup.ActiveToggle and not settings_popup_nested.IsOpen then
                         for _, el in ipairs(settings_popup.ActiveToggle.SettingsElements) do
+                            if el.type == "Slider" and self:_IsPointInRegion(mouse_x, mouse_y, el.ClickRegion) then
+                                el.IsDragging = true; started_drag = true; break;
+                            end
+                        end
+                    end
+                    if not started_drag and settings_popup_nested.IsOpen and settings_popup_nested.ActiveToggle then
+                         for _, el in ipairs(settings_popup_nested.ActiveToggle.SettingsElements) do
                             if el.type == "Slider" and self:_IsPointInRegion(mouse_x, mouse_y, el.ClickRegion) then
                                 el.IsDragging = true; started_drag = true; break;
                             end
@@ -3913,7 +3931,7 @@ function Library:_InputLoop()
                 local header_drag_region = {x1 = self.Window.X, y1 = self.Window.Y, x2 = self.Window.X + self.Window.Width, y2 = self.Window.Y + self.Window.HeaderHeight}
                 local on_header_button = self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.Save.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.ViewESP.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.CreateNew.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.Settings.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, burger_button.ClickRegion)
 
-                if self:_IsPointInRegion(mouse_x, mouse_y, header_drag_region) and not on_header_button and not (picker.IsOpen or style_window.IsOpen or about_window.IsOpen or settings_popup.IsOpen or burger_popup.IsOpen or configsTab.OptionsPopup.IsOpen) then
+                if self:_IsPointInRegion(mouse_x, mouse_y, header_drag_region) and not on_header_button and not (picker.IsOpen or style_window.IsOpen or about_window.IsOpen or settings_popup.IsOpen or settings_popup_nested.IsOpen or burger_popup.IsOpen or configsTab.OptionsPopup.IsOpen) then
                     self.Window.IsDragging = true;
                     self.Window.IsFastDragging = true;
                     started_drag = true;
@@ -3972,12 +3990,14 @@ function Library:_InputLoop()
                 update_slider_value(about_window.AnimationSpeedSlider);
             end
             for _, section in ipairs(self.UI.Sections) do for _, el in ipairs(section.Elements) do if el.type == "Slider" and el.IsDragging then update_slider_value(el); break; end end end
-            if settings_popup.IsOpen and settings_popup.ActiveToggle then
+            if settings_popup.IsOpen and not settings_popup_nested.IsOpen and settings_popup.ActiveToggle then
                 for _, el in ipairs(settings_popup.ActiveToggle.SettingsElements) do
-                    if el.type == "Slider" and el.IsDragging then
-                        update_slider_value(el)
-                        break
-                    end
+                    if el.type == "Slider" and el.IsDragging then update_slider_value(el); break; end
+                end
+            end
+            if settings_popup_nested.IsOpen and settings_popup_nested.ActiveToggle then
+                 for _, el in ipairs(settings_popup_nested.ActiveToggle.SettingsElements) do
+                    if el.type == "Slider" and el.IsDragging then update_slider_value(el); break; end
                 end
             end
 
@@ -4026,6 +4046,10 @@ function Library:_InputLoop()
                 if not active_slider_editing and settings_popup.IsOpen and settings_popup.ActiveToggle then
                     for _, el in ipairs(settings_popup.ActiveToggle.SettingsElements) do if el.type == "Slider" and el.IsEditing then active_slider_editing = el; break; end end
                 end
+                if not active_slider_editing and settings_popup_nested.IsOpen and settings_popup_nested.ActiveToggle then
+                    for _, el in ipairs(settings_popup_nested.ActiveToggle.SettingsElements) do if el.type == "Slider" and el.IsEditing then active_slider_editing = el; break; end end
+                end
+
 
                 if active_slider_editing and not self:_IsPointInRegion(mouse_x, mouse_y, active_slider_editing.ValueInputClickRegion) then
                     applySliderInput(active_slider_editing); click_was_handled = true
@@ -4178,35 +4202,33 @@ function Library:_InputLoop()
                             about_window.Animation.IsClosing = true; about_window.Animation.IsOpening = false;
                         end
 
-                    elseif settings_popup.IsOpen or settings_popup.Animation.CurrentOpacity > 0 then
+                    -- [[ НАЧАЛО БЛОКА ИЗМЕНЕНИЙ: Обработка кликов с учетом вложенности ]]
+                    elseif settings_popup_nested.IsOpen then
                         click_was_handled = true
-                        local settings_popup_clicked_inside = settings_popup.ClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, settings_popup.ClickRegion)
+                        local clicked_inside_nested = settings_popup_nested.ClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, settings_popup_nested.ClickRegion)
+                        if clicked_inside_nested then
+                             -- (Логика кликов для элементов внутри вложенного попапа)
+                        else
+                            settings_popup_nested.Animation.IsClosing = true; settings_popup_nested.Animation.IsOpening = false
+                        end
 
-                        if settings_popup.ActiveDropdown then
-                            local active_dd = settings_popup.ActiveDropdown
-                            local clicked_inside_dd_options = active_dd.PopupClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, active_dd.PopupClickRegion)
-
-                            if clicked_inside_dd_options then
-                                if settings_popup.HoveredDropdownOptionIndex > 0 then
-                                    local i = settings_popup.HoveredDropdownOptionIndex
-                                    if active_dd.type == "Dropdown" then
-                                        self.UI.Values[active_dd.id] = active_dd.Options[i]
-                                        if active_dd.Callback then pcall(active_dd.Callback, self.UI.Values[active_dd.id]) end
-                                        active_dd.IsClosing = true
-                                    else 
-                                        local opt = active_dd.Options[i]
-                                        local found_idx = table.find(self.UI.Values[active_dd.id], opt)
-                                        if found_idx then table.remove(self.UI.Values[active_dd.id], found_idx) else table.insert(self.UI.Values[active_dd.id], opt) end
-                                        if active_dd.Callback then pcall(active_dd.Callback, self.UI.Values[active_dd.id]) end
-                                    end
-                                end
-                            else
-                                active_dd.IsClosing = true
-                            end
-                        elseif settings_popup_clicked_inside then
+                    elseif settings_popup.IsOpen then
+                        click_was_handled = true
+                        local clicked_inside_main = settings_popup.ClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, settings_popup.ClickRegion)
+                        if clicked_inside_main then
                             if settings_popup.ActiveToggle and settings_popup.ActiveToggle.SettingsElements then
                                 for _, element in ipairs(settings_popup.ActiveToggle.SettingsElements) do
-                                    if element.ClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, element.ClickRegion) then
+                                    if element.HasSettings and element.SettingsClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, element.SettingsClickRegion) then
+                                        settings_popup_nested.Animation.IsOpening = true; settings_popup_nested.Animation.IsClosing = false
+                                        settings_popup_nested.ActiveToggle = element
+                                        settings_popup_nested.Pos = {x = mouse_x, y = mouse_y}
+                                        break
+                                    elseif element.HasColor and element.ColorClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, element.ColorClickRegion) then
+                                        picker.IsOpen = true; picker.Animation.IsOpening = true; picker.Animation.IsClosing = false
+                                        picker.EditingValueID = element.HasColor.id; picker.EditingColorName = nil; picker.Pos = {x = mouse_x, y = mouse_y}
+                                        local color_to_edit = self.UI.Values[element.HasColor.id]; picker.h, picker.s, picker.v, picker.a = self:_RGBtoHSV(color_to_edit[1], color_to_edit[2], color_to_edit[3], color_to_edit[4])
+                                        break
+                                    elseif element.ClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, element.ClickRegion) then
                                         if element.type == "Toggle" then
                                             self.UI.Values[element.id] = not self.UI.Values[element.id]
                                             if element.Callback then element.Callback(self.UI.Values[element.id]) end
@@ -4224,12 +4246,9 @@ function Library:_InputLoop()
                                 end
                             end
                         else
-                            if settings_popup.IsOpen then
-                                settings_popup.Animation.IsClosing = true
-                                settings_popup.Animation.IsOpening = false
-                                if settings_popup.ActiveDropdown then settings_popup.ActiveDropdown.IsClosing = true end
-                            end
+                            settings_popup.Animation.IsClosing = true; settings_popup.Animation.IsOpening = false
                         end
+                    -- [[ КОНЕЦ БЛОКА ИЗМЕНЕНИЙ ]]
 
                     elseif burger_popup.IsOpen then
                         click_was_handled = true
@@ -4349,6 +4368,9 @@ function Library:_InputLoop()
             if settings_popup.IsOpen and settings_popup.ActiveToggle then
                 for _, el in ipairs(settings_popup.ActiveToggle.SettingsElements) do if el.type == "Slider" then el.IsDragging = false end end
             end
+            if settings_popup_nested.IsOpen and settings_popup_nested.ActiveToggle then
+                for _, el in ipairs(settings_popup_nested.ActiveToggle.SettingsElements) do if el.type == "Slider" then el.IsDragging = false end end
+            end
             is_dragging_something = false
             self.Window.IsFastDragging = false;
             configsTab.Scrollbar.IsDraggingNub = false
@@ -4456,6 +4478,9 @@ function Library:_InputLoop()
                 if not active_target and settings_popup.IsOpen and settings_popup.ActiveToggle then
                     for _, el in ipairs(settings_popup.ActiveToggle.SettingsElements) do if el.type == "Slider" and el.IsEditing then active_target = el; break; end end
                 end
+                if not active_target and settings_popup_nested.IsOpen and settings_popup_nested.ActiveToggle then
+                     for _, el in ipairs(settings_popup_nested.ActiveToggle.SettingsElements) do if el.type == "Slider" and el.IsEditing then active_target = el; break; end end
+                end
             end
 
             if key and key ~= "None" then
@@ -4554,7 +4579,7 @@ function Library:_AddPresetsTab()
 end
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. x24662")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. x242")
     local is_first_frame = true
     while true do
         -- Обрабатываем очередь на удаление в начале каждого кадра
@@ -4916,7 +4941,6 @@ function Library:Section(options)
         return SectionObject 
     end
 
-    -- ЗАМЕНИТЬ СТАРУЮ ФУНКЦИЮ :Keybind() НА ЭТУ
     function SectionObject:Settings(callback)
         if last_element and last_element.type == "Toggle" and last_element.HasSettings then
             if not last_element.SettingsElements then
@@ -4924,19 +4948,17 @@ function Library:Section(options)
             end
 
             local self_lib_settings = self_lib
-
-            -- Создаем "строитель" для настроек
             local SettingsBuilder = {}
+            local last_element_in_popup = nil -- [[ НОВОЕ: Отслеживаем последний элемент в попапе ]]
 
-            -- Определяем функции, которые можно будет вызывать внутри :Settings()
             function SettingsBuilder:Toggle(toggleOptions)
-                -- Удостоверимся, что у дочернего элемента уникальный ID
                 if self_lib_settings.UI.Values[toggleOptions.id] ~= nil then
                     warn(SCRIPT_PREFIX .. "Duplicate element ID detected inside Settings: " .. toggleOptions.id)
                 end
                 local element = self_lib_settings:_Internal_CreateToggle(toggleOptions)
                 table.insert(last_element.SettingsElements, element)
-                return self -- Возвращаем себя, чтобы можно было продолжать цепочку (хотя в данном случае это не нужно)
+                last_element_in_popup = element -- [[ НОВОЕ: Запоминаем его ]]
+                return self 
             end
 
             function SettingsBuilder:Slider(sliderOptions)
@@ -4945,6 +4967,7 @@ function Library:Section(options)
                 end
                 local element = self_lib_settings:_Internal_CreateSlider(sliderOptions)
                 table.insert(last_element.SettingsElements, element)
+                last_element_in_popup = element -- [[ НОВОЕ: Запоминаем его ]]
                 return self
             end
 
@@ -4954,6 +4977,7 @@ function Library:Section(options)
                 end
                 local element = self_lib_settings:_Internal_CreateDropdown(dropdownOptions)
                 table.insert(last_element.SettingsElements, element)
+                last_element_in_popup = element -- [[ НОВОЕ: Запоминаем его ]]
                 return self
             end
             
@@ -4963,6 +4987,7 @@ function Library:Section(options)
                 end
                 local element = self_lib_settings:_Internal_CreateMultidropdown(multidropdownOptions)
                 table.insert(last_element.SettingsElements, element)
+                last_element_in_popup = element -- [[ НОВОЕ: Запоминаем его ]]
                 return self
             end
 
@@ -4970,21 +4995,46 @@ function Library:Section(options)
                  if self_lib_settings.UI.Values[keybindOptions.id] ~= nil then
                     warn(SCRIPT_PREFIX .. "Duplicate element ID detected inside Settings: " .. keybindOptions.id)
                 end
-                -- Добавляем информацию о родительском элементе для глобального обработчика биндов
                 keybindOptions.ParentToggleID = last_element.id
                 keybindOptions.ParentToggleName = last_element.Name
                 local element = self_lib_settings:_Internal_CreateKeybind(keybindOptions)
                 table.insert(last_element.SettingsElements, element)
+                last_element_in_popup = element -- [[ НОВОЕ: Запоминаем его ]]
                 return self
             end
+            
+            -- [[ НОВАЯ ФУНКЦИЯ: Позволяет создавать вложенные настройки ]]
+            function SettingsBuilder:Settings(nested_callback)
+                 if last_element_in_popup and last_element_in_popup.type == "Toggle" and last_element_in_popup.HasSettings then
+                    -- Рекурсивно вызываем ту же логику, но для элемента внутри попапа
+                    if not last_element_in_popup.SettingsElements then
+                        last_element_in_popup.SettingsElements = {}
+                    end
+                    
+                    local NestedBuilder = {}
+                    -- Просто передаем вызовы в _Internal_Create... и добавляем во вложенный список
+                    function NestedBuilder:Toggle(opts) table.insert(last_element_in_popup.SettingsElements, self_lib_settings:_Internal_CreateToggle(opts)) end
+                    function NestedBuilder:Slider(opts) table.insert(last_element_in_popup.SettingsElements, self_lib_settings:_Internal_CreateSlider(opts)) end
+                    function NestedBuilder:Dropdown(opts) table.insert(last_element_in_popup.SettingsElements, self_lib_settings:_Internal_CreateDropdown(opts)) end
+                    function NestedBuilder:Multidropdown(opts) table.insert(last_element_in_popup.SettingsElements, self_lib_settings:_Internal_CreateMultidropdown(opts)) end
+                    function NestedBuilder:Keybind(opts)
+                        opts.ParentToggleID = last_element_in_popup.id; opts.ParentToggleName = last_element_in_popup.Name
+                        table.insert(last_element_in_popup.SettingsElements, self_lib_settings:_Internal_CreateKeybind(opts))
+                    end
+                    
+                    pcall(nested_callback, NestedBuilder)
+                else
+                    warn(SCRIPT_PREFIX .. "Nested Settings() can only be chained after a Toggle() with HasSettings=true inside another Settings() block.")
+                end
+                return self -- Возвращаем основной строитель для продолжения
+            end
 
-            -- Вызываем функцию, переданную пользователем, и передаем ей наш "строитель"
             pcall(callback, SettingsBuilder)
 
         else
             warn(SCRIPT_PREFIX .. "Settings() can only be chained after a Toggle() element with HasSettings = true.")
         end
-        return SectionObject -- Возвращаем основной объект секции для продолжения цепочки
+        return SectionObject 
     end
 
     return SectionObject
