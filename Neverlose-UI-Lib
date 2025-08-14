@@ -389,8 +389,6 @@ function Library:_UpdateMainPanelAnimations()
                 lerp_values(section.Animation, 0, ANIMATION_SLIDE_DISTANCE)
                 if section.Animation.CurrentOpacity > 0.01 then still_fading_out = true end
 
-                -- << [ИСПРАВЛЕНИЕ] Если включен low-end режим, принудительно скрываем все элементы секции сразу.
-                -- Это гарантирует, что glow-эффект слайдера и другие элементы точно исчезнут.
                 if self.UI.Values["BurgerLow-EndMode"] then
                     self:_SetSectionAndElementsVisibility(section, false)
                 end
@@ -400,7 +398,6 @@ function Library:_UpdateMainPanelAnimations()
             lerp_values(configsTab.Animation, 0, ANIMATION_SLIDE_DISTANCE)
             if configsTab.Animation.CurrentOpacity > 0.01 then still_fading_out = true end
         end
-        -- Кнопка "Create New" также исчезает, если старая вкладка была "Configs"
         if self.Window.Animation.OldTab == "Configs" then
             local targetOpacity = 0
             createNewBtn.Animation.CurrentOpacity = createNewBtn.Animation.CurrentOpacity + (targetOpacity - createNewBtn.Animation.CurrentOpacity) * animationSpeed
@@ -419,7 +416,6 @@ function Library:_UpdateMainPanelAnimations()
             lerp_values(configsTab.Animation, 1, 0)
             if configsTab.Animation.CurrentOpacity < 0.99 then still_fading_in = true end
         end
-        -- Кнопка "Create New" также появляется, если новая вкладка - "Configs"
         if self.Window.ActiveTab == "Configs" then
             local targetOpacity = 1
             createNewBtn.Animation.CurrentOpacity = createNewBtn.Animation.CurrentOpacity + (targetOpacity - createNewBtn.Animation.CurrentOpacity) * animationSpeed
@@ -437,13 +433,24 @@ function Library:_UpdateMainPanelAnimations()
             if section.ParentTab == self.Window.ActiveTab then
                 section.Animation.CurrentOpacity = 0
                 section.Animation.CurrentYOffset = ANIMATION_SLIDE_DISTANCE
+
+                -- --- [[ ИСПРАВЛЕНИЕ: Сбрасываем анимацию элементов внутри секции ]] ---
+                for _, element in ipairs(section.Elements) do
+                    if element.type == "Slider" then
+                        -- Сбрасываем анимированное значение до минимума, чтобы слайдер "выезжал"
+                        element.AnimatedValue = element.Min
+                    elseif element.type == "Toggle" then
+                        -- Сбрасываем анимированное положение в позицию "выключено",
+                        -- чтобы при включенном состоянии он анимировался.
+                        element.AnimatedNubOffset = element.Size.height / 2
+                    end
+                end
             end
         end
         if self.Window.ActiveTab == "Configs" then
             configsTab.Animation.CurrentOpacity = 0
             configsTab.Animation.CurrentYOffset = ANIMATION_SLIDE_DISTANCE
         end
-        -- Сбрасываем кнопку, если нужно
         if self.Window.ActiveTab == "Configs" then
             createNewBtn.Animation.CurrentOpacity = 0
         end
