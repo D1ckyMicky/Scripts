@@ -4557,12 +4557,38 @@ function Library:_InputLoop()
 
             local function handle_text_input(target, input_key)
                 if target.type == "Slider" then
+                    -- Обработка управляющих клавиш
                     if input_key == "Backspace" then
-                        if #target.InputText > 0 then target.InputText = string.sub(target.InputText, 1, -2) end
+                        if #target.InputText > 0 then
+                            target.InputText = string.sub(target.InputText, 1, -2)
+                        end
                     elseif input_key == "Enter" then
                         applySliderInput(target)
-                    elseif string.match(input_key, "[-.0-9]") then
-                        if #target.InputText < 7 then target.InputText = target.InputText .. input_key end
+
+                    -- Обработка ввода символов с "белым списком"
+                    else
+                        -- Ограничение на максимальную длину
+                        if #target.InputText < 7 then
+                            -- 1. Разрешаем цифры
+                            if string.match(input_key, "%d") then
+                                target.InputText = target.InputText .. input_key
+
+                            -- 2. Разрешаем точку/запятую/пробел (и конвертируем в точку)
+                            elseif (input_key == "." or input_key == "," or input_key == "Space") then
+                                -- Добавляем точку, только если её еще нет
+                                if not string.find(target.InputText, "%.") then
+                                    target.InputText = target.InputText .. "."
+                                end
+
+                            -- 3. Разрешаем знак минуса
+                            elseif input_key == "-" then
+                                -- Добавляем минус только для слайдеров с отрицательным диапазоном,
+                                -- и только если это первый символ
+                                if target.Min < 0 and #target.InputText == 0 then
+                                    target.InputText = target.InputText .. "-"
+                                end
+                            end
+                        end
                     end
                 elseif target == style_window then
                     local current_text = target.StyleNameInputText.Text
