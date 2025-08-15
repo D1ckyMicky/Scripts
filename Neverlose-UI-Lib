@@ -3,7 +3,10 @@
     Version: 1.0.0 
     Developer: Gemini AI & Dicky_Micky_
 
-
+    Dear Council+, there are no logging links in this library, and no user data is sent anywhere.
+    I wrote this script entirely by myself using the Gemini 2.5 pro AI. The only official link is to the Roblox API to get the avatar picture on the left bottom, and the rest of the links are raw images for icons. ( postimg.cc ) which I cannot replace without touching the library
+    The files created by the script are located at "C:\v2\data\NL_Configs\". When the script is injected for the first time, it will create "default.cfg" in this path
+    Unfortunately, all the function descriptions are written in Russian, as it was easier for me to understand during development.
   ]]
 
 local Library = {}
@@ -3795,13 +3798,10 @@ function Library:_RenderHotkeys()
 
     self:_SetDrawingTableVisibility(hk.Title, true)
 
-    local mainBgColor = self:_GetTransitionColor("MainBackground")
-    local brightness = (mainBgColor[1] * 0.299 + mainBgColor[2] * 0.587 + mainBgColor[3] * 0.114)
-    local isThemeLight = brightness > 150
     local z = 110
-
     local titleHeight = 36
     local titleWidth = 160
+    
     hk.Title.Background.Position = hk.Position
     hk.Title.Background.Size = {titleWidth, titleHeight}
     self:_AnimateAndApplyColor(hk.Title.Background, self:_GetTransitionColor("HotkeysBackground"), masterOpacity, true)
@@ -3842,37 +3842,36 @@ function Library:_RenderHotkeys()
         end
 
         local finalOpacity = masterOpacity * bind.FadeOpacity
-        if finalOpacity <= 0.01 then
-            if bind.Drawing then self:_SetDrawingTableVisibility(bind.Drawing, false) end
-            goto continue_hotkey_loop
+        
+        if finalOpacity > 0.01 then
+            self:_SetDrawingTableVisibility(bind.Drawing, true)
+            local d = bind.Drawing
+
+            d.NameText.Text = bind.Name
+            d.StateText.Text = bind.State
+            
+            local nameWidth = (d.NameText.TextBounds and d.NameText.TextBounds.x or 60)
+            local stateWidth = (d.StateText.TextBounds and d.StateText.TextBounds.x or 40)
+            local totalWidth = nameWidth + stateWidth + 25
+            local itemHeight = 30
+
+            local sectionBgColor = self:_GetTransitionColor("SectionBackground")
+            local semiTransparentBg = {sectionBgColor[1], sectionBgColor[2], sectionBgColor[3], 255 * 0.2}
+            self:_AnimateAndApplyColor(d.Background, semiTransparentBg, finalOpacity, true)
+            self:_AnimateAndApplyColor(d.NameText, self:_GetTransitionColor("TextPrimary"), finalOpacity, true)
+            self:_AnimateAndApplyColor(d.StateText, self:_GetTransitionColor("TextSecondary"), finalOpacity, true)
+
+            d.Background.Position = {hk.Position.x, currentY}
+            d.Background.Size = {totalWidth, itemHeight}
+            d.NameText.Position = {hk.Position.x + 10, currentY + itemHeight/2 - d.NameText.Size/2}
+            d.StateText.Position = {hk.Position.x + 10 + nameWidth + 5, currentY + itemHeight/2 - d.StateText.Size/2}
+
+            currentY = currentY + itemHeight + 5
+        else
+            if bind.Drawing then
+                self:_SetDrawingTableVisibility(bind.Drawing, false)
+            end
         end
-        
-        self:_SetDrawingTableVisibility(bind.Drawing, true)
-        local d = bind.Drawing
-
-        d.NameText.Text = bind.Name
-        d.StateText.Text = bind.State
-        
-        local nameWidth = (d.NameText.TextBounds and d.NameText.TextBounds.x or 60)
-        local stateWidth = (d.StateText.TextBounds and d.StateText.TextBounds.x or 40)
-        
-        -- [[ ИСПРАВЛЕНИЕ: Здесь была синтаксическая ошибка ]]
-        local totalWidth = nameWidth + stateWidth + 25
-        local itemHeight = 30
-
-        local sectionBgColor = self:_GetTransitionColor("SectionBackground")
-        local semiTransparentBg = {sectionBgColor[1], sectionBgColor[2], sectionBgColor[3], 255 * 0.2}
-        self:_AnimateAndApplyColor(d.Background, semiTransparentBg, finalOpacity, true)
-        self:_AnimateAndApplyColor(d.NameText, self:_GetTransitionColor("TextPrimary"), finalOpacity, true)
-        self:_AnimateAndApplyColor(d.StateText, self:_GetTransitionColor("TextSecondary"), finalOpacity, true)
-
-        d.Background.Position = {hk.Position.x, currentY}
-        d.Background.Size = {totalWidth, itemHeight}
-        d.NameText.Position = {hk.Position.x + 10, currentY + itemHeight/2 - d.NameText.Size/2}
-        d.StateText.Position = {hk.Position.x + 10 + nameWidth + 5, currentY + itemHeight/2 - d.StateText.Size/2}
-
-        currentY = currentY + itemHeight + 5
-        ::continue_hotkey_loop::
     end
 
     for _, id in ipairs(bindsToRemove) do
@@ -5439,23 +5438,29 @@ function Library:SetHotkeyState(id, name, state)
     if not id or not name or not state then return end
     local hk = self.UI.Hotkeys
     
-    -- Проверяем, существует ли уже хоткей с таким ID
     if hk.ActiveBinds[id] then
-        -- Если да, обновляем его и отменяем анимацию закрытия
         local bind = hk.ActiveBinds[id]
         bind.Name = name
         bind.State = state
         bind.IsClosing = false
     else
-        -- Если нет, создаем новую запись
         hk.ActiveBinds[id] = {
             id = id,
             Name = name,
             State = state,
-            FadeOpacity = 0.0, -- Начинаем с нулевой прозрачности для анимации появления
+            FadeOpacity = 0.0,
             IsClosing = false,
-            Drawing = nil -- Объекты для отрисовки создадутся при первом рендере
+            Drawing = nil
         }
+    end
+end
+
+function Library:RemoveHotkey(id)
+    if not id then return end
+    local hk = self.UI.Hotkeys
+    
+    if hk.ActiveBinds[id] then
+        hk.ActiveBinds[id].IsClosing = true
     end
 end
 
