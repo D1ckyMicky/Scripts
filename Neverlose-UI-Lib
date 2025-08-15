@@ -2,6 +2,7 @@
     Neverlose.cc Style UI Library for Severe
     Version: 1.0.0 
     Developer: Gemini AI & Dicky_Micky_
+
   ]]
 
 local Library = {}
@@ -931,6 +932,39 @@ function Library:_SaveLastConfigName(name)
     writefile("NL_LastConfig.txt", name)
 end
 
+function Library:_GetAllElementIDs()
+    local ids = {}
+    local function add_id(id) ids[id] = true end
+
+    -- Вспомогательная рекурсивная функция для обхода вложенных настроек
+    local function collect_from(elements)
+        if not elements then return end
+        for _, el in ipairs(elements) do
+            add_id(el.id)
+            if el.HasColor and el.HasColor.id then
+                add_id(el.HasColor.id)
+            end
+            if el.HasSettings and el.SettingsElements then
+                collect_from(el.SettingsElements) -- Рекурсия
+            end
+        end
+    end
+
+    -- 1. Собираем ID из основных секций
+    for _, section in ipairs(self.UI.Sections) do
+        collect_from(section.Elements)
+    end
+
+    -- 2. Вручную добавляем ID системных элементов, которые не входят в секции
+    add_id("AboutSelectedStyle")
+    add_id("ConfigIncludeStyle")
+    for _, item in ipairs(self.UI.Popups.BurgerMenu.Items or {}) do
+        add_id(item.id)
+    end
+    
+    return ids
+end
+
 --================================================================
 --[[ PRIVATE: GLOW EFFECT HELPERS ]]
 --================================================================
@@ -1637,33 +1671,23 @@ function Library:_GetConfigPath(name)
 end
 
 function Library:_SaveConfig(name)
-    -- Создаем глубокую копию, чтобы не изменять реальные числовые значения в UI
+    -- [[ ГЛАВНОЕ ИЗМЕНЕНИЕ ]]
+    -- 1. Получаем "белый список" всех ID, которые реально существуют в UI на данный момент
+    local valid_ids = self:_GetAllElementIDs()
+
     local configData = {
-        Values = self:_DeepCopy(self.UI.Values),
+        Values = {},
         Themes = {},
         ActiveThemeName = self.ActiveTheme.Name
     }
 
-    -- [[ НОВОЕ ИСПРАВЛЕНИЕ ]]
-    -- Проходим по всем элементам UI, чтобы найти слайдеры с дробным шагом
-    for _, section in ipairs(self.UI.Sections) do
-        for _, element in ipairs(section.Elements) do
-            if element.type == "Slider" and element.Increment < 1 then
-                local id = element.id
-                local value = configData.Values[id]
-                if type(value) == "number" then
-                    -- Конвертируем их значения в строку с правильным форматированием
-                    configData.Values[id] = self:_FormatSliderValue(value, element.Increment)
-                end
-            end
+    -- 2. Проходим по всем значениям в памяти и сохраняем только те,
+    --    которые есть в нашем "белом списке". "Мусорные" данные игнорируются.
+    for id, value in pairs(self.UI.Values) do
+        if valid_ids[id] then
+            configData.Values[id] = value
         end
     end
-
-    -- Удаляем ненужные значения
-    configData.Values["AboutAutoSave"] = nil
-    configData.Values["ConfigIncludeStyle"] = nil
-    configData.Values["ToggleUIBind"] = nil
-    configData.Values["AboutAnimationSpeed"] = nil
 
     if self.UI.Values["ConfigIncludeStyle"] then
         for themeName, themeData in pairs(self.Themes) do
