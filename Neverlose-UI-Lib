@@ -2,7 +2,6 @@
     Neverlose.cc Style UI Library for Severe
     Version: 1.0.0 
     Developer: Gemini AI & Dicky_Micky_
-
   ]]
 
 local Library = {}
@@ -1682,10 +1681,17 @@ function Library:_SaveConfig(name)
     }
 
     -- 2. Проходим по всем значениям в памяти и сохраняем только те,
-    --    которые есть в нашем "белом списке". "Мусорные" данные игнорируются.
+    --    которые есть в нашем "белом списке".
     for id, value in pairs(self.UI.Values) do
         if valid_ids[id] then
-            configData.Values[id] = value
+            -- [[ ИСПРАВЛЕНИЕ: Принудительно конвертируем числа в строки ]]
+            -- Это обходной путь для функции JSONEncode, которая может усекать дробные числа.
+            -- Сохраняя число как строку ("2.9" вместо 2.9), мы гарантируем, что его значение не будет потеряно.
+            if type(value) == 'number' then
+                configData.Values[id] = tostring(value)
+            else
+                configData.Values[id] = value
+            end
         end
     end
 
@@ -1751,12 +1757,23 @@ function Library:_LoadConfig(name)
 
     if decodedData.Values then
         for id, value in pairs(decodedData.Values) do
-            -- [[ НОВОЕ ИСПРАВЛЕНИЕ ]]
-            -- Если значение - это строка, которая выглядит как число, конвертируем её обратно в число
-            if type(value) == "string" and tonumber(value) then
-                self.UI.Values[id] = tonumber(value)
+            -- [[ ИСПРАВЛЕНИЕ: Замена tonumber на более надёжный loadstring ]]
+            -- Так как мы сохраняем числа как строки, нам нужно их обратно преобразовать.
+            -- loadstring работает надёжнее, чем tonumber, в средах с разными региональными настройками (точка vs запятая).
+            if type(value) == 'string' then
+                local func = loadstring("return " .. value)
+                if func then
+                    local pcall_success, result = pcall(func)
+                    if pcall_success and type(result) == 'number' then
+                        self.UI.Values[id] = result -- Успешно преобразовали строку в число
+                    else
+                        self.UI.Values[id] = value -- Это не числовая строка (например, "Insert"), оставляем как есть
+                    end
+                else
+                    self.UI.Values[id] = value -- Не удалось обработать, оставляем как есть
+                end
             else
-                self.UI.Values[id] = value
+                self.UI.Values[id] = value -- Это не строка (например, boolean), оставляем как есть
             end
 
             for _, section in ipairs(self.UI.Sections) do
@@ -5221,70 +5238,57 @@ function Library:Section(options)
 
             local self_lib_settings = self_lib
             local SettingsBuilder = {}
-            local last_element_in_popup = nil -- [[ НОВОЕ: Отслеживаем последний элемент в попапе ]]
+            local last_element_in_popup = nil 
 
             function SettingsBuilder:Toggle(toggleOptions)
-                if self_lib_settings.UI.Values[toggleOptions.id] ~= nil then
-                    warn(SCRIPT_PREFIX .. "Duplicate element ID detected inside Settings: " .. toggleOptions.id)
-                end
+                -- [[ ИЗМЕНЕНИЕ ]] Убрана ненужная проверка на дубликат ID
                 local element = self_lib_settings:_Internal_CreateToggle(toggleOptions)
                 table.insert(last_element.SettingsElements, element)
-                last_element_in_popup = element -- [[ НОВОЕ: Запоминаем его ]]
+                last_element_in_popup = element
                 return self 
             end
 
             function SettingsBuilder:Slider(sliderOptions)
-                if self_lib_settings.UI.Values[sliderOptions.id] ~= nil then
-                    warn(SCRIPT_PREFIX .. "Duplicate element ID detected inside Settings: " .. sliderOptions.id)
-                end
+                -- [[ ИЗМЕНЕНИЕ ]] Убрана ненужная проверка на дубликат ID
                 local element = self_lib_settings:_Internal_CreateSlider(sliderOptions)
                 table.insert(last_element.SettingsElements, element)
-                last_element_in_popup = element -- [[ НОВОЕ: Запоминаем его ]]
+                last_element_in_popup = element
                 return self
             end
 
             function SettingsBuilder:Dropdown(dropdownOptions)
-                if self_lib_settings.UI.Values[dropdownOptions.id] ~= nil then
-                    warn(SCRIPT_PREFIX .. "Duplicate element ID detected inside Settings: " .. dropdownOptions.id)
-                end
+                -- [[ ИЗМЕНЕНИЕ ]] Убрана ненужная проверка на дубликат ID
                 local element = self_lib_settings:_Internal_CreateDropdown(dropdownOptions)
                 table.insert(last_element.SettingsElements, element)
-                last_element_in_popup = element -- [[ НОВОЕ: Запоминаем его ]]
+                last_element_in_popup = element
                 return self
             end
             
             function SettingsBuilder:Multidropdown(multidropdownOptions)
-                if self_lib_settings.UI.Values[multidropdownOptions.id] ~= nil then
-                    warn(SCRIPT_PREFIX .. "Duplicate element ID detected inside Settings: " .. multidropdownOptions.id)
-                end
+                -- [[ ИЗМЕНЕНИЕ ]] Убрана ненужная проверка на дубликат ID
                 local element = self_lib_settings:_Internal_CreateMultidropdown(multidropdownOptions)
                 table.insert(last_element.SettingsElements, element)
-                last_element_in_popup = element -- [[ НОВОЕ: Запоминаем его ]]
+                last_element_in_popup = element
                 return self
             end
 
             function SettingsBuilder:Keybind(keybindOptions)
-                 if self_lib_settings.UI.Values[keybindOptions.id] ~= nil then
-                    warn(SCRIPT_PREFIX .. "Duplicate element ID detected inside Settings: " .. keybindOptions.id)
-                end
+                -- [[ ИЗМЕНЕНИЕ ]] Убрана ненужная проверка на дубликат ID
                 keybindOptions.ParentToggleID = last_element.id
                 keybindOptions.ParentToggleName = last_element.Name
                 local element = self_lib_settings:_Internal_CreateKeybind(keybindOptions)
                 table.insert(last_element.SettingsElements, element)
-                last_element_in_popup = element -- [[ НОВОЕ: Запоминаем его ]]
+                last_element_in_popup = element
                 return self
             end
             
-            -- [[ НОВАЯ ФУНКЦИЯ: Позволяет создавать вложенные настройки ]]
             function SettingsBuilder:Settings(nested_callback)
                  if last_element_in_popup and last_element_in_popup.type == "Toggle" and last_element_in_popup.HasSettings then
-                    -- Рекурсивно вызываем ту же логику, но для элемента внутри попапа
                     if not last_element_in_popup.SettingsElements then
                         last_element_in_popup.SettingsElements = {}
                     end
                     
                     local NestedBuilder = {}
-                    -- Просто передаем вызовы в _Internal_Create... и добавляем во вложенный список
                     function NestedBuilder:Toggle(opts) table.insert(last_element_in_popup.SettingsElements, self_lib_settings:_Internal_CreateToggle(opts)) end
                     function NestedBuilder:Slider(opts) table.insert(last_element_in_popup.SettingsElements, self_lib_settings:_Internal_CreateSlider(opts)) end
                     function NestedBuilder:Dropdown(opts) table.insert(last_element_in_popup.SettingsElements, self_lib_settings:_Internal_CreateDropdown(opts)) end
@@ -5298,7 +5302,7 @@ function Library:Section(options)
                 else
                     warn(SCRIPT_PREFIX .. "Nested Settings() can only be chained after a Toggle() with HasSettings=true inside another Settings() block.")
                 end
-                return self -- Возвращаем основной строитель для продолжения
+                return self
             end
 
             pcall(callback, SettingsBuilder)
