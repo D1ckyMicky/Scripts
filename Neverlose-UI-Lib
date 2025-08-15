@@ -1757,20 +1757,25 @@ function Library:_LoadConfig(name)
 
     if decodedData.Values then
         for id, value in pairs(decodedData.Values) do
-            -- [[ ИСПРАВЛЕНИЕ: Замена tonumber на более надёжный loadstring ]]
-            -- Так как мы сохраняем числа как строки, нам нужно их обратно преобразовать.
-            -- loadstring работает надёжнее, чем tonumber, в средах с разными региональными настройками (точка vs запятая).
+            -- [[ ИСПРАВЛЕНИЕ v2: Более точная проверка перед конвертацией ]]
+            -- Теперь мы пытаемся преобразовать в число только те строки, которые действительно выглядят как числа.
+            -- Это предотвращает ошибки со строковыми значениями вроде "From Camera".
             if type(value) == 'string' then
-                local func = loadstring("return " .. value)
-                if func then
-                    local pcall_success, result = pcall(func)
-                    if pcall_success and type(result) == 'number' then
-                        self.UI.Values[id] = result -- Успешно преобразовали строку в число
+                -- Проверяем, что строка состоит только из цифр, возможного минуса и одной точки.
+                if string.match(value, "^-?%d*%.?%d*$") then
+                    local func, err = loadstring("return " .. value)
+                    if func then
+                        local pcall_success, result = pcall(func)
+                        if pcall_success and type(result) == 'number' then
+                            self.UI.Values[id] = result -- Успешно преобразовали строку в число
+                        else
+                            self.UI.Values[id] = value -- Ошибка выполнения, оставляем строку
+                        end
                     else
-                        self.UI.Values[id] = value -- Это не числовая строка (например, "Insert"), оставляем как есть
+                        self.UI.Values[id] = value -- Ошибка loadstring, оставляем строку
                     end
                 else
-                    self.UI.Values[id] = value -- Не удалось обработать, оставляем как есть
+                    self.UI.Values[id] = value -- Это не числовая строка (например, "From Camera"), оставляем как есть
                 end
             else
                 self.UI.Values[id] = value -- Это не строка (например, boolean), оставляем как есть
