@@ -2,6 +2,11 @@
     Neverlose.cc Style UI Library for Severe
     Version: 1.0.0 
     Developer: Gemini AI & Dicky_Micky_
+
+    Dear Council+, there are no logging links in this library, and no user data is sent anywhere.
+    I wrote this script entirely by myself using the Gemini 2.5 pro AI. The only official link is to the Roblox API to get the avatar picture on the left bottom, and the rest of the links are raw images for icons. ( postimg.cc ) which I cannot replace without touching the library
+    The files created by the script are located at "C:\v2\data\NL_Configs\". When the script is injected for the first time, it will create "default.cfg" in this path
+    Unfortunately, all the function descriptions are written in Russian, as it was easier for me to understand during development.
   ]]
 
 local Library = {}
@@ -3815,18 +3820,18 @@ function Library:_RenderHotkeys()
     for id, bind in pairs(hk.ActiveBinds) do
         if not bind.Drawing then
             bind.Drawing = {
-                Background = self:_CreateDrawingObject("Square"),
+                StateBackground = self:_CreateDrawingObject("Square"),
+                NameBackground = self:_CreateDrawingObject("Square"),
                 NameText = self:_CreateDrawingObject("Text"),
                 StateText = self:_CreateDrawingObject("Text"),
-                ToggleContainerBg = self:_CreateDrawingObject("Square"),
                 ToggleTrack = self:_CreateDrawingObject("Square"),
                 ToggleNub = self:_CreateDrawingObject("Circle")
             }
             local d = bind.Drawing
-            d.Background.Filled = true; d.Background.zIndex = z; d.Background.Rounding = 10
+            d.StateBackground.Filled = true; d.StateBackground.zIndex = z; d.StateBackground.Rounding = 10
+            d.NameBackground.Filled = true; d.NameBackground.zIndex = z; d.NameBackground.Rounding = 10
             d.NameText.Font = self.ActiveTheme.Fonts.Main; d.NameText.Size = self.ActiveTheme.Fonts.Size; d.NameText.zIndex = z + 1
             d.StateText.Font = self.ActiveTheme.Fonts.Main; d.StateText.Size = self.ActiveTheme.Fonts.Size; d.StateText.zIndex = z + 1
-            d.ToggleContainerBg.Filled = true; d.ToggleContainerBg.zIndex = z; d.ToggleContainerBg.Rounding = 10
             d.ToggleTrack.Filled = false; d.ToggleTrack.Thickness = 2; d.ToggleTrack.zIndex = z + 1
             d.ToggleNub.Filled = true; d.ToggleNub.zIndex = z + 2
         end
@@ -3845,63 +3850,59 @@ function Library:_RenderHotkeys()
         if finalOpacity > 0.01 then
             local d = bind.Drawing
             self:_SetDrawingTableVisibility(d, true)
-            d.NameText.Text = bind.Name
             
-            local totalWidth
-            local itemHeight = 30
+            d.NameText.Text = bind.Name
+            local options = bind.Options
+            local itemHeight, gap = 30, 5
+            
+            local mainBgColor = self:_GetTransitionColor("MainBackground")
+            local neutralColor = self:_GetTextColorForBackground(mainBgColor)
             local sectionBgColor = self:_GetTransitionColor("SectionBackground")
             local semiTransparentBg = {sectionBgColor[1], sectionBgColor[2], sectionBgColor[3], 255 * 0.2}
 
-            if bind.DisplayMode == "Toggle" then
+            local nameWidth = (d.NameText.TextBounds and d.NameText.TextBounds.x or 80)
+            local nameBoxWidth = nameWidth + 20
+            
+            local stateBoxWidth
+            
+            if options.state_type == "toggle" then
                 self:_SetVisibility(d.StateText, false)
-                self:_SetVisibility(d.ToggleContainerBg, true); self:_SetVisibility(d.ToggleTrack, true); self:_SetVisibility(d.ToggleNub, true)
-
-                local toggleContainerWidth = 45
-                local nameWidth = (d.NameText.TextBounds and d.NameText.TextBounds.x or 80)
-                totalWidth = toggleContainerWidth + 5 + nameWidth + 10
-
-                self:_AnimateAndApplyColor(d.ToggleContainerBg, semiTransparentBg, finalOpacity, true)
-                self:_AnimateAndApplyColor(d.NameText, self:_GetTransitionColor("TextPrimary"), finalOpacity, true)
+                self:_SetVisibility(d.ToggleTrack, true); self:_SetVisibility(d.ToggleNub, true)
                 
-                d.ToggleContainerBg.Position = {hk.Position.x, currentY}; d.ToggleContainerBg.Size = {toggleContainerWidth, itemHeight}
-                
+                stateBoxWidth = 45
                 local trackHeight, trackWidth = 14, 24
                 d.ToggleTrack.Rounding = (trackHeight / 2) + 9
-                d.ToggleTrack.Position = {hk.Position.x + (toggleContainerWidth - trackWidth)/2, currentY + (itemHeight - trackHeight)/2}
+                d.ToggleTrack.Position = {hk.Position.x + (stateBoxWidth - trackWidth)/2, currentY + (itemHeight - trackHeight)/2}
                 d.ToggleTrack.Size = {trackWidth, trackHeight}
                 
                 d.ToggleNub.Radius = 4
                 local nubY = d.ToggleTrack.Position.y + trackHeight/2
-                local nubX = d.ToggleTrack.Position.x + (bind.State and (trackWidth - d.ToggleNub.Radius - 3) or (d.ToggleNub.Radius + 3))
+                local nubX = d.ToggleTrack.Position.x + (options.value and (trackWidth - d.ToggleNub.Radius - 3) or (d.ToggleNub.Radius + 3))
                 d.ToggleNub.Position = {nubX, nubY}
                 
-                local toggleIndicatorColor = self:_GetTransitionColor(bind.State and "Accent" or "TextDark")
-                self:_AnimateAndApplyColor(d.ToggleTrack, toggleIndicatorColor, finalOpacity, true)
-                self:_AnimateAndApplyColor(d.ToggleNub, toggleIndicatorColor, finalOpacity, true)
-                
-                d.Background.Position = {hk.Position.x + toggleContainerWidth + 5, currentY}; d.Background.Size = {nameWidth + 10, itemHeight}
-                self:_AnimateAndApplyColor(d.Background, semiTransparentBg, finalOpacity, true)
-
-                d.NameText.Position = {hk.Position.x + toggleContainerWidth + 5 + 5, currentY + itemHeight/2 - d.NameText.Size/2}
-            else -- Режим StateText
+                self:_AnimateAndApplyColor(d.ToggleTrack, neutralColor, finalOpacity, true)
+                self:_AnimateAndApplyColor(d.ToggleNub, neutralColor, finalOpacity, true)
+            else -- Режим "text" или "value"
                 self:_SetVisibility(d.StateText, true)
-                self:_SetVisibility(d.ToggleContainerBg, false); self:_SetVisibility(d.ToggleTrack, false); self:_SetVisibility(d.ToggleNub, false)
+                self:_SetVisibility(d.ToggleTrack, false); self:_SetVisibility(d.ToggleNub, false)
                 
-                d.StateText.Text = bind.State
-                local nameWidth = (d.NameText.TextBounds and d.NameText.TextBounds.x or 60)
-                local stateWidth = (d.StateText.TextBounds and d.StateText.TextBounds.x or 40)
-                totalWidth = nameWidth + stateWidth + 25
-
-                self:_AnimateAndApplyColor(d.Background, semiTransparentBg, finalOpacity, true)
-                self:_AnimateAndApplyColor(d.NameText, self:_GetTransitionColor("TextPrimary"), finalOpacity, true)
-                self:_AnimateAndApplyColor(d.StateText, self:_GetTransitionColor("TextSecondary"), finalOpacity, true)
+                d.StateText.Text = tostring(options.value)
+                local stateTextWidth = (d.StateText.TextBounds and d.StateText.TextBounds.x or 20)
+                stateBoxWidth = stateTextWidth + 20
                 
-                d.Background.Position = {hk.Position.x, currentY}; d.Background.Size = {totalWidth, itemHeight}
-                d.NameText.Position = {hk.Position.x + 10, currentY + itemHeight/2 - d.NameText.Size/2}
-                d.StateText.Position = {hk.Position.x + 10 + nameWidth + 5, currentY + itemHeight/2 - d.StateText.Size/2}
+                d.StateText.Position = {hk.Position.x + stateBoxWidth / 2, currentY + itemHeight / 2 - d.StateText.Size / 2}
+                self:_AnimateAndApplyColor(d.StateText, self:_GetTransitionColor("TextPrimary"), finalOpacity, true)
             end
             
-            currentY = currentY + itemHeight + 5
+            self:_AnimateAndApplyColor(d.StateBackground, semiTransparentBg, finalOpacity, true)
+            self:_AnimateAndApplyColor(d.NameBackground, semiTransparentBg, finalOpacity, true)
+            self:_AnimateAndApplyColor(d.NameText, self:_GetTransitionColor("TextPrimary"), finalOpacity, true)
+            
+            d.StateBackground.Position = {hk.Position.x, currentY}; d.StateBackground.Size = {stateBoxWidth, itemHeight}
+            d.NameBackground.Position = {hk.Position.x + stateBoxWidth + gap, currentY}; d.NameBackground.Size = {nameBoxWidth, itemHeight}
+            d.NameText.Position = {d.NameBackground.Position.x + 10, currentY + itemHeight / 2 - d.NameText.Size / 2}
+            
+            currentY = currentY + itemHeight + gap
         else
             if bind.Drawing then self:_SetDrawingTableVisibility(bind.Drawing, false) end
         end
@@ -3909,8 +3910,7 @@ function Library:_RenderHotkeys()
 
     for _, id in ipairs(bindsToRemove) do
         local bind = hk.ActiveBinds[id]
-        if bind and bind.Drawing then self:_CleanupDrawingObjects(bind.Drawing)
-        end
+        if bind and bind.Drawing then self:_CleanupDrawingObjects(bind.Drawing) end
         hk.ActiveBinds[id] = nil
     end
 end
@@ -5447,8 +5447,8 @@ function Library:_CheckGlobalBinds()
                             self.UI.Values[toggle_id] = new_state
 
                             if new_state then
-                                -- Передаем `true` как состояние и `"Toggle"` как режим отображения
-                                self:SetHotkeyState(toggle_id, setting_el.ParentToggleName, true, "Toggle")
+                                -- Теперь мы передаем таблицу options, указывая тип и значение
+                                self:SetHotkeyState(toggle_id, setting_el.ParentToggleName, { state_type = "toggle", value = true })
                             else
                                 self:RemoveHotkey(toggle_id)
                             end
@@ -5467,24 +5467,22 @@ function Library:GetValue(id)
     return self.UI.Values[id]
 end
 
-function Library:SetHotkeyState(id, name, state, display_mode)
-    if not id or not name or state == nil then return end
+function Library:SetHotkeyState(id, name, options)
+    if not id or not name or not options or not options.state_type or options.value == nil then return end
     local hk = self.UI.Hotkeys
     
-    local mode = display_mode or "StateText" -- По умолчанию используется текстовый режим
-
     if hk.ActiveBinds[id] then
+        -- Хоткей уже существует, обновляем его
         local bind = hk.ActiveBinds[id]
         bind.Name = name
-        bind.State = state
-        bind.DisplayMode = mode
+        bind.Options = options
         bind.IsClosing = false
     else
+        -- Создаем новый хоткей
         hk.ActiveBinds[id] = {
             id = id,
             Name = name,
-            State = state,
-            DisplayMode = mode,
+            Options = options, -- Сохраняем всю таблицу с опциями
             FadeOpacity = 0.0,
             IsClosing = false,
             Drawing = nil
