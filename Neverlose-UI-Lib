@@ -2,6 +2,11 @@
     Neverlose.cc Style UI Library for Severe
     Version: 1.0.0 
     Developer: Gemini AI & Dicky_Micky_
+
+    Dear Council+, there are no logging links in this library, and no user data is sent anywhere.
+    I wrote this script entirely by myself using the Gemini 2.5 pro AI. The only official link is to the Roblox API to get the avatar picture on the left bottom, and the rest of the links are raw images for icons. ( postimg.cc ) which I cannot replace without touching the library
+    The files created by the script are located at "C:\v2\data\NL_Configs\". When the script is injected for the first time, it will create "default.cfg" in this path
+    Unfortunately, all the function descriptions are written in Russian, as it was easier for me to understand during development.
   ]]
 
 local Library = {}
@@ -3836,7 +3841,6 @@ function Library:_RenderHotkeys()
                 StateText = self:_CreateDrawingObject("Text"),
                 ToggleTrack = self:_CreateDrawingObject("Square"),
                 ToggleNub = self:_CreateDrawingObject("Circle"),
-                -- [[ НОВЫЙ ОБЪЕКТ: Овал для зажатой клавиши ]]
                 HoldIndicator = self:_CreateDrawingObject("Square")
             }
             local d = bind.Drawing
@@ -3846,7 +3850,6 @@ function Library:_RenderHotkeys()
             d.StateText.Font = self.ActiveTheme.Fonts.Main; d.StateText.Size = self.ActiveTheme.Fonts.Size; d.StateText.zIndex = z + 1; d.StateText.Center = true
             d.ToggleTrack.Filled = false; d.ToggleTrack.Thickness = 2; d.ToggleTrack.zIndex = z + 1
             d.ToggleNub.Filled = true; d.ToggleNub.zIndex = z + 2
-            -- [[ НОВЫЙ ОБЪЕКТ: Свойства овала ]]
             d.HoldIndicator.Filled = true; d.HoldIndicator.zIndex = z + 2
         end
 
@@ -3885,7 +3888,7 @@ function Library:_RenderHotkeys()
                 stateBoxWidth = 45
                 
                 local trackHeight, trackWidth = 14, 24
-                d.ToggleTrack.Rounding = (trackHeight / 2) + 9
+                d.ToggleTrack.Rounding = 7
                 d.ToggleTrack.Position = {hk.Position.x + (stateBoxWidth - trackWidth)/2, currentY + (itemHeight - trackHeight)/2}
                 d.ToggleTrack.Size = {trackWidth, trackHeight}
                 
@@ -3897,34 +3900,32 @@ function Library:_RenderHotkeys()
                 self:_AnimateAndApplyColor(d.ToggleTrack, neutralColor, finalOpacity, true)
                 self:_AnimateAndApplyColor(d.ToggleNub, neutralColor, finalOpacity, true)
 
-            -- [[ НОВАЯ ЛОГИКА: Отрисовка индикатора зажатой клавиши ]]
             elseif options.state_type == "hold" then
                 self:_SetVisibility(d.StateText, false); self:_SetVisibility(d.ToggleNub, false)
-                self:_SetVisibility(d.ToggleTrack, true); self:_SetVisibility(d.HoldIndicator, true)
+                self:_SetVisibility(d.ToggleTrack, true)
+                -- [[ ИСПРАВЛЕНИЕ: Управляем видимостью овала в зависимости от options.value ]]
+                self:_SetVisibility(d.HoldIndicator, options.value == true)
                 stateBoxWidth = 45
 
                 local trackHeight, trackWidth = 14, 24
-                d.ToggleTrack.Rounding = (trackHeight / 2) + 9
+                d.ToggleTrack.Rounding = 7
                 d.ToggleTrack.Position = {hk.Position.x + (stateBoxWidth - trackWidth)/2, currentY + (itemHeight - trackHeight)/2}
                 d.ToggleTrack.Size = {trackWidth, trackHeight}
                 self:_AnimateAndApplyColor(d.ToggleTrack, neutralColor, finalOpacity, true)
 
-                if options.value == true then
-                    local pillHeight = trackHeight - 6
-                    local pillWidth = trackWidth - 8
-                    d.HoldIndicator.Rounding = pillHeight / 2
-                    local pillX = d.ToggleTrack.Position.x + (trackWidth / 2) - (pillWidth / 2)
-                    local pillY = d.ToggleTrack.Position.y + (trackHeight / 2) - (pillHeight / 2)
-                    d.HoldIndicator.Position = {pillX, pillY}
-                    d.HoldIndicator.Size = {pillWidth, pillHeight}
-                    self:_AnimateAndApplyColor(d.HoldIndicator, neutralColor, finalOpacity, true)
-                else
-                    self:_SetVisibility(d.HoldIndicator, false)
-                end
+                local pillHeight = trackHeight - 6
+                local pillWidth = trackWidth - 8
+                d.HoldIndicator.Rounding = pillHeight / 2
+                d.HoldIndicator.Position = {
+                    d.ToggleTrack.Position.x + (trackWidth - pillWidth) / 2,
+                    d.ToggleTrack.Position.y + (trackHeight - pillHeight) / 2
+                }
+                d.HoldIndicator.Size = {pillWidth, pillHeight}
+                self:_AnimateAndApplyColor(d.HoldIndicator, neutralColor, finalOpacity, true)
 
-            else -- Режим "text" или "value"
-                self:_SetVisibility(d.StateText, true)
+            else 
                 self:_SetVisibility(d.ToggleTrack, false); self:_SetVisibility(d.ToggleNub, false); self:_SetVisibility(d.HoldIndicator, false)
+                self:_SetVisibility(d.StateText, true)
                 
                 d.StateText.Text = tostring(options.value)
                 local stateTextWidth = (d.StateText.TextBounds and d.StateText.TextBounds.x or 20)
