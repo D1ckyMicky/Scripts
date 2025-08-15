@@ -1123,6 +1123,34 @@ function Library:_InitializeCoreUI()
     end
     
     UI.Core.HeaderButtons.Save.CurrentColor = self:_DeepCopy(self.ActiveTheme.Colors.MainBackground)
+
+    do
+        local tabGroupName = "PRESETS"
+        local tabName = "Configs"
+        local group = { Name = tabGroupName, Header = self:_CreateDrawingObject("Text"), Tabs = {} }
+        if group.Header then
+            group.Header.Font = self.ActiveTheme.Fonts.Main; group.Header.Size = self.ActiveTheme.Fonts.TabHeaderSize; group.Header.Text = group.Name; group.Header.Center = false; group.Header.Outline = false; group.Header.zIndex = 3;
+        end
+
+        local tab = {
+            Name = tabName,
+            Text = self:_CreateDrawingObject("Text"),
+            Icon = self:_CreateDrawingObject("Image"),
+            ClickRegion = {},
+            Highlight = self:_CreateDrawingObject("Square")
+        }
+        if tab.Highlight then
+            tab.Highlight.Filled = true; tab.Highlight.zIndex = 2; tab.Highlight.Rounding = self.ActiveTheme.Rounding.Element + 3; tab.Highlight.Visible = true;
+        end
+        if tab.Text then
+            tab.Text.Font = self.ActiveTheme.Fonts.Main; tab.Text.Size = self.ActiveTheme.Fonts.TabSize; tab.Text.Text = tabName; tab.Text.Center = false; tab.Text.Outline = false; tab.Text.zIndex = 3; end
+        if tab.Icon then
+            tab.Icon.Url = "https://i.postimg.cc/3Rsbw44x/dsawdsaaaaaaaaa.png"; tab.Icon.Size = {self.ActiveTheme.IconSize, self.ActiveTheme.IconSize}; tab.Icon.zIndex = 3;
+        end
+
+        table.insert(group.Tabs, tab)
+        table.insert(self.UI.TabGroups, group)
+    end
 end
 
 function Library:_InitializeBurgerMenu()
@@ -2999,12 +3027,12 @@ end
 
 function Library:_RenderTabs(x, y, width)
     local sidebarWidth = self:_SafeNumber(width, 187) 
-    
     local currentY = y + 8
     local theme = self.ActiveTheme
-    local globalOpacity = self.GlobalAnimation and self.GlobalAnimation.Opacity or 1
+    local presets_group = nil -- Переменная для хранения группы "Configs"
 
-    for _, group in ipairs(self.UI.TabGroups) do
+    -- Вспомогательная функция, чтобы не дублировать код
+    local function render_group(group)
         if group.Header then
             self:_SetVisibility(group.Header, true)
             self:_AnimateAndApplyColor(group.Header, theme.Colors.TabHeader)
@@ -3021,8 +3049,7 @@ function Library:_RenderTabs(x, y, width)
             if tab.Icon then
                 self:_SetVisibility(tab.Icon, true)
                 tab.Icon.Position = {startX, currentY + (tabHeight / 2) - (theme.IconSize / 2)}
-                local iconColor = theme.Colors.Accent
-                self:_AnimateAndApplyColor(tab.Icon, iconColor)
+                self:_AnimateAndApplyColor(tab.Icon, theme.Colors.Accent)
                 startX = startX + theme.IconSize + 8
             end
 
@@ -3037,27 +3064,34 @@ function Library:_RenderTabs(x, y, width)
             if tab.Highlight then
                 tab.Highlight.Position = {x + 10, currentY}
                 tab.Highlight.Size = {sidebarWidth - 20, tabHeight}
-                
                 local state = self.AnimationState[tab.Highlight]
                 if not state then
-                    local initialOpacity = is_active and (theme.Transparency.ActiveTabHighlight or 0.28) or 0
-                    state = { CurrentOpacity = initialOpacity }
+                    state = { CurrentOpacity = is_active and theme.Transparency.ActiveTabHighlight or 0 }
                     self.AnimationState[tab.Highlight] = state
                 end
-
-                local targetOpacity = is_active and (theme.Transparency.ActiveTabHighlight or 0.28) or 0
+                local targetOpacity = is_active and theme.Transparency.ActiveTabHighlight or 0
                 local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4
                 local animationSpeed = speed_value / 16.0
-
                 state.CurrentOpacity = state.CurrentOpacity + (targetOpacity - state.CurrentOpacity) * animationSpeed
-                
-                -- ИСПОЛЬЗУЕМ _AnimateAndApplyColor И ПЕРЕДАЁМ АНИМИРОВАННУЮ ПРОЗРАЧНОСТЬ
                 self:_AnimateAndApplyColor(tab.Highlight, theme.Colors.Accent, state.CurrentOpacity)
             end
-
             currentY = currentY + tabHeight + 5
         end
         currentY = currentY + 15
+    end
+
+    -- Первый проход: рисуем все обычные группы и запоминаем группу "PRESETS"
+    for _, group in ipairs(self.UI.TabGroups) do
+        if group.Name == "PRESETS" then
+            presets_group = group
+        else
+            render_group(group)
+        end
+    end
+
+    -- Второй проход: если мы нашли группу "PRESETS", рисуем её в самом конце
+    if presets_group then
+        render_group(presets_group)
     end
 end
 
@@ -4843,10 +4877,6 @@ function Library:_MainLoop()
         end
 
         if self.Window.Visible then
-            if is_first_frame then
-                self:_AddPresetsTab()
-                is_first_frame = false
-            end
             self:_RenderLoop()
         end
 
