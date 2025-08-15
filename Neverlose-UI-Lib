@@ -2,11 +2,6 @@
     Neverlose.cc Style UI Library for Severe
     Version: 1.0.0 
     Developer: Gemini AI & Dicky_Micky_
-
-    Dear Council+, there are no logging links in this library, and no user data is sent anywhere.
-    I wrote this script entirely by myself using the Gemini 2.5 pro AI. The only official link is to the Roblox API to get the avatar picture on the left bottom, and the rest of the links are raw images for icons. ( postimg.cc ) which I cannot replace without touching the library
-    The files created by the script are located at "C:\v2\data\NL_Configs\". When the script is injected for the first time, it will create "default.cfg" in this path
-    Unfortunately, all the function descriptions are written in Russian, as it was easier for me to understand during development.
   ]]
 
 local Library = {}
@@ -92,15 +87,10 @@ local drag_offset = {x = 0, y = 0}
 local was_left_pressed = false
 local was_right_pressed = false
 local is_dragging_something = false
-local was_dragging_picker = false -- << ДОБАВЬ ЭТУ СТРОКУ
-local lastToggleTime = 0
-local toggleDelay = 0.5
 local SCRIPT_PREFIX = "[NL UI Lib] "
 local lastAutoSaveTime = 0
 local autoSaveInterval = 15 -- Интервал в секундах (можно изменить)
 local lastBindCheckTime = 0 -- Для глобальной проверки биндов 
-local last_slider_key_press_time = 0 
-local slider_key_press_delay = 0.04 -- Можешь изменить это значение (в секундах)
 local lastMousePos = {x = 0, y = 0}
 
 --================================================================
@@ -3062,13 +3052,11 @@ function Library:_RenderTabs(x, y, width)
 end
 
 function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, yOffset, masterOpacity)
-    -- --- [[ ИЗМЕНЕНИЕ: Убираем `local theme = self.ActiveTheme` отсюда ]] ---
     local isThemeLight = self:_IsThemeLight(self.Themes[self.UI.Values.AboutSelectedStyle] or self.ActiveTheme)
     local animatedY = sectionY + yOffset
 
     local sDrawing = section.Drawing
     for _, obj in pairs(sDrawing) do self:_SetVisibility(obj, true) end
-    -- --- [[ ИЗМЕНЕНИЕ: Используем `_GetTransitionColor` для всех элементов ]] ---
     self:_AnimateAndApplyColor(sDrawing.Background, self:_GetTransitionColor("SectionBackground"), masterOpacity)
     self:_AnimateAndApplyColor(sDrawing.Border, self:_GetTransitionColor("Separator"), masterOpacity)
     self:_AnimateAndApplyColor(sDrawing.Title, self:_GetTransitionColor("TextPrimary"), masterOpacity)
@@ -3091,9 +3079,9 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
             el.Back.Position = {toggleBackX, toggleBackY}; el.Back.Size = {el.Size.width, el.Size.height}; el.ClickRegion = {x1 = toggleBackX, y1 = toggleBackY, x2 = toggleBackX + el.Size.width, y2 = toggleBackY + el.Size.height}
             local is_on = self.UI.Values[el.id]; local nubY = toggleBackY + el.Size.height / 2; local targetBackColor, targetNubColor
             if is_on then if isThemeLight then targetBackColor = self:_GetTransitionColor("Accent"); targetNubColor = self:_GetTransitionColor("SectionBackground") else targetBackColor = self:_DarkenColor(self:_GetTransitionColor("Accent"), 0.3); targetNubColor = self:_GetTransitionColor("Accent") end else targetBackColor = self:_GetTransitionColor("DarkGray"); targetNubColor = self:_GetTransitionColor("LightGray") end
-
+            
             local targetOffset = is_on and (el.Size.width - el.Size.height / 2) or (el.Size.height / 2)
-
+            
             if self.UI.Values["BurgerLow-EndMode"] then
                 el.AnimatedNubOffset = targetOffset
             else
@@ -3101,7 +3089,7 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
                 local animationSpeed = speed_value / 10.0
                 el.AnimatedNubOffset = el.AnimatedNubOffset + (targetOffset - el.AnimatedNubOffset) * animationSpeed
             end
-
+            
             el.Nub.Position = {toggleBackX + el.AnimatedNubOffset, nubY}
 
             self:_AnimateAndApplyColor(el.Back, targetBackColor, masterOpacity); self:_AnimateAndApplyColor(el.Nub, targetNubColor, masterOpacity)
@@ -3117,17 +3105,23 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
 
             local currentElementY = animatedY + elementY_offset
             self:_AnimateAndApplyColor(el.Label, self:_GetTransitionColor("TextSecondary"), masterOpacity); el.Label.Position = {sectionX + 10, currentElementY}
-
+            
             local valueBoxW, valueBoxH = 45, 22
             local valueBoxX = sectionX + columnWidth - valueBoxW - 10
             el.ValueInputBg.Position = {valueBoxX, currentElementY - 4}; el.ValueInputBg.Size = {valueBoxW, valueBoxH}
             el.ValueInputBorder.Position = {valueBoxX, currentElementY - 4}; el.ValueInputBorder.Size = {valueBoxW, valueBoxH}
             el.ValueInputClickRegion = {x1 = valueBoxX, y1 = currentElementY - 4, x2 = valueBoxX + valueBoxW, y2 = currentElementY - 4 + valueBoxH}
+            
+            -- --- [[ НАЧАЛО ИСПРАВЛЕНИЯ ]] ---
+            -- Добавляем динамический расчет позиции слайдера, как в попапах
+            local labelWidth = (el.Label.TextBounds and el.Label.TextBounds.x) or 75
+            local startOffset = el.Label.Position.x - sectionX + labelWidth + 15
+            local sliderBackX = sectionX + math.max(100, startOffset)
+            -- --- [[ КОНЕЦ ИСПРАВЛЕНИЯ ]] ---
 
-            local sliderBackX = sectionX + 100
             local sliderBackWidth = (valueBoxX - 10) - sliderBackX
             el.Back.Position = {sliderBackX, currentElementY + 8}; el.Back.Size = {sliderBackWidth, 2}; el.ClickRegion = { x1 = sliderBackX, y1 = currentElementY - 2, x2 = sliderBackX + sliderBackWidth, y2 = currentElementY + 18 };
-
+            
             if self.UI.Values["BurgerLow-EndMode"] then
                 el.AnimatedValue = self.UI.Values[el.id]
             else
@@ -3135,19 +3129,17 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
                 local animationSpeed = speed_value / 15.0
                 el.AnimatedValue = el.AnimatedValue + (self.UI.Values[el.id] - el.AnimatedValue) * animationSpeed
             end
-
+            
             local value_percentage = math.clamp((el.AnimatedValue - el.Min) / (el.Max - el.Min), 0, 1)
             local nubX = sliderBackX + sliderBackWidth * value_percentage
             el.LeftFill.Position = {sliderBackX, currentElementY + 8}; el.LeftFill.Size = {nubX - sliderBackX, 2}; el.Nub.Position = {nubX, currentElementY + 9}
-
+            
             local borderColor = el.IsEditing and self:_GetTransitionColor("Accent") or self:_GetTransitionColor("Separator")
             self:_AnimateAndApplyColor(el.ValueInputBg, self:_GetTransitionColor("DarkBlue"), masterOpacity)
             self:_AnimateAndApplyColor(el.ValueInputBorder, borderColor, masterOpacity)
             self:_AnimateAndApplyColor(el.ValueInputCursor, self:_GetTransitionColor("Accent"), masterOpacity)
 
-            -- [[ ИСПРАВЛЕНИЕ ]] Используем новую функцию форматирования
             el.ValueText.Text = el.IsEditing and el.InputText or self:_FormatSliderValue(self.UI.Values[el.id], el.Increment)
-
             el.ValueText.Position = {valueBoxX + valueBoxW / 2, currentElementY - 4 + (valueBoxH / 2) - (el.ValueText.Size / 2)}
             self:_AnimateAndApplyColor(el.ValueText, self:_GetTransitionColor("TextPrimary"), masterOpacity)
 
@@ -3171,7 +3163,6 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
             if el.type == "Multidropdown" then
                 local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4
                 local animationSpeed = (speed_value / 1.5) / 10.0
-
                 local hasSelection = #self.UI.Values[el.id] > 0
                 local targetTextXOffset = hasSelection and 25 or 10
                 if self.UI.Values["BurgerLow-EndMode"] then
@@ -3179,7 +3170,6 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
                 else
                     el.AnimatedTextXOffset = el.AnimatedTextXOffset + (targetTextXOffset - el.AnimatedTextXOffset) * animationSpeed
                 end
-
                 for i, option_item in ipairs(el.OptionList) do
                     local isSelected = table.find(self.UI.Values[el.id], el.Options[i])
                     local targetOpacity = isSelected and 1.0 or 0.0
@@ -3190,7 +3180,7 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
                     end
                 end
             end
-
+            
             self:_SetVisibility(el.Button, true); self:_SetVisibility(el.ButtonText, true); self:_SetVisibility(el.ArrowLine1, true); self:_SetVisibility(el.ArrowLine2, true)
             local currentElementY = animatedY + elementY_offset; self:_AnimateAndApplyColor(el.Label, self:_GetTransitionColor("TextSecondary"), masterOpacity); el.Label.Position = {sectionX + 10, currentElementY + 5}
             local dropdownButtonX, dropdownButtonY = sectionX + columnWidth - el.Size.width - 15, currentElementY; el.Button.Position = {dropdownButtonX, dropdownButtonY}; el.Button.Size = {el.Size.width, el.Size.height}
@@ -3200,17 +3190,15 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
             el.ClickRegion = { x1 = dropdownButtonX, y1 = dropdownButtonY, x2 = dropdownButtonX + el.Size.width, y2 = dropdownButtonY + el.Size.height }
             self:_AnimateAndApplyColor(el.Button, self:_GetTransitionColor("DarkBlue"), masterOpacity); self:_AnimateAndApplyColor(el.ButtonText, self:_GetTransitionColor("TextPrimary"), masterOpacity); self:_AnimateAndApplyColor(el.ArrowLine1, self:_GetTransitionColor("TextPrimary"), masterOpacity); self:_AnimateAndApplyColor(el.ArrowLine2, self:_GetTransitionColor("TextPrimary"), masterOpacity)
             elementY_offset = elementY_offset + 35
-
+            
             if el.IsOpen or el.IsClosing then
                 local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4; local animationSpeed = (speed_value / 1.5) / 10.0
-
                 if self.UI.Values["BurgerLow-EndMode"] then
                     el.FadeOpacity = (el.IsOpen and not el.IsClosing) and 1 or 0
                     if el.FadeOpacity == 0 then el.IsClosing = false end
                 else
                     if el.IsOpen and not el.IsClosing then el.FadeOpacity = math.min(1, el.FadeOpacity + animationSpeed) elseif el.IsClosing then el.FadeOpacity = math.max(0, el.FadeOpacity - animationSpeed); if el.FadeOpacity == 0 then el.IsClosing = false end end
                 end
-
                 if el.FadeOpacity > 0 then
                     local finalOpacity = masterOpacity * el.FadeOpacity; local popupWidth = 150; local optionHeight = 25; local popupHeight = (#el.Options * optionHeight) + 10
                     local popupX = dropdownButtonX + (el.Size.width / 2) - (popupWidth / 2); local popupY = dropdownButtonY + (el.Size.height / 2) - (popupHeight / 2)
@@ -3218,13 +3206,12 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
                     self:_SetVisibility(el.OptionBackground, true); self:_SetVisibility(el.Border, true)
                     self:_AnimateAndApplyColor(el.OptionBackground, self:_GetTransitionColor("SectionBackground"), finalOpacity); self:_AnimateAndApplyColor(el.Border, self:_GetTransitionColor("Separator"), finalOpacity)
                     el.OptionBackground.Position = {popupX, popupY}; el.OptionBackground.Size = {popupWidth, popupHeight}; el.Border.Position = {popupX, popupY}; el.Border.Size = {popupWidth, popupHeight}
-
+                    
                     local glowFinalOpacity = masterOpacity * el.FadeOpacity
                     if not self.UI.Values["BurgerLow-EndMode"] then
                          if el.IsOpen and not el.IsClosing then local threshold = 0.5; if el.FadeOpacity > threshold then local glowProgress = (el.FadeOpacity - threshold) / (1.0 - threshold); glowFinalOpacity = masterOpacity * glowProgress else glowFinalOpacity = 0 end elseif el.IsClosing then glowFinalOpacity = masterOpacity * (el.FadeOpacity * el.FadeOpacity) end
                     end
                     self:_RenderGlowEffect(el.Glow, popupX, popupY, popupWidth, popupHeight, el.OptionBackground.Rounding, self:_GetTransitionColor("GlowColor"), nil, glowFinalOpacity, el.OptionBackground.zIndex - 1)
-
                     local currentOptionY = popupY + 5
                     for i, option_item in ipairs(el.OptionList) do
                         local textX
@@ -3233,13 +3220,13 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
                         else 
                             textX = popupX + 10
                         end
-
+                        
                         self:_SetVisibility(option_item.Text, true); self:_SetVisibility(option_item.Highlight, true)
                         option_item.ClickRegion = {x1 = popupX, y1 = currentOptionY, x2 = popupX + popupWidth, y2 = currentOptionY + optionHeight}; option_item.Text.Position = {textX, currentOptionY + (optionHeight / 2) - (option_item.Text.Size / 2)}; option_item.Highlight.Position = {popupX + 5, currentOptionY}; option_item.Highlight.Size = {popupWidth - 10, optionHeight}
                         local isSelected = (el.type == "Dropdown" and self.UI.Values[el.id] == el.Options[i]) or (el.type == "Multidropdown" and table.find(self.UI.Values[el.id], el.Options[i])); local isHovered = (el.HoveredOptionIndex == i)
                         local targetTextColor = isSelected and self:_GetTransitionColor("Accent") or self:_GetTransitionColor("TextPrimary"); self:_AnimateAndApplyColor(option_item.Text, targetTextColor, finalOpacity)
                         if isHovered then local highlightColor = self:_GetTransitionColor("Separator"); self:_AnimateAndApplyColor(option_item.Highlight, highlightColor, finalOpacity * 0.4) else option_item.Highlight.Opacity = 0 end
-
+                        
                         if el.type == "Multidropdown" then
                             if option_item.CheckmarkOpacity > 0.01 then
                                 self:_SetVisibility(option_item.CheckmarkLine1, true); self:_SetVisibility(option_item.CheckmarkLine2, true)
