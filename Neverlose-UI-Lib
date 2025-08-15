@@ -2,11 +2,6 @@
     Neverlose.cc Style UI Library for Severe
     Version: 1.0.0 
     Developer: Gemini AI & Dicky_Micky_
-
-    Dear Council+, there are no logging links in this library, and no user data is sent anywhere.
-    I wrote this script entirely by myself using the Gemini 2.5 pro AI. The only official link is to the Roblox API to get the avatar picture on the left bottom, and the rest of the links are raw images for icons. ( postimg.cc ) which I cannot replace without touching the library
-    The files created by the script are located at "C:\v2\data\NL_Configs\". When the script is injected for the first time, it will create "default.cfg" in this path
-    Unfortunately, all the function descriptions are written in Russian, as it was easier for me to understand during development.
   ]]
 
 local Library = {}
@@ -3840,16 +3835,19 @@ function Library:_RenderHotkeys()
                 NameText = self:_CreateDrawingObject("Text"),
                 StateText = self:_CreateDrawingObject("Text"),
                 ToggleTrack = self:_CreateDrawingObject("Square"),
-                ToggleNub = self:_CreateDrawingObject("Circle")
+                ToggleNub = self:_CreateDrawingObject("Circle"),
+                -- [[ НОВЫЙ ОБЪЕКТ: Овал для зажатой клавиши ]]
+                HoldIndicator = self:_CreateDrawingObject("Square")
             }
             local d = bind.Drawing
             d.StateBackground.Filled = true; d.StateBackground.zIndex = z; d.StateBackground.Rounding = 10
             d.NameBackground.Filled = true; d.NameBackground.zIndex = z; d.NameBackground.Rounding = 10
-            -- [[ ИСПРАВЛЕНИЕ: Включаем центрирование для текста ]]
             d.NameText.Font = self.ActiveTheme.Fonts.Main; d.NameText.Size = self.ActiveTheme.Fonts.Size; d.NameText.zIndex = z + 1; d.NameText.Center = true
             d.StateText.Font = self.ActiveTheme.Fonts.Main; d.StateText.Size = self.ActiveTheme.Fonts.Size; d.StateText.zIndex = z + 1; d.StateText.Center = true
             d.ToggleTrack.Filled = false; d.ToggleTrack.Thickness = 2; d.ToggleTrack.zIndex = z + 1
             d.ToggleNub.Filled = true; d.ToggleNub.zIndex = z + 2
+            -- [[ НОВЫЙ ОБЪЕКТ: Свойства овала ]]
+            d.HoldIndicator.Filled = true; d.HoldIndicator.zIndex = z + 2
         end
 
         local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4
@@ -3882,10 +3880,10 @@ function Library:_RenderHotkeys()
             local stateBoxWidth
             
             if options.state_type == "toggle" then
-                self:_SetVisibility(d.StateText, false)
+                self:_SetVisibility(d.StateText, false); self:_SetVisibility(d.HoldIndicator, false)
                 self:_SetVisibility(d.ToggleTrack, true); self:_SetVisibility(d.ToggleNub, true)
-                
                 stateBoxWidth = 45
+                
                 local trackHeight, trackWidth = 14, 24
                 d.ToggleTrack.Rounding = (trackHeight / 2) + 9
                 d.ToggleTrack.Position = {hk.Position.x + (stateBoxWidth - trackWidth)/2, currentY + (itemHeight - trackHeight)/2}
@@ -3898,15 +3896,40 @@ function Library:_RenderHotkeys()
                 
                 self:_AnimateAndApplyColor(d.ToggleTrack, neutralColor, finalOpacity, true)
                 self:_AnimateAndApplyColor(d.ToggleNub, neutralColor, finalOpacity, true)
-            else
+
+            -- [[ НОВАЯ ЛОГИКА: Отрисовка индикатора зажатой клавиши ]]
+            elseif options.state_type == "hold" then
+                self:_SetVisibility(d.StateText, false); self:_SetVisibility(d.ToggleNub, false)
+                self:_SetVisibility(d.ToggleTrack, true); self:_SetVisibility(d.HoldIndicator, true)
+                stateBoxWidth = 45
+
+                local trackHeight, trackWidth = 14, 24
+                d.ToggleTrack.Rounding = (trackHeight / 2) + 9
+                d.ToggleTrack.Position = {hk.Position.x + (stateBoxWidth - trackWidth)/2, currentY + (itemHeight - trackHeight)/2}
+                d.ToggleTrack.Size = {trackWidth, trackHeight}
+                self:_AnimateAndApplyColor(d.ToggleTrack, neutralColor, finalOpacity, true)
+
+                if options.value == true then
+                    local pillHeight = trackHeight - 6
+                    local pillWidth = trackWidth - 8
+                    d.HoldIndicator.Rounding = pillHeight / 2
+                    local pillX = d.ToggleTrack.Position.x + (trackWidth / 2) - (pillWidth / 2)
+                    local pillY = d.ToggleTrack.Position.y + (trackHeight / 2) - (pillHeight / 2)
+                    d.HoldIndicator.Position = {pillX, pillY}
+                    d.HoldIndicator.Size = {pillWidth, pillHeight}
+                    self:_AnimateAndApplyColor(d.HoldIndicator, neutralColor, finalOpacity, true)
+                else
+                    self:_SetVisibility(d.HoldIndicator, false)
+                end
+
+            else -- Режим "text" или "value"
                 self:_SetVisibility(d.StateText, true)
-                self:_SetVisibility(d.ToggleTrack, false); self:_SetVisibility(d.ToggleNub, false)
+                self:_SetVisibility(d.ToggleTrack, false); self:_SetVisibility(d.ToggleNub, false); self:_SetVisibility(d.HoldIndicator, false)
                 
                 d.StateText.Text = tostring(options.value)
                 local stateTextWidth = (d.StateText.TextBounds and d.StateText.TextBounds.x or 20)
                 stateBoxWidth = stateTextWidth + 20
                 
-                -- [[ ИСПРАВЛЕНИЕ: Центрируем текст состояния ]]
                 local stateTextCenterX = hk.Position.x + (stateBoxWidth / 2)
                 local stateTextCenterY = currentY + (itemHeight / 2) - (d.StateText.Size / 2)
                 d.StateText.Position = {stateTextCenterX, stateTextCenterY}
@@ -3921,7 +3944,6 @@ function Library:_RenderHotkeys()
             local nameBgX = hk.Position.x + stateBoxWidth + gap
             d.NameBackground.Position = {nameBgX, currentY}; d.NameBackground.Size = {nameBoxWidth, itemHeight}
             
-            -- [[ ИСПРАВЛЕНИЕ: Центрируем текст названия ]]
             local nameTextCenterX = nameBgX + (nameBoxWidth / 2)
             local nameTextCenterY = currentY + (itemHeight / 2) - (d.NameText.Size / 2)
             d.NameText.Position = {nameTextCenterX, nameTextCenterY}
