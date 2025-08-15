@@ -1637,17 +1637,33 @@ function Library:_GetConfigPath(name)
 end
 
 function Library:_SaveConfig(name)
+    -- Создаем глубокую копию, чтобы не изменять реальные числовые значения в UI
     local configData = {
-        Values = {},
+        Values = self:_DeepCopy(self.UI.Values),
         Themes = {},
         ActiveThemeName = self.ActiveTheme.Name
     }
 
-    for id, value in pairs(self.UI.Values) do
-        if not string.find(id, "About") and id ~= "ConfigIncludeStyle" then
-            configData.Values[id] = value
+    -- [[ НОВОЕ ИСПРАВЛЕНИЕ ]]
+    -- Проходим по всем элементам UI, чтобы найти слайдеры с дробным шагом
+    for _, section in ipairs(self.UI.Sections) do
+        for _, element in ipairs(section.Elements) do
+            if element.type == "Slider" and element.Increment < 1 then
+                local id = element.id
+                local value = configData.Values[id]
+                if type(value) == "number" then
+                    -- Конвертируем их значения в строку с правильным форматированием
+                    configData.Values[id] = self:_FormatSliderValue(value, element.Increment)
+                end
+            end
         end
     end
+
+    -- Удаляем ненужные значения
+    configData.Values["AboutAutoSave"] = nil
+    configData.Values["ConfigIncludeStyle"] = nil
+    configData.Values["ToggleUIBind"] = nil
+    configData.Values["AboutAnimationSpeed"] = nil
 
     if self.UI.Values["ConfigIncludeStyle"] then
         for themeName, themeData in pairs(self.Themes) do
@@ -1668,7 +1684,7 @@ function Library:_SaveConfig(name)
         writefile(self:_GetConfigPath(name), encodedData)
         print(SCRIPT_PREFIX .. "Config '" .. name .. "' saved successfully.")
         self.UI.Core.ConfigsTab.NeedsRefresh = true
-        self:_SaveLastConfigName(name) -- [[ НОВОЕ ]] Запоминаем имя сохраненного конфига
+        self:_SaveLastConfigName(name)
     else
         warn(SCRIPT_PREFIX .. "Failed to encode config data for '" .. name .. "'.")
     end
@@ -1709,18 +1725,20 @@ function Library:_LoadConfig(name)
     end
     self:_RebuildStyleCircles()
 
-    -- [[ ГЛАВНОЕ ИСПРАВЛЕНИЕ ]]
-    -- Убираем проверку 'if self.UI.Values[id] ~= nil then'.
-    -- Теперь мы загружаем все значения из конфига, даже если элементы еще не созданы.
     if decodedData.Values then
         for id, value in pairs(decodedData.Values) do
-            self.UI.Values[id] = value
-            -- Этот цикл для колбэков остается. При первом запуске он не сработает,
-            -- так как секций еще нет, но он нужен для ручной загрузки конфига через UI.
+            -- [[ НОВОЕ ИСПРАВЛЕНИЕ ]]
+            -- Если значение - это строка, которая выглядит как число, конвертируем её обратно в число
+            if type(value) == "string" and tonumber(value) then
+                self.UI.Values[id] = tonumber(value)
+            else
+                self.UI.Values[id] = value
+            end
+
             for _, section in ipairs(self.UI.Sections) do
                 for _, element in ipairs(section.Elements) do
                     if element.id == id and element.Callback then
-                        pcall(element.Callback, value)
+                        pcall(element.Callback, self.UI.Values[id])
                         break
                     end
                 end
@@ -1739,7 +1757,7 @@ function Library:_LoadConfig(name)
         self.ThemeTransitionAlpha = 1.0
         self.UI.Values.AboutSelectedStyle = "Blue"
     end
-    
+
     self.UI.Core.ConfigsTab.LoadedConfigName = name
     self:_SaveLastConfigName(name)
     print(SCRIPT_PREFIX .. "Config '" .. name .. "' loaded successfully.")
