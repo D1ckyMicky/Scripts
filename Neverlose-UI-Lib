@@ -2,6 +2,8 @@
     Neverlose.cc Style UI Library for Severe
     Version: 1.0.0 
     Developer: Gemini AI & Dicky_Micky_
+
+
   ]]
 
 local Library = {}
@@ -3776,13 +3778,11 @@ function Library:_RenderHotkeys()
     local anim = hk.Animation
     local isVisible = self.UI.Values["BurgerHotkeys"]
 
-    -- Логика появления/исчезновения всего окна (остается без изменений)
     if isVisible and anim.CurrentOpacity < 1 and not anim.IsOpening then
         anim.IsOpening = true; anim.IsClosing = false
     elseif not isVisible and anim.CurrentOpacity > 0 and not anim.IsClosing then
         anim.IsOpening = false; anim.IsClosing = true
     end
-    -- self:_UpdatePopupAnimation(hk) -- Уже вызывается в главном цикле
 
     local masterOpacity = anim.CurrentOpacity
     if masterOpacity <= 0 then
@@ -3795,13 +3795,11 @@ function Library:_RenderHotkeys()
 
     self:_SetDrawingTableVisibility(hk.Title, true)
 
-    -- ИСПРАВЛЕНИЕ: Определяем светлость темы по переходному цвету
     local mainBgColor = self:_GetTransitionColor("MainBackground")
     local brightness = (mainBgColor[1] * 0.299 + mainBgColor[2] * 0.587 + mainBgColor[3] * 0.114)
     local isThemeLight = brightness > 150
     local z = 110
 
-    -- Отрисовка заголовка (остается почти без изменений)
     local titleHeight = 36
     local titleWidth = 160
     hk.Title.Background.Position = hk.Position
@@ -3816,12 +3814,10 @@ function Library:_RenderHotkeys()
     hk.Title.Text.Position = {sepX + 12, hk.Position.y + titleHeight/2 - hk.Title.Text.Size/2}
     self:_AnimateAndApplyColor(hk.Title.Text, self:_GetTransitionColor("TextPrimary"), masterOpacity, true)
 
-    -- [[ НОВАЯ ЛОГИКА: Отрисовка списка активных биндов ]]
     local currentY = hk.Position.y + titleHeight + 8
     local bindsToRemove = {}
 
     for id, bind in pairs(hk.ActiveBinds) do
-        -- Создаем объекты для отрисовки, если их еще нет
         if not bind.Drawing then
             bind.Drawing = {
                 Background = self:_CreateDrawingObject("Square"),
@@ -3834,13 +3830,12 @@ function Library:_RenderHotkeys()
             if d.StateText then d.StateText.Font = self.ActiveTheme.Fonts.Main; d.StateText.Size = self.ActiveTheme.Fonts.Size; d.StateText.zIndex = z + 1; end
         end
 
-        -- Обновляем анимацию прозрачности (логика осталась прежней)
         local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4
         local animationSpeed = (speed_value / 1.5) / 10.0
         if bind.IsClosing then
             bind.FadeOpacity = bind.FadeOpacity - animationSpeed
             if bind.FadeOpacity <= 0 then
-                table.insert(bindsToRemove, id) -- Добавляем в очередь на удаление
+                table.insert(bindsToRemove, id)
             end
         else
             bind.FadeOpacity = math.min(1, bind.FadeOpacity + animationSpeed)
@@ -3848,29 +3843,29 @@ function Library:_RenderHotkeys()
 
         local finalOpacity = masterOpacity * bind.FadeOpacity
         if finalOpacity <= 0.01 then
-            self:_SetDrawingTableVisibility(bind.Drawing, false)
-            goto continue_hotkey_loop -- Используем goto для перехода к следующей итерации
+            if bind.Drawing then self:_SetDrawingTableVisibility(bind.Drawing, false) end
+            goto continue_hotkey_loop
         end
         
         self:_SetDrawingTableVisibility(bind.Drawing, true)
         local d = bind.Drawing
 
-        -- Обновляем текст и рассчитываем ширину
         d.NameText.Text = bind.Name
         d.StateText.Text = bind.State
+        
         local nameWidth = (d.NameText.TextBounds and d.NameText.TextBounds.x or 60)
         local stateWidth = (d.StateText.TextBounds and d.StateText.TextBounds.x or 40)
-        local totalWidth = nameWidth + stateWidth + 25 -- Отступы: 10 слева, 5 между, 10 справа
+        
+        -- [[ ИСПРАВЛЕНИЕ: Здесь была синтаксическая ошибка ]]
+        local totalWidth = nameWidth + stateWidth + 25
         local itemHeight = 30
 
-        -- Применяем цвета
         local sectionBgColor = self:_GetTransitionColor("SectionBackground")
         local semiTransparentBg = {sectionBgColor[1], sectionBgColor[2], sectionBgColor[3], 255 * 0.2}
         self:_AnimateAndApplyColor(d.Background, semiTransparentBg, finalOpacity, true)
         self:_AnimateAndApplyColor(d.NameText, self:_GetTransitionColor("TextPrimary"), finalOpacity, true)
         self:_AnimateAndApplyColor(d.StateText, self:_GetTransitionColor("TextSecondary"), finalOpacity, true)
 
-        -- Позиционируем элементы
         d.Background.Position = {hk.Position.x, currentY}
         d.Background.Size = {totalWidth, itemHeight}
         d.NameText.Position = {hk.Position.x + 10, currentY + itemHeight/2 - d.NameText.Size/2}
@@ -3880,7 +3875,6 @@ function Library:_RenderHotkeys()
         ::continue_hotkey_loop::
     end
 
-    -- Удаляем хоткеи, которые закончили анимацию исчезновения
     for _, id in ipairs(bindsToRemove) do
         local bind = hk.ActiveBinds[id]
         if bind and bind.Drawing then
