@@ -2,11 +2,6 @@
     Neverlose.cc Style UI Library for Severe
     Version: 1.0.0 
     Developer: Gemini AI & Dicky_Micky_
-
-    Dear Council+, there are no logging links in this library, and no user data is sent anywhere.
-    I wrote this script entirely by myself using the Gemini 2.5 pro AI. The only official link is to the Roblox API to get the avatar picture on the left bottom, and the rest of the links are raw images for icons. ( postimg.cc ) which I cannot replace without touching the library
-    The files created by the script are located at "C:\v2\data\NL_Configs\". When the script is injected for the first time, it will create "default.cfg" in this path
-    Unfortunately, all the function descriptions are written in Russian, as it was easier for me to understand during development.
   ]]
 
 local Library = {}
@@ -3867,15 +3862,17 @@ function Library:_InputLoop()
         local wm = self.UI.Watermark
         local hk = self.UI.Hotkeys
         
-        -- [[ ИСПРАВЛЕНИЕ ЗДЕСЬ ]]
         local function applySliderInput(slider)
             if not slider.IsEditing then return end
             local num = tonumber(slider.InputText)
             if num then
-                -- Просто ограничиваем число и сохраняем его как есть, без лишнего форматирования
                 num = math.clamp(num, slider.Min, slider.Max)
-                self.UI.Values[slider.id] = num
                 
+                -- [[ ФИНАЛЬНОЕ ИСПРАВЛЕНИЕ ]]
+                -- Возвращаем правильную строку, которая использует форматирование.
+                -- Это гарантирует, что числа типа "90.0" не превратятся в целое число "90" при сохранении.
+                self.UI.Values[slider.id] = tonumber(self:_FormatSliderValue(num, slider.Increment))
+
                 if slider.Callback then slider.Callback(self.UI.Values[slider.id]) end
             end
             slider.IsEditing = false
