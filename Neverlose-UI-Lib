@@ -3798,7 +3798,7 @@ function Library:_RenderHotkeys()
     end
 
     local masterOpacity = anim.CurrentOpacity
-    if masterOpacity <= 0 and #hk.ActiveBinds == 0 then -- Полностью скрываем, только если и окно закрыто, и нет активных биндов
+    if masterOpacity <= 0 and #hk.ActiveBinds == 0 then
         self:_SetDrawingTableVisibility(hk.Title, false)
         return
     end
@@ -3827,12 +3827,11 @@ function Library:_RenderHotkeys()
     local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4
     local animationSpeed = (speed_value / 1.5) / 10.0
     
-    -- [[ ШАГ 1: Рассчитываем целевые позиции для всех активных биндов ]]
     local active_ids = {}
     for id, bind in pairs(hk.ActiveBinds) do
         if not bind.IsClosing then table.insert(active_ids, id) end
     end
-    table.sort(active_ids) -- Сортируем для стабильного порядка
+    table.sort(active_ids)
 
     local itemHeight, gap = 30, 5
     local targetY = hk.Position.y + titleHeight + 8
@@ -3843,10 +3842,8 @@ function Library:_RenderHotkeys()
         targetY = targetY + itemHeight + gap
     end
 
-    -- [[ ШАГ 2: Анимируем и отрисовываем все бинды (включая исчезающие) ]]
     for id, bind in pairs(hk.ActiveBinds) do
         if not bind.Drawing then
-            -- ... (код создания объектов остаётся тот же)
             bind.Drawing = {
                 StateBackground = self:_CreateDrawingObject("Square"), NameBackground = self:_CreateDrawingObject("Square"),
                 NameText = self:_CreateDrawingObject("Text"), StateText = self:_CreateDrawingObject("Text"),
@@ -3863,7 +3860,6 @@ function Library:_RenderHotkeys()
             d.HoldIndicator.Filled = true; d.HoldIndicator.zIndex = z + 2
         end
 
-        -- Анимация прозрачности
         if bind.IsClosing then
             bind.FadeOpacity = bind.FadeOpacity - animationSpeed
             if bind.FadeOpacity <= 0 then table.insert(bindsToRemove, id) end
@@ -3873,21 +3869,25 @@ function Library:_RenderHotkeys()
         
         local finalOpacity = masterOpacity * bind.FadeOpacity
         
-        -- [[ НОВАЯ ЛОГИКА АНИМАЦИИ ПОЗИЦИИ ]]
         if not bind.AnimatedY then
             bind.AnimatedY = bind.TargetY and (bind.TargetY + 15) or (hk.Position.y + titleHeight + 8)
         end
         
         local finalTargetY = bind.IsClosing and bind.AnimatedY or bind.TargetY
         if finalTargetY then
-            bind.AnimatedY = bind.AnimatedY + (finalTargetY - bind.AnimatedY) * animationSpeed
-            if math.abs(bind.AnimatedY - finalTargetY) < 0.5 then bind.AnimatedY = finalTargetY end
+            -- [[ ГЛАВНОЕ ИСПРАВЛЕНИЕ: Отключаем анимацию во время перетаскивания ]]
+            if hk.IsDragging then
+                bind.AnimatedY = finalTargetY -- Мгновенно перемещаем
+            else
+                -- Оставляем плавную анимацию для всех остальных случаев
+                bind.AnimatedY = bind.AnimatedY + (finalTargetY - bind.AnimatedY) * animationSpeed
+                if math.abs(bind.AnimatedY - finalTargetY) < 0.5 then bind.AnimatedY = finalTargetY end
+            end
         end
         
         local currentY = bind.AnimatedY or targetY
         
         if finalOpacity > 0.01 then
-            -- ... (вся логика отрисовки остаётся той же, что и в прошлой версии)
             local d = bind.Drawing; self:_SetDrawingTableVisibility(d, true); d.NameText.Text = bind.Name; local options = bind.Options
             local mainBgColor = self:_GetTransitionColor("MainBackground"); local neutralColor = self:_GetTextColorForBackground(mainBgColor)
             local sectionBgColor = self:_GetTransitionColor("SectionBackground"); local semiTransparentBg = {sectionBgColor[1], sectionBgColor[2], sectionBgColor[3], 255 * 0.2}
