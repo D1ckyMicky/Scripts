@@ -3776,17 +3776,18 @@ function Library:_RenderHotkeys()
     local anim = hk.Animation
     local isVisible = self.UI.Values["BurgerHotkeys"]
 
+    -- Логика появления/исчезновения всего окна (остается без изменений)
     if isVisible and anim.CurrentOpacity < 1 and not anim.IsOpening then
         anim.IsOpening = true; anim.IsClosing = false
     elseif not isVisible and anim.CurrentOpacity > 0 and not anim.IsClosing then
         anim.IsOpening = false; anim.IsClosing = true
     end
-    self:_UpdatePopupAnimation(hk)
+    -- self:_UpdatePopupAnimation(hk) -- Уже вызывается в главном цикле
 
     local masterOpacity = anim.CurrentOpacity
     if masterOpacity <= 0 then
         self:_SetDrawingTableVisibility(hk.Title, false)
-        for _, bind in ipairs(hk.ActiveBinds) do
+        for _, bind in pairs(hk.ActiveBinds) do
             if bind.Drawing then self:_SetDrawingTableVisibility(bind.Drawing, false) end
         end
         return
@@ -3800,94 +3801,92 @@ function Library:_RenderHotkeys()
     local isThemeLight = brightness > 150
     local z = 110
 
+    -- Отрисовка заголовка (остается почти без изменений)
     local titleHeight = 36
     local titleWidth = 160
     hk.Title.Background.Position = hk.Position
     hk.Title.Background.Size = {titleWidth, titleHeight}
     self:_AnimateAndApplyColor(hk.Title.Background, self:_GetTransitionColor("HotkeysBackground"), masterOpacity, true)
-
     hk.Title.Icon.Position = {hk.Position.x + 10, hk.Position.y + titleHeight/2 - hk.Title.Icon.Size.y/2}
     self:_AnimateAndApplyColor(hk.Title.Icon, self:_GetTransitionColor("TextPrimary"), masterOpacity, true)
-
     local sepX = hk.Position.x + 42
     hk.Title.Separator.From = {sepX, hk.Position.y + 8}
     hk.Title.Separator.To = {sepX, hk.Position.y + titleHeight - 8}
     self:_AnimateAndApplyColor(hk.Title.Separator, self:_GetTransitionColor("Separator"), masterOpacity, true)
-
     hk.Title.Text.Position = {sepX + 12, hk.Position.y + titleHeight/2 - hk.Title.Text.Size/2}
     self:_AnimateAndApplyColor(hk.Title.Text, self:_GetTransitionColor("TextPrimary"), masterOpacity, true)
 
+    -- [[ НОВАЯ ЛОГИКА: Отрисовка списка активных биндов ]]
     local currentY = hk.Position.y + titleHeight + 8
     local bindsToRemove = {}
 
-    for i, bind in ipairs(hk.ActiveBinds) do
+    for id, bind in pairs(hk.ActiveBinds) do
+        -- Создаем объекты для отрисовки, если их еще нет
         if not bind.Drawing then
             bind.Drawing = {
-                ToggleContainerBg = self:_CreateDrawingObject("Square"),
-                ToggleTrack = self:_CreateDrawingObject("Square"),
-                ToggleNub = self:_CreateDrawingObject("Circle"),
-                NameBg = self:_CreateDrawingObject("Square"),
-                NameText = self:_CreateDrawingObject("Text")
+                Background = self:_CreateDrawingObject("Square"),
+                NameText = self:_CreateDrawingObject("Text"),
+                StateText = self:_CreateDrawingObject("Text")
             }
             local d = bind.Drawing
-            if d.ToggleContainerBg then d.ToggleContainerBg.Filled = true; d.ToggleContainerBg.zIndex = z; d.ToggleContainerBg.Rounding = 10; end
-            if d.ToggleTrack then d.ToggleTrack.Filled = false; d.ToggleTrack.Thickness = 2; d.ToggleTrack.zIndex = z + 1; end
-            if d.ToggleNub then d.ToggleNub.Filled = true; d.ToggleNub.zIndex = z + 2; end
-            if d.NameBg then d.NameBg.Filled = true; d.NameBg.zIndex = z; d.NameBg.Rounding = 10; end
-            if d.NameText then d.NameText.Font = self.ActiveTheme.Fonts.Main; d.NameText.Size = self.ActiveTheme.Fonts.Size; d.NameText.Text = bind.Name; d.NameText.zIndex = z + 1; end
+            if d.Background then d.Background.Filled = true; d.Background.zIndex = z; d.Background.Rounding = 10; end
+            if d.NameText then d.NameText.Font = self.ActiveTheme.Fonts.Main; d.NameText.Size = self.ActiveTheme.Fonts.Size; d.NameText.zIndex = z + 1; end
+            if d.StateText then d.StateText.Font = self.ActiveTheme.Fonts.Main; d.StateText.Size = self.ActiveTheme.Fonts.Size; d.StateText.zIndex = z + 1; end
         end
 
+        -- Обновляем анимацию прозрачности (логика осталась прежней)
         local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4
         local animationSpeed = (speed_value / 1.5) / 10.0
         if bind.IsClosing then
             bind.FadeOpacity = bind.FadeOpacity - animationSpeed
-            if bind.FadeOpacity <= 0 then table.insert(bindsToRemove, i) end
+            if bind.FadeOpacity <= 0 then
+                table.insert(bindsToRemove, id) -- Добавляем в очередь на удаление
+            end
         else
             bind.FadeOpacity = math.min(1, bind.FadeOpacity + animationSpeed)
         end
 
         local finalOpacity = masterOpacity * bind.FadeOpacity
-        self:_SetDrawingTableVisibility(bind.Drawing, finalOpacity > 0)
+        if finalOpacity <= 0.01 then
+            self:_SetDrawingTableVisibility(bind.Drawing, false)
+            goto continue_hotkey_loop -- Используем goto для перехода к следующей итерации
+        end
+        
+        self:_SetDrawingTableVisibility(bind.Drawing, true)
+        local d = bind.Drawing
 
-        -- ИСПРАВЛЕНИЕ: Используем переходные цвета
-        local toggleIndicatorColor = isThemeLight and self:_GetTransitionColor("TextDark") or self:_GetTransitionColor("TextLight")
+        -- Обновляем текст и рассчитываем ширину
+        d.NameText.Text = bind.Name
+        d.StateText.Text = bind.State
+        local nameWidth = (d.NameText.TextBounds and d.NameText.TextBounds.x or 60)
+        local stateWidth = (d.StateText.TextBounds and d.StateText.TextBounds.x or 40)
+        local totalWidth = nameWidth + stateWidth + 25 -- Отступы: 10 слева, 5 между, 10 справа
+        local itemHeight = 30
+
+        -- Применяем цвета
         local sectionBgColor = self:_GetTransitionColor("SectionBackground")
         local semiTransparentBg = {sectionBgColor[1], sectionBgColor[2], sectionBgColor[3], 255 * 0.2}
+        self:_AnimateAndApplyColor(d.Background, semiTransparentBg, finalOpacity, true)
+        self:_AnimateAndApplyColor(d.NameText, self:_GetTransitionColor("TextPrimary"), finalOpacity, true)
+        self:_AnimateAndApplyColor(d.StateText, self:_GetTransitionColor("TextSecondary"), finalOpacity, true)
 
-        self:_AnimateAndApplyColor(bind.Drawing.ToggleContainerBg, semiTransparentBg, finalOpacity, true)
-        self:_AnimateAndApplyColor(bind.Drawing.ToggleTrack, toggleIndicatorColor, finalOpacity, true)
-        self:_AnimateAndApplyColor(bind.Drawing.ToggleNub, toggleIndicatorColor, finalOpacity, true)
-        self:_AnimateAndApplyColor(bind.Drawing.NameBg, semiTransparentBg, finalOpacity, true)
-        self:_AnimateAndApplyColor(bind.Drawing.NameText, self:_GetTransitionColor("TextPrimary"), finalOpacity, true)
-
-        local itemHeight = 30
-        local toggleContainerWidth = 45
-        local nameWidth = (bind.Drawing.NameText.TextBounds and bind.Drawing.NameText.TextBounds.x or 80) + 20
-
-        local d = bind.Drawing
-        d.ToggleContainerBg.Position = {hk.Position.x, currentY}; d.ToggleContainerBg.Size = {toggleContainerWidth, itemHeight}
-
-        local trackHeight = 14
-        local trackWidth = 24
-        d.ToggleTrack.Rounding = (trackHeight / 2) + 9
-        d.ToggleTrack.Position = {hk.Position.x + (toggleContainerWidth - trackWidth)/2, currentY + (itemHeight - trackHeight)/2}
-        d.ToggleTrack.Size = {trackWidth, trackHeight}
-
-        d.ToggleNub.Radius = 4
-        d.ToggleNub.Position = {d.ToggleTrack.Position.x + trackWidth - d.ToggleNub.Radius - 3, d.ToggleTrack.Position.y + trackHeight/2}
-
-        d.NameBg.Position = {hk.Position.x + toggleContainerWidth + 5, currentY}; d.NameBg.Size = {nameWidth, itemHeight}
-        d.NameText.Position = {hk.Position.x + toggleContainerWidth + 5 + 10, currentY + itemHeight/2 - d.NameText.Size/2}
+        -- Позиционируем элементы
+        d.Background.Position = {hk.Position.x, currentY}
+        d.Background.Size = {totalWidth, itemHeight}
+        d.NameText.Position = {hk.Position.x + 10, currentY + itemHeight/2 - d.NameText.Size/2}
+        d.StateText.Position = {hk.Position.x + 10 + nameWidth + 5, currentY + itemHeight/2 - d.StateText.Size/2}
 
         currentY = currentY + itemHeight + 5
+        ::continue_hotkey_loop::
     end
 
-    for i = #bindsToRemove, 1, -1 do
-        local index = bindsToRemove[i]
-        if hk.ActiveBinds[index] and hk.ActiveBinds[index].Drawing then
-            self:_CleanupDrawingObjects(hk.ActiveBinds[index].Drawing)
+    -- Удаляем хоткеи, которые закончили анимацию исчезновения
+    for _, id in ipairs(bindsToRemove) do
+        local bind = hk.ActiveBinds[id]
+        if bind and bind.Drawing then
+            self:_CleanupDrawingObjects(bind.Drawing)
         end
-        table.remove(hk.ActiveBinds, index)
+        hk.ActiveBinds[id] = nil
     end
 end
 
@@ -5422,19 +5421,10 @@ function Library:_CheckGlobalBinds()
                             local new_state = not self.UI.Values[toggle_id]
                             self.UI.Values[toggle_id] = new_state
 
-                            local hk = self.UI.Hotkeys
-                            local existingBindIndex = nil
-                            for i, bind in ipairs(hk.ActiveBinds) do
-                                if bind.id == toggle_id then
-                                    existingBindIndex = i
-                                    break
-                                end
-                            end
-
-                            if new_state and not existingBindIndex then
-                                table.insert(hk.ActiveBinds, { id = toggle_id, Name = setting_el.ParentToggleName, FadeOpacity = 0.0, IsClosing = false })
-                            elseif not new_state and existingBindIndex then
-                                hk.ActiveBinds[existingBindIndex].IsClosing = true
+                            if new_state then
+                                self:SetHotkeyState(toggle_id, setting_el.ParentToggleName, "[Enabled]")
+                            else
+                                self:RemoveHotkey(toggle_id)
                             end
 
                             if el.Callback then pcall(el.Callback, new_state) end
@@ -5449,6 +5439,40 @@ end
 
 function Library:GetValue(id)
     return self.UI.Values[id]
+end
+
+function Library:SetHotkeyState(id, name, state)
+    if not id or not name or not state then return end
+    local hk = self.UI.Hotkeys
+    
+    -- Проверяем, существует ли уже хоткей с таким ID
+    if hk.ActiveBinds[id] then
+        -- Если да, обновляем его и отменяем анимацию закрытия
+        local bind = hk.ActiveBinds[id]
+        bind.Name = name
+        bind.State = state
+        bind.IsClosing = false
+    else
+        -- Если нет, создаем новую запись
+        hk.ActiveBinds[id] = {
+            id = id,
+            Name = name,
+            State = state,
+            FadeOpacity = 0.0, -- Начинаем с нулевой прозрачности для анимации появления
+            IsClosing = false,
+            Drawing = nil -- Объекты для отрисовки создадутся при первом рендере
+        }
+    end
+end
+
+function Library:RemoveHotkey(id)
+    if not id then return end
+    local hk = self.UI.Hotkeys
+    
+    -- Если хоткей существует, помечаем его для закрытия
+    if hk.ActiveBinds[id] then
+        hk.ActiveBinds[id].IsClosing = true
+    end
 end
 
 return Library
