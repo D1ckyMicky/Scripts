@@ -2,11 +2,6 @@
     Neverlose.cc Style UI Library for Severe
     Version: 1.0.0 
     Developer: Gemini AI & Dicky_Micky_
-
-    Dear Council+, there are no logging links in this library, and no user data is sent anywhere.
-    I wrote this script entirely by myself using the Gemini 2.5 pro AI. The only official link is to the Roblox API to get the avatar picture on the left bottom, and the rest of the links are raw images for icons. ( postimg.cc ) which I cannot replace without touching the library
-    The files created by the script are located at "C:\v2\data\NL_Configs\". When the script is injected for the first time, it will create "default.cfg" in this path
-    Unfortunately, all the function descriptions are written in Russian, as it was easier for me to understand during development.
   ]]
 
 local Library = {}
@@ -3803,44 +3798,59 @@ function Library:_RenderHotkeys()
     end
 
     local masterOpacity = anim.CurrentOpacity
-    if masterOpacity <= 0 then
+    if masterOpacity <= 0 and #hk.ActiveBinds == 0 then -- Полностью скрываем, только если и окно закрыто, и нет активных биндов
         self:_SetDrawingTableVisibility(hk.Title, false)
-        for _, bind in pairs(hk.ActiveBinds) do
-            if bind.Drawing then self:_SetDrawingTableVisibility(bind.Drawing, false) end
-        end
         return
     end
 
-    self:_SetDrawingTableVisibility(hk.Title, true)
+    self:_SetDrawingTableVisibility(hk.Title, masterOpacity > 0)
 
     local z = 110
     local titleHeight = 36
-    local titleWidth = 160
     
-    hk.Title.Background.Position = hk.Position
-    hk.Title.Background.Size = {titleWidth, titleHeight}
-    self:_AnimateAndApplyColor(hk.Title.Background, self:_GetTransitionColor("HotkeysBackground"), masterOpacity, true)
-    hk.Title.Icon.Position = {hk.Position.x + 10, hk.Position.y + titleHeight/2 - hk.Title.Icon.Size.y/2}
-    self:_AnimateAndApplyColor(hk.Title.Icon, self:_GetTransitionColor("TextPrimary"), masterOpacity, true)
-    local sepX = hk.Position.x + 42
-    hk.Title.Separator.From = {sepX, hk.Position.y + 8}
-    hk.Title.Separator.To = {sepX, hk.Position.y + titleHeight - 8}
-    self:_AnimateAndApplyColor(hk.Title.Separator, self:_GetTransitionColor("Separator"), masterOpacity, true)
-    hk.Title.Text.Position = {sepX + 12, hk.Position.y + titleHeight/2 - hk.Title.Text.Size/2}
-    self:_AnimateAndApplyColor(hk.Title.Text, self:_GetTransitionColor("TextPrimary"), masterOpacity, true)
+    if masterOpacity > 0 then
+        local titleWidth = 160
+        hk.Title.Background.Position = hk.Position
+        hk.Title.Background.Size = {titleWidth, titleHeight}
+        self:_AnimateAndApplyColor(hk.Title.Background, self:_GetTransitionColor("HotkeysBackground"), masterOpacity, true)
+        hk.Title.Icon.Position = {hk.Position.x + 10, hk.Position.y + titleHeight/2 - hk.Title.Icon.Size.y/2}
+        self:_AnimateAndApplyColor(hk.Title.Icon, self:_GetTransitionColor("TextPrimary"), masterOpacity, true)
+        local sepX = hk.Position.x + 42
+        hk.Title.Separator.From = {sepX, hk.Position.y + 8}
+        hk.Title.Separator.To = {sepX, hk.Position.y + titleHeight - 8}
+        self:_AnimateAndApplyColor(hk.Title.Separator, self:_GetTransitionColor("Separator"), masterOpacity, true)
+        hk.Title.Text.Position = {sepX + 12, hk.Position.y + titleHeight/2 - hk.Title.Text.Size/2}
+        self:_AnimateAndApplyColor(hk.Title.Text, self:_GetTransitionColor("TextPrimary"), masterOpacity, true)
+    end
 
-    local currentY = hk.Position.y + titleHeight + 8
     local bindsToRemove = {}
+    local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4
+    local animationSpeed = (speed_value / 1.5) / 10.0
+    
+    -- [[ ШАГ 1: Рассчитываем целевые позиции для всех активных биндов ]]
+    local active_ids = {}
+    for id, bind in pairs(hk.ActiveBinds) do
+        if not bind.IsClosing then table.insert(active_ids, id) end
+    end
+    table.sort(active_ids) -- Сортируем для стабильного порядка
 
+    local itemHeight, gap = 30, 5
+    local targetY = hk.Position.y + titleHeight + 8
+    
+    for _, id in ipairs(active_ids) do
+        local bind = hk.ActiveBinds[id]
+        bind.TargetY = targetY
+        targetY = targetY + itemHeight + gap
+    end
+
+    -- [[ ШАГ 2: Анимируем и отрисовываем все бинды (включая исчезающие) ]]
     for id, bind in pairs(hk.ActiveBinds) do
         if not bind.Drawing then
+            -- ... (код создания объектов остаётся тот же)
             bind.Drawing = {
-                StateBackground = self:_CreateDrawingObject("Square"),
-                NameBackground = self:_CreateDrawingObject("Square"),
-                NameText = self:_CreateDrawingObject("Text"),
-                StateText = self:_CreateDrawingObject("Text"),
-                ToggleTrack = self:_CreateDrawingObject("Square"),
-                ToggleNub = self:_CreateDrawingObject("Circle"),
+                StateBackground = self:_CreateDrawingObject("Square"), NameBackground = self:_CreateDrawingObject("Square"),
+                NameText = self:_CreateDrawingObject("Text"), StateText = self:_CreateDrawingObject("Text"),
+                ToggleTrack = self:_CreateDrawingObject("Square"), ToggleNub = self:_CreateDrawingObject("Circle"),
                 HoldIndicator = self:_CreateDrawingObject("Square")
             }
             local d = bind.Drawing
@@ -3853,103 +3863,60 @@ function Library:_RenderHotkeys()
             d.HoldIndicator.Filled = true; d.HoldIndicator.zIndex = z + 2
         end
 
-        local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4
-        local animationSpeed = (speed_value / 1.5) / 10.0
+        -- Анимация прозрачности
         if bind.IsClosing then
             bind.FadeOpacity = bind.FadeOpacity - animationSpeed
             if bind.FadeOpacity <= 0 then table.insert(bindsToRemove, id) end
         else
             bind.FadeOpacity = math.min(1, bind.FadeOpacity + animationSpeed)
         end
-
+        
         local finalOpacity = masterOpacity * bind.FadeOpacity
         
+        -- [[ НОВАЯ ЛОГИКА АНИМАЦИИ ПОЗИЦИИ ]]
+        if not bind.AnimatedY then
+            bind.AnimatedY = bind.TargetY and (bind.TargetY + 15) or (hk.Position.y + titleHeight + 8)
+        end
+        
+        local finalTargetY = bind.IsClosing and bind.AnimatedY or bind.TargetY
+        if finalTargetY then
+            bind.AnimatedY = bind.AnimatedY + (finalTargetY - bind.AnimatedY) * animationSpeed
+            if math.abs(bind.AnimatedY - finalTargetY) < 0.5 then bind.AnimatedY = finalTargetY end
+        end
+        
+        local currentY = bind.AnimatedY or targetY
+        
         if finalOpacity > 0.01 then
-            local d = bind.Drawing
-            self:_SetDrawingTableVisibility(d, true)
-            
-            d.NameText.Text = bind.Name
-            local options = bind.Options
-            local itemHeight, gap = 30, 5
-            
-            local mainBgColor = self:_GetTransitionColor("MainBackground")
-            local neutralColor = self:_GetTextColorForBackground(mainBgColor)
-            local sectionBgColor = self:_GetTransitionColor("SectionBackground")
-            local semiTransparentBg = {sectionBgColor[1], sectionBgColor[2], sectionBgColor[3], 255 * 0.2}
-
-            local nameWidth = (d.NameText.TextBounds and d.NameText.TextBounds.x or 80)
-            local nameBoxWidth = nameWidth + 20
-            
-            local stateBoxWidth
-            
+            -- ... (вся логика отрисовки остаётся той же, что и в прошлой версии)
+            local d = bind.Drawing; self:_SetDrawingTableVisibility(d, true); d.NameText.Text = bind.Name; local options = bind.Options
+            local mainBgColor = self:_GetTransitionColor("MainBackground"); local neutralColor = self:_GetTextColorForBackground(mainBgColor)
+            local sectionBgColor = self:_GetTransitionColor("SectionBackground"); local semiTransparentBg = {sectionBgColor[1], sectionBgColor[2], sectionBgColor[3], 255 * 0.2}
+            local nameWidth = (d.NameText.TextBounds and d.NameText.TextBounds.x or 80); local nameBoxWidth = nameWidth + 20; local stateBoxWidth
             if options.state_type == "toggle" then
-                self:_SetVisibility(d.StateText, false); self:_SetVisibility(d.HoldIndicator, false)
-                self:_SetVisibility(d.ToggleTrack, true); self:_SetVisibility(d.ToggleNub, true)
-                stateBoxWidth = 45
-                
-                local trackHeight, trackWidth = 14, 24
-                d.ToggleTrack.Rounding = 7
-                d.ToggleTrack.Position = {hk.Position.x + (stateBoxWidth - trackWidth)/2, currentY + (itemHeight - trackHeight)/2}
-                d.ToggleTrack.Size = {trackWidth, trackHeight}
-                
-                d.ToggleNub.Radius = 4
-                local nubY = d.ToggleTrack.Position.y + trackHeight/2
+                self:_SetVisibility(d.StateText, false); self:_SetVisibility(d.HoldIndicator, false); self:_SetVisibility(d.ToggleTrack, true); self:_SetVisibility(d.ToggleNub, true)
+                stateBoxWidth = 45; local trackHeight, trackWidth = 14, 24; d.ToggleTrack.Rounding = 7
+                d.ToggleTrack.Position = {hk.Position.x + (stateBoxWidth - trackWidth)/2, currentY + (itemHeight - trackHeight)/2}; d.ToggleTrack.Size = {trackWidth, trackHeight}
+                d.ToggleNub.Radius = 4; local nubY = d.ToggleTrack.Position.y + trackHeight/2
                 local nubX = d.ToggleTrack.Position.x + (options.value and (trackWidth - d.ToggleNub.Radius - 3) or (d.ToggleNub.Radius + 3))
-                d.ToggleNub.Position = {nubX, nubY}
-                
-                self:_AnimateAndApplyColor(d.ToggleTrack, neutralColor, finalOpacity, true)
-                self:_AnimateAndApplyColor(d.ToggleNub, neutralColor, finalOpacity, true)
-
+                d.ToggleNub.Position = {nubX, nubY}; self:_AnimateAndApplyColor(d.ToggleTrack, neutralColor, finalOpacity, true); self:_AnimateAndApplyColor(d.ToggleNub, neutralColor, finalOpacity, true)
             elseif options.state_type == "hold" then
-                self:_SetVisibility(d.StateText, false); self:_SetVisibility(d.ToggleNub, false)
-                self:_SetVisibility(d.ToggleTrack, true)
-                -- [[ ИСПРАВЛЕНИЕ: Управляем видимостью овала в зависимости от options.value ]]
-                self:_SetVisibility(d.HoldIndicator, options.value == true)
-                stateBoxWidth = 45
-
-                local trackHeight, trackWidth = 14, 24
-                d.ToggleTrack.Rounding = 7
-                d.ToggleTrack.Position = {hk.Position.x + (stateBoxWidth - trackWidth)/2, currentY + (itemHeight - trackHeight)/2}
-                d.ToggleTrack.Size = {trackWidth, trackHeight}
-                self:_AnimateAndApplyColor(d.ToggleTrack, neutralColor, finalOpacity, true)
-
-                local pillHeight = trackHeight - 6
-                local pillWidth = trackWidth - 8
-                d.HoldIndicator.Rounding = pillHeight / 2
-                d.HoldIndicator.Position = {
-                    d.ToggleTrack.Position.x + (trackWidth - pillWidth) / 2,
-                    d.ToggleTrack.Position.y + (trackHeight - pillHeight) / 2
-                }
-                d.HoldIndicator.Size = {pillWidth, pillHeight}
-                self:_AnimateAndApplyColor(d.HoldIndicator, neutralColor, finalOpacity, true)
-
+                self:_SetVisibility(d.StateText, false); self:_SetVisibility(d.ToggleNub, false); self:_SetVisibility(d.ToggleTrack, true); self:_SetVisibility(d.HoldIndicator, options.value == true)
+                stateBoxWidth = 45; local trackHeight, trackWidth = 14, 24; d.ToggleTrack.Rounding = 7
+                d.ToggleTrack.Position = {hk.Position.x + (stateBoxWidth - trackWidth)/2, currentY + (itemHeight - trackHeight)/2}; d.ToggleTrack.Size = {trackWidth, trackHeight}
+                self:_AnimateAndApplyColor(d.ToggleTrack, neutralColor, finalOpacity, true); local pillHeight = trackHeight - 6; local pillWidth = trackWidth - 8
+                d.HoldIndicator.Rounding = pillHeight / 2; d.HoldIndicator.Position = { d.ToggleTrack.Position.x + (trackWidth - pillWidth) / 2, d.ToggleTrack.Position.y + (trackHeight - pillHeight) / 2 }
+                d.HoldIndicator.Size = {pillWidth, pillHeight}; self:_AnimateAndApplyColor(d.HoldIndicator, neutralColor, finalOpacity, true)
             else 
-                self:_SetVisibility(d.ToggleTrack, false); self:_SetVisibility(d.ToggleNub, false); self:_SetVisibility(d.HoldIndicator, false)
-                self:_SetVisibility(d.StateText, true)
-                
-                d.StateText.Text = tostring(options.value)
-                local stateTextWidth = (d.StateText.TextBounds and d.StateText.TextBounds.x or 20)
-                stateBoxWidth = stateTextWidth + 20
-                
-                local stateTextCenterX = hk.Position.x + (stateBoxWidth / 2)
-                local stateTextCenterY = currentY + (itemHeight / 2) - (d.StateText.Size / 2)
-                d.StateText.Position = {stateTextCenterX, stateTextCenterY}
-                self:_AnimateAndApplyColor(d.StateText, self:_GetTransitionColor("TextPrimary"), finalOpacity, true)
+                self:_SetVisibility(d.ToggleTrack, false); self:_SetVisibility(d.ToggleNub, false); self:_SetVisibility(d.HoldIndicator, false); self:_SetVisibility(d.StateText, true)
+                d.StateText.Text = tostring(options.value); local stateTextWidth = (d.StateText.TextBounds and d.StateText.TextBounds.x or 20); stateBoxWidth = stateTextWidth + 20
+                local stateTextCenterX = hk.Position.x + (stateBoxWidth / 2); local stateTextCenterY = currentY + (itemHeight / 2) - (d.StateText.Size / 2)
+                d.StateText.Position = {stateTextCenterX, stateTextCenterY}; self:_AnimateAndApplyColor(d.StateText, self:_GetTransitionColor("TextPrimary"), finalOpacity, true)
             end
-            
-            self:_AnimateAndApplyColor(d.StateBackground, semiTransparentBg, finalOpacity, true)
-            self:_AnimateAndApplyColor(d.NameBackground, semiTransparentBg, finalOpacity, true)
-            self:_AnimateAndApplyColor(d.NameText, self:_GetTransitionColor("TextPrimary"), finalOpacity, true)
-            
-            d.StateBackground.Position = {hk.Position.x, currentY}; d.StateBackground.Size = {stateBoxWidth, itemHeight}
-            local nameBgX = hk.Position.x + stateBoxWidth + gap
+            self:_AnimateAndApplyColor(d.StateBackground, semiTransparentBg, finalOpacity, true); self:_AnimateAndApplyColor(d.NameBackground, semiTransparentBg, finalOpacity, true); self:_AnimateAndApplyColor(d.NameText, self:_GetTransitionColor("TextPrimary"), finalOpacity, true)
+            d.StateBackground.Position = {hk.Position.x, currentY}; d.StateBackground.Size = {stateBoxWidth, itemHeight}; local nameBgX = hk.Position.x + stateBoxWidth + gap
             d.NameBackground.Position = {nameBgX, currentY}; d.NameBackground.Size = {nameBoxWidth, itemHeight}
-            
-            local nameTextCenterX = nameBgX + (nameBoxWidth / 2)
-            local nameTextCenterY = currentY + (itemHeight / 2) - (d.NameText.Size / 2)
+            local nameTextCenterX = nameBgX + (nameBoxWidth / 2); local nameTextCenterY = currentY + (itemHeight / 2) - (d.NameText.Size / 2)
             d.NameText.Position = {nameTextCenterX, nameTextCenterY}
-            
-            currentY = currentY + itemHeight + gap
         else
             if bind.Drawing then self:_SetDrawingTableVisibility(bind.Drawing, false) end
         end
