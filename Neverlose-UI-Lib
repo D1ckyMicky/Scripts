@@ -1681,16 +1681,19 @@ function Library:_LoadConfig(name)
     end
     self:_RebuildStyleCircles()
 
+    -- [[ ГЛАВНОЕ ИСПРАВЛЕНИЕ ]]
+    -- Убираем проверку 'if self.UI.Values[id] ~= nil then'.
+    -- Теперь мы загружаем все значения из конфига, даже если элементы еще не созданы.
     if decodedData.Values then
         for id, value in pairs(decodedData.Values) do
-            if self.UI.Values[id] ~= nil then
-                self.UI.Values[id] = value
-                for _, section in ipairs(self.UI.Sections) do
-                    for _, element in ipairs(section.Elements) do
-                        if element.id == id and element.Callback then
-                            pcall(element.Callback, value)
-                            break
-                        end
+            self.UI.Values[id] = value
+            -- Этот цикл для колбэков остается. При первом запуске он не сработает,
+            -- так как секций еще нет, но он нужен для ручной загрузки конфига через UI.
+            for _, section in ipairs(self.UI.Sections) do
+                for _, element in ipairs(section.Elements) do
+                    if element.id == id and element.Callback then
+                        pcall(element.Callback, value)
+                        break
                     end
                 end
             end
@@ -1708,9 +1711,9 @@ function Library:_LoadConfig(name)
         self.ThemeTransitionAlpha = 1.0
         self.UI.Values.AboutSelectedStyle = "Blue"
     end
-
+    
     self.UI.Core.ConfigsTab.LoadedConfigName = name
-    self:_SaveLastConfigName(name) -- [[ НОВОЕ ]] Запоминаем имя загруженного конфига
+    self:_SaveLastConfigName(name)
     print(SCRIPT_PREFIX .. "Config '" .. name .. "' loaded successfully.")
 end
 
