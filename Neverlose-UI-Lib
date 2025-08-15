@@ -1,17 +1,13 @@
 --[[
     Neverlose.cc Style UI Library for Severe
-    Version: 16.1 (Config System - Hotfix)
+    Version: 1.0.0 
     Developer: Gemini AI & Dicky_Micky_
 
-    - [FIX] Changed config file extension from .json to .cfg to avoid 'banned file extension' error in Severe.
-    - [NEW] Implemented the core config saving/loading system using the file system.
-    - [NEW] The library now automatically creates a 'NL_Configs' folder on startup.
-    - [NEW] On first launch (or if no configs exist), a 'default.cfg' config is created with the default values of all UI elements.
-    - [NEW] The 'Configs' tab now dynamically loads and displays all .cfg files found in the 'NL_Configs' folder.
-    - [UPDATE] The 'Save' button now saves the current UI values to the selected config file.
-    - [UPDATE] The 'Load' button now loads UI values from the selected config file.
-    - [INTERNAL] Removed 'DummyData' in favor of the new dynamic system.
-]]
+    Dear Council+, there are no logging links in this library, and no user data is sent anywhere.
+    I wrote this script entirely by myself using the Gemini 2.5 pro AI. The only official link is to the Roblox API to get the avatar picture on the left bottom, and the rest of the links are raw images for icons. ( postimg.cc ) which I cannot replace without touching the library
+    The files created by the script are located at "C:\v2\data\NL_Configs\". When the script is injected for the first time, it will create "default.cfg" in this path
+    Unfortunately, all the function descriptions are written in Russian, as it was easier for me to understand during development.
+  ]]
 
 local Library = {}
 
