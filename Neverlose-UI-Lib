@@ -1092,7 +1092,7 @@ function Library:_InitializeCoreUI()
     if tooltip.Author then tooltip.Author.Font = self.ActiveTheme.Fonts.Main; tooltip.Author.Size = self.ActiveTheme.Fonts.Size; tooltip.Author.zIndex = 51; end
 
     UI.Core.ViewESPPanel = self:_CreateDrawingObject("Square"); if UI.Core.ViewESPPanel then UI.Core.ViewESPPanel.Filled = true; UI.Core.ViewESPPanel.zIndex = 1; UI.Core.ViewESPPanel.Rounding = self.ActiveTheme.Rounding.Window; end
-    if UI.Core.ViewESPImage then UI.Core.ViewESPImage.zIndex = 2; UI.Core.ViewESPImage.Visible = false; UI.Core.ViewESPImage.Url = "https://i.postimg.cc/sgvbDYfL/image.png"; UI.Core.ViewESPImage.Rounding = self.ActiveTheme.Rounding.Window - 2; end
+    if UI.Core.ViewESPImage then UI.Core.ViewESPImage.zIndex = 2; UI.Core.ViewESPImage.Visible = false; UI.Core.ViewESPImage.Url = "https://i.postimg.cc/qvtR30nz/viewespimageee.png"; UI.Core.ViewESPImage.Rounding = self.ActiveTheme.Rounding.Window - 2; end
     UI.Core.ViewESPPanelBorder = self:_CreateDrawingObject("Square"); if UI.Core.ViewESPPanelBorder then UI.Core.ViewESPPanelBorder.Filled = false; UI.Core.ViewESPPanelBorder.Thickness = 1; UI.Core.ViewESPPanelBorder.zIndex = 3; UI.Core.ViewESPPanelBorder.Rounding = self.ActiveTheme.Rounding.Window; end
 
     self:_InitializeAboutWindow()
@@ -4601,14 +4601,14 @@ function Library:_InputLoop()
 
                             -- 2. Разрешаем точку/запятую/пробел (и конвертируем в точку)
                             -- Добавлена проверка на OemPeriod и OemComma
-                            elseif (input_key == "." or input_key == "," or input_key == "Space" or input_key == "OemPeriod" or input_key == "OemComma") then
+                            elseif (input_key == "." or input_key == "," or input_key == "Space" or input_key == "OEM_PERIOD" or input_key == "OEM_COMMA") then
                                 -- Добавляем точку, только если её еще нет
                                 if not string.find(target.InputText, "%.") then
                                     target.InputText = target.InputText .. "."
                                 end
 
                             -- 3. Разрешаем знак минуса
-                            elseif input_key == "-" then
+                            elseif input_key == "OEM_MINUS" then
                                 -- Добавляем минус только для слайдеров с отрицательным диапазоном,
                                 -- и только если это первый символ
                                 if target.Min < 0 and #target.InputText == 0 then
