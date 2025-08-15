@@ -916,6 +916,21 @@ function Library:_FormatSliderValue(value, increment)
     end
 end
 
+function Library:_GetLastConfigName()
+    local path = "NL_LastConfig.txt"
+    if checkfile(path) then
+        local success, content = pcall(readfile, path)
+        if success and content and content ~= "" then
+            return content
+        end
+    end
+    return nil
+end
+
+function Library:_SaveLastConfigName(name)
+    writefile("NL_LastConfig.txt", name)
+end
+
 --================================================================
 --[[ PRIVATE: GLOW EFFECT HELPERS ]]
 --================================================================
@@ -1607,12 +1622,8 @@ function Library:_SaveConfig(name)
     end
 
     if self.UI.Values["ConfigIncludeStyle"] then
-        print(SCRIPT_PREFIX .. "Saving custom themes...") -- Строка для отладки
         for themeName, themeData in pairs(self.Themes) do
             if not themeData.IsPreset then
-                -- [ДОБАВЛЕНО] Печатаем в консоль каждую найденную кастомную тему
-                print(SCRIPT_PREFIX .. "Found custom theme to save: " .. themeName)
-                
                 local sanitizedTheme = {
                     Colors = self:_DeepCopy(themeData.Colors),
                     Rounding = self:_DeepCopy(themeData.Rounding),
@@ -1629,6 +1640,7 @@ function Library:_SaveConfig(name)
         writefile(self:_GetConfigPath(name), encodedData)
         print(SCRIPT_PREFIX .. "Config '" .. name .. "' saved successfully.")
         self.UI.Core.ConfigsTab.NeedsRefresh = true
+        self:_SaveLastConfigName(name) -- [[ НОВОЕ ]] Запоминаем имя сохраненного конфига
     else
         warn(SCRIPT_PREFIX .. "Failed to encode config data for '" .. name .. "'.")
     end
@@ -1642,7 +1654,6 @@ function Library:_LoadConfig(name)
     local success, decodedData = pcall(JSONDecode, fileContent)
     if not success or not decodedData then warn(SCRIPT_PREFIX .. "Failed to decode config JSON: " .. name); return end
 
-    -- Очищаем старые кастомные темы
     do
         local themesToRemove = {}
         for themeName, themeData in pairs(self.Themes) do
@@ -1655,7 +1666,6 @@ function Library:_LoadConfig(name)
         end
     end
 
-    -- Загружаем новые кастомные темы из конфига
     if decodedData.Themes then
         for themeName, savedThemeData in pairs(decodedData.Themes) do
             local baseTheme = self.Themes.Blue
@@ -1671,7 +1681,6 @@ function Library:_LoadConfig(name)
     end
     self:_RebuildStyleCircles()
 
-    -- Загружаем значения элементов UI
     if decodedData.Values then
         for id, value in pairs(decodedData.Values) do
             if self.UI.Values[id] ~= nil then
@@ -1688,22 +1697,20 @@ function Library:_LoadConfig(name)
         end
     end
 
-    -- [[ ГЛАВНОЕ ИЗМЕНЕНИЕ: ЗАПУСК АНИМАЦИИ СМЕНЫ ТЕМЫ ]]
     local targetThemeName = decodedData.ActiveThemeName
     if targetThemeName and self.Themes[targetThemeName] then
-        -- Не меняем тему сразу, а устанавливаем её как цель для перехода
         self.TargetTheme = self.Themes[targetThemeName]
-        self.ThemeTransitionAlpha = 0.0 -- Сбрасываем прогресс анимации в 0, чтобы она началась
+        self.ThemeTransitionAlpha = 0.0
         self.UI.Values.AboutSelectedStyle = targetThemeName
     else
-        -- Если тема не найдена, просто ставим стандартную без анимации
         self.ActiveTheme = self.Themes.Blue
         self.TargetTheme = nil
         self.ThemeTransitionAlpha = 1.0
         self.UI.Values.AboutSelectedStyle = "Blue"
     end
-    
+
     self.UI.Core.ConfigsTab.LoadedConfigName = name
+    self:_SaveLastConfigName(name) -- [[ НОВОЕ ]] Запоминаем имя загруженного конфига
     print(SCRIPT_PREFIX .. "Config '" .. name .. "' loaded successfully.")
 end
 
@@ -4560,8 +4567,8 @@ function Library:_InputLoop()
         end
 
         do
-            local KEY_INITIAL_DELAY = 0.4
-            local KEY_REPEAT_DELAY = 0.05
+            local KEY_INITIAL_DELAY = 0.2
+            local KEY_REPEAT_DELAY = 0.03
             local key = getpressedkey()
 
             local function handle_text_input(target, input_key)
@@ -5274,14 +5281,13 @@ end
 
 function Library:Create()
     self:_InitializeCoreUI()
-    setmetatable(self.AnimationState, {__mode = "k"}) -- Делаем ключи слабыми для авто-очистки
-    
-    -- Config System Initialization
+    setmetatable(self.AnimationState, {__mode = "k"})
+
     if not checkfolder(self.ConfigFolderPath) then
         makefolder(self.ConfigFolderPath)
         print(SCRIPT_PREFIX .. "Created config folder: " .. self.ConfigFolderPath)
     end
-    
+
     local files = listfiles(self.ConfigFolderPath)
     if not files or #files == 0 then
         print(SCRIPT_PREFIX .. "No configs found. Creating 'default.cfg'...")
@@ -5289,29 +5295,31 @@ function Library:Create()
     end
 
     self:_RefreshConfigList()
-    if self.UI.Core.ConfigsTab.Items[1] then
+
+    -- [[ ИЗМЕНЕНИЕ ]] Новая, умная логика загрузки
+    local lastConfigName = self:_GetLastConfigName()
+    if lastConfigName and checkfile(self:_GetConfigPath(lastConfigName)) then
+        -- Если мы нашли запись о последнем конфиге и он существует, загружаем его
+        print(SCRIPT_PREFIX .. "Loading last used config: " .. lastConfigName)
+        self:_LoadConfig(lastConfigName)
+    elseif self.UI.Core.ConfigsTab.Items[1] then
+        -- Иначе, загружаем первый по списку (например, 'default.cfg')
+        print(SCRIPT_PREFIX .. "Loading first available config.")
         self:_LoadConfig(self.UI.Core.ConfigsTab.Items[1].Name)
     end
 
-    -- [[ ИЗМЕНЕНИЕ: Запускаем анимацию появления для начальной вкладки ]]
-    -- Это исправит баг, когда UI пустой при первом запуске.
     do
         local initialTabName = self.Window.ActiveTab
         local ANIMATION_SLIDE_DISTANCE = 20
-
-        -- Устанавливаем глобальное состояние анимации на "появление"
         self.Window.Animation.State = "FADING_IN"
-
         if initialTabName == "Configs" then
             local configsTab = self.UI.Core.ConfigsTab
-            -- Устанавливаем начальные значения для анимации (невидима и смещена вниз)
             configsTab.Animation.CurrentOpacity = 0
             configsTab.Animation.CurrentYOffset = ANIMATION_SLIDE_DISTANCE
             self.UI.Core.HeaderButtons.CreateNew.Animation.CurrentOpacity = 0
         else
             for _, section in ipairs(self.UI.Sections) do
                 if section.ParentTab == initialTabName then
-                    -- Устанавливаем начальные значения для анимации
                     section.Animation.CurrentOpacity = 0
                     section.Animation.CurrentYOffset = ANIMATION_SLIDE_DISTANCE
                 end
