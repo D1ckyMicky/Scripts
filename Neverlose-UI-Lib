@@ -4702,6 +4702,24 @@ function Library:_InputLoop()
                                                 local openingThisOne = not el.IsOpen; for _, s_inner in ipairs(self.UI.Sections) do for _, el_inner in ipairs(s_inner.Elements) do if (el_inner.type == "Dropdown" or el_inner.type == "Multidropdown") and el_inner.IsOpen then el_inner.IsOpen = false; el_inner.IsClosing = true; end end end
                                                 if openingThisOne then el.IsOpen = true; el.IsClosing = false; el.FadeOpacity = 0.0; end
                                             end; clicked_on_main_ui = true; break;
+                                            
+                                            -- [[ НАЧАЛО НОВОГО БЛОКА ]]
+                                        elseif (el.type == "Toggle" or el.type == "OptionsRow" or el.type == "Dropdown" or el.type == "Multidropdown") and el.HasColor and el.ColorClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, el.ColorClickRegion) then
+                                            picker.IsOpen = true; picker.Animation.IsOpening = true; picker.Animation.IsClosing = false; picker.EditingValueID = el.HasColor.id; picker.EditingColorName = nil; picker.Pos = {x = mouse_x, y = mouse_y}; local color_to_edit = self.UI.Values[el.HasColor.id]; picker.h, picker.s, picker.v, picker.a = self:_RGBtoHSV(color_to_edit[1], color_to_edit[2], color_to_edit[3], color_to_edit[4]); clicked_on_main_ui = true; break;
+                                        
+                                        elseif (el.type == "Toggle" or el.type == "OptionsRow" or el.type == "Dropdown" or el.type == "Multidropdown") and el.HasSettings and el.SettingsClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, el.SettingsClickRegion) then
+                                            if not settings_popup.IsOpen and not settings_popup.Animation.IsClosing then
+                                                settings_popup.Animation.IsOpening = true
+                                                settings_popup.Animation.IsClosing = false
+                                                settings_popup.Animation.CurrentOpacity = 0 
+                                                settings_popup.ActiveToggle = el;
+                                                settings_popup.Pos = {x = mouse_x, y = mouse_y};
+                                                self:_ResetElementsAnimation(el.SettingsElements)
+                                            end
+                                            clicked_on_main_ui = true;
+                                            break;
+                                        -- [[ КОНЕЦ НОВОГО БЛОКА ]]
+
                                         elseif el.type == "Toggle" and el.HasColor and el.ColorClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, el.ColorClickRegion) then
                                             picker.IsOpen = true; picker.Animation.IsOpening = true; picker.Animation.IsClosing = false; picker.EditingValueID = el.HasColor.id; picker.EditingColorName = nil; picker.Pos = {x = mouse_x, y = mouse_y}; local color_to_edit = self.UI.Values[el.HasColor.id]; picker.h, picker.s, picker.v, picker.a = self:_RGBtoHSV(color_to_edit[1], color_to_edit[2], color_to_edit[3], color_to_edit[4]); clicked_on_main_ui = true; break;
                                         elseif el.HasSettings and el.SettingsClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, el.SettingsClickRegion) then
@@ -5428,7 +5446,9 @@ function Library:Section(options)
     end
 
     function SectionObject:Settings(callback)
-        if last_element and (last_element.type == "Toggle" or last_element.type == "Dropdown" or last_element.type == "Multidropdown") and last_element.HasSettings then
+        if last_element and (last_element.type == "Toggle" or last_element.type == "Dropdown" or last_element.type == "Multidropdown" or last_element.type == "OptionsRow") and last_element.HasSettings then
+            
+            -- [[ ГЛАВНОЕ ИЗМЕНЕНИЕ: Гарантируем, что таблица существует ]]
             if not last_element.SettingsElements then
                 last_element.SettingsElements = {}
             end
@@ -5438,7 +5458,6 @@ function Library:Section(options)
             local last_element_in_popup = nil 
 
             function SettingsBuilder:Toggle(toggleOptions)
-                -- [[ ИЗМЕНЕНИЕ ]] Убрана ненужная проверка на дубликат ID
                 local element = self_lib_settings:_Internal_CreateToggle(toggleOptions)
                 table.insert(last_element.SettingsElements, element)
                 last_element_in_popup = element
@@ -5446,7 +5465,6 @@ function Library:Section(options)
             end
 
             function SettingsBuilder:Slider(sliderOptions)
-                -- [[ ИЗМЕНЕНИЕ ]] Убрана ненужная проверка на дубликат ID
                 local element = self_lib_settings:_Internal_CreateSlider(sliderOptions)
                 table.insert(last_element.SettingsElements, element)
                 last_element_in_popup = element
@@ -5454,7 +5472,6 @@ function Library:Section(options)
             end
 
             function SettingsBuilder:Dropdown(dropdownOptions)
-                -- [[ ИЗМЕНЕНИЕ ]] Убрана ненужная проверка на дубликат ID
                 local element = self_lib_settings:_Internal_CreateDropdown(dropdownOptions)
                 table.insert(last_element.SettingsElements, element)
                 last_element_in_popup = element
@@ -5462,7 +5479,6 @@ function Library:Section(options)
             end
             
             function SettingsBuilder:Multidropdown(multidropdownOptions)
-                -- [[ ИЗМЕНЕНИЕ ]] Убрана ненужная проверка на дубликат ID
                 local element = self_lib_settings:_Internal_CreateMultidropdown(multidropdownOptions)
                 table.insert(last_element.SettingsElements, element)
                 last_element_in_popup = element
@@ -5470,7 +5486,6 @@ function Library:Section(options)
             end
 
             function SettingsBuilder:Keybind(keybindOptions)
-                -- [[ ИЗМЕНЕНИЕ ]] Убрана ненужная проверка на дубликат ID
                 keybindOptions.ParentToggleID = last_element.id
                 keybindOptions.ParentToggleName = last_element.Name
                 local element = self_lib_settings:_Internal_CreateKeybind(keybindOptions)
@@ -5505,7 +5520,7 @@ function Library:Section(options)
             pcall(callback, SettingsBuilder)
 
         else
-            warn(SCRIPT_PREFIX .. "Settings() can only be chained after a Toggle() element with HasSettings = true.")
+            warn(SCRIPT_PREFIX .. "Settings() can only be chained after an element with HasSettings = true.")
         end
         return SectionObject 
     end
