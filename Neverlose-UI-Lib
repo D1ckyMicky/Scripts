@@ -3112,6 +3112,7 @@ function Library:_RenderLoop()
     self:_RenderColorPickerWindow()
     self:_RenderBurgerMenuPopup(mouse_pos)
     self:_RenderKeybindManagerPopup()
+    self:_RenderKeybindEditorPopup() -- << [НОВОЕ]
 
     self.Window.LastRenderedTab = self.Window.ActiveTab
 
@@ -4252,6 +4253,9 @@ function Library:_InputLoop()
                 local on_header_button = self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.Save.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.ViewESP.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.CreateNew.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.Settings.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, burger_button.ClickRegion)
 
                 if self:_IsPointInRegion(mouse_x, mouse_y, header_drag_region) and not on_header_button and not (picker.IsOpen or style_window.IsOpen or about_window.IsOpen or settings_popup.IsOpen or (settings_popup_nested and settings_popup_nested.IsOpen) or burger_popup.IsOpen or configsTab.OptionsPopup.IsOpen) then
+                    -- [[ НОВОЕ: Закрываем все попапы при начале перетаскивания ]]
+                    if self.UI.Popups.KeybindManager.IsOpen then self.UI.Popups.KeybindManager.Animation.IsClosing = true end
+
                     self.Window.IsDragging = true;
                     self.Window.IsFastDragging = true;
                     started_drag = true;
@@ -4686,44 +4690,50 @@ function Library:_InputLoop()
                         end
                        -- [[ НАЧАЛО НОВОГО БЛОКА: Обработка кликов в KeybindManager ]]
                     elseif self.UI.Popups.KeybindManager.IsOpen then
-                        click_was_handled = true -- Мы кликнули внутри этого попапа, другие не проверяем
+                        click_was_handled = true
                         local kbm = self.UI.Popups.KeybindManager
+                        local kbe = self.UI.Popups.KeybindEditor
                         local element_id = kbm.EditingElementID
                         
-                        -- Проверяем, был ли клик внутри попапа
-                        if kbm.Background and self:_IsPointInRegion(mouse_x, mouse_y, {x1=kbm.Background.Position.x, y1=kbm.Background.Position.y, x2=kbm.Background.Position.x+kbm.Background.Size.x, y2=kbm.Background.Position.y+kbm.Background.Size.y}) then
+                        local kbm_region = {x1=0,y1=0,x2=0,y2=0}
+                        if kbm.Background then
+                            kbm_region = {x1=kbm.Background.Position.x, y1=kbm.Background.Position.y, x2=kbm.Background.Position.x+kbm.Background.Size.x, y2=kbm.Background.Position.y+kbm.Background.Size.y}
+                        end
+
+                        if self:_IsPointInRegion(mouse_x, mouse_y, kbm_region) then
                             
-                            -- Клик по "New Bind"
                             if self:_IsPointInRegion(mouse_x, mouse_y, kbm.NewBindButton.ClickRegion) then
-                                warn("Creating new bind for: " .. element_id)
-                                if not self.UI.Binds[element_id] then
-                                    self.UI.Binds[element_id] = {}
-                                end
-                                -- Создаем новый бинд с дефолтными значениями
+                                if not self.UI.Binds[element_id] then self.UI.Binds[element_id] = {} end
                                 table.insert(self.UI.Binds[element_id], {
-                                    id = "bind_" .. tostring(tick()), -- Уникальный ID
-                                    key = "None",
-                                    mode = "Toggle",
-                                    value = self.UI.Values[element_id], -- Начальное значение = текущее значение элемента
-                                    show_in_hotkeys = true
+                                    id = "bind_" .. tostring(tick()), key = "None", mode = "Toggle",
+                                    value = self.UI.Values[element_id], show_in_hotkeys = true
                                 })
                             
-                            -- Клик по "Reset"
                             elseif self:_IsPointInRegion(mouse_x, mouse_y, kbm.ResetButton.ClickRegion) then
-                                warn("Resetting binds for: " .. element_id)
                                 self.UI.Binds[element_id] = {}
                             
-                            -- TODO: Клик по "Hotkeys"
-                            -- TODO: Клик по существующему бинду для открытия редактора
+                            else
+                                -- Проверяем клик по существующим биндам
+                                local element_binds = self.UI.Binds[element_id] or {}
+                                for i, bind_btn in ipairs(kbm.BindButtons) do
+                                    if self:_IsPointInRegion(mouse_x, mouse_y, bind_btn.ClickRegion) then
+                                        warn("Opening editor for bind: " .. element_binds[i].id)
+                                        kbe.IsOpen = true
+                                        kbe.Animation.IsOpening, kbe.Animation.IsClosing = true, false
+                                        kbe.EditingBind = element_binds[i] -- Передаем объект бинда в редактор
+                                        kbe.Pos = {x = kbm.Pos.x + kbm.Background.Size.x + 10, y = kbm.Pos.y}
+                                        break
+                                    end
+                                end
                             end
                         else
-                            -- Если клик был за пределами попапа - закрываем его
-                            kbm.Animation.IsClosing = true
-                            kbm.Animation.IsOpening = false
+                            -- Закрываем оба попапа, если клик был снаружи
+                            kbm.Animation.IsClosing = true; kbm.Animation.IsOpening = false
+                            if kbe.IsOpen then kbe.Animation.IsClosing = true; kbe.Animation.IsOpening = false; end
                         end
                     end
                 end
-                
+
                 if not click_was_handled then
                     if self:_IsPointInRegion(mouse_x, mouse_y, burger_button.ClickRegion) then
                         burger_popup.IsOpen = not burger_popup.IsOpen;
@@ -5201,6 +5211,52 @@ function Library:_RenderKeybindManagerPopup()
     self:_AnimateAndApplyColor(kbm.Background, theme.Colors.SectionBackground, masterOpacity)
     self:_AnimateAndApplyColor(kbm.Border, theme.Colors.Separator, masterOpacity)
     self:_RenderGlowEffect(kbm.Glow, pX, pY, pW, pH, kbm.Background.Rounding, theme.Colors.GlowColor, nil, masterOpacity)
+end
+
+function Library:_RenderKeybindEditorPopup()
+    local kbe = self.UI.Popups.KeybindEditor
+    self:_UpdatePopupAnimation(kbe) -- Используем наш стандартный аниматор
+
+    local masterOpacity = kbe.Animation.CurrentOpacity
+    if masterOpacity <= 0 then
+        if kbe.Background and kbe.Background.Visible then
+            self:_SetDrawingTableVisibility(kbe, false)
+            self:_HideGlowEffect(kbe.Glow)
+        end
+        return
+    end
+
+    local theme = self.ActiveTheme
+    local bind_object = kbe.EditingBind
+
+    -- Если нет объекта бинда для редактирования, не рисуем ничего
+    if not bind_object then return end
+
+    -- Создаем объекты отрисовки при первом открытии
+    if not kbe.Background then
+        local z = 70 -- zIndex еще выше, чтобы быть поверх менеджера
+        kbe.Background = self:_CreateDrawingObject("Square")
+        kbe.Border = self:_CreateDrawingObject("Square")
+        kbe.Glow = self:_Internal_CreateGlowSet(z - 1)
+        -- TODO: Добавить сюда создание всех элементов (Key, Mode, Value, иконки)
+    end
+
+    self:_SetDrawingTableVisibility(kbe, true)
+
+    -- --- РАСЧЕТ РАЗМЕРОВ И ПОЗИЦИЙ ---
+    local pW = 220
+    local pH = 150 -- Пока что фиксированная высота
+    local pX, pY = kbe.Pos.x, kbe.Pos.y
+    
+    kbe.Background.Position = { pX, pY }; kbe.Background.Size = { pW, pH }
+    kbe.Border.Position = { pX, pY }; kbe.Border.Size = { pW, pH }
+    
+    self:_AnimateAndApplyColor(kbe.Background, theme.Colors.SectionBackground, masterOpacity)
+    self:_AnimateAndApplyColor(kbe.Border, theme.Colors.Separator, masterOpacity)
+    self:_RenderGlowEffect(kbe.Glow, pX, pY, pW, pH, kbe.Background.Rounding, theme.Colors.GlowColor, nil, masterOpacity)
+
+    -- Здесь будет отрисовка всех контролов внутри редактора
+    -- ...
 end
 
 
