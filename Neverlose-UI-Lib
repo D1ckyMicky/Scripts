@@ -4702,10 +4702,10 @@ function Library:_InputLoop()
                                                 local openingThisOne = not el.IsOpen; for _, s_inner in ipairs(self.UI.Sections) do for _, el_inner in ipairs(s_inner.Elements) do if (el_inner.type == "Dropdown" or el_inner.type == "Multidropdown") and el_inner.IsOpen then el_inner.IsOpen = false; el_inner.IsClosing = true; end end end
                                                 if openingThisOne then el.IsOpen = true; el.IsClosing = false; el.FadeOpacity = 0.0; end
                                             end; clicked_on_main_ui = true; break;
-                                            
-                                            -- [[ НАЧАЛО НОВОГО БЛОКА ]]
+                                        
                                         elseif (el.type == "Toggle" or el.type == "OptionsRow" or el.type == "Dropdown" or el.type == "Multidropdown") and el.HasColor and el.ColorClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, el.ColorClickRegion) then
-                                            picker.IsOpen = true; picker.Animation.IsOpening = true; picker.Animation.IsClosing = false; picker.EditingValueID = el.HasColor.id; picker.EditingColorName = nil; picker.Pos = {x = mouse_x, y = mouse_y}; local color_to_edit = self.UI.Values[el.HasColor.id]; picker.h, picker.s, picker.v, picker.a = self:_RGBtoHSV(color_to_edit[1], color_to_edit[2], color_to_edit[3], color_to_edit[4]); clicked_on_main_ui = true; break;
+                                            picker.IsOpen = true; picker.Animation.IsOpening = true; picker.Animation.IsClosing = false; picker.EditingValueID = el.HasColor.id; picker.EditingColorName = nil; picker.Pos = {x = mouse_x, y = mouse_y};
+                                            local color_to_edit = self.UI.Values[el.HasColor.id]; picker.h, picker.s, picker.v, picker.a = self:_RGBtoHSV(color_to_edit[1], color_to_edit[2], color_to_edit[3], color_to_edit[4]); clicked_on_main_ui = true; break;
                                         
                                         elseif (el.type == "Toggle" or el.type == "OptionsRow" or el.type == "Dropdown" or el.type == "Multidropdown") and el.HasSettings and el.SettingsClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, el.SettingsClickRegion) then
                                             if not settings_popup.IsOpen and not settings_popup.Animation.IsClosing then
@@ -4718,23 +4718,10 @@ function Library:_InputLoop()
                                             end
                                             clicked_on_main_ui = true;
                                             break;
-                                        -- [[ КОНЕЦ НОВОГО БЛОКА ]]
 
-                                        elseif el.type == "Toggle" and el.HasColor and el.ColorClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, el.ColorClickRegion) then
-                                            picker.IsOpen = true; picker.Animation.IsOpening = true; picker.Animation.IsClosing = false; picker.EditingValueID = el.HasColor.id; picker.EditingColorName = nil; picker.Pos = {x = mouse_x, y = mouse_y}; local color_to_edit = self.UI.Values[el.HasColor.id]; picker.h, picker.s, picker.v, picker.a = self:_RGBtoHSV(color_to_edit[1], color_to_edit[2], color_to_edit[3], color_to_edit[4]); clicked_on_main_ui = true; break;
-                                        elseif el.HasSettings and el.SettingsClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, el.SettingsClickRegion) then
-                                        if not settings_popup.IsOpen and not settings_popup.Animation.IsClosing then
-                                            settings_popup.Animation.IsOpening = true
-                                            settings_popup.Animation.IsClosing = false
-                                            settings_popup.Animation.CurrentOpacity = 0 
-                                            settings_popup.ActiveToggle = el;
-                                            settings_popup.Pos = {x = mouse_x, y = mouse_y};
-                                            self:_ResetElementsAnimation(el.SettingsElements)
-                                        end
-                                        clicked_on_main_ui = true;
-                                        break;
                                         elseif el.type == "Slider" and el.ValueInputClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, el.ValueInputClickRegion) then
-                                            el.IsEditing, el.InputText = true, self:_FormatSliderValue(self.UI.Values[el.id], el.Increment); clicked_on_main_ui = true; break;
+                                            el.IsEditing, el.InputText = true, self:_FormatSliderValue(self.UI.Values[el.id], el.Increment);
+                                            clicked_on_main_ui = true; break;
                                         end
                                     end
                                 end
