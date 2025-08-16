@@ -980,6 +980,25 @@ function Library:_FindKeybindForToggle(toggle_id)
     return nil -- Бинд не найден
 end
 
+function Library:GetElementByID(id)
+    if not id then return nil end
+    local function find_in(elements)
+        if not elements then return nil end
+        for _, el in ipairs(elements) do
+            if el.id == id then return el end
+            local found_in_settings = find_in(el.SettingsElements)
+            if found_in_settings then return found_in_settings end
+        end
+        return nil
+    end
+    
+    for _, section in ipairs(self.UI.Sections) do
+        local found = find_in(section.Elements)
+        if found then return found end
+    end
+    return nil
+end
+
 --================================================================
 --[[ PRIVATE: GLOW EFFECT HELPERS ]]
 --================================================================
@@ -4696,21 +4715,43 @@ function Library:_InputLoop()
                         local element_id = kbm.EditingElementID
                         
                         local kbm_region = {x1=0,y1=0,x2=0,y2=0}
-                        if kbm.Background then
+                        if kbm.Background and kbm.Background.Position then
                             kbm_region = {x1=kbm.Background.Position.x, y1=kbm.Background.Position.y, x2=kbm.Background.Position.x+kbm.Background.Size.x, y2=kbm.Background.Position.y+kbm.Background.Size.y}
                         end
 
                         if self:_IsPointInRegion(mouse_x, mouse_y, kbm_region) then
                             
+                            -- Клик по "New Bind"
                             if self:_IsPointInRegion(mouse_x, mouse_y, kbm.NewBindButton.ClickRegion) then
                                 if not self.UI.Binds[element_id] then self.UI.Binds[element_id] = {} end
-                                table.insert(self.UI.Binds[element_id], {
+                                
+                                local parent_element = self:GetElementByID(element_id)
+                                local default_value = (parent_element and parent_element.Default) or (parent_element and parent_element.Min) or false
+                                
+                                -- Создаем новый бинд и сохраняем его в переменную
+                                local new_bind = {
                                     id = "bind_" .. tostring(tick()), key = "None", mode = "Toggle",
-                                    value = self.UI.Values[element_id], show_in_hotkeys = true
-                                })
+                                    value = default_value, show_in_hotkeys = true, ParentID = element_id
+                                }
+                                table.insert(self.UI.Binds[element_id], new_bind)
+
+                                -- Сразу открываем редактор для этого нового бинда
+                                kbe.IsOpen = true
+                                kbe.Animation.IsOpening, kbe.Animation.IsClosing = true, false
+                                kbe.EditingBind = new_bind
+                                if kbm.Background and kbm.Background.Size then
+                                    kbe.Pos = {x = kbm.Pos.x + kbm.Background.Size.x + 10, y = kbm.Pos.y}
+                                else
+                                    kbe.Pos = {x = kbm.Pos.x + 190, y = kbm.Pos.y} -- Запасной вариант позиции
+                                end
                             
+                            -- Клик по "Reset"
                             elseif self:_IsPointInRegion(mouse_x, mouse_y, kbm.ResetButton.ClickRegion) then
-                                self.UI.Binds[element_id] = {}
+                                 self.UI.Binds[element_id] = {}
+                                 -- Если редактор был открыт для бинда этого элемента, закрываем его
+                                 if kbe.IsOpen and kbe.EditingBind and kbe.EditingBind.ParentID == element_id then
+                                     kbe.Animation.IsClosing = true
+                                 end
                             
                             else
                                 -- Проверяем клик по существующим биндам
@@ -4720,8 +4761,12 @@ function Library:_InputLoop()
                                         warn("Opening editor for bind: " .. element_binds[i].id)
                                         kbe.IsOpen = true
                                         kbe.Animation.IsOpening, kbe.Animation.IsClosing = true, false
-                                        kbe.EditingBind = element_binds[i] -- Передаем объект бинда в редактор
-                                        kbe.Pos = {x = kbm.Pos.x + kbm.Background.Size.x + 10, y = kbm.Pos.y}
+                                        kbe.EditingBind = element_binds[i]
+                                        if kbm.Background and kbm.Background.Size then
+                                            kbe.Pos = {x = kbm.Pos.x + kbm.Background.Size.x + 10, y = kbm.Pos.y}
+                                        else
+                                            kbe.Pos = {x = kbm.Pos.x + 190, y = kbm.Pos.y}
+                                        end
                                         break
                                     end
                                 end
@@ -4732,6 +4777,7 @@ function Library:_InputLoop()
                             if kbe.IsOpen then kbe.Animation.IsClosing = true; kbe.Animation.IsOpening = false; end
                         end
                     end
+                    -- [[ КОНЕЦ ИЗМЕНЁННОГО БЛОКА ]]
                 end
 
                 if not click_was_handled then
@@ -5127,136 +5173,177 @@ end
 
 function Library:_RenderKeybindManagerPopup()
     local kbm = self.UI.Popups.KeybindManager
-    self:_UpdatePopupAnimation(kbm) -- Используем наш стандартный аниматор
+    self:_UpdatePopupAnimation(kbm)
 
     local masterOpacity = kbm.Animation.CurrentOpacity
     if masterOpacity <= 0 then
-        -- Скрываем все потенциальные объекты, если они есть
         if kbm.Background and kbm.Background.Visible then
             self:_SetDrawingTableVisibility(kbm, false)
             self:_HideGlowEffect(kbm.Glow)
+            kbm.IsOpen = false
+            kbm.EditingElementID = nil
         end
         return
     end
 
     local theme = self.ActiveTheme
+    local element_id = kbm.EditingElementID
+    local element = self:GetElementByID(element_id) -- Нужна новая вспомогательная функция
+    local title = "Keybinds for '" .. (element and element.Name or "Unknown") .. "'"
 
-    -- Если объектов еще нет, создаем их при первом открытии
     if not kbm.Background then
-        local z = 60 -- Высокий zIndex, чтобы быть поверх всего
-        kbm.Background = self:_CreateDrawingObject("Square")
-        kbm.Border = self:_CreateDrawingObject("Square")
+        local z = 60
+        kbm.Background = self:_CreateDrawingObject("Square"); if kbm.Background then kbm.Background.Filled = true; kbm.Background.zIndex = z; kbm.Background.Rounding = theme.Rounding.Section; end
+        kbm.Border = self:_CreateDrawingObject("Square"); if kbm.Border then kbm.Border.Filled = false; kbm.Border.Thickness = 1; kbm.Border.zIndex = z + 1; kbm.Border.Rounding = theme.Rounding.Section; end
+        kbm.Title = self:_CreateDrawingObject("Text"); if kbm.Title then kbm.Title.Font = theme.Fonts.Main; kbm.Title.Size = theme.Fonts.Size + 2; kbm.Title.zIndex = z + 2; end
+        kbm.Separator = self:_CreateDrawingObject("Line"); if kbm.Separator then kbm.Separator.Thickness = 2; kbm.Separator.zIndex = z + 1; end
         kbm.Glow = self:_Internal_CreateGlowSet(z - 1)
-        kbm.NewBindButton = { Text = self:_CreateDrawingObject("Text"), ClickRegion = {} }
-        kbm.HotkeysButton = { Text = self:_CreateDrawingObject("Text"), ClickRegion = {} }
-        kbm.ResetButton = { Text = self:_CreateDrawingObject("Text"), ClickRegion = {} }
-        kbm.BindButtons = {} -- Массив для кнопок существующих биндов
+        kbm.NewBindButton = { Text = self:_CreateDrawingObject("Text"), Highlight = self:_CreateDrawingObject("Square"), ClickRegion = {} }
+        kbm.HotkeysButton = { Text = self:_CreateDrawingObject("Text"), Highlight = self:_CreateDrawingObject("Square"), ClickRegion = {} }
+        kbm.ResetButton = { Text = self:_CreateDrawingObject("Text"), Highlight = self:_CreateDrawingObject("Square"), ClickRegion = {} }
+        kbm.BindButtons = {}
+        kbm.HoveredIndex = 0
     end
-
-    -- Показываем основные элементы
+    
     self:_SetDrawingTableVisibility(kbm, true)
     
-    -- Получаем список биндов для текущего элемента
-    local element_binds = (kbm.EditingElementID and self.UI.Binds[kbm.EditingElementID]) or {}
-
-    -- Динамически создаем/удаляем кнопки для биндов, чтобы их кол-во совпадало
+    local element_binds = self.UI.Binds[element_id] or {}
     while #kbm.BindButtons < #element_binds do
-        table.insert(kbm.BindButtons, { Text = self:_CreateDrawingObject("Text"), ClickRegion = {} })
+        local btn = { Text = self:_CreateDrawingObject("Text"), Highlight = self:_CreateDrawingObject("Square"), ClickRegion = {} }
+        if btn.Highlight then btn.Highlight.Filled = true; btn.Highlight.Rounding = theme.Rounding.Element; end
+        table.insert(kbm.BindButtons, btn)
     end
     while #kbm.BindButtons > #element_binds do
-        local to_remove = table.remove(kbm.BindButtons)
-        self:_CleanupDrawingObjects(to_remove)
+        self:_CleanupDrawingObjects(table.remove(kbm.BindButtons))
     end
 
-    -- --- РАСЧЕТ РАЗМЕРОВ И ПОЗИЦИЙ ---
-    local pW = 160
+    local pW = 180
     local pX, pY = kbm.Pos.x, kbm.Pos.y
-    local itemHeight, padding, separator = 25, 8, 5
+    local itemHeight, padding = 25, 10
     local currentY = pY + padding
 
-    -- Отрисовка кнопок для существующих биндов
-    for i, bind in ipairs(element_binds) do
-        local btn = kbm.BindButtons[i]
-        btn.Text.Text = bind.mode .. " '" .. bind.key .. "'"
-        btn.Text.Position = { pX + 10, currentY + itemHeight / 2 - btn.Text.Size / 2 }
+    kbm.Title.Text = title
+    kbm.Title.Position = { pX + padding, currentY }
+    currentY = currentY + kbm.Title.Size + 8
+    kbm.Separator.From = { pX + 5, currentY }; kbm.Separator.To = { pX + pW - 5, currentY }
+    currentY = currentY + 5
+
+    local all_buttons = {}
+    for i, bind in ipairs(element_binds) do table.insert(all_buttons, { bind = bind, btn_obj = kbm.BindButtons[i] }) end
+    table.insert(all_buttons, { name = "New Bind", btn_obj = kbm.NewBindButton, color = theme.Colors.TextSecondary })
+    table.insert(all_buttons, { name = "Hotkeys", btn_obj = kbm.HotkeysButton, color = theme.Colors.TextSecondary })
+    table.insert(all_buttons, { name = "Reset", btn_obj = kbm.ResetButton, color = {200, 100, 100} })
+    
+    kbm.HoveredIndex = 0
+    for i, item in ipairs(all_buttons) do
+        local btn = item.btn_obj
+        if not btn.Text.zIndex then btn.Text.zIndex = kbm.Background.zIndex + 2; btn.Highlight.zIndex = kbm.Background.zIndex + 1; end
+        
         btn.ClickRegion = { x1 = pX, y1 = currentY, x2 = pX + pW, y2 = currentY + itemHeight }
-        self:_AnimateAndApplyColor(btn.Text, theme.Colors.TextPrimary, masterOpacity)
+        if self:_IsPointInRegion(mouse_pos.x, mouse_pos.y, btn.ClickRegion) then kbm.HoveredIndex = i end
+        
+        if item.bind then btn.Text.Text = item.bind.mode .. " '" .. item.bind.key .. "'" else btn.Text.Text = item.name end
+        btn.Text.Position = { pX + padding, currentY + itemHeight / 2 - btn.Text.Size / 2 }
+        
+        local textColor = item.color or theme.Colors.TextPrimary
+        if kbm.HoveredIndex == i then textColor = theme.Colors.TextPrimary end
+        self:_AnimateAndApplyColor(btn.Text, textColor, masterOpacity)
+
+        btn.Highlight.Position = { pX + 5, currentY }; btn.Highlight.Size = { pW - 10, itemHeight }
+        if kbm.HoveredIndex == i then self:_AnimateAndApplyColor(btn.Highlight, theme.Colors.Separator, masterOpacity * 0.4) else btn.Highlight.Opacity = 0 end
         currentY = currentY + itemHeight
     end
 
-    -- Отрисовка статичных кнопок
-    kbm.NewBindButton.Text.Text = "New Bind"
-    kbm.NewBindButton.Text.Position = { pX + 10, currentY + itemHeight / 2 - kbm.NewBindButton.Text.Size / 2 }
-    kbm.NewBindButton.ClickRegion = { x1 = pX, y1 = currentY, x2 = pX + pW, y2 = currentY + itemHeight }
-    self:_AnimateAndApplyColor(kbm.NewBindButton.Text, theme.Colors.TextSecondary, masterOpacity)
-    currentY = currentY + itemHeight
-    
-    kbm.HotkeysButton.Text.Text = "Hotkeys"
-    kbm.HotkeysButton.Text.Position = { pX + 10, currentY + itemHeight / 2 - kbm.HotkeysButton.Text.Size / 2 }
-    kbm.HotkeysButton.ClickRegion = { x1 = pX, y1 = currentY, x2 = pX + pW, y2 = currentY + itemHeight }
-    self:_AnimateAndApplyColor(kbm.HotkeysButton.Text, theme.Colors.TextSecondary, masterOpacity)
-    currentY = currentY + itemHeight
-
-    kbm.ResetButton.Text.Text = "Reset"
-    kbm.ResetButton.Text.Position = { pX + 10, currentY + itemHeight / 2 - kbm.ResetButton.Text.Size / 2 }
-    kbm.ResetButton.ClickRegion = { x1 = pX, y1 = currentY, x2 = pX + pW, y2 = currentY + itemHeight }
-    self:_AnimateAndApplyColor(kbm.ResetButton.Text, {200, 100, 100}, masterOpacity) -- Красный цвет для сброса
-    currentY = currentY + itemHeight
-
-    -- Финальный расчет высоты и отрисовка фона
-    local pH = (currentY - pY) + padding
+    local pH = (currentY - pY) + padding - 5
     kbm.Background.Position = { pX, pY }; kbm.Background.Size = { pW, pH }
     kbm.Border.Position = { pX, pY }; kbm.Border.Size = { pW, pH }
     
     self:_AnimateAndApplyColor(kbm.Background, theme.Colors.SectionBackground, masterOpacity)
     self:_AnimateAndApplyColor(kbm.Border, theme.Colors.Separator, masterOpacity)
-    self:_RenderGlowEffect(kbm.Glow, pX, pY, pW, pH, kbm.Background.Rounding, theme.Colors.GlowColor, nil, masterOpacity)
+    self:_AnimateAndApplyColor(kbm.Title, theme.Colors.TextPrimary, masterOpacity)
+    self:_AnimateAndApplyColor(kbm.Separator, self:_GetTransitionColor("Separator"), masterOpacity)
+    self:_RenderGlowEffect(kbm.Glow, pX, pY, pW, pH, theme.Rounding.Section, theme.Colors.GlowColor, nil, masterOpacity)
 end
 
 function Library:_RenderKeybindEditorPopup()
     local kbe = self.UI.Popups.KeybindEditor
-    self:_UpdatePopupAnimation(kbe) -- Используем наш стандартный аниматор
+    self:_UpdatePopupAnimation(kbe)
 
     local masterOpacity = kbe.Animation.CurrentOpacity
     if masterOpacity <= 0 then
         if kbe.Background and kbe.Background.Visible then
             self:_SetDrawingTableVisibility(kbe, false)
             self:_HideGlowEffect(kbe.Glow)
+            kbe.IsOpen = false
+            kbe.EditingBind = nil
         end
         return
     end
 
     local theme = self.ActiveTheme
-    local bind_object = kbe.EditingBind
+    local bind = kbe.EditingBind
+    if not bind then return end
+    
+    local parent_element = self:GetElementByID(bind.ParentID)
 
-    -- Если нет объекта бинда для редактирования, не рисуем ничего
-    if not bind_object then return end
-
-    -- Создаем объекты отрисовки при первом открытии
     if not kbe.Background then
-        local z = 70 -- zIndex еще выше, чтобы быть поверх менеджера
-        kbe.Background = self:_CreateDrawingObject("Square")
-        kbe.Border = self:_CreateDrawingObject("Square")
+        local z = 70
+        kbe.Background = self:_CreateDrawingObject("Square"); if kbe.Background then kbe.Background.Filled = true; kbe.Background.zIndex = z; kbe.Background.Rounding = theme.Rounding.Section; end
+        kbe.Border = self:_CreateDrawingObject("Square"); if kbe.Border then kbe.Border.Filled = false; kbe.Border.Thickness = 1; kbe.Border.zIndex = z + 1; kbe.Border.Rounding = theme.Rounding.Section; end
         kbe.Glow = self:_Internal_CreateGlowSet(z - 1)
-        -- TODO: Добавить сюда создание всех элементов (Key, Mode, Value, иконки)
-    end
+        
+        kbe.KeyLabel = self:_CreateDrawingObject("Text"); if kbe.KeyLabel then kbe.KeyLabel.Text = "Key"; kbe.KeyLabel.zIndex = z+2; end
+        kbe.Keybind = self:_Internal_CreateKeybind({id = "KeybindEditor_Key", zIndex = z + 2})
+        
+        kbe.ModeLabel = self:_CreateDrawingObject("Text"); if kbe.ModeLabel then kbe.ModeLabel.Text = "Mode"; kbe.ModeLabel.zIndex = z+2; end
+        kbe.ModeToggleBtn = { Background = self:_CreateDrawingObject("Square"), Text = self:_CreateDrawingObject("Text"), ClickRegion = {} }
+        kbe.ModeHoldBtn = { Background = self:_CreateDrawingObject("Square"), Text = self:_CreateDrawingObject("Text"), ClickRegion = {} }
+        
+        kbe.ValueLabel = self:_CreateDrawingObject("Text"); if kbe.ValueLabel then kbe.ValueLabel.Text = "Value"; kbe.ValueLabel.zIndex = z+2; end
+        kbe.ValueToggle = self:_Internal_CreateToggle({id = "KeybindEditor_ValueToggle", zIndex = z + 2})
 
+        -- Иконки внизу
+        kbe.DeleteBtn = { Icon = self:_CreateDrawingObject("Image"), ClickRegion = {} }
+        if kbe.DeleteBtn.Icon then kbe.DeleteBtn.Icon.Url = "https://i.postimg.cc/pX03P3y1/delete-icon.png"; kbe.DeleteBtn.Icon.zIndex = z + 2; end
+        kbe.VisibilityBtn = { Icon = self:_CreateDrawingObject("Image"), ClickRegion = {} }
+        if kbe.VisibilityBtn.Icon then kbe.VisibilityBtn.Icon.Url = "https://i.postimg.cc/8PFy5kR9/eye-icon.png"; kbe.VisibilityBtn.Icon.zIndex = z + 2; end
+    end
+    
     self:_SetDrawingTableVisibility(kbe, true)
 
-    -- --- РАСЧЕТ РАЗМЕРОВ И ПОЗИЦИЙ ---
-    local pW = 220
-    local pH = 150 -- Пока что фиксированная высота
-    local pX, pY = kbe.Pos.x, kbe.Pos.y
-    
-    kbe.Background.Position = { pX, pY }; kbe.Background.Size = { pW, pH }
-    kbe.Border.Position = { pX, pY }; kbe.Border.Size = { pW, pH }
-    
-    self:_AnimateAndApplyColor(kbe.Background, theme.Colors.SectionBackground, masterOpacity)
-    self:_AnimateAndApplyColor(kbe.Border, theme.Colors.Separator, masterOpacity)
-    self:_RenderGlowEffect(kbe.Glow, pX, pY, pW, pH, kbe.Background.Rounding, theme.Colors.GlowColor, nil, masterOpacity)
+    local pW, pX, pY = 220, kbe.Pos.x, kbe.Pos.y
+    local itemHeight, padding, right_edge = 25, 10, pX + pW - padding
+    local currentY = pY + padding
 
-    -- Здесь будет отрисовка всех контролов внутри редактора
-    -- ...
+    -- Key
+    kbe.KeyLabel.Position = { pX + padding, currentY + itemHeight / 2 - kbe.KeyLabel.Size / 2 }
+    local keybind = kbe.Keybind
+    keybind.Button.Position = { right_edge - keybind.Size.width, currentY }
+    keybind.ButtonText.Text = keybind.IsListening and "..." or bind.key
+    -- (остальной рендер keybind'а...)
+    currentY = currentY + itemHeight + 5
+
+    -- Mode
+    kbe.ModeLabel.Position = { pX + padding, currentY + itemHeight / 2 - kbe.ModeLabel.Size / 2 }
+    local modeBtnW = 50
+    kbe.ModeHoldBtn.ClickRegion = { x1 = right_edge - modeBtnW, y1 = currentY, x2 = right_edge, y2 = currentY + itemHeight }
+    kbe.ModeToggleBtn.ClickRegion = { x1 = right_edge - modeBtnW * 2 - 5, y1 = currentY, x2 = right_edge - modeBtnW - 5, y2 = currentY + itemHeight }
+    -- (рендер кнопок режима)
+    currentY = currentY + itemHeight + 5
+
+    -- Value (ПОКА ТОЛЬКО ДЛЯ ТОГГЛОВ)
+    if parent_element and parent_element.type == "Toggle" then
+        kbe.ValueLabel.Position = { pX + padding, currentY + itemHeight / 2 - kbe.ValueLabel.Size / 2 }
+        local valueToggle = kbe.ValueToggle
+        valueToggle.Back.Position = { right_edge - valueToggle.Size.width, currentY + 2 }
+        self.UI.Values[valueToggle.id] = bind.value -- Синхронизируем значение
+        -- (рендер тогла)
+        currentY = currentY + itemHeight + 15
+    end
+
+    local pH = currentY - pY + 25
+    kbe.Background.Position = { pX, pY }; kbe.Background.Size = { pW, pH }
+    -- (остальной рендер фона, рамки и иконок)
 end
 
 
