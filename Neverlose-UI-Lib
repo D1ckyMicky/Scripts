@@ -79,6 +79,7 @@ Library.TargetTheme = nil -- << [НОВОЕ] Тема, к которой буд�
 Library.ThemeTransitionAlpha = 1.0 -- << [НОВОЕ] Прогресс перехода (0.0 до 1.0)
 Library.TempTheme = nil
 Library.PreEditThemeName = nil
+Library.UI.Binds = {} -- << [НОВОЕ]
 
 Library.UI = { TabGroups = {}, Sections = {}, Values = {}, DrawingObjects = {}, Popups = {}, ColorPresets = {} }
 Library.ObjectsToRemove = {}
@@ -1211,6 +1212,10 @@ function Library:_InitializeCoreUI()
         table.insert(group.Tabs, tab)
         table.insert(self.UI.TabGroups, group)
     end
+    -- Тестовый бинд для слайдера толщины трассеров
+    self.UI.Binds["Tracers_Thickness"] = {
+        { id = "bind1", key = "Z", mode = "Toggle", value = 5, show_in_hotkeys = true }
+    }
 end
 
 function Library:_InitializeBurgerMenu()
@@ -3106,6 +3111,7 @@ function Library:_RenderLoop()
     self:_RenderEditStyleWindow()
     self:_RenderColorPickerWindow()
     self:_RenderBurgerMenuPopup(mouse_pos)
+    self:_RenderKeybindManagerPopup()
 
     self.Window.LastRenderedTab = self.Window.ActiveTab
 
@@ -3113,7 +3119,6 @@ function Library:_RenderLoop()
         self.Window.Visible = false
     end
 end
-
 
 
 function Library:_RenderTabs(x, y, width)
@@ -3497,7 +3502,6 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
         end
     end
 end
-
 
 
 function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
@@ -4009,17 +4013,25 @@ function Library:_InputLoop()
     local is_right_pressed_now = isrightpressed()
     local is_right_clicked = was_right_pressed and not is_right_pressed_now
     local key_pressed = (getpressedkey() ~= "None")
-
-    -- [[ НАЧАЛО НОВОГО БЛОКА: Обработка правого клика для вызова меню биндов ]]
+    
+    local mouse_x, mouse_y = self:_SafeNumber(mouse_pos.x, 0), self:_SafeNumber(mouse_pos.y, 0)
+    
+    -- [[ ИСПРАВЛЕННЫЙ БЛОК: Обработка правого клика для вызова меню биндов ]]
     if is_right_clicked then
-        local bind_menu_opened = false
-        -- Проверяем, не кликнули ли мы уже внутри открытых окон, где ПКМ может иметь другую функцию
+        local click_handled_by_popup = false
+        
+        -- Сначала проверяем, не был ли клик внутри уже открытых окон, где ПКМ может что-то делать
         if self.UI.Popups.ColorPicker.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Popups.ColorPicker.ClickRegion) then
-            -- (Здесь в будущем будет логика для ПКМ внутри палитры, например, удаление пресета)
-        elseif self.UI.Popups.AboutWindow.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Popups.AboutWindow.ClickRegion) then
-            -- (Здесь в будущем будет логика для ПКМ внутри окна About)
-        else
-            -- Если клик не был внутри специфичных окон, ищем элемент для бинда
+            click_handled_by_popup = true 
+            -- (Здесь будущая логика для палитры)
+        elseif self.UI.Core.AboutWindow.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.AboutWindow.ClickRegion) then -- ИСПРАВЛЕН ПУТЬ
+            click_handled_by_popup = true
+            -- (Здесь будущая логика для окна About)
+        end
+
+        -- Если клик не был перехвачен другим окном, ищем элемент для бинда
+        if not click_handled_by_popup then
+            local bind_menu_opened = false
             for _, section in ipairs(self.UI.Sections) do
                 if section.ParentTab == self.Window.ActiveTab then
                     for _, el in ipairs(section.Elements) do
@@ -4032,9 +4044,12 @@ function Library:_InputLoop()
 
                         if region_to_check and self:_IsPointInRegion(mouse_x, mouse_y, region_to_check) then
                             warn("Open bind menu for element: " .. el.id)
-                            -- В будущем здесь будет код для открытия KeybindManager
-                            -- self.UI.Popups.KeybindManager.IsOpen = true
-                            -- self.UI.Popups.KeybindManager.EditingElementID = el.id
+                            local kbm = self.UI.Popups.KeybindManager
+                            kbm.IsOpen = true
+                            kbm.Animation.IsOpening, kbm.Animation.IsClosing = true, false
+                            kbm.EditingElementID = el.id
+                            kbm.Pos = {x = mouse_x, y = mouse_y} -- Запоминаем позицию для отрисовки
+                            
                             bind_menu_opened = true
                             break
                         end
@@ -4044,14 +4059,11 @@ function Library:_InputLoop()
             end
         end
     end
-    -- [[ КОНЕЦ НОВОГО БЛОКА ]]
 
 
     if mouse_moved or is_left_pressed_now or is_left_clicked or is_right_pressed_now or is_right_clicked or key_pressed or self:_UpdateAllAnimations() then
 
         lastMousePos = mouse_pos
-
-        local mouse_x, mouse_y = self:_SafeNumber(mouse_pos.x, 0), self:_SafeNumber(mouse_pos.y, 0)
         local is_press_started = is_left_pressed_now and not was_left_pressed
 
         local picker = self.UI.Popups.ColorPicker
@@ -5069,7 +5081,93 @@ function Library:_MainLoop()
     end
 end
 
+function Library:_RenderKeybindManagerPopup()
+    local kbm = self.UI.Popups.KeybindManager
+    self:_UpdatePopupAnimation(kbm) -- Используем наш стандартный аниматор
 
+    local masterOpacity = kbm.Animation.CurrentOpacity
+    if masterOpacity <= 0 then
+        -- Скрываем все потенциальные объекты, если они есть
+        if kbm.Background and kbm.Background.Visible then
+            self:_SetDrawingTableVisibility(kbm, false)
+            self:_HideGlowEffect(kbm.Glow)
+        end
+        return
+    end
+
+    local theme = self.ActiveTheme
+
+    -- Если объектов еще нет, создаем их при первом открытии
+    if not kbm.Background then
+        local z = 60 -- Высокий zIndex, чтобы быть поверх всего
+        kbm.Background = self:_CreateDrawingObject("Square")
+        kbm.Border = self:_CreateDrawingObject("Square")
+        kbm.Glow = self:_Internal_CreateGlowSet(z - 1)
+        kbm.NewBindButton = { Text = self:_CreateDrawingObject("Text"), ClickRegion = {} }
+        kbm.HotkeysButton = { Text = self:_CreateDrawingObject("Text"), ClickRegion = {} }
+        kbm.ResetButton = { Text = self:_CreateDrawingObject("Text"), ClickRegion = {} }
+        kbm.BindButtons = {} -- Массив для кнопок существующих биндов
+    end
+
+    -- Показываем основные элементы
+    self:_SetDrawingTableVisibility(kbm, true)
+    
+    -- Получаем список биндов для текущего элемента
+    local element_binds = (kbm.EditingElementID and self.UI.Binds[kbm.EditingElementID]) or {}
+
+    -- Динамически создаем/удаляем кнопки для биндов, чтобы их кол-во совпадало
+    while #kbm.BindButtons < #element_binds do
+        table.insert(kbm.BindButtons, { Text = self:_CreateDrawingObject("Text"), ClickRegion = {} })
+    end
+    while #kbm.BindButtons > #element_binds do
+        local to_remove = table.remove(kbm.BindButtons)
+        self:_CleanupDrawingObjects(to_remove)
+    end
+
+    -- --- РАСЧЕТ РАЗМЕРОВ И ПОЗИЦИЙ ---
+    local pW = 160
+    local pX, pY = kbm.Pos.x, kbm.Pos.y
+    local itemHeight, padding, separator = 25, 8, 5
+    local currentY = pY + padding
+
+    -- Отрисовка кнопок для существующих биндов
+    for i, bind in ipairs(element_binds) do
+        local btn = kbm.BindButtons[i]
+        btn.Text.Text = bind.mode .. " '" .. bind.key .. "'"
+        btn.Text.Position = { pX + 10, currentY + itemHeight / 2 - btn.Text.Size / 2 }
+        btn.ClickRegion = { x1 = pX, y1 = currentY, x2 = pX + pW, y2 = currentY + itemHeight }
+        self:_AnimateAndApplyColor(btn.Text, theme.Colors.TextPrimary, masterOpacity)
+        currentY = currentY + itemHeight
+    end
+
+    -- Отрисовка статичных кнопок
+    kbm.NewBindButton.Text.Text = "New Bind"
+    kbm.NewBindButton.Text.Position = { pX + 10, currentY + itemHeight / 2 - kbm.NewBindButton.Text.Size / 2 }
+    kbm.NewBindButton.ClickRegion = { x1 = pX, y1 = currentY, x2 = pX + pW, y2 = currentY + itemHeight }
+    self:_AnimateAndApplyColor(kbm.NewBindButton.Text, theme.Colors.TextSecondary, masterOpacity)
+    currentY = currentY + itemHeight
+    
+    kbm.HotkeysButton.Text.Text = "Hotkeys"
+    kbm.HotkeysButton.Text.Position = { pX + 10, currentY + itemHeight / 2 - kbm.HotkeysButton.Text.Size / 2 }
+    kbm.HotkeysButton.ClickRegion = { x1 = pX, y1 = currentY, x2 = pX + pW, y2 = currentY + itemHeight }
+    self:_AnimateAndApplyColor(kbm.HotkeysButton.Text, theme.Colors.TextSecondary, masterOpacity)
+    currentY = currentY + itemHeight
+
+    kbm.ResetButton.Text.Text = "Reset"
+    kbm.ResetButton.Text.Position = { pX + 10, currentY + itemHeight / 2 - kbm.ResetButton.Text.Size / 2 }
+    kbm.ResetButton.ClickRegion = { x1 = pX, y1 = currentY, x2 = pX + pW, y2 = currentY + itemHeight }
+    self:_AnimateAndApplyColor(kbm.ResetButton.Text, {200, 100, 100}, masterOpacity) -- Красный цвет для сброса
+    currentY = currentY + itemHeight
+
+    -- Финальный расчет высоты и отрисовка фона
+    local pH = (currentY - pY) + padding
+    kbm.Background.Position = { pX, pY }; kbm.Background.Size = { pW, pH }
+    kbm.Border.Position = { pX, pY }; kbm.Border.Size = { pW, pH }
+    
+    self:_AnimateAndApplyColor(kbm.Background, theme.Colors.SectionBackground, masterOpacity)
+    self:_AnimateAndApplyColor(kbm.Border, theme.Colors.Separator, masterOpacity)
+    self:_RenderGlowEffect(kbm.Glow, pX, pY, pW, pH, kbm.Background.Rounding, theme.Colors.GlowColor, nil, masterOpacity)
+end
 
 
 --================================================================
