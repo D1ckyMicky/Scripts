@@ -5167,6 +5167,10 @@ end
 
 function Library:_RenderKeybindManagerPopup()
     local kbm = self.UI.Popups.KeybindManager
+    
+    -- [[ ГЛАВНОЕ ИСПРАВЛЕНИЕ: Выходим из функции, если позиция еще не задана ]]
+    if not kbm.Pos then return end
+
     self:_UpdatePopupAnimation(kbm)
 
     local masterOpacity = kbm.Animation.CurrentOpacity
@@ -5186,7 +5190,6 @@ function Library:_RenderKeybindManagerPopup()
     local title = "Keybinds for '" .. (element and element.Name or "Unknown") .. "'"
     local mouse_pos = getmouseposition() or {x=0, y=0}
 
-    -- Создаем объекты отрисовки при первом открытии
     if not kbm.Background then
         local z = 60
         kbm.Background = self:_CreateDrawingObject("Square"); if kbm.Background then kbm.Background.Filled = true; kbm.Background.zIndex = z; kbm.Background.Rounding = theme.Rounding.Section; end
@@ -5214,9 +5217,7 @@ function Library:_RenderKeybindManagerPopup()
         self:_CleanupDrawingObjects(table.remove(kbm.BindButtons))
     end
 
-    -- [[ ГЛАВНОЕ ИСПРАВЛЕНИЕ: Безопасное получение координат ]]
-    local pos = kbm.Pos or {x = 0, y = 0}
-    local pW, pX, pY = 180, pos.x, pos.y
+    local pW, pX, pY = 180, kbm.Pos.x, kbm.Pos.y
     local itemHeight, padding = 25, 10
     local currentY = pY + padding
 
@@ -5242,7 +5243,7 @@ function Library:_RenderKeybindManagerPopup()
         end
         
         btn.ClickRegion = { x1 = pX, y1 = currentY, x2 = pX + pW, y2 = currentY + itemHeight }
-        if self:_IsPointInRegion(mouse_pos.x, mouse_y, btn.ClickRegion) then kbm.HoveredIndex = i end
+        if self:_IsPointInRegion(mouse_pos.x, mouse_pos.y, btn.ClickRegion) then kbm.HoveredIndex = i end
         
         if item.bind then btn.Text.Text = item.bind.mode .. " '" .. item.bind.key .. "'" else btn.Text.Text = item.name end
         btn.Text.Position = { pX + padding, currentY + itemHeight / 2 - btn.Text.Size / 2 }
