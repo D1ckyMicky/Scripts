@@ -3282,6 +3282,7 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
 
             self:_AnimateAndApplyColor(el.Back, self:_GetTransitionColor("DarkBlue"), masterOpacity); self:_AnimateAndApplyColor(el.LeftFill, self:_GetTransitionColor("Accent"), masterOpacity); self:_AnimateAndApplyColor(el.Nub, self:_GetTransitionColor("Accent"), masterOpacity)
             elementY_offset = elementY_offset + 35
+
         elseif el.type == "Dropdown" or el.type == "Multidropdown" then
             if el.type == "Multidropdown" then
                 local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.4
@@ -3312,6 +3313,22 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
             local arrowX, arrowY = dropdownButtonX + el.Size.width - 15, dropdownButtonY + el.Size.height / 2; el.ArrowLine1.From = {arrowX, arrowY - 2}; el.ArrowLine1.To = {arrowX + 5, arrowY + 3}; el.ArrowLine2.From = {arrowX + 5, arrowY + 3}; el.ArrowLine2.To = {arrowX + 10, arrowY - 2}
             el.ClickRegion = { x1 = dropdownButtonX, y1 = dropdownButtonY, x2 = dropdownButtonX + el.Size.width, y2 = dropdownButtonY + el.Size.height }
             self:_AnimateAndApplyColor(el.Button, self:_GetTransitionColor("DarkBlue"), masterOpacity); self:_AnimateAndApplyColor(el.ButtonText, self:_GetTransitionColor("TextPrimary"), masterOpacity); self:_AnimateAndApplyColor(el.ArrowLine1, self:_GetTransitionColor("TextPrimary"), masterOpacity); self:_AnimateAndApplyColor(el.ArrowLine2, self:_GetTransitionColor("TextPrimary"), masterOpacity)
+            
+            -- [[ НОВОЕ: Рендер иконки настроек для дропдаунов ]]
+            if el.HasSettings and el.SettingsIcon then
+                self:_SetVisibility(el.SettingsIcon, true)
+                self:_AnimateAndApplyColor(el.SettingsIcon, self:_GetTransitionColor("TextSecondary"), masterOpacity)
+                
+                local iconX = dropdownButtonX - el.SettingsIcon.Size.x - 7
+                el.SettingsIcon.Position = {iconX, dropdownButtonY + 4}
+                el.SettingsClickRegion = {
+                    x1 = iconX, y1 = dropdownButtonY,
+                    x2 = iconX + el.SettingsIcon.Size.x, y2 = dropdownButtonY + el.SettingsIcon.Size.y
+                }
+            else
+                if el.SettingsIcon then self:_SetVisibility(el.SettingsIcon, false) end
+            end
+
             elementY_offset = elementY_offset + 35
             
             if el.IsOpen or el.IsClosing then
@@ -3369,6 +3386,41 @@ function Library:_RenderSingleSection(section, sectionX, sectionY, columnWidth, 
                 self:_HideGlowEffect(el.Glow); self:_SetVisibility(el.OptionBackground, false); self:_SetVisibility(el.Border, false)
                 for _, option in ipairs(el.OptionList) do self:_SetVisibility(option.Text, false); self:_SetVisibility(option.Highlight, false); if el.type == "Multidropdown" then self:_SetVisibility(option.CheckmarkLine1, false); self:_SetVisibility(option.CheckmarkLine2, false) end end
             end
+        elseif el.type == "OptionsRow" then
+            local currentElementY = animatedY + elementY_offset
+            self:_AnimateAndApplyColor(el.Label, self:_GetTransitionColor("TextSecondary"), masterOpacity)
+            el.Label.Position = {sectionX + 10, currentElementY}
+
+            local iconAreaX = sectionX + columnWidth - 22
+            
+            -- Логика отрисовки иконок, скопированная из Toggle
+            if el.HasColor and el.ColorCircle then
+                self:_SetVisibility(el.ColorCircle, true); self:_SetVisibility(el.ColorBorder, true)
+                local colorValue = self.UI.Values[el.HasColor.id]
+                self:_AnimateAndApplyColor(el.ColorCircle, colorValue, masterOpacity)
+                self:_AnimateAndApplyColor(el.ColorBorder, self:_GetTransitionColor("LightGray"), masterOpacity)
+                local radius = el.ColorCircle.Radius; local iconWidth = radius * 2
+                local iconX = iconAreaX - iconWidth
+                el.ColorCircle.Position = {iconX + radius, currentElementY + 9}
+                el.ColorBorder.Position = {iconX + radius, currentElementY + 9}
+                el.ColorClickRegion = {x1 = iconX, y1 = currentElementY, x2 = iconX + iconWidth, y2 = currentElementY + 18}
+                iconAreaX = iconX - 7
+            else
+                if el.ColorCircle then self:_SetVisibility(el.ColorCircle, false) end
+                if el.ColorBorder then self:_SetVisibility(el.ColorBorder, false) end
+            end
+
+            if el.HasSettings and el.SettingsIcon then
+                self:_SetVisibility(el.SettingsIcon, true)
+                self:_AnimateAndApplyColor(el.SettingsIcon, self:_GetTransitionColor("TextSecondary"), masterOpacity)
+                local iconX = iconAreaX - el.SettingsIcon.Size.x
+                el.SettingsIcon.Position = {iconX, currentElementY}
+                el.SettingsClickRegion = {x1 = iconX, y1 = currentElementY, x2 = iconX + el.SettingsIcon.Size.x, y2 = currentElementY + el.SettingsIcon.Size.y}
+            else
+                if el.SettingsIcon then self:_SetVisibility(el.SettingsIcon, false) end
+            end
+
+            elementY_offset = elementY_offset + 35
         end
     end
 
@@ -5087,6 +5139,12 @@ function Library:_Internal_CreateDropdown(options)
         IsOpen = false, IsClosing = false, FadeOpacity = 0.0,
         HoveredOptionIndex = 0,
         Size = options.Size or {width = 120, height = 25}, Callback = options.Callback,
+        
+        -- [[ НОВОЕ: Добавляем поддержку настроек ]]
+        HasSettings = options.HasSettings or false,
+        SettingsClickRegion = {},
+        SettingsIcon = nil,
+
         Label = self:_CreateDrawingObject("Text"), Button = self:_CreateDrawingObject("Square"),
         ButtonText = self:_CreateDrawingObject("Text"), OptionList = {},
         OptionBackground = self:_CreateDrawingObject("Square"), ArrowLine1 = self:_CreateDrawingObject("Line"),
@@ -5095,6 +5153,17 @@ function Library:_Internal_CreateDropdown(options)
         Glow = self:_Internal_CreateGlowSet(z + 8),
         CurrentButtonColor = {0,0,0,0}
     }
+
+    -- [[ НОВОЕ: Создаем иконку настроек, если нужно ]]
+    if dropdown.HasSettings then
+        dropdown.SettingsIcon = self:_CreateDrawingObject("Image")
+        if dropdown.SettingsIcon then
+            dropdown.SettingsIcon.Url = "https://i.postimg.cc/3Rsbw44x/dsawdsaaaaaaaaa.png"
+            dropdown.SettingsIcon.Size = {16, 16}
+            dropdown.SettingsIcon.zIndex = z + 2
+        end
+    end
+
     if dropdown.Label then dropdown.Label.Font = self.ActiveTheme.Fonts.Main; dropdown.Label.Size = self.ActiveTheme.Fonts.Size + 2; dropdown.Label.Text = dropdown.Name; dropdown.Label.Center = false; dropdown.Label.Outline = false; dropdown.Label.zIndex = z; end
     if dropdown.Button then dropdown.Button.Filled = true; dropdown.Button.zIndex = z; dropdown.Button.Rounding = self.ActiveTheme.Rounding.Element; end
     if dropdown.ButtonText then dropdown.ButtonText.Font = self.ActiveTheme.Fonts.Main; dropdown.ButtonText.Size = self.ActiveTheme.Fonts.Size + 3; dropdown.ButtonText.Text = self.UI.Values[dropdown.id]; dropdown.ButtonText.Center = false; dropdown.ButtonText.Outline = false; dropdown.ButtonText.zIndex = z + 1; end
@@ -5129,6 +5198,12 @@ function Library:_Internal_CreateMultidropdown(options)
         IsOpen = false, IsClosing = false, FadeOpacity = 0.0,
         HoveredOptionIndex = 0,
         Size = {width = 120, height = 25}, Callback = options.Callback,
+
+        -- [[ НОВОЕ: Добавляем поддержку настроек ]]
+        HasSettings = options.HasSettings or false,
+        SettingsClickRegion = {},
+        SettingsIcon = nil,
+
         Label = self:_CreateDrawingObject("Text"), Button = self:_CreateDrawingObject("Square"),
         ButtonText = self:_CreateDrawingObject("Text"), OptionList = {},
         OptionBackground = self:_CreateDrawingObject("Square"), ArrowLine1 = self:_CreateDrawingObject("Line"),
@@ -5138,6 +5213,17 @@ function Library:_Internal_CreateMultidropdown(options)
         CurrentButtonColor = {0,0,0,0},
         AnimatedTextXOffset = hasDefaultSelection and 25 or 10
     }
+
+    -- [[ НОВОЕ: Создаем иконку настроек, если нужно ]]
+    if multidropdown.HasSettings then
+        multidropdown.SettingsIcon = self:_CreateDrawingObject("Image")
+        if multidropdown.SettingsIcon then
+            multidropdown.SettingsIcon.Url = "https://i.postimg.cc/3Rsbw44x/dsawdsaaaaaaaaa.png"
+            multidropdown.SettingsIcon.Size = {16, 16}
+            multidropdown.SettingsIcon.zIndex = z + 2
+        end
+    end
+
     if multidropdown.Label then multidropdown.Label.Font = self.ActiveTheme.Fonts.Main; multidropdown.Label.Size = self.ActiveTheme.Fonts.Size + 2; multidropdown.Label.Text = multidropdown.Name; multidropdown.Label.Center = false; multidropdown.Label.Outline = false; multidropdown.Label.zIndex = z; end
     if multidropdown.Button then multidropdown.Button.Filled = true; multidropdown.Button.zIndex = z; multidropdown.Button.Rounding = self.ActiveTheme.Rounding.Element; end
     if multidropdown.ButtonText then multidropdown.ButtonText.Font = self.ActiveTheme.Fonts.Main; multidropdown.ButtonText.Size = self.ActiveTheme.Fonts.Size + 3; multidropdown.ButtonText.Text = ""; multidropdown.ButtonText.Center = false; multidropdown.ButtonText.Outline = false; multidropdown.ButtonText.zIndex = z + 1; end
@@ -5200,6 +5286,54 @@ function Library:_Internal_CreateKeybind(options)
         keybind.ButtonText.Font = self.ActiveTheme.Fonts.Main; keybind.ButtonText.Size = self.ActiveTheme.Fonts.Size; keybind.ButtonText.Text = self.UI.Values[keybind.id]; keybind.ButtonText.Center = true; keybind.ButtonText.Outline = false; keybind.ButtonText.zIndex = z + 1;
     end
     return keybind
+end
+
+function Library:_Internal_CreateOptionsRow(options)
+    local z = options.zIndex or 4
+    local row = {
+        id = options.id, 
+        type = "OptionsRow", 
+        Name = options.Name,
+        HasSettings = options.HasSettings or false,
+        HasColor = options.HasColor or false,
+        
+        Label = self:_CreateDrawingObject("Text"),
+        ClickRegion = {}, -- Пустая, но нужна для структуры
+        SettingsClickRegion = {},
+        SettingsIcon = nil,
+        ColorCircle = nil,
+        ColorBorder = nil,
+        ColorClickRegion = {}
+    }
+
+    if row.HasColor and type(row.HasColor) == 'table' then
+        if self.UI.Values[row.HasColor.id] == nil then
+            self.UI.Values[row.HasColor.id] = row.HasColor.Default or {255, 255, 255, 255}
+        end
+        row.ColorCircle = self:_CreateDrawingObject("Circle")
+        row.ColorBorder = self:_CreateDrawingObject("Circle")
+        if row.ColorCircle then
+            row.ColorCircle.Filled = true; row.ColorCircle.zIndex = z + 2; row.ColorCircle.Radius = 6;
+        end
+        if row.ColorBorder then
+            row.ColorBorder.Filled = false; row.ColorBorder.Thickness = 1; row.ColorBorder.zIndex = z + 3; row.ColorBorder.Radius = 7;
+        end
+    end
+
+    if row.HasSettings then
+        row.SettingsIcon = self:_CreateDrawingObject("Image")
+        if row.SettingsIcon then
+            row.SettingsIcon.Url = "https://i.postimg.cc/3Rsbw44x/dsawdsaaaaaaaaa.png"
+            row.SettingsIcon.Size = {16, 16}
+            row.SettingsIcon.zIndex = z + 2
+        end
+    end
+
+    if row.Label then
+        row.Label.Font = self.ActiveTheme.Fonts.Main; row.Label.Size = self.ActiveTheme.Fonts.Size + 2; row.Label.Text = row.Name; row.Label.Center = false; row.Label.Outline = false; row.Label.zIndex = z;
+    end
+    
+    return row
 end
 
 --================================================================
@@ -5287,8 +5421,14 @@ function Library:Section(options)
         return SectionObject 
     end
 
+    function SectionObject:Options(optionsRow)
+        last_element = self_lib:_Internal_CreateOptionsRow(optionsRow)
+        table.insert(section.Elements, last_element)
+        return SectionObject 
+    end
+
     function SectionObject:Settings(callback)
-        if last_element and last_element.type == "Toggle" and last_element.HasSettings then
+        if last_element and (last_element.type == "Toggle" or last_element.type == "Dropdown" or last_element.type == "Multidropdown") and last_element.HasSettings then
             if not last_element.SettingsElements then
                 last_element.SettingsElements = {}
             end
