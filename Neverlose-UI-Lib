@@ -5184,11 +5184,13 @@ function Library:_RenderKeybindManagerPopup()
     local title = "Keybinds for '" .. (element and element.Name or "...") .. "'"
     local mouse_pos = getmouseposition() or {x=0, y=0}
 
-    -- [[ ИЗМЕНЕНИЕ №1: Улучшенная и более чистая инициализация ]]
     if not kbm.Background then
-        local z = 120 -- Увеличиваем z-index, чтобы быть поверх почти всего
+        local z = 120 
         kbm.Background = self:_CreateDrawingObject("Square"); if kbm.Background then kbm.Background.Filled, kbm.Background.zIndex, kbm.Background.Rounding, kbm.Background.Visible = true, z, theme.Rounding.Section, false end
-        kbm.Border = self:_CreateDrawingObject("Square"); if kbm.Border then kbe.Border.Filled, kbm.Border.Thickness, kbm.Border.zIndex, kbm.Border.Rounding, kbm.Border.Visible = false, 1, z + 1, theme.Rounding.Section, false end
+        
+        -- [[ ГЛАВНЫЙ ФИКС: Здесь была опечатка kbe.Border ]]
+        kbm.Border = self:_CreateDrawingObject("Square"); if kbm.Border then kbm.Border.Filled, kbm.Border.Thickness, kbm.Border.zIndex, kbm.Border.Rounding, kbm.Border.Visible = false, 1, z + 1, theme.Rounding.Section, false end
+        
         kbm.Title = self:_CreateDrawingObject("Text"); if kbm.Title then kbm.Title.Font, kbm.Title.Size, kbm.Title.zIndex, kbm.Title.Visible = theme.Fonts.Main, theme.Fonts.Size + 2, z + 2, false end
         kbm.Separator = self:_CreateDrawingObject("Line"); if kbm.Separator then kbm.Separator.Thickness, kbm.Separator.zIndex, kbm.Separator.Visible = 2, z + 1, false end
         kbm.Glow = self:_Internal_CreateGlowSet(z - 1)
@@ -5220,7 +5222,6 @@ function Library:_RenderKeybindManagerPopup()
     kbm.Separator.From, kbm.Separator.To = { pX + 5, currentY }, { pX + pW - 5, currentY }
     currentY = currentY + 5
 
-    -- [[ ИЗМЕНЕНИЕ №2: Упрощенный цикл рендера ]]
     local all_buttons = {}
     for i, bind in ipairs(element_binds) do table.insert(all_buttons, { bind = bind, btn_obj = kbm.BindButtons[i] }) end
     table.insert(all_buttons, { name = "New Bind", btn_obj = kbm.NewBindButton, color = theme.Colors.TextSecondary })
@@ -5230,7 +5231,7 @@ function Library:_RenderKeybindManagerPopup()
     kbm.HoveredIndex = 0
     for i, item in ipairs(all_buttons) do
         local btn = item.btn_obj
-        if not btn.Text.zIndex then -- На случай если кнопка бинда была только что создана
+        if not btn.Text.zIndex then 
              btn.Text.Font, btn.Text.Size, btn.Text.zIndex = theme.Fonts.Main, theme.Fonts.Size + 1, kbm.Title.zIndex
              btn.Highlight.Filled, btn.Highlight.zIndex, btn.Highlight.Rounding = true, kbm.Background.zIndex + 1, theme.Rounding.Element
         end
@@ -5260,7 +5261,6 @@ function Library:_RenderKeybindManagerPopup()
     self:_AnimateAndApplyColor(kbm.Separator, theme.Colors.Separator, masterOpacity)
     self:_RenderGlowEffect(kbm.Glow, pX, pY, pW, pH, theme.Rounding.Section, theme.Colors.GlowColor, nil, masterOpacity)
 end
-
 function Library:_RenderKeybindEditorPopup()
     local kbe = self.UI.Popups.KeybindEditor
     if not kbe.Pos then return end 
