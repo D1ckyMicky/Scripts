@@ -5349,7 +5349,11 @@ function Library:_RenderKeybindEditorPopup()
     local function renderModeBtn(btn, text, is_active)
         btn.Background.Position = { btn.ClickRegion.x1, btn.ClickRegion.y1 }; btn.Background.Size = { modeBtnW, modeBtnH }; btn.Background.Rounding = theme.Rounding.Element
         btn.Text.Text = text
-        btn.Text.Position = { btn.ClickRegion.x1 + modeBtnW/2, btn.ClickRegion.y1 + modeBtnH/2 - btn.Text.Size/2 }
+        
+        -- [[ ФИНАЛЬНЫЙ ФИКС: Добавляем "пуленепробиваемую" проверку на nil именно здесь ]]
+        local btnTextSize = btn.Text.Size or theme.Fonts.Size 
+        btn.Text.Position = { btn.ClickRegion.x1 + modeBtnW/2, btn.ClickRegion.y1 + modeBtnH/2 - btnTextSize/2 }
+
         local bg_color = is_active and theme.Colors.Accent or theme.Colors.DarkBlue
         local text_color = is_active and self:_GetTextColorForBackground(bg_color) or theme.Colors.TextPrimary
         self:_AnimateAndApplyColor(btn.Background, bg_color, masterOpacity); self:_AnimateAndApplyColor(btn.Text, text_color, masterOpacity)
