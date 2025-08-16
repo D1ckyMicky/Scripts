@@ -5288,22 +5288,39 @@ function Library:_RenderKeybindEditorPopup()
         kbe.Border = self:_CreateDrawingObject("Square"); if kbe.Border then kbe.Border.Filled, kbe.Border.Thickness, kbe.Border.zIndex, kbe.Border.Rounding, kbe.Border.Visible = false, 1, z + 1, theme.Rounding.Section, false end
         kbe.Glow = self:_Internal_CreateGlowSet(z - 1)
         
-        local label_font_mt = {__index = { Font = theme.Fonts.Main, Size = theme.Fonts.Size + 1, zIndex = z + 2, Visible = false }}
-        kbe.KeyLabel = self:_CreateDrawingObject("Text"); if kbe.KeyLabel then kbe.KeyLabel.Text = "Key"; setmetatable(kbe.KeyLabel, label_font_mt) end
+        -- [[ ИЗМЕНЕНИЕ: Убираем мета-таблицы и задаем свойства напрямую ]]
+        kbe.KeyLabel = self:_CreateDrawingObject("Text")
+        if kbe.KeyLabel then 
+            kbe.KeyLabel.Text, kbe.KeyLabel.Font, kbe.KeyLabel.Size, kbe.KeyLabel.zIndex, kbe.KeyLabel.Visible = "Key", theme.Fonts.Main, theme.Fonts.Size + 1, z + 2, false 
+        end
         kbe.Keybind = self:_Internal_CreateKeybind({id = "KeybindEditor_Key", Default = "None", zIndex = z + 2})
         
-        kbe.ModeLabel = self:_CreateDrawingObject("Text"); if kbe.ModeLabel then kbe.ModeLabel.Text = "Mode"; setmetatable(kbe.ModeLabel, label_font_mt) end
-        local mode_btn_text_mt = {__index = {Font = theme.Fonts.Main, Size = theme.Fonts.Size, Center = true, zIndex = z+3, Visible = false}}
-        kbe.ModeToggleBtn = { Background = self:_CreateDrawingObject("Square"), Text = self:_CreateDrawingObject("Text"), ClickRegion = {} }
-        if kbe.ModeToggleBtn.Text then setmetatable(kbe.ModeToggleBtn.Text, mode_btn_text_mt); kbe.ModeToggleBtn.Background.Visible = false; end
-        kbe.ModeHoldBtn = { Background = self:_CreateDrawingObject("Square"), Text = self:_CreateDrawingObject("Text"), ClickRegion = {} }
-        if kbe.ModeHoldBtn.Text then setmetatable(kbe.ModeHoldBtn.Text, mode_btn_text_mt); kbe.ModeHoldBtn.Background.Visible = false; end
+        kbe.ModeLabel = self:_CreateDrawingObject("Text")
+        if kbe.ModeLabel then 
+            kbe.ModeLabel.Text, kbe.ModeLabel.Font, kbe.ModeLabel.Size, kbe.ModeLabel.zIndex, kbe.ModeLabel.Visible = "Mode", theme.Fonts.Main, theme.Fonts.Size + 1, z + 2, false
+        end
         
-        kbe.ValueLabel = self:_CreateDrawingObject("Text"); if kbe.ValueLabel then kbe.ValueLabel.Text = "Value"; setmetatable(kbe.ValueLabel, label_font_mt) end
+        kbe.ModeToggleBtn = { Background = self:_CreateDrawingObject("Square"), Text = self:_CreateDrawingObject("Text"), ClickRegion = {} }
+        if kbe.ModeToggleBtn.Text then 
+            kbe.ModeToggleBtn.Text.Font, kbe.ModeToggleBtn.Text.Size, kbe.ModeToggleBtn.Text.Center, kbe.ModeToggleBtn.Text.zIndex, kbe.ModeToggleBtn.Text.Visible = theme.Fonts.Main, theme.Fonts.Size, true, z+3, false
+            kbe.ModeToggleBtn.Background.Visible = false
+        end
+        
+        kbe.ModeHoldBtn = { Background = self:_CreateDrawingObject("Square"), Text = self:_CreateDrawingObject("Text"), ClickRegion = {} }
+        if kbe.ModeHoldBtn.Text then 
+             kbe.ModeHoldBtn.Text.Font, kbe.ModeHoldBtn.Text.Size, kbe.ModeHoldBtn.Text.Center, kbe.ModeHoldBtn.Text.zIndex, kbe.ModeHoldBtn.Text.Visible = theme.Fonts.Main, theme.Fonts.Size, true, z+3, false
+             kbe.ModeHoldBtn.Background.Visible = false
+        end
+        
+        kbe.ValueLabel = self:_CreateDrawingObject("Text")
+        if kbe.ValueLabel then
+             kbe.ValueLabel.Text, kbe.ValueLabel.Font, kbe.ValueLabel.Size, kbe.ValueLabel.zIndex, kbe.ValueLabel.Visible = "Value", theme.Fonts.Main, theme.Fonts.Size + 1, z + 2, false
+        end
         kbe.ValueToggle = self:_Internal_CreateToggle({id = "KeybindEditor_ValueToggle", Default = false, zIndex = z + 2})
 
         kbe.DeleteBtn = { Icon = self:_CreateDrawingObject("Image"), ClickRegion = {}, Size = 16 }
         if kbe.DeleteBtn.Icon then kbe.DeleteBtn.Icon.Url = "https://i.postimg.cc/pX03P3y1/delete-icon.png"; kbe.DeleteBtn.Icon.zIndex = z + 2; kbe.DeleteBtn.Icon.Size = {kbe.DeleteBtn.Size, kbe.DeleteBtn.Size}; kbe.DeleteBtn.Icon.Visible = false; end
+        
         kbe.VisibilityBtn = { Icon = self:_CreateDrawingObject("Image"), ClickRegion = {}, Size = 16 }
         if kbe.VisibilityBtn.Icon then kbe.VisibilityBtn.Icon.Url = "https://i.postimg.cc/8PFy5kR9/eye-icon.png"; kbe.VisibilityBtn.Icon.zIndex = z + 2; kbe.VisibilityBtn.Icon.Size = {kbe.VisibilityBtn.Size, kbe.VisibilityBtn.Size}; kbe.VisibilityBtn.Icon.Visible = false; end
     end
@@ -5317,8 +5334,7 @@ function Library:_RenderKeybindEditorPopup()
 
     -- Key
     self:_AnimateAndApplyColor(kbe.KeyLabel, theme.Colors.TextSecondary, masterOpacity)
-    local keyLabelSize = kbe.KeyLabel.Size or (theme.Fonts.Size + 1) -- [[ ФИКС ]]
-    kbe.KeyLabel.Position = { pX + padding, currentY + itemHeight / 2 - keyLabelSize / 2 }
+    kbe.KeyLabel.Position = { pX + padding, currentY + itemHeight / 2 - kbe.KeyLabel.Size / 2 }
     
     local keybind = kbe.Keybind
     local kb_size = keybind.Size or {width=100, height=25}
@@ -5328,15 +5344,13 @@ function Library:_RenderKeybindEditorPopup()
     keybind.ClickRegion = {x1=kb_button_x, y1=currentY, x2=kb_button_x+kb_size.width, y2=currentY+kb_size.height}
     keybind.Button.Position = { kb_button_x, currentY }; keybind.Button.Size = kb_size; keybind.Border.Position = {kb_button_x, currentY}; keybind.Border.Size = kb_size
     keybind.ButtonText.Text = string.upper(keybind.IsListening and "..." or bind.key)
-    local buttonTextSize = keybind.ButtonText.Size or theme.Fonts.Size
-    keybind.ButtonText.Position = { kb_button_x + kb_size.width / 2, currentY + itemHeight / 2 - buttonTextSize / 2 }
+    keybind.ButtonText.Position = { kb_button_x + kb_size.width / 2, currentY + itemHeight / 2 - keybind.ButtonText.Size / 2 }
     self:_AnimateAndApplyColor(keybind.Button, kb_color, masterOpacity); self:_AnimateAndApplyColor(keybind.Border, theme.Colors.Separator, masterOpacity); self:_AnimateAndApplyColor(keybind.ButtonText, kb_text_color, masterOpacity)
     currentY = currentY + itemHeight + 8
 
     -- Mode
     self:_AnimateAndApplyColor(kbe.ModeLabel, theme.Colors.TextSecondary, masterOpacity)
-    local modeLabelSize = kbe.ModeLabel.Size or (theme.Fonts.Size + 1) -- [[ ФИКС ]]
-    kbe.ModeLabel.Position = { pX + padding, currentY + itemHeight / 2 - modeLabelSize / 2 }
+    kbe.ModeLabel.Position = { pX + padding, currentY + itemHeight / 2 - kbe.ModeLabel.Size / 2 }
     
     local modeBtnW, modeBtnH = 55, 25
     local btn_hold_x = right_edge - modeBtnW
@@ -5347,8 +5361,7 @@ function Library:_RenderKeybindEditorPopup()
     local function renderModeBtn(btn, text, is_active)
         btn.Background.Position = { btn.ClickRegion.x1, btn.ClickRegion.y1 }; btn.Background.Size = { modeBtnW, modeBtnH }; btn.Background.Rounding = theme.Rounding.Element
         btn.Text.Text = text
-        local btnTextSize = btn.Text.Size or theme.Fonts.Size -- [[ ФИКС ]]
-        btn.Text.Position = { btn.ClickRegion.x1 + modeBtnW/2, btn.ClickRegion.y1 + modeBtnH/2 - btnTextSize/2 }
+        btn.Text.Position = { btn.ClickRegion.x1 + modeBtnW/2, btn.ClickRegion.y1 + modeBtnH/2 - btn.Text.Size/2 }
         local bg_color = is_active and theme.Colors.Accent or theme.Colors.DarkBlue
         local text_color = is_active and self:_GetTextColorForBackground(bg_color) or theme.Colors.TextPrimary
         self:_AnimateAndApplyColor(btn.Background, bg_color, masterOpacity); self:_AnimateAndApplyColor(btn.Text, text_color, masterOpacity)
@@ -5360,8 +5373,7 @@ function Library:_RenderKeybindEditorPopup()
     if parent_element and parent_element.type == "Toggle" then
         self:_SetVisibility(kbe.ValueLabel, true); self:_SetVisibility(kbe.ValueToggle.Back, true); self:_SetVisibility(kbe.ValueToggle.Nub, true)
         self:_AnimateAndApplyColor(kbe.ValueLabel, theme.Colors.TextSecondary, masterOpacity)
-        local valueLabelSize = kbe.ValueLabel.Size or (theme.Fonts.Size + 1) -- [[ ФИКС ]]
-        kbe.ValueLabel.Position = { pX + padding, currentY + itemHeight / 2 - valueLabelSize / 2 }
+        kbe.ValueLabel.Position = { pX + padding, currentY + itemHeight / 2 - kbe.ValueLabel.Size / 2 }
         
         local valueToggle = kbe.ValueToggle; local is_on = bind.value; self.UI.Values[valueToggle.id] = is_on
         local toggle_x = right_edge - valueToggle.Size.width
