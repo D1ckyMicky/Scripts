@@ -1155,6 +1155,18 @@ function Library:_InitializeCoreUI()
     self:_InitializeWatermark() 
     self:_InitializeHotkeys() 
 
+    -- [[ НОВОЕ: Заглушки для системы биндов ]]
+    self.UI.Popups.KeybindManager = { 
+        IsOpen = false, 
+        Animation = { IsOpening = false, IsClosing = false, CurrentOpacity = 0 },
+        EditingElementID = nil -- ID элемента, для которого открыт попап
+    }
+    self.UI.Popups.KeybindEditor = { 
+        IsOpen = false, 
+        Animation = { IsOpening = false, IsClosing = false, CurrentOpacity = 0 },
+        EditingBind = nil -- Ссылка на объект бинда, который редактируется
+    }
+
     local Players = game:FindService("Players")
     if Players and Players.localPlayer then
         local localPlayerName = Players.localPlayer.Name
@@ -3998,6 +4010,43 @@ function Library:_InputLoop()
     local is_right_clicked = was_right_pressed and not is_right_pressed_now
     local key_pressed = (getpressedkey() ~= "None")
 
+    -- [[ НАЧАЛО НОВОГО БЛОКА: Обработка правого клика для вызова меню биндов ]]
+    if is_right_clicked then
+        local bind_menu_opened = false
+        -- Проверяем, не кликнули ли мы уже внутри открытых окон, где ПКМ может иметь другую функцию
+        if self.UI.Popups.ColorPicker.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Popups.ColorPicker.ClickRegion) then
+            -- (Здесь в будущем будет логика для ПКМ внутри палитры, например, удаление пресета)
+        elseif self.UI.Popups.AboutWindow.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Popups.AboutWindow.ClickRegion) then
+            -- (Здесь в будущем будет логика для ПКМ внутри окна About)
+        else
+            -- Если клик не был внутри специфичных окон, ищем элемент для бинда
+            for _, section in ipairs(self.UI.Sections) do
+                if section.ParentTab == self.Window.ActiveTab then
+                    for _, el in ipairs(section.Elements) do
+                        local region_to_check = nil
+                        if el.type == "Slider" then
+                            region_to_check = el.ValueInputClickRegion
+                        elseif el.type == "Toggle" or el.type == "Dropdown" or el.type == "Multidropdown" then
+                            region_to_check = el.ClickRegion
+                        end
+
+                        if region_to_check and self:_IsPointInRegion(mouse_x, mouse_y, region_to_check) then
+                            warn("Open bind menu for element: " .. el.id)
+                            -- В будущем здесь будет код для открытия KeybindManager
+                            -- self.UI.Popups.KeybindManager.IsOpen = true
+                            -- self.UI.Popups.KeybindManager.EditingElementID = el.id
+                            bind_menu_opened = true
+                            break
+                        end
+                    end
+                end
+                if bind_menu_opened then break end
+            end
+        end
+    end
+    -- [[ КОНЕЦ НОВОГО БЛОКА ]]
+
+
     if mouse_moved or is_left_pressed_now or is_left_clicked or is_right_pressed_now or is_right_clicked or key_pressed or self:_UpdateAllAnimations() then
 
         lastMousePos = mouse_pos
@@ -4022,9 +4071,6 @@ function Library:_InputLoop()
             if num then
                 num = math.clamp(num, slider.Min, slider.Max)
                 
-                -- [[ ФИНАЛЬНОЕ ИСПРАВЛЕНИЕ ]]
-                -- Возвращаем правильную строку, которая использует форматирование.
-                -- Это гарантирует, что числа типа "90.0" не превратятся в целое число "90" при сохранении.
                 self.UI.Values[slider.id] = tonumber(self:_FormatSliderValue(num, slider.Increment))
 
                 if slider.Callback then slider.Callback(self.UI.Values[slider.id]) end
@@ -4702,7 +4748,6 @@ function Library:_InputLoop()
                                                 local openingThisOne = not el.IsOpen; for _, s_inner in ipairs(self.UI.Sections) do for _, el_inner in ipairs(s_inner.Elements) do if (el_inner.type == "Dropdown" or el_inner.type == "Multidropdown") and el_inner.IsOpen then el_inner.IsOpen = false; el_inner.IsClosing = true; end end end
                                                 if openingThisOne then el.IsOpen = true; el.IsClosing = false; el.FadeOpacity = 0.0; end
                                             end; clicked_on_main_ui = true; break;
-                                        
                                         elseif (el.type == "Toggle" or el.type == "OptionsRow" or el.type == "Dropdown" or el.type == "Multidropdown") and el.HasColor and el.ColorClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, el.ColorClickRegion) then
                                             picker.IsOpen = true; picker.Animation.IsOpening = true; picker.Animation.IsClosing = false; picker.EditingValueID = el.HasColor.id; picker.EditingColorName = nil; picker.Pos = {x = mouse_x, y = mouse_y};
                                             local color_to_edit = self.UI.Values[el.HasColor.id]; picker.h, picker.s, picker.v, picker.a = self:_RGBtoHSV(color_to_edit[1], color_to_edit[2], color_to_edit[3], color_to_edit[4]); clicked_on_main_ui = true; break;
