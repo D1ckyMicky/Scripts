@@ -5124,7 +5124,7 @@ function Library:_AddPresetsTab()
 end
 
 function Library:_MainLoop()
-    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. x24x2")
+    print(SCRIPT_PREFIX .. "UI Initialized and Main Loop started. x242")
     local is_first_frame = true
     while true do
         -- Обрабатываем очередь на удаление в начале каждого кадра
@@ -5261,6 +5261,7 @@ function Library:_RenderKeybindManagerPopup()
     self:_AnimateAndApplyColor(kbm.Separator, theme.Colors.Separator, masterOpacity)
     self:_RenderGlowEffect(kbm.Glow, pX, pY, pW, pH, theme.Rounding.Section, theme.Colors.GlowColor, nil, masterOpacity)
 end
+
 function Library:_RenderKeybindEditorPopup()
     local kbe = self.UI.Popups.KeybindEditor
     if not kbe.Pos then return end 
@@ -5282,7 +5283,6 @@ function Library:_RenderKeybindEditorPopup()
     local parent_element = self:GetElementByID(bind.ParentID)
 
     if not kbe.Background then
-        -- [[ ИЗМЕНЕНИЕ №1: Увеличиваем z-index, чтобы окно было поверх других ]]
         local z = 140 
         kbe.Background = self:_CreateDrawingObject("Square"); if kbe.Background then kbe.Background.Filled, kbe.Background.zIndex, kbe.Background.Rounding, kbe.Background.Visible = true, z, theme.Rounding.Section, false end
         kbe.Border = self:_CreateDrawingObject("Square"); if kbe.Border then kbe.Border.Filled, kbe.Border.Thickness, kbe.Border.zIndex, kbe.Border.Rounding, kbe.Border.Visible = false, 1, z + 1, theme.Rounding.Section, false end
@@ -5317,7 +5317,9 @@ function Library:_RenderKeybindEditorPopup()
 
     -- Key
     self:_AnimateAndApplyColor(kbe.KeyLabel, theme.Colors.TextSecondary, masterOpacity)
-    kbe.KeyLabel.Position = { pX + padding, currentY + itemHeight / 2 - kbe.KeyLabel.Size / 2 }
+    local keyLabelSize = kbe.KeyLabel.Size or (theme.Fonts.Size + 1) -- [[ ФИКС ]]
+    kbe.KeyLabel.Position = { pX + padding, currentY + itemHeight / 2 - keyLabelSize / 2 }
+    
     local keybind = kbe.Keybind
     local kb_size = keybind.Size or {width=100, height=25}
     local kb_button_x = right_edge - kb_size.width
@@ -5326,17 +5328,16 @@ function Library:_RenderKeybindEditorPopup()
     keybind.ClickRegion = {x1=kb_button_x, y1=currentY, x2=kb_button_x+kb_size.width, y2=currentY+kb_size.height}
     keybind.Button.Position = { kb_button_x, currentY }; keybind.Button.Size = kb_size; keybind.Border.Position = {kb_button_x, currentY}; keybind.Border.Size = kb_size
     keybind.ButtonText.Text = string.upper(keybind.IsListening and "..." or bind.key)
-    
-    -- [[ ИЗМЕНЕНИЕ №2 (ГЛАВНЫЙ ФИКС): Добавляем проверку на nil ]]
-    local buttonTextSize = keybind.ButtonText.Size or theme.Fonts.Size -- Используем размер из темы как запасной
+    local buttonTextSize = keybind.ButtonText.Size or theme.Fonts.Size
     keybind.ButtonText.Position = { kb_button_x + kb_size.width / 2, currentY + itemHeight / 2 - buttonTextSize / 2 }
-
     self:_AnimateAndApplyColor(keybind.Button, kb_color, masterOpacity); self:_AnimateAndApplyColor(keybind.Border, theme.Colors.Separator, masterOpacity); self:_AnimateAndApplyColor(keybind.ButtonText, kb_text_color, masterOpacity)
     currentY = currentY + itemHeight + 8
 
     -- Mode
     self:_AnimateAndApplyColor(kbe.ModeLabel, theme.Colors.TextSecondary, masterOpacity)
-    kbe.ModeLabel.Position = { pX + padding, currentY + itemHeight / 2 - kbe.ModeLabel.Size / 2 }
+    local modeLabelSize = kbe.ModeLabel.Size or (theme.Fonts.Size + 1) -- [[ ФИКС ]]
+    kbe.ModeLabel.Position = { pX + padding, currentY + itemHeight / 2 - modeLabelSize / 2 }
+    
     local modeBtnW, modeBtnH = 55, 25
     local btn_hold_x = right_edge - modeBtnW
     local btn_toggle_x = btn_hold_x - modeBtnW - 5
@@ -5345,7 +5346,9 @@ function Library:_RenderKeybindEditorPopup()
     
     local function renderModeBtn(btn, text, is_active)
         btn.Background.Position = { btn.ClickRegion.x1, btn.ClickRegion.y1 }; btn.Background.Size = { modeBtnW, modeBtnH }; btn.Background.Rounding = theme.Rounding.Element
-        btn.Text.Text = text; btn.Text.Position = { btn.ClickRegion.x1 + modeBtnW/2, btn.ClickRegion.y1 + modeBtnH/2 - btn.Text.Size/2 }
+        btn.Text.Text = text
+        local btnTextSize = btn.Text.Size or theme.Fonts.Size -- [[ ФИКС ]]
+        btn.Text.Position = { btn.ClickRegion.x1 + modeBtnW/2, btn.ClickRegion.y1 + modeBtnH/2 - btnTextSize/2 }
         local bg_color = is_active and theme.Colors.Accent or theme.Colors.DarkBlue
         local text_color = is_active and self:_GetTextColorForBackground(bg_color) or theme.Colors.TextPrimary
         self:_AnimateAndApplyColor(btn.Background, bg_color, masterOpacity); self:_AnimateAndApplyColor(btn.Text, text_color, masterOpacity)
@@ -5354,21 +5357,20 @@ function Library:_RenderKeybindEditorPopup()
     renderModeBtn(kbe.ModeHoldBtn, "Hold", bind.mode == "Hold")
     currentY = currentY + itemHeight + 8
 
-    -- Value (ПОКА ТОЛЬКО ДЛЯ ТОГГЛОВ)
     if parent_element and parent_element.type == "Toggle" then
         self:_SetVisibility(kbe.ValueLabel, true); self:_SetVisibility(kbe.ValueToggle.Back, true); self:_SetVisibility(kbe.ValueToggle.Nub, true)
         self:_AnimateAndApplyColor(kbe.ValueLabel, theme.Colors.TextSecondary, masterOpacity)
-        kbe.ValueLabel.Position = { pX + padding, currentY + itemHeight / 2 - kbe.ValueLabel.Size / 2 }
+        local valueLabelSize = kbe.ValueLabel.Size or (theme.Fonts.Size + 1) -- [[ ФИКС ]]
+        kbe.ValueLabel.Position = { pX + padding, currentY + itemHeight / 2 - valueLabelSize / 2 }
+        
         local valueToggle = kbe.ValueToggle; local is_on = bind.value; self.UI.Values[valueToggle.id] = is_on
         local toggle_x = right_edge - valueToggle.Size.width
         valueToggle.Back.Position = { toggle_x, currentY + 2}; valueToggle.Back.Size = valueToggle.Size
         valueToggle.ClickRegion = { x1=toggle_x, y1=currentY+2, x2=toggle_x+valueToggle.Size.width, y2=currentY+2+valueToggle.Size.height }
-        
         local targetOffset = is_on and (valueToggle.Size.width - valueToggle.Size.height / 2) or (valueToggle.Size.height / 2)
         local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.5; local animationSpeed = speed_value / 10.0
         if self.UI.Values["BurgerLow-EndMode"] then valueToggle.AnimatedNubOffset = targetOffset else valueToggle.AnimatedNubOffset = valueToggle.AnimatedNubOffset + (targetOffset - valueToggle.AnimatedNubOffset) * animationSpeed end
         valueToggle.Nub.Position = { toggle_x + valueToggle.AnimatedNubOffset, currentY + 2 + valueToggle.Size.height/2 }
-        
         local isThemeLight = self:_IsThemeLight(theme)
         local targetBackColor, targetNubColor; if is_on then if isThemeLight then targetBackColor = theme.Colors.Accent; targetNubColor = theme.Colors.SectionBackground else targetBackColor = self:_DarkenColor(theme.Colors.Accent, 0.3); targetNubColor = theme.Colors.Accent end else targetBackColor = theme.Colors.DarkGray; targetNubColor = theme.Colors.LightGray end
         self:_AnimateAndApplyColor(valueToggle.Back, targetBackColor, masterOpacity); self:_AnimateAndApplyColor(valueToggle.Nub, targetNubColor, masterOpacity)
