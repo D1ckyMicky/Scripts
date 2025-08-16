@@ -79,10 +79,10 @@ Library.TargetTheme = nil -- << [НОВОЕ] Тема, к которой буд�
 Library.ThemeTransitionAlpha = 1.0 -- << [НОВОЕ] Прогресс перехода (0.0 до 1.0)
 Library.TempTheme = nil
 Library.PreEditThemeName = nil
-Library.UI.Binds = {} -- << [НОВОЕ]
 
 Library.UI = { TabGroups = {}, Sections = {}, Values = {}, DrawingObjects = {}, Popups = {}, ColorPresets = {} }
 Library.ObjectsToRemove = {}
+Library.UI.Binds = {} -- << [НОВОЕ]
 
 local drag_offset = {x = 0, y = 0}
 local was_left_pressed = false
@@ -4016,20 +4016,16 @@ function Library:_InputLoop()
     
     local mouse_x, mouse_y = self:_SafeNumber(mouse_pos.x, 0), self:_SafeNumber(mouse_pos.y, 0)
     
-    -- [[ ИСПРАВЛЕННЫЙ БЛОК: Обработка правого клика для вызова меню биндов ]]
     if is_right_clicked then
         local click_handled_by_popup = false
         
-        -- Сначала проверяем, не был ли клик внутри уже открытых окон, где ПКМ может что-то делать
-        if self.UI.Popups.ColorPicker.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Popups.ColorPicker.ClickRegion) then
+        -- [[ ИСПРАВЛЕНИЕ: Добавлены проверки на существование объектов ]]
+        if self.UI.Popups.ColorPicker and self.UI.Popups.ColorPicker.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Popups.ColorPicker.ClickRegion) then
             click_handled_by_popup = true 
-            -- (Здесь будущая логика для палитры)
-        elseif self.UI.Core.AboutWindow.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.AboutWindow.ClickRegion) then -- ИСПРАВЛЕН ПУТЬ
+        elseif self.UI.Core.AboutWindow and self.UI.Core.AboutWindow.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.AboutWindow.ClickRegion) then
             click_handled_by_popup = true
-            -- (Здесь будущая логика для окна About)
         end
 
-        -- Если клик не был перехвачен другим окном, ищем элемент для бинда
         if not click_handled_by_popup then
             local bind_menu_opened = false
             for _, section in ipairs(self.UI.Sections) do
@@ -4048,7 +4044,7 @@ function Library:_InputLoop()
                             kbm.IsOpen = true
                             kbm.Animation.IsOpening, kbm.Animation.IsClosing = true, false
                             kbm.EditingElementID = el.id
-                            kbm.Pos = {x = mouse_x, y = mouse_y} -- Запоминаем позицию для отрисовки
+                            kbm.Pos = {x = mouse_x, y = mouse_y}
                             
                             bind_menu_opened = true
                             break
@@ -4059,6 +4055,7 @@ function Library:_InputLoop()
             end
         end
     end
+
 
 
     if mouse_moved or is_left_pressed_now or is_left_clicked or is_right_pressed_now or is_right_clicked or key_pressed or self:_UpdateAllAnimations() then
@@ -4687,9 +4684,46 @@ function Library:_InputLoop()
                                 end
                             end
                         end
+                       -- [[ НАЧАЛО НОВОГО БЛОКА: Обработка кликов в KeybindManager ]]
+                    elseif self.UI.Popups.KeybindManager.IsOpen then
+                        click_was_handled = true -- Мы кликнули внутри этого попапа, другие не проверяем
+                        local kbm = self.UI.Popups.KeybindManager
+                        local element_id = kbm.EditingElementID
+                        
+                        -- Проверяем, был ли клик внутри попапа
+                        if kbm.Background and self:_IsPointInRegion(mouse_x, mouse_y, {x1=kbm.Background.Position.x, y1=kbm.Background.Position.y, x2=kbm.Background.Position.x+kbm.Background.Size.x, y2=kbm.Background.Position.y+kbm.Background.Size.y}) then
+                            
+                            -- Клик по "New Bind"
+                            if self:_IsPointInRegion(mouse_x, mouse_y, kbm.NewBindButton.ClickRegion) then
+                                warn("Creating new bind for: " .. element_id)
+                                if not self.UI.Binds[element_id] then
+                                    self.UI.Binds[element_id] = {}
+                                end
+                                -- Создаем новый бинд с дефолтными значениями
+                                table.insert(self.UI.Binds[element_id], {
+                                    id = "bind_" .. tostring(tick()), -- Уникальный ID
+                                    key = "None",
+                                    mode = "Toggle",
+                                    value = self.UI.Values[element_id], -- Начальное значение = текущее значение элемента
+                                    show_in_hotkeys = true
+                                })
+                            
+                            -- Клик по "Reset"
+                            elseif self:_IsPointInRegion(mouse_x, mouse_y, kbm.ResetButton.ClickRegion) then
+                                warn("Resetting binds for: " .. element_id)
+                                self.UI.Binds[element_id] = {}
+                            
+                            -- TODO: Клик по "Hotkeys"
+                            -- TODO: Клик по существующему бинду для открытия редактора
+                            end
+                        else
+                            -- Если клик был за пределами попапа - закрываем его
+                            kbm.Animation.IsClosing = true
+                            kbm.Animation.IsOpening = false
+                        end
                     end
                 end
-
+                
                 if not click_was_handled then
                     if self:_IsPointInRegion(mouse_x, mouse_y, burger_button.ClickRegion) then
                         burger_popup.IsOpen = not burger_popup.IsOpen;
