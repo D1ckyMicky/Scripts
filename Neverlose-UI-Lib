@@ -82,7 +82,6 @@ Library.PreEditThemeName = nil
 
 Library.UI = { TabGroups = {}, Sections = {}, Values = {}, DrawingObjects = {}, Popups = {}, ColorPresets = {} }
 Library.ObjectsToRemove = {}
-Library.UI.Binds = {} -- << [НОВОЕ]
 
 local drag_offset = {x = 0, y = 0}
 local was_left_pressed = false
@@ -980,25 +979,6 @@ function Library:_FindKeybindForToggle(toggle_id)
     return nil -- Бинд не найден
 end
 
-function Library:GetElementByID(id)
-    if not id then return nil end
-    local function find_in(elements)
-        if not elements then return nil end
-        for _, el in ipairs(elements) do
-            if el.id == id then return el end
-            local found_in_settings = find_in(el.SettingsElements)
-            if found_in_settings then return found_in_settings end
-        end
-        return nil
-    end
-    
-    for _, section in ipairs(self.UI.Sections) do
-        local found = find_in(section.Elements)
-        if found then return found end
-    end
-    return nil
-end
-
 --================================================================
 --[[ PRIVATE: GLOW EFFECT HELPERS ]]
 --================================================================
@@ -1174,8 +1154,6 @@ function Library:_InitializeCoreUI()
     self:_InitializeBurgerMenu()
     self:_InitializeWatermark() 
     self:_InitializeHotkeys() 
-    self.UI.Popups.KeybindManager = self:_InitializeKeybindManagerPopup()
-    self.UI.Popups.KeybindEditor = self:_InitializeKeybindEditorPopup()
 
     local Players = game:FindService("Players")
     if Players and Players.localPlayer then
@@ -1221,10 +1199,6 @@ function Library:_InitializeCoreUI()
         table.insert(group.Tabs, tab)
         table.insert(self.UI.TabGroups, group)
     end
-    -- Тестовый бинд для слайдера толщины трассеров
-    self.UI.Binds["Tracers_Thickness"] = {
-        { id = "bind1", key = "Z", mode = "Toggle", value = 5, show_in_hotkeys = true }
-    }
 end
 
 function Library:_InitializeBurgerMenu()
@@ -1312,6 +1286,7 @@ function Library:_InitializeBurgerMenu()
         popup.AnimatedContentXOffset = 30
     end
 end
+
 
 function Library:_InitializeAboutWindow()
     local about = {}; 
@@ -1618,6 +1593,7 @@ function Library:_InitializeColorPickerWindow()
     self:_RebuildColorSwatches()
 end
 
+
 function Library:_InitializeWatermark()
     -- [[ ИЗМЕНЕНИЕ: Добавляем Animation table ]]
     local wm = { Animation = { IsOpening = false, IsClosing = false, CurrentOpacity = 0 } }; 
@@ -1698,76 +1674,6 @@ function Library:_InitializeHotkeys()
     if hk.Title.Icon then hk.Title.Icon.Url = "https://i.postimg.cc/0jSdXVN8/image.png"; hk.Title.Icon.Size = {26, 24}; hk.Title.Icon.zIndex = z + 1; end
     if hk.Title.Separator then hk.Title.Separator.Thickness = 2.5; hk.Title.Separator.zIndex = z + 1; end
     if hk.Title.Text then hk.Title.Text.Font = self.ActiveTheme.Fonts.Main; hk.Title.Text.Size = self.ActiveTheme.Fonts.Size + 9; hk.Title.Text.Text = " Hotkeys"; hk.Title.Text.zIndex = z + 1; end
-end
-
-function Library:_InitializeKeybindManagerPopup()
-    local theme = self.ActiveTheme
-    local z = 120 -- Высокий z-index для отрисовки поверх всего
-    local kbm = { 
-        IsOpen = false, Pos = {x = 0, y = 0},
-        Animation = { IsOpening = false, IsClosing = false, CurrentOpacity = 0 },
-        EditingElementID = nil
-    }
-
-    kbm.Background = self:_CreateDrawingObject("Square"); if kbm.Background then kbm.Background.Filled, kbm.Background.zIndex, kbm.Background.Rounding = true, z, theme.Rounding.Section end
-    kbm.Border = self:_CreateDrawingObject("Square"); if kbm.Border then kbm.Border.Filled, kbm.Border.Thickness, kbm.Border.zIndex, kbm.Border.Rounding = false, 1, z + 1, theme.Rounding.Section end
-    kbm.Title = self:_CreateDrawingObject("Text"); if kbm.Title then kbm.Title.Font, kbm.Title.Size, kbm.Title.zIndex = theme.Fonts.Main, theme.Fonts.Size + 2, z + 2 end
-    kbm.Separator = self:_CreateDrawingObject("Line"); if kbm.Separator then kbm.Separator.Thickness, kbm.Separator.zIndex = 2, z + 1 end
-    kbm.Glow = self:_Internal_CreateGlowSet(z - 1)
-    
-    local function create_button()
-         local btn = { Text = self:_CreateDrawingObject("Text"), Highlight = self:_CreateDrawingObject("Square"), ClickRegion = {} }
-         if btn.Text then btn.Text.Font, btn.Text.Size, btn.Text.zIndex = theme.Fonts.Main, theme.Fonts.Size + 1, z + 2 end
-         if btn.Highlight then btn.Highlight.Filled, btn.Highlight.zIndex, btn.Highlight.Rounding = true, z + 1, theme.Rounding.Element end
-         return btn
-    end
-    
-    kbm.NewBindButton = create_button()
-    kbm.HotkeysButton = create_button()
-    kbm.ResetButton = create_button()
-    kbm.BindButtons, kbm.HoveredIndex = {}, 0
-
-    return kbm
-end
-
-function Library:_InitializeKeybindEditorPopup()
-    local theme = self.ActiveTheme
-    local z = 140 -- Ещё выше, чтобы быть поверх менеджера
-    local kbe = {
-        IsOpen = false, Pos = {x = 0, y = 0},
-        Animation = { IsOpening = false, IsClosing = false, CurrentOpacity = 0 },
-        EditingBind = nil
-    }
-    
-    kbe.Background = self:_CreateDrawingObject("Square"); if kbe.Background then kbe.Background.Filled, kbe.Background.zIndex, kbe.Background.Rounding = true, z, theme.Rounding.Section end
-    kbe.Border = self:_CreateDrawingObject("Square"); if kbe.Border then kbe.Border.Filled, kbe.Border.Thickness, kbe.Border.zIndex, kbe.Border.Rounding = false, 1, z + 1, theme.Rounding.Section end
-    kbe.Glow = self:_Internal_CreateGlowSet(z - 1)
-    
-    kbe.KeyLabel = self:_CreateDrawingObject("Text")
-    if kbe.KeyLabel then kbe.KeyLabel.Text, kbe.KeyLabel.Font, kbe.KeyLabel.Size, kbe.KeyLabel.zIndex = "Key", theme.Fonts.Main, theme.Fonts.Size + 1, z + 2 end
-    
-    kbe.Keybind = self:_Internal_CreateKeybind({id = "KeybindEditor_Key", Default = "None", zIndex = z + 2})
-    
-    kbe.ModeLabel = self:_CreateDrawingObject("Text")
-    if kbe.ModeLabel then kbe.ModeLabel.Text, kbe.ModeLabel.Font, kbe.ModeLabel.Size, kbe.ModeLabel.zIndex = "Mode", theme.Fonts.Main, theme.Fonts.Size + 1, z + 2 end
-    
-    kbe.ModeToggleBtn = { Background = self:_CreateDrawingObject("Square"), Text = self:_CreateDrawingObject("Text"), ClickRegion = {} }
-    if kbe.ModeToggleBtn.Text then kbe.ModeToggleBtn.Text.Font, kbe.ModeToggleBtn.Text.Size, kbe.ModeToggleBtn.Text.Center, kbe.ModeToggleBtn.Text.zIndex = theme.Fonts.Main, theme.Fonts.Size, true, z+3 end
-    
-    kbe.ModeHoldBtn = { Background = self:_CreateDrawingObject("Square"), Text = self:_CreateDrawingObject("Text"), ClickRegion = {} }
-    if kbe.ModeHoldBtn.Text then kbe.ModeHoldBtn.Text.Font, kbe.ModeHoldBtn.Text.Size, kbe.ModeHoldBtn.Text.Center, kbe.ModeHoldBtn.Text.zIndex = theme.Fonts.Main, theme.Fonts.Size, true, z+3 end
-    
-    kbe.ValueLabel = self:_CreateDrawingObject("Text")
-    if kbe.ValueLabel then kbe.ValueLabel.Text, kbe.ValueLabel.Font, kbe.ValueLabel.Size, kbe.ValueLabel.zIndex = "Value", theme.Fonts.Main, theme.Fonts.Size + 1, z + 2 end
-    kbe.ValueToggle = self:_Internal_CreateToggle({id = "KeybindEditor_ValueToggle", Default = false, zIndex = z + 2})
-
-    kbe.DeleteBtn = { Icon = self:_CreateDrawingObject("Image"), ClickRegion = {}, Size = 16 }
-    if kbe.DeleteBtn.Icon then kbe.DeleteBtn.Icon.Url = "https://i.postimg.cc/pX03P3y1/delete-icon.png"; kbe.DeleteBtn.Icon.zIndex = z + 2; kbe.DeleteBtn.Icon.Size = {kbe.DeleteBtn.Size, kbe.DeleteBtn.Size} end
-    
-    kbe.VisibilityBtn = { Icon = self:_CreateDrawingObject("Image"), ClickRegion = {}, Size = 16 }
-    if kbe.VisibilityBtn.Icon then kbe.VisibilityBtn.Icon.Url = "https://i.postimg.cc/8PFy5kR9/eye-icon.png"; kbe.VisibilityBtn.Icon.zIndex = z + 2; kbe.VisibilityBtn.Icon.Size = {kbe.VisibilityBtn.Size, kbe.VisibilityBtn.Size} end
-
-    return kbe
 end
 
 --================================================================
@@ -3188,8 +3094,6 @@ function Library:_RenderLoop()
     self:_RenderEditStyleWindow()
     self:_RenderColorPickerWindow()
     self:_RenderBurgerMenuPopup(mouse_pos)
-    self:_RenderKeybindManagerPopup()
-    self:_RenderKeybindEditorPopup() -- << [НОВОЕ]
 
     self.Window.LastRenderedTab = self.Window.ActiveTab
 
@@ -3197,6 +3101,7 @@ function Library:_RenderLoop()
         self.Window.Visible = false
     end
 end
+
 
 
 function Library:_RenderTabs(x, y, width)
@@ -3580,6 +3485,7 @@ function Library:_RenderSections(panelX, panelY, headerHeight)
         end
     end
 end
+
 
 
 function Library:_RenderConfigsTab(panelX, panelY, headerHeight)
@@ -4091,54 +3997,12 @@ function Library:_InputLoop()
     local is_right_pressed_now = isrightpressed()
     local is_right_clicked = was_right_pressed and not is_right_pressed_now
     local key_pressed = (getpressedkey() ~= "None")
-    
-    local mouse_x, mouse_y = self:_SafeNumber(mouse_pos.x, 0), self:_SafeNumber(mouse_pos.y, 0)
-    
-    if is_right_clicked then
-        local click_handled_by_popup = false
-        
-        -- [[ ИСПРАВЛЕНИЕ: Добавлены проверки на существование объектов ]]
-        if self.UI.Popups.ColorPicker and self.UI.Popups.ColorPicker.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Popups.ColorPicker.ClickRegion) then
-            click_handled_by_popup = true 
-        elseif self.UI.Core.AboutWindow and self.UI.Core.AboutWindow.IsOpen and self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.AboutWindow.ClickRegion) then
-            click_handled_by_popup = true
-        end
-
-        if not click_handled_by_popup then
-            local bind_menu_opened = false
-            for _, section in ipairs(self.UI.Sections) do
-                if section.ParentTab == self.Window.ActiveTab then
-                    for _, el in ipairs(section.Elements) do
-                        local region_to_check = nil
-                        if el.type == "Slider" then
-                            region_to_check = el.ValueInputClickRegion
-                        elseif el.type == "Toggle" or el.type == "Dropdown" or el.type == "Multidropdown" then
-                            region_to_check = el.ClickRegion
-                        end
-
-                        if region_to_check and self:_IsPointInRegion(mouse_x, mouse_y, region_to_check) then
-                            warn("Open bind menu for element: " .. el.id)
-                            local kbm = self.UI.Popups.KeybindManager
-                            kbm.IsOpen = true
-                            kbm.Animation.IsOpening, kbm.Animation.IsClosing = true, false
-                            kbm.EditingElementID = el.id
-                            kbm.Pos = {x = mouse_x, y = mouse_y}
-                            
-                            bind_menu_opened = true
-                            break
-                        end
-                    end
-                end
-                if bind_menu_opened then break end
-            end
-        end
-    end
-
-
 
     if mouse_moved or is_left_pressed_now or is_left_clicked or is_right_pressed_now or is_right_clicked or key_pressed or self:_UpdateAllAnimations() then
 
         lastMousePos = mouse_pos
+
+        local mouse_x, mouse_y = self:_SafeNumber(mouse_pos.x, 0), self:_SafeNumber(mouse_pos.y, 0)
         local is_press_started = is_left_pressed_now and not was_left_pressed
 
         local picker = self.UI.Popups.ColorPicker
@@ -4158,6 +4022,9 @@ function Library:_InputLoop()
             if num then
                 num = math.clamp(num, slider.Min, slider.Max)
                 
+                -- [[ ФИНАЛЬНОЕ ИСПРАВЛЕНИЕ ]]
+                -- Возвращаем правильную строку, которая использует форматирование.
+                -- Это гарантирует, что числа типа "90.0" не превратятся в целое число "90" при сохранении.
                 self.UI.Values[slider.id] = tonumber(self:_FormatSliderValue(num, slider.Increment))
 
                 if slider.Callback then slider.Callback(self.UI.Values[slider.id]) end
@@ -4330,9 +4197,6 @@ function Library:_InputLoop()
                 local on_header_button = self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.Save.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.ViewESP.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.CreateNew.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, self.UI.Core.HeaderButtons.Settings.ClickRegion) or self:_IsPointInRegion(mouse_x, mouse_y, burger_button.ClickRegion)
 
                 if self:_IsPointInRegion(mouse_x, mouse_y, header_drag_region) and not on_header_button and not (picker.IsOpen or style_window.IsOpen or about_window.IsOpen or settings_popup.IsOpen or (settings_popup_nested and settings_popup_nested.IsOpen) or burger_popup.IsOpen or configsTab.OptionsPopup.IsOpen) then
-                    -- [[ НОВОЕ: Закрываем все попапы при начале перетаскивания ]]
-                    if self.UI.Popups.KeybindManager.IsOpen then self.UI.Popups.KeybindManager.Animation.IsClosing = true end
-
                     self.Window.IsDragging = true;
                     self.Window.IsFastDragging = true;
                     started_drag = true;
@@ -4765,71 +4629,7 @@ function Library:_InputLoop()
                                 end
                             end
                         end
-                       -- [[ НАЧАЛО НОВОГО БЛОКА: Обработка кликов в KeybindManager ]]
-                    elseif self.UI.Popups.KeybindManager.IsOpen then
-                        click_was_handled = true
-                        local kbm = self.UI.Popups.KeybindManager
-                        local kbe = self.UI.Popups.KeybindEditor
-                        local element_id = kbm.EditingElementID
-                        
-                        -- Сначала проверяем клик внутри Редактора, т.к. он поверх
-                        if kbe.IsOpen and kbe.Background and self:_IsPointInRegion(mouse_x, mouse_y, {x1=kbe.Background.Position.x, y1=kbe.Background.Position.y, x2=kbe.Background.Position.x+kbe.Background.Size.x, y2=kbe.Background.Position.y+kbe.Background.Size.y}) then
-                            local bind = kbe.EditingBind
-                            if self:_IsPointInRegion(mouse_x, mouse_y, kbe.Keybind.ClickRegion) then
-                                kbe.Keybind.IsListening = not kbe.Keybind.IsListening
-                            elseif self:_IsPointInRegion(mouse_x, mouse_y, kbe.ModeToggleBtn.ClickRegion) then
-                                bind.mode = "Toggle"
-                            elseif self:_IsPointInRegion(mouse_x, mouse_y, kbe.ModeHoldBtn.ClickRegion) then
-                                bind.mode = "Hold"
-                            elseif kbe.ValueToggle.Back and self:_IsPointInRegion(mouse_x, mouse_y, kbe.ValueToggle.ClickRegion) then
-                                bind.value = not bind.value
-                            elseif self:_IsPointInRegion(mouse_x, mouse_y, kbe.VisibilityBtn.ClickRegion) then
-                                bind.show_in_hotkeys = not bind.show_in_hotkeys
-                            elseif self:_IsPointInRegion(mouse_x, mouse_y, kbe.DeleteBtn.ClickRegion) then
-                                -- Удаляем бинд из глобальной таблицы
-                                for i, b in ipairs(self.UI.Binds[bind.ParentID] or {}) do
-                                    if b.id == bind.id then
-                                        table.remove(self.UI.Binds[bind.ParentID], i)
-                                        break
-                                    end
-                                end
-                                kbe.Animation.IsClosing = true -- Закрываем редактор
-                            end
-                        -- Потом проверяем клик внутри Менеджера
-                        elseif kbm.Background and self:_IsPointInRegion(mouse_x, mouse_y, {x1=kbm.Background.Position.x, y1=kbm.Background.Position.y, x2=kbm.Background.Position.x+kbm.Background.Size.x, y2=kbm.Background.Position.y+kbm.Background.Size.y}) then
-                            if kbe.IsOpen then kbe.Animation.IsClosing = true end -- Закрываем редактор, если кликнули на менеджер
-                            
-                            if self:_IsPointInRegion(mouse_x, mouse_y, kbm.NewBindButton.ClickRegion) then
-                                if not self.UI.Binds[element_id] then self.UI.Binds[element_id] = {} end
-                                local parent_element = self:GetElementByID(element_id)
-                                local default_value = (parent_element and parent_element.Default) or (parent_element and parent_element.Min) or false
-                                local new_bind = { id = "bind_"..tostring(tick()), key = "None", mode = "Toggle", value = default_value, show_in_hotkeys = true, ParentID = element_id }
-                                table.insert(self.UI.Binds[element_id], new_bind)
-                                kbe.IsOpen = true; kbe.Animation.IsOpening, kbe.Animation.IsClosing = true, false
-                                kbe.EditingBind = new_bind
-                                if kbm.Background and kbm.Background.Size then kbe.Pos = {x = kbm.Pos.x + kbm.Background.Size.x + 10, y = kbm.Pos.y} else kbe.Pos = {x = kbm.Pos.x + 190, y = kbm.Pos.y} end
-                            
-                            elseif self:_IsPointInRegion(mouse_x, mouse_y, kbm.ResetButton.ClickRegion) then
-                                 self.UI.Binds[element_id] = {}
-                                 if kbe.IsOpen and kbe.EditingBind and kbe.EditingBind.ParentID == element_id then kbe.Animation.IsClosing = true end
-                            
-                            else
-                                local element_binds = self.UI.Binds[element_id] or {}
-                                for i, bind_btn in ipairs(kbm.BindButtons) do
-                                    if self:_IsPointInRegion(mouse_x, mouse_y, bind_btn.ClickRegion) then
-                                        kbe.IsOpen = true; kbe.Animation.IsOpening, kbe.Animation.IsClosing = true, false
-                                        kbe.EditingBind = element_binds[i]
-                                        if kbm.Background and kbm.Background.Size then kbe.Pos = {x = kbm.Pos.x + kbm.Background.Size.x + 10, y = kbm.Pos.y} else kbe.Pos = {x = kbm.Pos.x + 190, y = kbm.Pos.y} end
-                                        break
-                                    end
-                                end
-                            end
-                        else
-                            kbm.Animation.IsClosing = true
-                            if kbe.IsOpen then kbe.Animation.IsClosing = true end
-                        end
                     end
-                    -- [[ КОНЕЦ ИЗМЕНЁННОГО БЛОКА ]]
                 end
 
                 if not click_was_handled then
@@ -4902,6 +4702,7 @@ function Library:_InputLoop()
                                                 local openingThisOne = not el.IsOpen; for _, s_inner in ipairs(self.UI.Sections) do for _, el_inner in ipairs(s_inner.Elements) do if (el_inner.type == "Dropdown" or el_inner.type == "Multidropdown") and el_inner.IsOpen then el_inner.IsOpen = false; el_inner.IsClosing = true; end end end
                                                 if openingThisOne then el.IsOpen = true; el.IsClosing = false; el.FadeOpacity = 0.0; end
                                             end; clicked_on_main_ui = true; break;
+                                        
                                         elseif (el.type == "Toggle" or el.type == "OptionsRow" or el.type == "Dropdown" or el.type == "Multidropdown") and el.HasColor and el.ColorClickRegion and self:_IsPointInRegion(mouse_x, mouse_y, el.ColorClickRegion) then
                                             picker.IsOpen = true; picker.Animation.IsOpening = true; picker.Animation.IsClosing = false; picker.EditingValueID = el.HasColor.id; picker.EditingColorName = nil; picker.Pos = {x = mouse_x, y = mouse_y};
                                             local color_to_edit = self.UI.Values[el.HasColor.id]; picker.h, picker.s, picker.v, picker.a = self:_RGBtoHSV(color_to_edit[1], color_to_edit[2], color_to_edit[3], color_to_edit[4]); clicked_on_main_ui = true; break;
@@ -5223,181 +5024,7 @@ function Library:_MainLoop()
     end
 end
 
-function Library:_RenderKeybindManagerPopup()
-    local kbm = self.UI.Popups.KeybindManager
-    self:_UpdatePopupAnimation(kbm)
-    local masterOpacity = kbm.Animation.CurrentOpacity
-    
-    if masterOpacity <= 0 then
-        if kbm.Background.Visible then
-            self:_SetDrawingTableVisibility(kbm, false); self:_HideGlowEffect(kbm.Glow)
-            kbm.IsOpen, kbm.EditingElementID = false, nil
-        end
-        return
-    end
 
-    local theme = self.ActiveTheme
-    local element = self:GetElementByID(kbm.EditingElementID)
-    local title = "Keybinds for '" .. (element and element.Name or "...") .. "'"
-    local mouse_pos = getmouseposition() or {x=0, y=0}
-    
-    self:_SetDrawingTableVisibility(kbm, true)
-    
-    local element_binds = self.UI.Binds[kbm.EditingElementID] or {}
-    while #kbm.BindButtons < #element_binds do table.insert(kbm.BindButtons, { Text = self:_CreateDrawingObject("Text"), Highlight = self:_CreateDrawingObject("Square"), ClickRegion = {} }) end
-    while #kbm.BindButtons > #element_binds do self:_CleanupDrawingObjects(table.remove(kbm.BindButtons)) end
-
-    local pW, pX, pY = 180, kbm.Pos.x, kbm.Pos.y
-    local itemHeight, padding = 25, 10
-    local currentY = pY + padding
-
-    kbm.Title.Text = title; kbm.Title.Position = { pX + padding, currentY }
-    currentY = currentY + kbm.Title.Size + 8
-    kbm.Separator.From, kbm.Separator.To = { pX + 5, currentY }, { pX + pW - 5, currentY }
-    currentY = currentY + 5
-
-    local all_buttons = {}
-    for i, bind in ipairs(element_binds) do table.insert(all_buttons, { bind = bind, btn_obj = kbm.BindButtons[i] }) end
-    table.insert(all_buttons, { name = "New Bind", btn_obj = kbm.NewBindButton, color = theme.Colors.TextSecondary })
-    table.insert(all_buttons, { name = "Hotkeys", btn_obj = kbm.HotkeysButton, color = theme.Colors.TextSecondary })
-    table.insert(all_buttons, { name = "Reset", btn_obj = kbm.ResetButton, color = {200, 100, 100} })
-    
-    kbm.HoveredIndex = 0
-    for i, item in ipairs(all_buttons) do
-        local btn = item.btn_obj
-        if not btn.Text.zIndex then 
-             btn.Text.Font, btn.Text.Size, btn.Text.zIndex = theme.Fonts.Main, theme.Fonts.Size + 1, kbm.Title.zIndex
-             btn.Highlight.Filled, btn.Highlight.zIndex, btn.Highlight.Rounding = true, kbm.Background.zIndex + 1, theme.Rounding.Element
-        end
-        
-        btn.ClickRegion = { x1 = pX, y1 = currentY, x2 = pX + pW, y2 = currentY + itemHeight }
-        if self:_IsPointInRegion(mouse_pos.x, mouse_pos.y, btn.ClickRegion) then kbm.HoveredIndex = i end
-        
-        if item.bind then btn.Text.Text = item.bind.mode .. " '" .. item.bind.key .. "'" else btn.Text.Text = item.name end
-        btn.Text.Position = { pX + padding, currentY + itemHeight / 2 - btn.Text.Size / 2 }
-        
-        local textColor = item.color or theme.Colors.TextPrimary
-        if kbm.HoveredIndex == i then textColor = theme.Colors.Accent end
-        self:_AnimateAndApplyColor(btn.Text, textColor, masterOpacity)
-
-        btn.Highlight.Position = { pX + 5, currentY }; btn.Highlight.Size = { pW - 10, itemHeight }
-        if kbm.HoveredIndex == i then self:_AnimateAndApplyColor(btn.Highlight, theme.Colors.Separator, masterOpacity * 0.4) else btn.Highlight.Opacity = 0 end
-        currentY = currentY + itemHeight
-    end
-
-    local pH = (currentY - pY) + padding - 5
-    kbm.Background.Position = { pX, pY }; kbm.Background.Size = { pW, pH }
-    kbm.Border.Position = { pX, pY }; kbm.Border.Size = { pW, pH }
-    
-    self:_AnimateAndApplyColor(kbm.Background, theme.Colors.SectionBackground, masterOpacity)
-    self:_AnimateAndApplyColor(kbm.Border, theme.Colors.Separator, masterOpacity)
-    self:_AnimateAndApplyColor(kbm.Title, theme.Colors.TextPrimary, masterOpacity)
-    self:_AnimateAndApplyColor(kbm.Separator, theme.Colors.Separator, masterOpacity)
-    self:_RenderGlowEffect(kbm.Glow, pX, pY, pW, pH, theme.Rounding.Section, theme.Colors.GlowColor, nil, masterOpacity)
-end
-
-function Library:_RenderKeybindEditorPopup()
-    local kbe = self.UI.Popups.KeybindEditor
-    self:_UpdatePopupAnimation(kbe)
-    local masterOpacity = kbe.Animation.CurrentOpacity
-    
-    if masterOpacity <= 0 then
-        if kbe.Background.Visible then
-            self:_SetDrawingTableVisibility(kbe, false); self:_HideGlowEffect(kbe.Glow)
-            kbe.IsOpen, kbe.EditingBind = false, nil
-        end
-        return
-    end
-
-    local theme = self.ActiveTheme
-    local bind = kbe.EditingBind
-    if not bind then return end
-    
-    local parent_element = self:GetElementByID(bind.ParentID)
-    
-    self:_SetDrawingTableVisibility(kbe, true)
-
-    local pos = kbe.Pos or {x=0, y=0}
-    local pW, pX, pY = 220, pos.x, pos.y
-    local itemHeight, padding, right_edge = 25, 12, pX + pW - padding
-    local currentY = pY + padding
-
-    -- Key
-    self:_AnimateAndApplyColor(kbe.KeyLabel, theme.Colors.TextSecondary, masterOpacity)
-    kbe.KeyLabel.Position = { pX + padding, currentY + itemHeight / 2 - kbe.KeyLabel.Size / 2 }
-    local keybind = kbe.Keybind
-    local kb_size = keybind.Size
-    local kb_button_x = right_edge - kb_size.width
-    local kb_color = keybind.IsListening and theme.Colors.Accent or theme.Colors.DarkBlue
-    local kb_text_color = keybind.IsListening and self:_GetTextColorForBackground(kb_color) or theme.Colors.TextPrimary
-    keybind.ClickRegion = {x1=kb_button_x, y1=currentY, x2=kb_button_x+kb_size.width, y2=currentY+kb_size.height}
-    keybind.Button.Position = { kb_button_x, currentY }; keybind.Button.Size = kb_size; keybind.Border.Position = {kb_button_x, currentY}; keybind.Border.Size = kb_size
-    keybind.ButtonText.Text = string.upper(keybind.IsListening and "..." or bind.key)
-    keybind.ButtonText.Position = { kb_button_x + kb_size.width / 2, currentY + itemHeight / 2 - keybind.ButtonText.Size / 2 }
-    self:_AnimateAndApplyColor(keybind.Button, kb_color, masterOpacity); self:_AnimateAndApplyColor(keybind.Border, theme.Colors.Separator, masterOpacity); self:_AnimateAndApplyColor(keybind.ButtonText, kb_text_color, masterOpacity)
-    currentY = currentY + itemHeight + 8
-
-    -- Mode
-    self:_AnimateAndApplyColor(kbe.ModeLabel, theme.Colors.TextSecondary, masterOpacity)
-    kbe.ModeLabel.Position = { pX + padding, currentY + itemHeight / 2 - kbe.ModeLabel.Size / 2 }
-    local modeBtnW, modeBtnH = 55, 25
-    local btn_hold_x = right_edge - modeBtnW
-    local btn_toggle_x = btn_hold_x - modeBtnW - 5
-    kbe.ModeHoldBtn.ClickRegion = { x1 = btn_hold_x, y1 = currentY, x2 = btn_hold_x + modeBtnW, y2 = currentY + modeBtnH }
-    kbe.ModeToggleBtn.ClickRegion = { x1 = btn_toggle_x, y1 = currentY, x2 = btn_toggle_x + modeBtnW, y2 = currentY + modeBtnH }
-    
-    local function renderModeBtn(btn, text, is_active)
-        btn.Background.Position = { btn.ClickRegion.x1, btn.ClickRegion.y1 }; btn.Background.Size = { modeBtnW, modeBtnH }; btn.Background.Rounding = theme.Rounding.Element
-        btn.Text.Text = text
-        
-        -- [[ ФИНАЛЬНЫЙ ФИКС: Добавляем "пуленепробиваемую" проверку на nil именно здесь ]]
-        local btnTextSize = btn.Text.Size or theme.Fonts.Size 
-        btn.Text.Position = { btn.ClickRegion.x1 + modeBtnW/2, btn.ClickRegion.y1 + modeBtnH/2 - btnTextSize/2 }
-
-        local bg_color = is_active and theme.Colors.Accent or theme.Colors.DarkBlue
-        local text_color = is_active and self:_GetTextColorForBackground(bg_color) or theme.Colors.TextPrimary
-        self:_AnimateAndApplyColor(btn.Background, bg_color, masterOpacity); self:_AnimateAndApplyColor(btn.Text, text_color, masterOpacity)
-    end
-    renderModeBtn(kbe.ModeToggleBtn, "Toggle", bind.mode == "Toggle")
-    renderModeBtn(kbe.ModeHoldBtn, "Hold", bind.mode == "Hold")
-    currentY = currentY + itemHeight + 8
-
-    -- Value
-    if parent_element and parent_element.type == "Toggle" then
-        self:_SetVisibility(kbe.ValueLabel, true); self:_SetVisibility(kbe.ValueToggle.Back, true); self:_SetVisibility(kbe.ValueToggle.Nub, true)
-        self:_AnimateAndApplyColor(kbe.ValueLabel, theme.Colors.TextSecondary, masterOpacity)
-        kbe.ValueLabel.Position = { pX + padding, currentY + itemHeight / 2 - kbe.ValueLabel.Size / 2 }
-        local valueToggle = kbe.ValueToggle; local is_on = bind.value; self.UI.Values[valueToggle.id] = is_on
-        local toggle_x = right_edge - valueToggle.Size.width
-        valueToggle.Back.Position = { toggle_x, currentY + 2}; valueToggle.Back.Size = valueToggle.Size
-        valueToggle.ClickRegion = { x1=toggle_x, y1=currentY+2, x2=toggle_x+valueToggle.Size.width, y2=currentY+2+valueToggle.Size.height }
-        local targetOffset = is_on and (valueToggle.Size.width - valueToggle.Size.height / 2) or (valueToggle.Size.height / 2)
-        local speed_value = self.UI.Values["AboutAnimationSpeed"] or 2.5; local animationSpeed = speed_value / 10.0
-        if self.UI.Values["BurgerLow-EndMode"] then valueToggle.AnimatedNubOffset = targetOffset else valueToggle.AnimatedNubOffset = valueToggle.AnimatedNubOffset + (targetOffset - valueToggle.AnimatedNubOffset) * animationSpeed end
-        valueToggle.Nub.Position = { toggle_x + valueToggle.AnimatedNubOffset, currentY + 2 + valueToggle.Size.height/2 }
-        local isThemeLight = self:_IsThemeLight(theme)
-        local targetBackColor, targetNubColor; if is_on then if isThemeLight then targetBackColor = theme.Colors.Accent; targetNubColor = theme.Colors.SectionBackground else targetBackColor = self:_DarkenColor(theme.Colors.Accent, 0.3); targetNubColor = theme.Colors.Accent end else targetBackColor = theme.Colors.DarkGray; targetNubColor = theme.Colors.LightGray end
-        self:_AnimateAndApplyColor(valueToggle.Back, targetBackColor, masterOpacity); self:_AnimateAndApplyColor(valueToggle.Nub, targetNubColor, masterOpacity)
-        currentY = currentY + itemHeight + 15
-    else
-        self:_SetVisibility(kbe.ValueLabel, false); self:_SetVisibility(kbe.ValueToggle.Back, false); self:_SetVisibility(kbe.ValueToggle.Nub, false)
-    end
-
-    local final_y = currentY - 5
-    local pH = final_y - pY + padding + kbe.DeleteBtn.Size
-    kbe.Background.Position = { pX, pY }; kbe.Background.Size = { pW, pH }
-    kbe.Border.Position = { pX, pY }; kbe.Border.Size = { pW, pH }
-    
-    local icon_y = pY + pH - padding - kbe.DeleteBtn.Size
-    kbe.DeleteBtn.Icon.Position = { pX + padding, icon_y }; kbe.DeleteBtn.ClickRegion = {x1=pX+padding, y1=icon_y, x2=pX+padding+kbe.DeleteBtn.Size, y2=icon_y+kbe.DeleteBtn.Size}
-    kbe.VisibilityBtn.Icon.Position = { pX + padding + kbe.DeleteBtn.Size + 10, icon_y }; kbe.VisibilityBtn.ClickRegion = {x1=kbe.VisibilityBtn.Icon.Position.x, y1=icon_y, x2=kbe.VisibilityBtn.Icon.Position.x+kbe.VisibilityBtn.Size, y2=icon_y+kbe.VisibilityBtn.Size}
-    self:_AnimateAndApplyColor(kbe.DeleteBtn.Icon, {200, 100, 100}, masterOpacity)
-    self:_AnimateAndApplyColor(kbe.VisibilityBtn.Icon, bind.show_in_hotkeys and theme.Colors.TextPrimary or theme.Colors.TextSecondary, masterOpacity)
-    
-    self:_AnimateAndApplyColor(kbe.Background, theme.Colors.SectionBackground, masterOpacity)
-    self:_AnimateAndApplyColor(kbe.Border, theme.Colors.Separator, masterOpacity)
-    self:_RenderGlowEffect(kbe.Glow, pX, pY, pW, pH, theme.Rounding.Section, theme.Colors.GlowColor, nil, masterOpacity)
-end
 
 
 --================================================================
